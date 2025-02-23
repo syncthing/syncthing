@@ -49,7 +49,7 @@ const (
 	// Use indirection for the version vector when it exceeds this many entries
 	versionIndirectionCutoff = 10
 
-	recheckDefaultInterval = 30 * 24 * time.Hour
+	recheckDefaultInterval = 300 * 24 * time.Hour
 
 	needsRepairSuffix = ".needsrepair"
 )

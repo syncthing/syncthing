@@ -42,6 +42,7 @@ import (
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
@@ -586,6 +587,54 @@ func syncthingMain(options serveOptions) {
 	if err != nil {
 		l.Warnln("Error opening database:", err)
 		os.Exit(1)
+	}
+
+	miscDB := kv.NewMiscDB(sdb.KV())
+	if _, ok, _ := miscDB.Time("migrated-from-leveldb"); !ok {
+		// We have not migrated. We should do that.
+		be, err := backend.OpenLevelDBRO(dbFile)
+		if err != nil {
+			l.Warnln("Failed to migrate FileInfos:", err)
+			os.Exit(1)
+		}
+		ll, err := db.NewLowlevel(be, evLogger)
+		if err != nil {
+			l.Warnln("Failed to migrate FileInfos:", err)
+			os.Exit(1)
+		}
+		for _, folder := range ll.ListFolders() {
+			l.Infoln("Migrating folder", folder, "to SQLite...")
+			var batch []protocol.FileInfo
+			fs, err := db.NewFileSet(folder, ll)
+			if err != nil {
+				l.Warnln("Failed to migrate FileInfos:", err)
+				os.Exit(1)
+			}
+			snap, err := fs.Snapshot()
+			if err != nil {
+				l.Warnln("Failed to migrate FileInfos:", err)
+				os.Exit(1)
+			}
+			snap.WithHaveSequence(0, func(f protocol.FileInfo) bool {
+				batch = append(batch, f)
+				if len(batch) == 250 {
+					if err := sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
+						l.Warnln("Failed to migrate FileInfos:", err)
+						os.Exit(1)
+					}
+					batch = batch[:0]
+				}
+				return true
+			})
+			if len(batch) > 0 {
+				if err := sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
+					l.Warnln("Failed to migrate FileInfos:", err)
+					os.Exit(1)
+				}
+			}
+		}
+
+		_ = miscDB.PutTime("migrated-from-leveldb", time.Now())
 	}
 
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial

@@ -1,7 +1,7 @@
 package sqlite
 
 import (
-	"encoding/hex"
+	"encoding/base64"
 	"iter"
 
 	"github.com/jmoiron/sqlx"
@@ -23,7 +23,7 @@ func (*DB) insertBlocksLocked(tx *sqlx.Tx, folderIdx, deviceIdx, localSeq int64,
 		if _, err := tx.Exec(`
 			INSERT OR REPLACE INTO blocks (hash, folder_idx, device_idx, file_sequence, idx, offset, size)
 			VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			hex.EncodeToString(b.Hash), folderIdx, deviceIdx, localSeq, i, b.Offset, b.Size); err != nil {
+			base64.RawStdEncoding.EncodeToString(b.Hash), folderIdx, deviceIdx, localSeq, i, b.Offset, b.Size); err != nil {
 			return wrap("insert block", err)
 		}
 	}
@@ -37,7 +37,7 @@ func (db *DB) Blocks(hash []byte) iter.Seq2[BlockMapEntry, error] {
 		INNER JOIN folders o ON b.folder_idx = o.idx
 		WHERE b.hash = ? AND b.device_idx = ?
 		ORDER BY o.folder_id, f.name, b.idx`,
-		hex.EncodeToString(hash), db.localDeviceIdx))
+		base64.RawStdEncoding.EncodeToString(hash), db.localDeviceIdx))
 	return itererr.Map(vals, func(v BlockMapEntry) BlockMapEntry {
 		v.Name = osutil.NativeFilename(v.Name)
 		return v
