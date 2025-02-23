@@ -10,6 +10,9 @@ import (
 )
 
 func (db *DB) IndexID(folder string, device protocol.DeviceID) (protocol.IndexID, error) {
+	db.updateLock.Lock()
+	defer db.updateLock.Unlock()
+
 	// Explicitly get folder and device idx because this might be our first
 	// contact with the device or folder and they may need to be created.
 	folderIdx, err := db.folderIdxLocked(folder)
@@ -54,6 +57,9 @@ func (db *DB) IndexID(folder string, device protocol.DeviceID) (protocol.IndexID
 }
 
 func (db *DB) SetIndexID(folder string, device protocol.DeviceID, id protocol.IndexID) error {
+	db.updateLock.Lock()
+	defer db.updateLock.Unlock()
+
 	folderIdx, err := db.folderIdxLocked(folder)
 	if err != nil {
 		return fmt.Errorf("indexID (folderIdx): %w", err)
@@ -72,6 +78,8 @@ func (db *DB) SetIndexID(folder string, device protocol.DeviceID, id protocol.In
 }
 
 func (db *DB) DropIndexIDs() error {
+	db.updateLock.Lock()
+	defer db.updateLock.Unlock()
 	_, err := db.sql.Exec(`DELETE FROM index_ids`)
 	return wrap("drop index IDs", err)
 }

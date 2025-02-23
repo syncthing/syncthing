@@ -7,61 +7,15 @@ import (
 	"errors"
 	"fmt"
 	"iter"
-	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3" // register sqlite3 database driver
 	"github.com/syncthing/syncthing/internal/gen/bep"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"google.golang.org/protobuf/proto"
 )
-
-const (
-	commonOptions = "_fk=true&_rt=true"
-	fileOptions   = "mode=rwc"
-)
-
-func Open(path string) (*DB, error) {
-	// Open the database with options to enable foreign keys and recursive
-	// triggers (needed for the delete+insert triggers on row replace).
-	sqlDB, err := sqlx.Open("sqlite3", path+"?"+fileOptions+"&"+commonOptions)
-	if err != nil {
-		return nil, fmt.Errorf("open database: %w", err)
-	}
-	return openCommon(sqlDB)
-}
-
-func OpenMemory() (*DB, error) {
-	// SQLite has a memory mode, but it works differently with concurrency
-	// compared to what we need with the WAL mode. So, no memory databases
-	// for now.
-	dir, err := os.MkdirTemp("", "syncthing-db")
-	if err != nil {
-		return nil, err
-	}
-	path := filepath.Join(dir, "db")
-	fmt.Println("Test DB in", path)
-	return Open(path)
-}
-
-func openCommon(sqlDB *sqlx.DB) (*DB, error) {
-	// Set up initial tables, indexes, triggers.
-	if err := initDB(sqlDB); err != nil {
-		return nil, fmt.Errorf("open database: %w", err)
-	}
-
-	db := &DB{sql: sqlDB}
-
-	// Touch device IDs that should always exist and have a low index
-	// numbers, and will never change
-	db.localDeviceIdx, _ = db.deviceIdxLocked(protocol.LocalDeviceID)
-
-	return db, nil
-}
 
 type DB struct {
 	sql            *sqlx.DB
@@ -199,7 +153,7 @@ func (db *DB) DropDevice(device protocol.DeviceID) error {
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	// Find all files where the device is involved
+	// Find all folders where the device is involved
 	var folderIdxs []int64
 	if err := tx.Select(&folderIdxs, `
 		SELECT folder_idx

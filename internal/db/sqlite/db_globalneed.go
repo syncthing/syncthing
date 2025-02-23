@@ -117,7 +117,7 @@ func (db *DB) recalcGlobalForFolder(tx *sqlx.Tx, folderIdx int64) error {
 			return wrap("recalc global for folder", err)
 		}
 	}
-	return nil
+	return wrap("recalc global for folder", rows.Err())
 }
 
 func (db *DB) recalcGlobalForFile(tx *sqlx.Tx, folderIdx int64, file string) error {
