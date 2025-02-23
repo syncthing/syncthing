@@ -400,7 +400,7 @@ func (db *DB) AllLocal(folder string, device protocol.DeviceID) iter.Seq2[*proto
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND f.version != ""`,
+		WHERE o.folder_id = ? AND d.device_id = ?`,
 		folder, device.String()))
 	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
 		fi := protocol.FileInfoFromDB(b)
@@ -526,8 +526,8 @@ func (db *DB) needSizeLocal(folder string) Counts {
 	err := db.sql.Select(&res, `
 		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
-		WHERE o.folder_id = ? AND local_flags = ?
-	`, folder, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal)
+		WHERE o.folder_id = ? AND local_flags & ? = ?
+	`, folder, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal)
 	if err != nil {
 		return Counts{}
 	}

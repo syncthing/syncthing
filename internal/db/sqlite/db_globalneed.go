@@ -168,24 +168,25 @@ func (db *DB) recalcGlobalForFile(tx *sqlx.Tx, folderIdx int64, file string) err
 
 	// Clear the need and global flags on non-global entries that have the
 	// same version vector or are newer than the global
-	for i := 0; i < globIdx; i++ {
-		es[i].LocalFlags &= ^(protocol.FlagLocalNeeded | protocol.FlagLocalGlobal)
+	for _, f := range es[:globIdx] {
+		f.LocalFlags &= ^(protocol.FlagLocalNeeded | protocol.FlagLocalGlobal)
 		if _, err := tx.Exec(`
 		UPDATE files SET local_flags = ?
 		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`,
-			es[i].LocalFlags, es[i].FolderIdx, es[i].DeviceIdx, es[i].Sequence); err != nil {
+			f.LocalFlags, f.FolderIdx, f.DeviceIdx, f.Sequence); err != nil {
 			return wrap("processNeed (clear need)", err)
 		}
 	}
 
 	// Set the need flag and clear the global flag on all other entries
 	// (these are now on the need list)
-	for i := globIdx + 1; i < len(es); i++ {
-		es[i].LocalFlags = es[i].LocalFlags&^protocol.FlagLocalGlobal | protocol.FlagLocalNeeded
+	for _, f := range es[globIdx+1:] {
+		f.LocalFlags &= ^protocol.FlagLocalGlobal
+		f.LocalFlags |= protocol.FlagLocalNeeded
 		if _, err := tx.Exec(`
-		UPDATE files SET local_flags = local_flags = ?
+		UPDATE files SET local_flags = ?
 		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`,
-			es[i].LocalFlags, es[i].FolderIdx, es[i].DeviceIdx, es[i].Sequence); err != nil {
+			f.LocalFlags, f.FolderIdx, f.DeviceIdx, f.Sequence); err != nil {
 			return wrap("processNeed (set need)", err)
 		}
 	}

@@ -102,3 +102,43 @@ func testDropWithDropper(t *testing.T, dropper func(t *testing.T, db *DB)) {
 		t.Fatal("local test1 should be the global")
 	}
 }
+
+func TestNeedDeleted(t *testing.T) {
+	t.Parallel()
+
+	db, err := OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// Some local files
+	var v protocol.Vector
+	v = v.Update(1)
+	err = db.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{
+		{Name: "test1", Size: 100, Version: v, Blocks: genBlocks(2)},
+		{Name: "test2", Size: 200, Version: v, Blocks: genBlocks(2)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A remote deleted file
+	err = db.Update(folderID, protocol.DeviceID{42}, []protocol.FileInfo{
+		{Name: "test1", Sequence: 103, Deleted: true, ModifiedS: 200, Version: v.Update(42)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// We need the one deleted file
+	s := db.NeedSize(folderID, protocol.LocalDeviceID)
+	if s.Bytes != 0 || s.Deleted != 1 {
+		t.Log(s)
+		t.Error("bad need")
+	}
+}

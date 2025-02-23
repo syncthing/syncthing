@@ -668,14 +668,13 @@ func TestConcurrentUpdate(t *testing.T) {
 
 	const folderID = "test"
 
-	// Some local files
 	var v protocol.Vector
 	v = v.Update(1)
 	files := []protocol.FileInfo{
-		{Name: "test", Size: 1, Version: v, Blocks: genBlocks(2)},
-		{Name: "test2", Type: protocol.FileInfoTypeDirectory, Size: 128, Version: v, Blocks: genBlocks(2)},
-		{Name: "test3", Sequence: 1, Size: 100, ModifiedS: 300, Version: v.Update(42), Blocks: genBlocks(1)},
-		{Name: "test4", Sequence: 2, Size: 200, ModifiedS: 100, Version: v.Update(42), Blocks: genBlocks(2)},
+		{Name: "test1", Sequence: 100, Size: 1, Version: v, Blocks: genBlocks(2)},
+		{Name: "test2", Sequence: 101, Type: protocol.FileInfoTypeDirectory, Size: 128, Version: v, Blocks: genBlocks(2)},
+		{Name: "test3", Sequence: 102, Size: 100, ModifiedS: 300, Version: v.Update(42), Blocks: genBlocks(1)},
+		{Name: "test4", Sequence: 103, Size: 200, ModifiedS: 100, Version: v.Update(42), Blocks: genBlocks(2)},
 	}
 
 	const n = 32
