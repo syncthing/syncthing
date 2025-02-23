@@ -413,7 +413,7 @@ func (db *DB) AllLocalSequenced(folder string, device protocol.DeviceID, startSe
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND f.sequence >= ? AND f.version != ""
+		WHERE o.folder_id = ? AND d.device_id = ? AND f.sequence >= ?
 		ORDER BY f.sequence`,
 		folder, device.String(), startSeq))
 	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
@@ -434,7 +434,7 @@ func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix s
 		SELECT f.fileinfo_protobuf FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND (f.name = ? OR f.name LIKE ?) AND f.version != ""`,
+		WHERE o.folder_id = ? AND d.device_id = ? AND (f.name = ? OR f.name LIKE ?)`,
 		folder, device.String(), prefix, pattern))
 	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
 		fi := protocol.FileInfoFromDB(b)

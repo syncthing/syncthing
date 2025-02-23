@@ -7,7 +7,6 @@
 package kv
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -165,7 +164,6 @@ func (db *ObservedDB) PendingFoldersForDevice(device protocol.DeviceID) (map[str
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("look", kv.Key)
 		parts := strings.Split(kv.Key, "/")
 		if len(parts) != 3 {
 			continue
@@ -175,16 +173,13 @@ func (db *ObservedDB) PendingFoldersForDevice(device protocol.DeviceID) (map[str
 		var protoF dbproto.ObservedFolder
 		var of ObservedFolder
 		var folderID string
-		fmt.Println("dev", keyDev, err)
 		if err != nil {
 			goto deleteKey
 		}
 		if folderID = parts[2]; len(folderID) < 1 {
-			fmt.Println("folderID empty")
 			goto deleteKey
 		}
 		if err = proto.Unmarshal(kv.Value, &protoF); err != nil {
-			fmt.Println("unmarshal", err)
 			goto deleteKey
 		}
 		if _, ok := res[folderID]; !ok {
