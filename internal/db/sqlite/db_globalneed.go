@@ -127,7 +127,8 @@ func (db *DB) processNeedLocked(tx *sqlx.Tx, folderIdx int64, file string) error
 
 	// We "have" the file if the position in the list of versions is at the
 	// global version or better...
-	hasLocal := slices.IndexFunc(es, func(e fileRow) bool { return e.DeviceIdx == db.localDeviceIdx }) <= globIdx
+	localIdx := slices.IndexFunc(es, func(e fileRow) bool { return e.DeviceIdx == db.localDeviceIdx })
+	hasLocal := localIdx >= 0 && localIdx <= globIdx
 
 	// Set the global flag on the global entry. Set the need flag if the
 	// local device needs this file.

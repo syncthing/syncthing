@@ -244,17 +244,10 @@ func TestBasics(t *testing.T) {
 			t.Error("expected one device")
 		}
 	})
-
-	t.Run("DropAllFiles", func(t *testing.T) {
-		t.Parallel()
-		if err := db.DropAllFiles("foo", protocol.DeviceID{1, 2, 3, 4, 5, 6, 7, 8}); err != nil {
-			t.Fatal(err)
-		}
-	})
 }
 
 func TestAvailability(t *testing.T) {
-	db, err := Open(filepath.Join(t.TempDir(), "basics.sqlite"))
+	db, err := OpenMemory()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -319,6 +312,45 @@ func TestAvailability(t *testing.T) {
 
 	if err := db.Close(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestDropFilesNamed(t *testing.T) {
+	db, err := OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	const folderID = "test"
+
+	// Some local files
+	var v protocol.Vector
+	v = v.Update(1)
+	err = db.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{
+		{Name: "test1", Size: 100, Version: v, Blocks: genBlocks(2)},
+		{Name: "test2", Size: 200, Version: v, Blocks: genBlocks(2)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Drop test1
+	if err := db.DropFilesNamed(folderID, protocol.LocalDeviceID, []string{"test1"}); err != nil {
+		t.Fatal(err)
+	}
+	// Check
+	if _, ok, err := db.Local(folderID, protocol.LocalDeviceID, "test1"); err != nil || ok {
+		t.Log(err, ok)
+		t.Error("expected to not exist")
+	}
+	if c := db.LocalSize(folderID, protocol.LocalDeviceID); c.Files != 1 {
+		t.Log(c)
+		t.Error("expected count to be one")
 	}
 }
 

@@ -206,12 +206,19 @@ func (db *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []st
 
 	db.updateLock.Lock()
 	defer db.updateLock.Unlock()
-	_, err := db.sql.Exec(`
-		DELETE FROM files f
-		INNER JOIN folder o ON f.folder_idx = o.idx
-		INNER JOIN devices d ON f.device_idx = d.idx
-		WHERE o.folder_id = ? AND f.device_id = ? AND f.name IN ?
+
+	query, args, err := sqlx.In(`
+		DELETE FROM files WHERE ROWID in (
+			SELECT f.ROWID FROM files f
+			INNER JOIN folders o ON f.folder_idx = o.idx
+			INNER JOIN devices d ON f.device_idx = d.idx
+			WHERE o.folder_id = ? AND device_id = ? AND f.name IN (?)
+		)
 	`, folder, device.String(), names)
+	if err != nil {
+		return wrap("drop files named", err)
+	}
+	_, err = db.sql.Exec(query, args...)
 	return wrap("drop files named", err)
 }
 
