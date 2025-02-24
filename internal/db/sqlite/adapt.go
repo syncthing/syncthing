@@ -4,34 +4,12 @@ import (
 	"database/sql/driver"
 	"errors"
 
+	"github.com/syncthing/syncthing/internal/gen/bep"
+	"github.com/syncthing/syncthing/internal/gen/dbproto"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"google.golang.org/protobuf/proto"
 )
-
-type pbMessage[T any] interface {
-	*T
-	proto.Message
-}
-
-func protoValuer[T any, PT pbMessage[T]](v PT) *pbAdapter[T, PT] {
-	return &pbAdapter[T, PT]{v}
-}
-
-type pbAdapter[T any, PT pbMessage[T]] struct {
-	Message PT
-}
-
-func (v pbAdapter[T, PT]) Value() (driver.Value, error) {
-	return proto.Marshal(v.Message)
-}
-
-func (v *pbAdapter[T, PT]) Scan(value any) error {
-	bs, ok := value.([]byte)
-	if !ok {
-		return errors.New("not a byte slice")
-	}
-	return proto.Unmarshal(bs, v.Message)
-}
 
 type dbVector struct { //nolint:recvcheck
 	protocol.Vector
@@ -57,4 +35,25 @@ func (v *dbVector) Scan(value any) error {
 	v.Vector = vec
 
 	return nil
+}
+
+type indirectFI struct {
+	FiProtobuf []byte
+	BlProtobuf []byte
+}
+
+func (i indirectFI) FileInfo() (protocol.FileInfo, error) {
+	var fi bep.FileInfo
+	if err := proto.Unmarshal(i.FiProtobuf, &fi); err != nil {
+		return protocol.FileInfo{}, err
+	}
+	if len(i.BlProtobuf) > 0 {
+		var bl dbproto.BlockList
+		if err := proto.Unmarshal(i.BlProtobuf, &bl); err != nil {
+			return protocol.FileInfo{}, err
+		}
+		fi.Blocks = bl.Blocks
+	}
+	fi.Name = osutil.NativeFilename(fi.Name)
+	return protocol.FileInfoFromDB(&fi), nil
 }

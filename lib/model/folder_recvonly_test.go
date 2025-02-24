@@ -401,7 +401,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 		}
 		f.LocalFlags = 0
 		f.Version = protocol.Vector{}.Update(device1.Short())
-		files = append(files, *f)
+		files = append(files, f)
 	}
 	must(t, m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: "ro", Files: files}))
 

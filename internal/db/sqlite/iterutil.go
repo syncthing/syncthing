@@ -1,13 +1,9 @@
 package sqlite
 
 import (
-	"fmt"
 	"iter"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/syncthing/syncthing/lib/osutil"
-	"github.com/syncthing/syncthing/lib/protocol"
-	"google.golang.org/protobuf/proto"
 )
 
 func iterStructs[T any](rows *sqlx.Rows, err error) iter.Seq2[T, error] {
@@ -32,48 +28,4 @@ func iterStructs[T any](rows *sqlx.Rows, err error) iter.Seq2[T, error] {
 			yield(zero, err)
 		}
 	}
-}
-
-func iterProtos[T any, PT pbMessage[T]](rows *sqlx.Rows, err error) iter.Seq2[*T, error] {
-	return func(yield func(*T, error) bool) {
-		if err != nil {
-			yield(nil, err)
-			return
-		}
-		defer rows.Close()
-		var bs []byte
-		for rows.Next() {
-			v := new(T)
-			if err := rows.Scan(&bs); err != nil {
-				yield(nil, err)
-				return
-			}
-			if err := proto.Unmarshal(bs, PT(v)); err != nil {
-				yield(nil, err)
-				return
-			}
-			if !yield(v, nil) {
-				return
-			}
-		}
-		if err := rows.Err(); err != nil {
-			yield(nil, err)
-		}
-	}
-}
-
-func iterDebug[K, V any](it iter.Seq2[K, V]) iter.Seq2[K, V] {
-	return func(yield func(K, V) bool) {
-		for k, v := range it {
-			fmt.Printf("iter: (%v, %v)\n", k, v)
-			if !yield(k, v) {
-				return
-			}
-		}
-	}
-}
-
-func nativeFilename(fi protocol.FileInfo) protocol.FileInfo {
-	fi.Name = osutil.NativeFilename(fi.Name)
-	return fi
 }

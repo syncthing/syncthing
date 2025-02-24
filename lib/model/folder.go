@@ -752,7 +752,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 				// File was not ignored at last pass but has been ignored.
 				if fi.IsDirectory() {
 					// Delay ignoring as a child might be unignored.
-					toIgnore = append(toIgnore, *fi)
+					toIgnore = append(toIgnore, fi)
 					if ignoredParent == "" {
 						// If the parent wasn't ignored already, set
 						// this path as the "highest" ignored parent
@@ -762,7 +762,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 				}
 
 				l.Debugln("marking file as ignored", fi)
-				nf := *fi
+				nf := fi
 				nf.SetIgnored()
 				if ok, err := batch.Update(nf); err != nil {
 					return 0, err
@@ -787,7 +787,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 					}
 					continue
 				}
-				nf := *fi
+				nf := fi
 				nf.SetDeleted(f.shortID)
 				nf.LocalFlags = f.localFlags
 				if fi.ShouldConflict() {
@@ -818,7 +818,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 						// pretend it is a normal deleted file (nobody cares about that).
 						l.Debugf("%v scanning: Marking globally deleted item as not locally changed: %v", f, fi.Name)
 						fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
-						if ok, err := batch.Update(*fi); err != nil {
+						if ok, err := batch.Update(fi); err != nil {
 							return 0, err
 						} else if ok {
 							changes++
@@ -829,7 +829,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 					// deleted and just the folder type/local flags changed.
 					fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
 					l.Debugln("removing receive-only flag on deleted item", fi)
-					if ok, err := batch.Update(*fi); err != nil {
+					if ok, err := batch.Update(fi); err != nil {
 						return 0, err
 					} else if ok {
 						changes++
@@ -914,7 +914,7 @@ func (f *folder) findRename(file protocol.FileInfo, alreadyUsedOrExisting map[st
 			continue
 		}
 
-		nf = *fi
+		nf = fi
 		nf.SetDeleted(f.shortID)
 		nf.LocalFlags = f.localFlags
 		found = true

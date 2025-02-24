@@ -80,7 +80,7 @@ func (f *receiveEncryptedFolder) revert() error {
 		// item should still not be sent in index updates. However being
 		// deleted, it will not show up as an unexpected file in the UI
 		// anymore.
-		batch.Append(*fi)
+		batch.Append(fi)
 	}
 
 	f.revertHandleDirs(dirs)

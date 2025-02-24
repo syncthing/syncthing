@@ -24,18 +24,6 @@ type Model struct {
 		arg1 protocol.Connection
 		arg2 protocol.Hello
 	}
-	AllForBlocksHashStub        func(string, []byte) iter.Seq2[*protocol.FileInfo, error]
-	allForBlocksHashMutex       sync.RWMutex
-	allForBlocksHashArgsForCall []struct {
-		arg1 string
-		arg2 []byte
-	}
-	allForBlocksHashReturns struct {
-		result1 iter.Seq2[*protocol.FileInfo, error]
-	}
-	allForBlocksHashReturnsOnCall map[int]struct {
-		result1 iter.Seq2[*protocol.FileInfo, error]
-	}
 	AvailabilityStub        func(string, protocol.FileInfo, protocol.BlockInfo) ([]model.Availability, error)
 	availabilityMutex       sync.RWMutex
 	availabilityArgsForCall []struct {
@@ -340,19 +328,19 @@ type Model struct {
 		result1 []protocol.FileInfo
 		result2 error
 	}
-	LocalFilesStub        func(string, protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error]
+	LocalFilesStub        func(string, protocol.DeviceID) iter.Seq2[protocol.FileInfo, error]
 	localFilesMutex       sync.RWMutex
 	localFilesArgsForCall []struct {
 		arg1 string
 		arg2 protocol.DeviceID
 	}
 	localFilesReturns struct {
-		result1 iter.Seq2[*protocol.FileInfo, error]
+		result1 iter.Seq2[protocol.FileInfo, error]
 	}
 	localFilesReturnsOnCall map[int]struct {
-		result1 iter.Seq2[*protocol.FileInfo, error]
+		result1 iter.Seq2[protocol.FileInfo, error]
 	}
-	LocalFilesSequencedStub        func(string, protocol.DeviceID, int64) iter.Seq2[*protocol.FileInfo, error]
+	LocalFilesSequencedStub        func(string, protocol.DeviceID, int64) iter.Seq2[protocol.FileInfo, error]
 	localFilesSequencedMutex       sync.RWMutex
 	localFilesSequencedArgsForCall []struct {
 		arg1 string
@@ -360,10 +348,10 @@ type Model struct {
 		arg3 int64
 	}
 	localFilesSequencedReturns struct {
-		result1 iter.Seq2[*protocol.FileInfo, error]
+		result1 iter.Seq2[protocol.FileInfo, error]
 	}
 	localFilesSequencedReturnsOnCall map[int]struct {
-		result1 iter.Seq2[*protocol.FileInfo, error]
+		result1 iter.Seq2[protocol.FileInfo, error]
 	}
 	LocalSizeStub        func(string, protocol.DeviceID) sqlite.Counts
 	localSizeMutex       sync.RWMutex
@@ -682,73 +670,6 @@ func (fake *Model) AddConnectionArgsForCall(i int) (protocol.Connection, protoco
 	defer fake.addConnectionMutex.RUnlock()
 	argsForCall := fake.addConnectionArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
-}
-
-func (fake *Model) AllForBlocksHash(arg1 string, arg2 []byte) iter.Seq2[*protocol.FileInfo, error] {
-	var arg2Copy []byte
-	if arg2 != nil {
-		arg2Copy = make([]byte, len(arg2))
-		copy(arg2Copy, arg2)
-	}
-	fake.allForBlocksHashMutex.Lock()
-	ret, specificReturn := fake.allForBlocksHashReturnsOnCall[len(fake.allForBlocksHashArgsForCall)]
-	fake.allForBlocksHashArgsForCall = append(fake.allForBlocksHashArgsForCall, struct {
-		arg1 string
-		arg2 []byte
-	}{arg1, arg2Copy})
-	stub := fake.AllForBlocksHashStub
-	fakeReturns := fake.allForBlocksHashReturns
-	fake.recordInvocation("AllForBlocksHash", []interface{}{arg1, arg2Copy})
-	fake.allForBlocksHashMutex.Unlock()
-	if stub != nil {
-		return stub(arg1, arg2)
-	}
-	if specificReturn {
-		return ret.result1
-	}
-	return fakeReturns.result1
-}
-
-func (fake *Model) AllForBlocksHashCallCount() int {
-	fake.allForBlocksHashMutex.RLock()
-	defer fake.allForBlocksHashMutex.RUnlock()
-	return len(fake.allForBlocksHashArgsForCall)
-}
-
-func (fake *Model) AllForBlocksHashCalls(stub func(string, []byte) iter.Seq2[*protocol.FileInfo, error]) {
-	fake.allForBlocksHashMutex.Lock()
-	defer fake.allForBlocksHashMutex.Unlock()
-	fake.AllForBlocksHashStub = stub
-}
-
-func (fake *Model) AllForBlocksHashArgsForCall(i int) (string, []byte) {
-	fake.allForBlocksHashMutex.RLock()
-	defer fake.allForBlocksHashMutex.RUnlock()
-	argsForCall := fake.allForBlocksHashArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
-}
-
-func (fake *Model) AllForBlocksHashReturns(result1 iter.Seq2[*protocol.FileInfo, error]) {
-	fake.allForBlocksHashMutex.Lock()
-	defer fake.allForBlocksHashMutex.Unlock()
-	fake.AllForBlocksHashStub = nil
-	fake.allForBlocksHashReturns = struct {
-		result1 iter.Seq2[*protocol.FileInfo, error]
-	}{result1}
-}
-
-func (fake *Model) AllForBlocksHashReturnsOnCall(i int, result1 iter.Seq2[*protocol.FileInfo, error]) {
-	fake.allForBlocksHashMutex.Lock()
-	defer fake.allForBlocksHashMutex.Unlock()
-	fake.AllForBlocksHashStub = nil
-	if fake.allForBlocksHashReturnsOnCall == nil {
-		fake.allForBlocksHashReturnsOnCall = make(map[int]struct {
-			result1 iter.Seq2[*protocol.FileInfo, error]
-		})
-	}
-	fake.allForBlocksHashReturnsOnCall[i] = struct {
-		result1 iter.Seq2[*protocol.FileInfo, error]
-	}{result1}
 }
 
 func (fake *Model) Availability(arg1 string, arg2 protocol.FileInfo, arg3 protocol.BlockInfo) ([]model.Availability, error) {
@@ -2231,7 +2152,7 @@ func (fake *Model) LocalChangedFolderFilesReturnsOnCall(i int, result1 []protoco
 	}{result1, result2}
 }
 
-func (fake *Model) LocalFiles(arg1 string, arg2 protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
+func (fake *Model) LocalFiles(arg1 string, arg2 protocol.DeviceID) iter.Seq2[protocol.FileInfo, error] {
 	fake.localFilesMutex.Lock()
 	ret, specificReturn := fake.localFilesReturnsOnCall[len(fake.localFilesArgsForCall)]
 	fake.localFilesArgsForCall = append(fake.localFilesArgsForCall, struct {
@@ -2257,7 +2178,7 @@ func (fake *Model) LocalFilesCallCount() int {
 	return len(fake.localFilesArgsForCall)
 }
 
-func (fake *Model) LocalFilesCalls(stub func(string, protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error]) {
+func (fake *Model) LocalFilesCalls(stub func(string, protocol.DeviceID) iter.Seq2[protocol.FileInfo, error]) {
 	fake.localFilesMutex.Lock()
 	defer fake.localFilesMutex.Unlock()
 	fake.LocalFilesStub = stub
@@ -2270,30 +2191,30 @@ func (fake *Model) LocalFilesArgsForCall(i int) (string, protocol.DeviceID) {
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *Model) LocalFilesReturns(result1 iter.Seq2[*protocol.FileInfo, error]) {
+func (fake *Model) LocalFilesReturns(result1 iter.Seq2[protocol.FileInfo, error]) {
 	fake.localFilesMutex.Lock()
 	defer fake.localFilesMutex.Unlock()
 	fake.LocalFilesStub = nil
 	fake.localFilesReturns = struct {
-		result1 iter.Seq2[*protocol.FileInfo, error]
+		result1 iter.Seq2[protocol.FileInfo, error]
 	}{result1}
 }
 
-func (fake *Model) LocalFilesReturnsOnCall(i int, result1 iter.Seq2[*protocol.FileInfo, error]) {
+func (fake *Model) LocalFilesReturnsOnCall(i int, result1 iter.Seq2[protocol.FileInfo, error]) {
 	fake.localFilesMutex.Lock()
 	defer fake.localFilesMutex.Unlock()
 	fake.LocalFilesStub = nil
 	if fake.localFilesReturnsOnCall == nil {
 		fake.localFilesReturnsOnCall = make(map[int]struct {
-			result1 iter.Seq2[*protocol.FileInfo, error]
+			result1 iter.Seq2[protocol.FileInfo, error]
 		})
 	}
 	fake.localFilesReturnsOnCall[i] = struct {
-		result1 iter.Seq2[*protocol.FileInfo, error]
+		result1 iter.Seq2[protocol.FileInfo, error]
 	}{result1}
 }
 
-func (fake *Model) LocalFilesSequenced(arg1 string, arg2 protocol.DeviceID, arg3 int64) iter.Seq2[*protocol.FileInfo, error] {
+func (fake *Model) LocalFilesSequenced(arg1 string, arg2 protocol.DeviceID, arg3 int64) iter.Seq2[protocol.FileInfo, error] {
 	fake.localFilesSequencedMutex.Lock()
 	ret, specificReturn := fake.localFilesSequencedReturnsOnCall[len(fake.localFilesSequencedArgsForCall)]
 	fake.localFilesSequencedArgsForCall = append(fake.localFilesSequencedArgsForCall, struct {
@@ -2320,7 +2241,7 @@ func (fake *Model) LocalFilesSequencedCallCount() int {
 	return len(fake.localFilesSequencedArgsForCall)
 }
 
-func (fake *Model) LocalFilesSequencedCalls(stub func(string, protocol.DeviceID, int64) iter.Seq2[*protocol.FileInfo, error]) {
+func (fake *Model) LocalFilesSequencedCalls(stub func(string, protocol.DeviceID, int64) iter.Seq2[protocol.FileInfo, error]) {
 	fake.localFilesSequencedMutex.Lock()
 	defer fake.localFilesSequencedMutex.Unlock()
 	fake.LocalFilesSequencedStub = stub
@@ -2333,26 +2254,26 @@ func (fake *Model) LocalFilesSequencedArgsForCall(i int) (string, protocol.Devic
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *Model) LocalFilesSequencedReturns(result1 iter.Seq2[*protocol.FileInfo, error]) {
+func (fake *Model) LocalFilesSequencedReturns(result1 iter.Seq2[protocol.FileInfo, error]) {
 	fake.localFilesSequencedMutex.Lock()
 	defer fake.localFilesSequencedMutex.Unlock()
 	fake.LocalFilesSequencedStub = nil
 	fake.localFilesSequencedReturns = struct {
-		result1 iter.Seq2[*protocol.FileInfo, error]
+		result1 iter.Seq2[protocol.FileInfo, error]
 	}{result1}
 }
 
-func (fake *Model) LocalFilesSequencedReturnsOnCall(i int, result1 iter.Seq2[*protocol.FileInfo, error]) {
+func (fake *Model) LocalFilesSequencedReturnsOnCall(i int, result1 iter.Seq2[protocol.FileInfo, error]) {
 	fake.localFilesSequencedMutex.Lock()
 	defer fake.localFilesSequencedMutex.Unlock()
 	fake.LocalFilesSequencedStub = nil
 	if fake.localFilesSequencedReturnsOnCall == nil {
 		fake.localFilesSequencedReturnsOnCall = make(map[int]struct {
-			result1 iter.Seq2[*protocol.FileInfo, error]
+			result1 iter.Seq2[protocol.FileInfo, error]
 		})
 	}
 	fake.localFilesSequencedReturnsOnCall[i] = struct {
-		result1 iter.Seq2[*protocol.FileInfo, error]
+		result1 iter.Seq2[protocol.FileInfo, error]
 	}{result1}
 }
 
@@ -3737,8 +3658,6 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.addConnectionMutex.RLock()
 	defer fake.addConnectionMutex.RUnlock()
-	fake.allForBlocksHashMutex.RLock()
-	defer fake.allForBlocksHashMutex.RUnlock()
 	fake.availabilityMutex.RLock()
 	defer fake.availabilityMutex.RUnlock()
 	fake.bringToFrontMutex.RLock()

@@ -1097,7 +1097,7 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 		if hasCur {
 			t.Fatal("got more than one file")
 		}
-		cur = *i
+		cur = i
 		hasCur = true
 	}
 	if !hasCur {
@@ -1162,7 +1162,7 @@ func testPullCaseOnlyDirOrSymlink(t *testing.T, dir bool) {
 		if hasCur {
 			t.Fatal("got more than one file")
 		}
-		cur = *i
+		cur = i
 		hasCur = true
 	}
 	if !hasCur {

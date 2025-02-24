@@ -95,8 +95,8 @@ type Model interface {
 	GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error)
 	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]error, error)
 
-	LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error]
-	LocalFilesSequenced(folder string, device protocol.DeviceID, startSet int64) iter.Seq2[*protocol.FileInfo, error]
+	LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[protocol.FileInfo, error]
+	LocalFilesSequenced(folder string, device protocol.DeviceID, startSet int64) iter.Seq2[protocol.FileInfo, error]
 	LocalSize(folder string, device protocol.DeviceID) sqlite.Counts
 	GlobalSize(folder string) sqlite.Counts
 	NeedSize(folder string, device protocol.DeviceID) sqlite.Counts
@@ -937,15 +937,15 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 	return comp, nil
 }
 
-func (m *model) LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
+func (m *model) LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[protocol.FileInfo, error] {
 	return m.sdb.AllLocal(folder, device)
 }
 
-func (m *model) LocalFilesSequenced(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[*protocol.FileInfo, error] {
+func (m *model) LocalFilesSequenced(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[protocol.FileInfo, error] {
 	return m.sdb.AllLocalSequenced(folder, device, startSeq)
 }
 
-func (m *model) AllForBlocksHash(folder string, h []byte) iter.Seq2[*protocol.FileInfo, error] {
+func (m *model) AllForBlocksHash(folder string, h []byte) iter.Seq2[protocol.FileInfo, error] {
 	return m.sdb.AllForBlocksHash(folder, h)
 }
 
@@ -1107,7 +1107,7 @@ func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]pro
 		if p.skip() {
 			continue
 		}
-		files = append(files, *f)
+		files = append(files, f)
 		if p.done() {
 			break
 		}

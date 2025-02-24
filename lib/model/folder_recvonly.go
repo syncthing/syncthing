@@ -116,7 +116,7 @@ func (f *receiveOnlyFolder) revert() error {
 				break
 			}
 			l.Debugf("Revert: deleting %s: %v\n", fi.Name, err)
-			handled, err := delQueue.handle(*fi)
+			handled, err := delQueue.handle(fi)
 			if err != nil {
 				continue
 			}
@@ -125,14 +125,14 @@ func (f *receiveOnlyFolder) revert() error {
 			}
 			fi.SetDeleted(f.shortID)
 			fi.Version = protocol.Vector{} // if this file ever resurfaces anywhere we want our delete to be strictly older
-		case gf.IsEquivalentOptional(*fi, protocol.FileInfoComparison{
+		case gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
 			ModTimeWindow:   f.modTimeWindow,
 			IgnoreFlags:     protocol.FlagLocalReceiveOnly,
 			IgnoreOwnership: !f.SyncOwnership,
 			IgnoreXattrs:    !f.SyncXattrs,
 		}):
 			// What we have locally is equivalent to the global file.
-			fi = &gf
+			fi = gf
 		default:
 			// Revert means to throw away our local changes. We reset the
 			// version to the empty vector, which is strictly older than any
@@ -142,7 +142,7 @@ func (f *receiveOnlyFolder) revert() error {
 			fi.Version = protocol.Vector{}
 		}
 
-		batch.Append(*fi)
+		batch.Append(fi)
 		_ = batch.FlushIfFull()
 	}
 	_ = batch.Flush()

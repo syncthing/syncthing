@@ -14,6 +14,8 @@ import (
 func TestBasics(t *testing.T) {
 	t.Parallel()
 
+	blocklistIndirectCutoff = 0
+
 	db, err := OpenMemory()
 	if err != nil {
 		t.Fatal(err)
@@ -61,6 +63,9 @@ func TestBasics(t *testing.T) {
 		}
 		if fi.Name != "test2" {
 			t.Fatal("should have got test2")
+		}
+		if len(fi.Blocks) != 2 {
+			t.Fatal("expected two blocks")
 		}
 
 		_, ok, err = db.Local(folderID, protocol.LocalDeviceID, "test3") // does not exist

@@ -39,14 +39,8 @@ CREATE TABLE IF NOT EXISTS files (
 -- the files rows smaller and more efficient.
 CREATE TABLE IF NOT EXISTS fileinfos (
     sequence INTEGER NOT NULL PRIMARY KEY, -- our local database sequence from the files table
-    protobuf BLOB NOT NULL,
+    fiprotobuf BLOB NOT NULL,
     FOREIGN KEY(sequence) REFERENCES files(sequence) ON DELETE CASCADE
-) STRICT
-;
-CREATE TABLE IF NOT EXISTS blocklists (
-    blocks_hash TEXT NOT NULL PRIMARY KEY,
-    refcount INTEGER NOT NULL,
-    protobuf BLOB NOT NULL
 ) STRICT
 ;
 -- There can be only one file per folder, device, and remote sequence number

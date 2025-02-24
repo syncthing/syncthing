@@ -11,12 +11,15 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/syncthing/syncthing/internal/gen/bep"
+	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sliceutil"
 	"google.golang.org/protobuf/proto"
 )
+
+var blocklistIndirectCutoff = 8 // actually const but for testing
 
 type DB struct {
 	sql            *sqlx.DB
@@ -67,7 +70,17 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 		return wrap("update", err)
 	}
 
-	insertFileInfoStmt, err := txp.Preparex(`INSERT INTO fileinfos VALUES (?, ?)`)
+	insertFileInfoStmt, err := txp.Preparex(`
+		INSERT INTO fileinfos (sequence, fiprotobuf)
+		VALUES (?, ?)`)
+	if err != nil {
+		return wrap("update", err)
+	}
+
+	insertBlockListStmt, err := txp.Preparex(`
+		INSERT INTO blocklists (blocks_hash, refcount, blprotobuf)
+		VALUES (?, 1, ?)
+		ON CONFLICT DO UPDATE SET refcount = refcount + 1`)
 	if err != nil {
 		return wrap("update", err)
 	}
@@ -115,6 +128,35 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 		}
 
 		if device == protocol.LocalDeviceID {
+			// Update block lists
+			t0 = time.Now()
+			if err := db.insertBlocksLocked(txp, folderIdx, deviceIdx, localSeq, f.Blocks); err != nil {
+				return wrap("update", err)
+			}
+			if d := time.Since(t0); d > 25*time.Millisecond {
+				fmt.Println("insertBlocksLocked", d)
+			}
+		}
+
+		// If the block list len warrants it, indirect the block list
+		if len(f.Blocks) > blocklistIndirectCutoff {
+			blocks := sliceutil.Map(f.Blocks, protocol.BlockInfo.ToWire)
+			bs, err := proto.Marshal(&dbproto.BlockList{Blocks: blocks})
+			if err != nil {
+				return wrap("update (marshal blocklist)", err)
+			}
+			t0 = time.Now()
+			if _, err := insertBlockListStmt.Exec(base64.RawStdEncoding.EncodeToString(f.BlocksHash), bs); err != nil {
+				return wrap("update (insert blocklist)", err)
+			}
+			if d := time.Since(t0); d > 25*time.Millisecond {
+				fmt.Println("insertBlockListStmt", d)
+			}
+			f.Blocks = nil
+		}
+
+		// Insert the fileinfo
+		if device == protocol.LocalDeviceID {
 			f.Sequence = localSeq
 		}
 		bs, err := proto.Marshal(f.ToWire(true))
@@ -138,16 +180,6 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 			fmt.Println("recalcGlobalForFile", d)
 		}
 
-		if device == protocol.LocalDeviceID {
-			// Update block lists
-			t0 = time.Now()
-			if err := db.insertBlocksLocked(txp, folderIdx, deviceIdx, localSeq, f.Blocks); err != nil {
-				return wrap("update", err)
-			}
-			if d := time.Since(t0); d > 25*time.Millisecond {
-				fmt.Println("insertBlocksLocked", d)
-			}
-		}
 	}
 
 	return wrap("update", tx.Commit())
@@ -294,10 +326,11 @@ func (db *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []st
 func (db *DB) Local(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {
 	file = osutil.NormalizedFilename(file)
 
-	var bfi bep.FileInfo
-	err := db.sql.Get(protoValuer(&bfi), `
-		SELECT fi.protobuf FROM fileinfos fi
+	var ind indirectFI
+	err := db.sql.Get(&ind, `
+		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
+		LEFT JOIN blocklists bl ON bl.blocks_hash = f.blocks_hash
 		INNER JOIN devices d ON f.device_idx = d.idx
 		INNER JOIN folders o ON f.folder_idx = o.idx
 		WHERE o.folder_id = ? AND d.device_id = ? AND f.name = ? AND f.version != ""`,
@@ -306,18 +339,23 @@ func (db *DB) Local(folder string, device protocol.DeviceID, file string) (proto
 		return protocol.FileInfo{}, false, nil
 	}
 	if err != nil {
-		return protocol.FileInfo{}, false, wrap("get", err)
+		return protocol.FileInfo{}, false, wrap("local", err)
 	}
-	return nativeFilename(protocol.FileInfoFromDB(&bfi)), true, nil
+	fi, err := ind.FileInfo()
+	if err != nil {
+		return protocol.FileInfo{}, false, wrap("local", err)
+	}
+	return fi, true, nil
 }
 
 func (db *DB) Global(folder string, file string) (protocol.FileInfo, bool, error) {
 	file = osutil.NormalizedFilename(file)
 
-	var bfi bep.FileInfo
-	err := db.sql.Get(protoValuer(&bfi), `
-		SELECT fi.protobuf FROM fileinfos fi
+	var ind indirectFI
+	err := db.sql.Get(&ind, `
+		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
+		LEFT JOIN blocklists bl ON bl.blocks_hash = f.blocks_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.name = ? AND f.local_flags & ? != 0`, folder, file, protocol.FlagLocalGlobal)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -326,20 +364,22 @@ func (db *DB) Global(folder string, file string) (protocol.FileInfo, bool, error
 	if err != nil {
 		return protocol.FileInfo{}, false, wrap("global", err)
 	}
-
-	return nativeFilename(protocol.FileInfoFromDB(&bfi)), true, nil
+	fi, err := ind.FileInfo()
+	if err != nil {
+		return protocol.FileInfo{}, false, wrap("local", err)
+	}
+	return fi, true, nil
 }
 
 func (db *DB) AllGlobal(folder string) iter.Seq2[protocol.FileInfo, error] {
-	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
-		SELECT fi.protobuf FROM fileinfos fi
+	beps := iterStructs[indirectFI](db.sql.Queryx(`
+		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
+		LEFT JOIN blocklists bl ON bl.blocks_hash = f.blocks_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.local_flags & ? != 0`,
 		folder, protocol.FlagLocalGlobal))
-	return itererr.Map(beps, func(b *bep.FileInfo) protocol.FileInfo {
-		return nativeFilename(protocol.FileInfoFromDB(b))
-	})
+	return itererr.Map2(beps, indirectFI.FileInfo)
 }
 
 func (db *DB) AllGlobalPrefix(folder string, prefix string) iter.Seq2[protocol.FileInfo, error] {
@@ -350,15 +390,14 @@ func (db *DB) AllGlobalPrefix(folder string, prefix string) iter.Seq2[protocol.F
 	prefix = osutil.NormalizedFilename(prefix)
 	pattern := prefix + "%"
 
-	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
-		SELECT fi.protobuf FROM fileinfos fi
+	beps := iterStructs[indirectFI](db.sql.Queryx(`
+		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
+		LEFT JOIN blocklists bl ON bl.blocks_hash = f.blocks_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND (f.name = ? OR f.name LIKE ?) AND f.local_flags & ? != 0`,
 		folder, prefix, pattern, protocol.FlagLocalGlobal))
-	return itererr.Map(beps, func(b *bep.FileInfo) protocol.FileInfo {
-		return nativeFilename(protocol.FileInfoFromDB(b))
-	})
+	return itererr.Map2(beps, indirectFI.FileInfo)
 }
 
 func (db *DB) Sequence(folder string, device protocol.DeviceID) (int64, error) {
@@ -386,36 +425,32 @@ func (db *DB) Sequence(folder string, device protocol.DeviceID) (int64, error) {
 	return res.Int64, nil
 }
 
-func (db *DB) AllLocal(folder string, device protocol.DeviceID) iter.Seq2[*protocol.FileInfo, error] {
-	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
-		SELECT fi.protobuf FROM fileinfos fi
+func (db *DB) AllLocal(folder string, device protocol.DeviceID) iter.Seq2[protocol.FileInfo, error] {
+	beps := iterStructs[indirectFI](db.sql.Queryx(`
+		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
+		LEFT JOIN blocklists bl ON bl.blocks_hash = f.blocks_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ?`,
 		folder, device.String()))
-	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
-		fi := nativeFilename(protocol.FileInfoFromDB(b))
-		return &fi
-	})
+	return itererr.Map2(beps, indirectFI.FileInfo)
 }
 
-func (db *DB) AllLocalSequenced(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[*protocol.FileInfo, error] {
-	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
-		SELECT fi.protobuf FROM fileinfos fi
+func (db *DB) AllLocalSequenced(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[protocol.FileInfo, error] {
+	beps := iterStructs[indirectFI](db.sql.Queryx(`
+		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
+		LEFT JOIN blocklists bl ON bl.blocks_hash = f.blocks_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ? AND f.sequence >= ?
 		ORDER BY f.sequence`,
 		folder, device.String(), startSeq))
-	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
-		fi := nativeFilename(protocol.FileInfoFromDB(b))
-		return &fi
-	})
+	return itererr.Map2(beps, indirectFI.FileInfo)
 }
 
-func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix string) iter.Seq2[*protocol.FileInfo, error] {
+func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix string) iter.Seq2[protocol.FileInfo, error] {
 	if prefix == "" {
 		return db.AllLocal(folder, device)
 	}
@@ -423,30 +458,26 @@ func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix s
 	prefix = osutil.NormalizedFilename(prefix)
 	pattern := prefix + "%"
 
-	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
-		SELECT fi.protobuf FROM fileinfos fi
+	beps := iterStructs[indirectFI](db.sql.Queryx(`
+		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
+		LEFT JOIN blocklists bl ON bl.blocks_hash = f.blocks_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ? AND (f.name = ? OR f.name LIKE ?)`,
 		folder, device.String(), prefix, pattern))
-	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
-		fi := nativeFilename(protocol.FileInfoFromDB(b))
-		return &fi
-	})
+	return itererr.Map2(beps, indirectFI.FileInfo)
 }
 
-func (db *DB) AllForBlocksHash(folder string, h []byte) iter.Seq2[*protocol.FileInfo, error] {
-	beps := iterProtos[bep.FileInfo](db.sql.Queryx(`
-		SELECT fi.protobuf FROM fileinfos fi
+func (db *DB) AllForBlocksHash(folder string, h []byte) iter.Seq2[protocol.FileInfo, error] {
+	beps := iterStructs[indirectFI](db.sql.Queryx(`
+		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
+		LEFT JOIN blocklists bl ON bl.blocks_hash = f.blocks_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.blocks_hash = ?`,
 		folder, base64.RawStdEncoding.EncodeToString(h)))
-	return itererr.Map(beps, func(b *bep.FileInfo) *protocol.FileInfo {
-		fi := nativeFilename(protocol.FileInfoFromDB(b))
-		return &fi
-	})
+	return itererr.Map2(beps, indirectFI.FileInfo)
 }
 
 type sizesRow struct {

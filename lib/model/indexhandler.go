@@ -321,7 +321,7 @@ func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 			return err
 		}
 
-		f = *fi
+		f = fi
 		s.localPrevSequence = f.Sequence
 
 		// If this is a folder receiving encrypted files only, we
