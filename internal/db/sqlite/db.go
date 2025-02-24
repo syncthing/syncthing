@@ -532,8 +532,8 @@ func (s *DB) LocalSize(folder string, device protocol.DeviceID) db.Counts {
 		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
 		INNER JOIN devices d ON d.idx = s.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ?`+extra,
-		folder, device.String()); err != nil {
+		WHERE o.folder_id = ? AND d.device_id = ? AND s.local_flags & ? = 0`+extra,
+		folder, device.String(), protocol.FlagLocalIgnored); err != nil {
 		return db.Counts{}
 	}
 	return summarizeRows(res)
@@ -583,7 +583,7 @@ func (s *DB) needSizeLocal(folder string) db.Counts {
 	err := s.sql.Select(&res, `
 		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
-		WHERE o.folder_id = ? AND local_flags & ? = ?
+		WHERE o.folder_id = ? AND s.local_flags & ? = ?
 	`, folder, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal)
 	if err != nil {
 		return db.Counts{}
@@ -611,15 +611,15 @@ func (s *DB) needSizeRemote(folder string, device protocol.DeviceID) db.Counts {
 }
 
 func (s *DB) GlobalSize(folder string) db.Counts {
-	// Exclude receive-only changed files from the global count (legacy
-	// expectation? it's a bit weird since those files can in fact be global
-	// and you can get them with GetGlobal etc.)
+	// Exclude ignored and receive-only changed files from the global count
+	// (legacy expectation? it's a bit weird since those files can in fact
+	// be global and you can get them with GetGlobal etc.)
 	var res []sizesRow
 	err := s.sql.Select(&res, `
 		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
-		WHERE o.folder_id = ? AND s.local_flags & ? != 0 AND s.local_flags & ? == 0
-	`, folder, protocol.FlagLocalGlobal, protocol.FlagLocalReceiveOnly)
+		WHERE o.folder_id = ? AND s.local_flags & ? != 0 AND s.local_flags & ? = 0
+	`, folder, protocol.FlagLocalGlobal, protocol.FlagLocalReceiveOnly|protocol.FlagLocalIgnored)
 	if err != nil {
 		return db.Counts{}
 	}

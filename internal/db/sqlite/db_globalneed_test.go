@@ -3,6 +3,7 @@ package sqlite
 import (
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -142,5 +143,51 @@ func TestNeedDeleted(t *testing.T) {
 	if s.Bytes != 0 || s.Deleted != 1 {
 		t.Log(s)
 		t.Error("bad need")
+	}
+}
+
+func TestDontNeedDeleted(t *testing.T) {
+	t.Parallel()
+
+	db, err := OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// A remote file
+	var v protocol.Vector
+	v = v.Update(1)
+	files := []protocol.FileInfo{
+		{Name: "test1", Sequence: 103, Deleted: true, ModifiedS: 200, Version: v.Update(42)},
+	}
+	err = db.Update(folderID, protocol.DeviceID{42}, files)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Which we've ignored locally
+	files[0].SetIgnored()
+	err = db.Update(folderID, protocol.LocalDeviceID, files)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// We don't need it
+	s := db.NeedSize(folderID, protocol.LocalDeviceID)
+	if s.Bytes != 0 || s.Files != 0 {
+		t.Log(s)
+		t.Error("bad need")
+	}
+
+	// It shouldn't show up in the need list
+	names := iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
+	if len(names) != 0 {
+		t.Log(names)
+		t.Error("need no files")
 	}
 }

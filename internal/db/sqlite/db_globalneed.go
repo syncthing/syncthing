@@ -59,9 +59,9 @@ func (s *DB) AllNeededNames(folder string, device protocol.DeviceID, order confi
 	vals := iterStructs[fileRow](s.sql.Queryx(`
 		SELECT g.name, g.modified, g.size FROM files g
 		INNER JOIN folders o ON o.idx = g.folder_idx
-		WHERE o.folder_id = ? AND g.local_flags & ? == ?
+		WHERE o.folder_id = ? AND g.local_flags & ? = 0 AND g.local_flags & ? = ?
 		`+orderBy+limitStr,
-		folder, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal))
+		folder, protocol.FlagLocalIgnored, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal))
 	return itererr.Map(vals, func(r fileRow) string {
 		return osutil.NativeFilename(r.Name)
 	})
@@ -153,9 +153,10 @@ func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file str
 	global = es[globIdx]
 
 	// We "have" the file if the position in the list of versions is at the
-	// global version or better...
+	// global version or better, or if the version is the same as the global
+	// file (we might be further down the list due to invalid flags)...
 	localIdx := slices.IndexFunc(es, func(e fileRow) bool { return e.DeviceIdx == s.localDeviceIdx })
-	hasLocal := localIdx >= 0 && localIdx <= globIdx
+	hasLocal := localIdx >= 0 && (localIdx <= globIdx || es[localIdx].Version.Equal(global.Version.Vector))
 
 	// Set the global flag on the global entry. Set the need flag if the
 	// local device needs this file, unless it's invalid.
