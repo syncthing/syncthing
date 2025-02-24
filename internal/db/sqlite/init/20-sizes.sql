@@ -1,0 +1,44 @@
+-- Sizes
+CREATE TABLE IF NOT EXISTS sizes (
+    folder_idx INTEGER NOT NULL,
+    device_idx INTEGER NOT NULL,
+    type INTEGER NOT NULL,
+    local_flags INTEGER NOT NULL,
+    count INTEGER NOT NULL,
+    size INTEGER NOT NULL,
+    PRIMARY KEY(folder_idx, device_idx, type, local_flags),
+    FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
+    FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE
+) STRICT
+;
+
+--- Maintain size counts when files are added and removed using triggers
+
+CREATE TRIGGER IF NOT EXISTS sizes_insert AFTER INSERT ON files
+BEGIN
+    INSERT INTO sizes (folder_idx, device_idx, type, local_flags, count, size)
+        VALUES (NEW.folder_idx, NEW.device_idx, NEW.type, NEW.local_flags, 1, NEW.size)
+        ON CONFLICT DO UPDATE SET count = count + 1, size = size + NEW.size;
+END
+;
+CREATE TRIGGER IF NOT EXISTS sizes_delete AFTER DELETE ON files
+BEGIN
+    UPDATE sizes SET count = count - 1, size = size - OLD.size
+        WHERE folder_idx = OLD.folder_idx AND device_idx = OLD.device_idx AND type = OLD.type AND local_flags = OLD.local_flags;
+END
+;
+CREATE TRIGGER IF NOT EXISTS sizes_update_add AFTER UPDATE ON files
+WHEN NEW.local_flags != OLD.local_flags
+BEGIN
+    INSERT INTO sizes (folder_idx, device_idx, type, local_flags, count, size)
+        VALUES (NEW.folder_idx, NEW.device_idx, NEW.type, NEW.local_flags, 1, NEW.size)
+        ON CONFLICT DO UPDATE SET count = count + 1, size = size + NEW.size;
+END
+;
+CREATE TRIGGER IF NOT EXISTS sizes_update_del AFTER UPDATE ON files
+WHEN NEW.local_flags != OLD.local_flags
+BEGIN
+    UPDATE sizes SET count = count - 1, size = size - OLD.size
+        WHERE folder_idx = OLD.folder_idx AND device_idx = OLD.device_idx AND type = OLD.type AND local_flags = OLD.local_flags;
+END
+;

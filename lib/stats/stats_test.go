@@ -13,15 +13,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/db/backend"
-	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/internal/db/kv"
+	"github.com/syncthing/syncthing/internal/db/sqlite"
 )
 
 func TestDeviceStat(t *testing.T) {
-	db := backend.OpenLevelDBMemory()
-	defer db.Close()
+	db, err := sqlite.OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		db.Close()
+	})
 
-	sr := NewDeviceStatisticsReference(db, protocol.LocalDeviceID)
+	sr := NewDeviceStatisticsReference(kv.NewTyped(db.KV(), "devstatref"))
 	if err := sr.WasSeen(); err != nil {
 		t.Fatal(err)
 	}

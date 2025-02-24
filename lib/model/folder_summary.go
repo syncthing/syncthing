@@ -17,8 +17,8 @@ import (
 
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
@@ -127,16 +127,12 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 	var remoteSeq map[protocol.DeviceID]int64
 	errors, err := c.model.FolderErrors(folder)
 	if err == nil {
-		var snap *db.Snapshot
-		if snap, err = c.model.DBSnapshot(folder); err == nil {
-			global = snap.GlobalSize()
-			local = snap.LocalSize()
-			need = snap.NeedSize(protocol.LocalDeviceID)
-			ro = snap.ReceiveOnlyChangedSize()
-			ourSeq = snap.Sequence(protocol.LocalDeviceID)
-			remoteSeq = snap.RemoteSequences()
-			snap.Release()
-		}
+		global = c.model.GlobalSize(folder)
+		local = c.model.LocalSize(folder, protocol.LocalDeviceID)
+		need = c.model.NeedSize(folder, protocol.LocalDeviceID)
+		// ro = c.model.ReceiveOnlyChangedSize() XXX
+		ourSeq, _ = c.model.Sequence(folder, protocol.LocalDeviceID)
+		// remoteSeq = snap.RemoteSequences() XXX
 	}
 	// For API backwards compatibility (SyncTrayzor needs it) an empty folder
 	// summary is returned for not running folders, an error might actually be
