@@ -1,48 +1,37 @@
 package sqlite
 
 import (
-	"encoding/base64"
 	"iter"
 
-	"github.com/syncthing/syncthing/internal/itererr"
-	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-type BlockMapEntry struct {
-	FolderID string `db:"folder_id"`
-	Name     string
-	Index    int `db:"idx"`
-	Offset   int64
-	Size     int
-}
-
-func (*DB) insertBlocksLocked(tx *txPreparedStmts, folderIdx, deviceIdx, localSeq int64, blocks []protocol.BlockInfo) error {
-	insStmt, err := tx.Preparex(`
-		INSERT OR REPLACE INTO blocks (hash, folder_idx, device_idx, file_sequence, idx, offset, size)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`)
-	if err != nil {
-		return wrap("insert block", err)
+func (*DB) insertBlocksLocked(tx *txPreparedStmts, blocklistHash []byte, blocks []protocol.BlockInfo) error {
+	if len(blocks) == 0 {
+		return nil
 	}
+	bs := make([]map[string]any, len(blocks))
 	for i, b := range blocks {
-		if _, err := insStmt.Exec(
-			base64.RawStdEncoding.EncodeToString(b.Hash), folderIdx, deviceIdx, localSeq, i, b.Offset, b.Size); err != nil {
-			return wrap("insert block", err)
+		bs[i] = map[string]any{
+			"hash":           b.Hash,
+			"blocklist_hash": blocklistHash,
+			"idx":            i,
+			"offset":         b.Offset,
+			"size":           b.Size,
 		}
+	}
+	if _, err := tx.NamedExec(`
+		INSERT OR IGNORE INTO blocks (hash, blocklist_hash, idx, offset, size)
+		VALUES (:hash, :blocklist_hash, :idx, :offset, :size)`, bs); err != nil {
+		return wrap("insert block", err)
 	}
 	return nil
 }
 
-func (db *DB) Blocks(hash []byte) iter.Seq2[BlockMapEntry, error] {
-	vals := iterStructs[BlockMapEntry](db.sql.Queryx(`
-		SELECT o.folder_id, f.name, b.idx, b.offset, b.size FROM blocks b
-		INNER JOIN files f ON f.sequence = b.file_sequence
-		INNER JOIN folders o ON b.folder_idx = o.idx
-		WHERE b.hash = ? AND b.device_idx = ?
-		ORDER BY o.folder_id, f.name, b.idx`,
-		base64.RawStdEncoding.EncodeToString(hash), db.localDeviceIdx))
-	return itererr.Map(vals, func(v BlockMapEntry) BlockMapEntry {
-		v.Name = osutil.NativeFilename(v.Name)
-		return v
-	})
+func (s *DB) Blocks(hash []byte) iter.Seq2[db.BlockMapEntry, error] {
+	return iterStructs[db.BlockMapEntry](s.sql.Queryx(`
+		SELECT b.blocklist_hash, b.idx, b.offset, b.size FROM blocks b
+		WHERE b.hash = ?`,
+		hash))
 }

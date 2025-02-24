@@ -274,8 +274,9 @@ func TestCopierFinder(t *testing.T) {
 	defer cleanupSharedPullerState(finish)
 
 	select {
-	case <-pullChan:
-		t.Fatal("Pull channel has data to be read")
+	case v := <-pullChan:
+		t.Logf("%+v\n", v)
+		t.Fatal("Pull channel had data to be read")
 	case <-finisherChan:
 		t.Fatal("Finisher channel has data to be read")
 	default:

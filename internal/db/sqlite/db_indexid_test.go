@@ -68,6 +68,7 @@ func TestIndexIDs(t *testing.T) {
 			t.Fatal(err)
 		}
 		if again != newID {
+			t.Log(again, newID)
 			t.Fatal("should get the ID we set")
 		}
 	})

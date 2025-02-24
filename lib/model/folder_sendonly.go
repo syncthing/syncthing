@@ -73,12 +73,9 @@ func (f *sendOnlyFolder) pull() (bool, error) {
 			return false, err
 		}
 		if !ok {
-			if file.IsInvalid() {
-				// Global invalid file just exists for need accounting
+			if file.IsInvalid() || file.IsDeleted() {
+				// Accept the file for accounting purposes
 				batch.Append(file)
-			} else if file.IsDeleted() {
-				l.Debugln("Should never get a deleted file as needed when we don't have it")
-				f.evLogger.Log(events.Failure, "got deleted file that doesn't exist locally as needed when pulling on send-only")
 			}
 			continue
 		}

@@ -35,6 +35,21 @@ func Map2[A, B any](i iter.Seq2[A, error], fn func(A) (B, error)) iter.Seq2[B, e
 	}
 }
 
+func MapErr[A, B any](errptr *error, i iter.Seq[A], fn func(A) (B, error)) iter.Seq[B] {
+	return func(yield func(B) bool) {
+		for a := range i {
+			b, err := fn(a)
+			if err != nil {
+				*errptr = err
+				return
+			}
+			if !yield(b) {
+				return
+			}
+		}
+	}
+}
+
 func Collect[T any](i iter.Seq2[T, error]) ([]T, error) {
 	var s []T
 	for v, err := range i {

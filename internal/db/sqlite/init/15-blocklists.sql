@@ -7,7 +7,7 @@
 -- We keep a reference counter, incremented in the code and decremented by
 -- triggers. When it reaches zero the blocklist is deleted.
 CREATE TABLE IF NOT EXISTS blocklists (
-    blocks_hash TEXT NOT NULL PRIMARY KEY,
+    blocklist_hash BLOB NOT NULL PRIMARY KEY,
     refcount INTEGER NOT NULL,
     blprotobuf BLOB NOT NULL
 ) STRICT
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS blocklists (
 -- Decrement refcount when a referencing file entry is deleted
 CREATE TRIGGER IF NOT EXISTS blocklist_refcount_decrease AFTER DELETE ON files
 BEGIN
-    UPDATE blocklists SET refcount = refcount - 1 WHERE blocks_hash = OLD.blocks_hash;
+    UPDATE blocklists SET refcount = refcount - 1 WHERE blocklist_hash = OLD.blocklist_hash;
 END
 ;
 
@@ -24,6 +24,6 @@ END
 CREATE TRIGGER IF NOT EXISTS blocklist_refcount_cleanup AFTER UPDATE ON blocklists
 WHEN NEW.refcount = 0
 BEGIN
-    DELETE FROM blocklists WHERE blocks_hash = NEW.blocks_hash AND refcount = 0;
+    DELETE FROM blocklists WHERE blocklist_hash = NEW.blocklist_hash AND refcount = 0;
 END
 ;

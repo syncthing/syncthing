@@ -14,8 +14,6 @@ import (
 func TestBasics(t *testing.T) {
 	t.Parallel()
 
-	blocklistIndirectCutoff = 0
-
 	db, err := OpenMemory()
 	if err != nil {
 		t.Fatal(err)

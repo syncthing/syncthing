@@ -3,7 +3,6 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"iter"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -19,8 +19,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var blocklistIndirectCutoff = 8 // actually const but for testing
-
 type DB struct {
 	sql            *sqlx.DB
 	localDeviceIdx int64
@@ -28,17 +26,17 @@ type DB struct {
 	prepared       map[string]*sqlx.Stmt
 }
 
-func (db *DB) Close() error {
-	db.updateLock.Lock()
-	defer db.updateLock.Unlock()
-	return wrap("close", db.sql.Close())
+func (s *DB) Close() error {
+	s.updateLock.Lock()
+	defer s.updateLock.Unlock()
+	return wrap("close", s.sql.Close())
 }
 
-func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error {
+func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error {
 	t0 := time.Now()
 
-	db.updateLock.Lock()
-	defer db.updateLock.Unlock()
+	s.updateLock.Lock()
+	defer s.updateLock.Unlock()
 
 	t1 := time.Now()
 	defer func() {
@@ -46,24 +44,24 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 		fmt.Printf("Update(%s, %v, %d files) took %v, delayed %v, %.01f/s\n", folder, device, len(fs), d, t1.Sub(t0), float64(len(fs))/d.Seconds())
 	}()
 
-	tx, err := db.sql.BeginTxx(context.Background(), nil)
+	tx, err := s.sql.BeginTxx(context.Background(), nil)
 	if err != nil {
 		return wrap("update", err)
 	}
 	defer tx.Rollback() //nolint:errcheck
 	txp := &txPreparedStmts{Tx: tx}
 
-	folderIdx, err := db.folderIdxLocked(folder)
+	folderIdx, err := s.folderIdxLocked(folder)
 	if err != nil {
 		return wrap("update", err)
 	}
-	deviceIdx, err := db.deviceIdxLocked(device)
+	deviceIdx, err := s.deviceIdxLocked(device)
 	if err != nil {
 		return wrap("update", err)
 	}
 
 	insertFileStmt, err := txp.Preparex(`
-		INSERT OR REPLACE INTO files (folder_idx, device_idx, remote_sequence, name, type, modified, size, version, deleted, invalid, local_flags, blocks_hash)
+		INSERT OR REPLACE INTO files (folder_idx, device_idx, remote_sequence, name, type, modified, size, version, deleted, invalid, local_flags, blocklist_hash)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING sequence`)
 	if err != nil {
@@ -78,7 +76,7 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 	}
 
 	insertBlockListStmt, err := txp.Preparex(`
-		INSERT INTO blocklists (blocks_hash, refcount, blprotobuf)
+		INSERT INTO blocklists (blocklist_hash, refcount, blprotobuf)
 		VALUES (?, 1, ?)
 		ON CONFLICT DO UPDATE SET refcount = refcount + 1`)
 	if err != nil {
@@ -89,11 +87,10 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 	for i, f := range fs {
 		f.Name = osutil.NormalizedFilename(f.Name)
 
-		var blockshash *string
+		var blockshash *[]byte
 		if len(f.Blocks) > 0 {
 			f.BlocksHash = protocol.BlocksHash(f.Blocks)
-			h := base64.RawStdEncoding.EncodeToString(f.BlocksHash)
-			blockshash = &h
+			blockshash = &f.BlocksHash
 		} else {
 			f.BlocksHash = nil
 		}
@@ -124,34 +121,35 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 			return wrap("update (insert file)", err)
 		}
 		if d := time.Since(t0); d > 25*time.Millisecond {
-			fmt.Println("insertFileStmt", d)
+			fmt.Println("insertFileStmt", i, d)
 		}
 
-		if device == protocol.LocalDeviceID {
-			// Update block lists
-			t0 = time.Now()
-			if err := db.insertBlocksLocked(txp, folderIdx, deviceIdx, localSeq, f.Blocks); err != nil {
-				return wrap("update", err)
-			}
-			if d := time.Since(t0); d > 25*time.Millisecond {
-				fmt.Println("insertBlocksLocked", d)
-			}
-		}
-
-		// If the block list len warrants it, indirect the block list
-		if len(f.Blocks) > blocklistIndirectCutoff {
+		if len(f.Blocks) > 0 {
+			// Indirect the block list
 			blocks := sliceutil.Map(f.Blocks, protocol.BlockInfo.ToWire)
 			bs, err := proto.Marshal(&dbproto.BlockList{Blocks: blocks})
 			if err != nil {
 				return wrap("update (marshal blocklist)", err)
 			}
 			t0 = time.Now()
-			if _, err := insertBlockListStmt.Exec(base64.RawStdEncoding.EncodeToString(f.BlocksHash), bs); err != nil {
+			if _, err := insertBlockListStmt.Exec(f.BlocksHash, bs); err != nil {
 				return wrap("update (insert blocklist)", err)
 			}
 			if d := time.Since(t0); d > 25*time.Millisecond {
-				fmt.Println("insertBlockListStmt", d)
+				fmt.Println("insertBlockListStmt", i, d, len(f.Blocks))
 			}
+
+			if device == protocol.LocalDeviceID {
+				// Update block lists
+				t0 = time.Now()
+				if err := s.insertBlocksLocked(txp, f.BlocksHash, f.Blocks); err != nil {
+					return wrap("update", err)
+				}
+				if d := time.Since(t0); d > 25*time.Millisecond {
+					fmt.Println("insertBlocksLocked", i, d, len(f.Blocks))
+				}
+			}
+
 			f.Blocks = nil
 		}
 
@@ -173,39 +171,38 @@ func (db *DB) Update(folder string, device protocol.DeviceID, fs []protocol.File
 
 		// Update global and need
 		t0 = time.Now()
-		if err := db.recalcGlobalForFile(txp, folderIdx, f.Name); err != nil {
+		if err := s.recalcGlobalForFile(txp, folderIdx, f.Name); err != nil {
 			return wrap("update", err)
 		}
 		if d := time.Since(t0); d > 25*time.Millisecond {
 			fmt.Println("recalcGlobalForFile", d)
 		}
-
 	}
 
 	return wrap("update", tx.Commit())
 }
 
-func (db *DB) DropFolder(folder string) error {
-	db.updateLock.Lock()
-	defer db.updateLock.Unlock()
-	_, err := db.sql.Exec(`DELETE FROM folders WHERE folder_id = ?`, folder)
+func (s *DB) DropFolder(folder string) error {
+	s.updateLock.Lock()
+	defer s.updateLock.Unlock()
+	_, err := s.sql.Exec(`DELETE FROM folders WHERE folder_id = ?`, folder)
 	return err
 }
 
-func (db *DB) DropDevice(device protocol.DeviceID) error {
+func (s *DB) DropDevice(device protocol.DeviceID) error {
 	if device == protocol.LocalDeviceID {
 		panic("bug: cannot drop local device")
 	}
 
-	db.updateLock.Lock()
-	defer db.updateLock.Unlock()
+	s.updateLock.Lock()
+	defer s.updateLock.Unlock()
 
-	deviceIdx, err := db.deviceIdxLocked(device)
+	deviceIdx, err := s.deviceIdxLocked(device)
 	if err != nil {
 		return wrap("drop device", err)
 	}
 
-	tx, err := db.sql.BeginTxx(context.Background(), nil)
+	tx, err := s.sql.BeginTxx(context.Background(), nil)
 	if err != nil {
 		return wrap("drop device", err)
 	}
@@ -229,7 +226,7 @@ func (db *DB) DropDevice(device protocol.DeviceID) error {
 
 	// Recalc the globals for all affected folders
 	for _, idx := range folderIdxs {
-		if err := db.recalcGlobalForFolder(txp, idx); err != nil {
+		if err := s.recalcGlobalForFolder(txp, idx); err != nil {
 			return wrap("drop device", err)
 		}
 	}
@@ -237,19 +234,19 @@ func (db *DB) DropDevice(device protocol.DeviceID) error {
 	return wrap("drop device", tx.Commit())
 }
 
-func (db *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
-	db.updateLock.Lock()
-	defer db.updateLock.Unlock()
+func (s *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
+	s.updateLock.Lock()
+	defer s.updateLock.Unlock()
 
 	// This is a two part operation, first dropping all the files and then
 	// recalculating the global state for the entire folder.
 
-	folderIdx, err := db.folderIdxLocked(folder)
+	folderIdx, err := s.folderIdxLocked(folder)
 	if err != nil {
 		return wrap("drop all files", err)
 	}
 
-	tx, err := db.sql.BeginTxx(context.Background(), nil)
+	tx, err := s.sql.BeginTxx(context.Background(), nil)
 	if err != nil {
 		return wrap("drop all files", err)
 	}
@@ -258,38 +255,44 @@ func (db *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
 
 	// Drop all the file entries
 
-	if _, err := tx.Exec(`
+	result, err := tx.Exec(`
 		DELETE FROM files WHERE ROWID in (
 			SELECT f.ROWID FROM files f
 			INNER JOIN devices d ON f.device_idx = d.idx
 			WHERE f.folder_idx = ? AND d.device_id = ?
 		)
-	`, folderIdx, device.String()); err != nil {
+	`, folderIdx, device.String())
+	if err != nil {
 		return wrap("drop all files", err)
+	}
+	if n, err := result.RowsAffected(); err == nil && n == 0 {
+		// The delete affected no rows, so we don't need to redo the entire
+		// global/need calculation.
+		return wrap("drop all files", tx.Commit())
 	}
 
 	// Recalc global for the entire folder
 
-	if err := db.recalcGlobalForFolder(txp, folderIdx); err != nil {
+	if err := s.recalcGlobalForFolder(txp, folderIdx); err != nil {
 		return wrap("drop all files", err)
 	}
 	return wrap("drop all files", tx.Commit())
 }
 
-func (db *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []string) error {
+func (s *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []string) error {
 	for i := range names {
 		names[i] = osutil.NormalizedFilename(names[i])
 	}
 
-	db.updateLock.Lock()
-	defer db.updateLock.Unlock()
+	s.updateLock.Lock()
+	defer s.updateLock.Unlock()
 
-	folderIdx, err := db.folderIdxLocked(folder)
+	folderIdx, err := s.folderIdxLocked(folder)
 	if err != nil {
 		return wrap("drop all files", err)
 	}
 
-	tx, err := db.sql.BeginTxx(context.Background(), nil)
+	tx, err := s.sql.BeginTxx(context.Background(), nil)
 	if err != nil {
 		return wrap("drop all files", err)
 	}
@@ -315,7 +318,7 @@ func (db *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []st
 	// Recalc globals for the named files
 
 	for _, name := range names {
-		if err := db.recalcGlobalForFile(txp, folderIdx, name); err != nil {
+		if err := s.recalcGlobalForFile(txp, folderIdx, name); err != nil {
 			return wrap("drop files named", err)
 		}
 	}
@@ -323,14 +326,14 @@ func (db *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []st
 	return wrap("drop files named", tx.Commit())
 }
 
-func (db *DB) Local(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {
+func (s *DB) Local(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {
 	file = osutil.NormalizedFilename(file)
 
 	var ind indirectFI
-	err := db.sql.Get(&ind, `
+	err := s.sql.Get(&ind, `
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
-		LEFT JOIN blocklists bl ON bl.blocks_hash = f.blocks_hash
+		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN devices d ON f.device_idx = d.idx
 		INNER JOIN folders o ON f.folder_idx = o.idx
 		WHERE o.folder_id = ? AND d.device_id = ? AND f.name = ? AND f.version != ""`,
@@ -348,14 +351,14 @@ func (db *DB) Local(folder string, device protocol.DeviceID, file string) (proto
 	return fi, true, nil
 }
 
-func (db *DB) Global(folder string, file string) (protocol.FileInfo, bool, error) {
+func (s *DB) Global(folder string, file string) (protocol.FileInfo, bool, error) {
 	file = osutil.NormalizedFilename(file)
 
 	var ind indirectFI
-	err := db.sql.Get(&ind, `
+	err := s.sql.Get(&ind, `
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
-		LEFT JOIN blocklists bl ON bl.blocks_hash = f.blocks_hash
+		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.name = ? AND f.local_flags & ? != 0`, folder, file, protocol.FlagLocalGlobal)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -371,43 +374,43 @@ func (db *DB) Global(folder string, file string) (protocol.FileInfo, bool, error
 	return fi, true, nil
 }
 
-func (db *DB) AllGlobal(folder string) iter.Seq2[protocol.FileInfo, error] {
-	beps := iterStructs[indirectFI](db.sql.Queryx(`
+func (s *DB) AllGlobal(folder string) iter.Seq2[protocol.FileInfo, error] {
+	beps := iterStructs[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
-		LEFT JOIN blocklists bl ON bl.blocks_hash = f.blocks_hash
+		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.local_flags & ? != 0`,
 		folder, protocol.FlagLocalGlobal))
 	return itererr.Map2(beps, indirectFI.FileInfo)
 }
 
-func (db *DB) AllGlobalPrefix(folder string, prefix string) iter.Seq2[protocol.FileInfo, error] {
+func (s *DB) AllGlobalPrefix(folder string, prefix string) iter.Seq2[protocol.FileInfo, error] {
 	if prefix == "" {
-		return db.AllGlobal(folder)
+		return s.AllGlobal(folder)
 	}
 
 	prefix = osutil.NormalizedFilename(prefix)
 	pattern := prefix + "%"
 
-	beps := iterStructs[indirectFI](db.sql.Queryx(`
+	beps := iterStructs[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
-		LEFT JOIN blocklists bl ON bl.blocks_hash = f.blocks_hash
+		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND (f.name = ? OR f.name LIKE ?) AND f.local_flags & ? != 0`,
 		folder, prefix, pattern, protocol.FlagLocalGlobal))
 	return itererr.Map2(beps, indirectFI.FileInfo)
 }
 
-func (db *DB) Sequence(folder string, device protocol.DeviceID) (int64, error) {
+func (s *DB) Sequence(folder string, device protocol.DeviceID) (int64, error) {
 	field := "sequence"
 	if device != protocol.LocalDeviceID {
 		field = "remote_sequence"
 	}
 
 	var res sql.NullInt64
-	err := db.sql.Get(&res, fmt.Sprintf(`
+	err := s.sql.Get(&res, fmt.Sprintf(`
 		SELECT MAX(f.%s) FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
@@ -425,11 +428,11 @@ func (db *DB) Sequence(folder string, device protocol.DeviceID) (int64, error) {
 	return res.Int64, nil
 }
 
-func (db *DB) AllLocal(folder string, device protocol.DeviceID) iter.Seq2[protocol.FileInfo, error] {
-	beps := iterStructs[indirectFI](db.sql.Queryx(`
+func (s *DB) AllLocal(folder string, device protocol.DeviceID) iter.Seq2[protocol.FileInfo, error] {
+	beps := iterStructs[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
-		LEFT JOIN blocklists bl ON bl.blocks_hash = f.blocks_hash
+		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ?`,
@@ -437,11 +440,11 @@ func (db *DB) AllLocal(folder string, device protocol.DeviceID) iter.Seq2[protoc
 	return itererr.Map2(beps, indirectFI.FileInfo)
 }
 
-func (db *DB) AllLocalSequenced(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[protocol.FileInfo, error] {
-	beps := iterStructs[indirectFI](db.sql.Queryx(`
+func (s *DB) AllLocalSequenced(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[protocol.FileInfo, error] {
+	beps := iterStructs[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
-		LEFT JOIN blocklists bl ON bl.blocks_hash = f.blocks_hash
+		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ? AND f.sequence >= ?
@@ -450,18 +453,18 @@ func (db *DB) AllLocalSequenced(folder string, device protocol.DeviceID, startSe
 	return itererr.Map2(beps, indirectFI.FileInfo)
 }
 
-func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix string) iter.Seq2[protocol.FileInfo, error] {
+func (s *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix string) iter.Seq2[protocol.FileInfo, error] {
 	if prefix == "" {
-		return db.AllLocal(folder, device)
+		return s.AllLocal(folder, device)
 	}
 
 	prefix = osutil.NormalizedFilename(prefix)
 	pattern := prefix + "%"
 
-	beps := iterStructs[indirectFI](db.sql.Queryx(`
+	beps := iterStructs[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
-		LEFT JOIN blocklists bl ON bl.blocks_hash = f.blocks_hash
+		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ? AND (f.name = ? OR f.name LIKE ?)`,
@@ -469,15 +472,43 @@ func (db *DB) AllLocalPrefixed(folder string, device protocol.DeviceID, prefix s
 	return itererr.Map2(beps, indirectFI.FileInfo)
 }
 
-func (db *DB) AllForBlocksHash(folder string, h []byte) iter.Seq2[protocol.FileInfo, error] {
-	beps := iterStructs[indirectFI](db.sql.Queryx(`
+func (s *DB) AllForBlocksHash(folder string, h []byte) iter.Seq2[protocol.FileInfo, error] {
+	beps := iterStructs[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
-		LEFT JOIN blocklists bl ON bl.blocks_hash = f.blocks_hash
+		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
-		WHERE o.folder_id = ? AND f.blocks_hash = ?`,
-		folder, base64.RawStdEncoding.EncodeToString(h)))
+		WHERE o.folder_id = ? AND f.blocklist_hash = ?`,
+		folder, h))
 	return itererr.Map2(beps, indirectFI.FileInfo)
+}
+
+func (s *DB) AllForBlocksHashAnyFolder(errptr *error, h []byte) iter.Seq2[string, protocol.FileInfo] {
+	type row struct {
+		FolderID   string `db:"folder_id"`
+		FiProtobuf []byte
+		BlProtobuf []byte
+	}
+	rows, err := s.sql.Queryx(`
+		SELECT o.folder_id, fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
+		INNER JOIN files f on fi.sequence = f.sequence
+		INNER JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		WHERE f.blocklist_hash = ?`,
+		h)
+	items := iterStructsErr[row](errptr, rows, err)
+	return func(yield func(string, protocol.FileInfo) bool) {
+		for r := range items {
+			fi, err := indirectFI{FiProtobuf: r.FiProtobuf, BlProtobuf: r.BlProtobuf}.FileInfo()
+			if err != nil {
+				*errptr = err
+				return
+			}
+			if !yield(r.FolderID, fi) {
+				return
+			}
+		}
+	}
 }
 
 type sizesRow struct {
@@ -487,7 +518,7 @@ type sizesRow struct {
 	FlagBit int64 `db:"local_flags"`
 }
 
-func (db *DB) LocalSize(folder string, device protocol.DeviceID) Counts {
+func (s *DB) LocalSize(folder string, device protocol.DeviceID) db.Counts {
 	var res []sizesRow
 	extra := ""
 	if device == protocol.LocalDeviceID {
@@ -497,33 +528,33 @@ func (db *DB) LocalSize(folder string, device protocol.DeviceID) Counts {
 		// local size sum.
 		extra = fmt.Sprintf(" AND local_flags & %[1]d != %[1]d", protocol.FlagLocalGlobal|protocol.FlagLocalNeeded)
 	}
-	if err := db.sql.Select(&res, `
+	if err := s.sql.Select(&res, `
 		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
 		INNER JOIN devices d ON d.idx = s.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ?`+extra,
 		folder, device.String()); err != nil {
-		return Counts{}
+		return db.Counts{}
 	}
 	return summarizeRows(res)
 }
 
-func (db *DB) Folders() ([]string, error) {
+func (s *DB) Folders() ([]string, error) {
 	var res []string
-	err := db.sql.Select(&res, `SELECT folder_id FROM folders ORDER BY folder_id`)
+	err := s.sql.Select(&res, `SELECT folder_id FROM folders ORDER BY folder_id`)
 	return res, wrap("folders", err)
 }
 
-func (db *DB) DevicesForFolder(folder string) ([]protocol.DeviceID, error) {
+func (s *DB) DevicesForFolder(folder string) ([]protocol.DeviceID, error) {
 	var res []string
-	err := db.sql.Select(&res, `
+	err := s.sql.Select(&res, `
 		SELECT d.device_id FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
 		INNER JOIN devices d ON d.idx = s.device_idx
 		WHERE o.folder_id = ? AND s.count > 0 AND s.device_idx != ?
 		GROUP BY d.device_id
 		ORDER BY d.device_id
-	`, folder, db.localDeviceIdx)
+	`, folder, s.localDeviceIdx)
 	if err != nil {
 		return nil, wrap("devices for folder", err)
 	}
@@ -538,33 +569,33 @@ func (db *DB) DevicesForFolder(folder string) ([]protocol.DeviceID, error) {
 	return devs, nil
 }
 
-func (db *DB) NeedSize(folder string, device protocol.DeviceID) Counts {
+func (s *DB) NeedSize(folder string, device protocol.DeviceID) db.Counts {
 	if device == protocol.LocalDeviceID {
-		return db.needSizeLocal(folder)
+		return s.needSizeLocal(folder)
 	}
-	return db.needSizeRemote(folder, device)
+	return s.needSizeRemote(folder, device)
 }
 
-func (db *DB) needSizeLocal(folder string) Counts {
+func (s *DB) needSizeLocal(folder string) db.Counts {
 	// The need size for the local device is the sum of entries with both
 	// the global and need bit set.
 	var res []sizesRow
-	err := db.sql.Select(&res, `
+	err := s.sql.Select(&res, `
 		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
 		WHERE o.folder_id = ? AND local_flags & ? = ?
 	`, folder, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal)
 	if err != nil {
-		return Counts{}
+		return db.Counts{}
 	}
 	return summarizeRows(res)
 }
 
-func (db *DB) needSizeRemote(folder string, device protocol.DeviceID) Counts {
+func (s *DB) needSizeRemote(folder string, device protocol.DeviceID) db.Counts {
 	// The need size for a remote device is the global size minus the local
 	// size plus the need size.
 	var res []sizesRow
-	err := db.sql.Select(&res, `
+	err := s.sql.Select(&res, `
 		SELECT type, count, size, local_flags FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
 		INNER JOIN devices d ON d.idx = s.device_idx
@@ -574,42 +605,42 @@ func (db *DB) needSizeRemote(folder string, device protocol.DeviceID) Counts {
 		panic(err)
 	}
 	need := summarizeRows(res)
-	have := db.LocalSize(folder, device)
-	global := db.GlobalSize(folder)
+	have := s.LocalSize(folder, device)
+	global := s.GlobalSize(folder)
 	return global.Subtract(have).Add(need)
 }
 
-func (db *DB) GlobalSize(folder string) Counts {
+func (s *DB) GlobalSize(folder string) db.Counts {
 	// Exclude receive-only changed files from the global count (legacy
 	// expectation? it's a bit weird since those files can in fact be global
 	// and you can get them with GetGlobal etc.)
 	var res []sizesRow
-	err := db.sql.Select(&res, `
+	err := s.sql.Select(&res, `
 		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
 		WHERE o.folder_id = ? AND s.local_flags & ? != 0 AND s.local_flags & ? == 0
 	`, folder, protocol.FlagLocalGlobal, protocol.FlagLocalReceiveOnly)
 	if err != nil {
-		return Counts{}
+		return db.Counts{}
 	}
 	return summarizeRows(res)
 }
 
-func (db *DB) ReceiveOnlySize(folder string) Counts {
+func (s *DB) ReceiveOnlySize(folder string) db.Counts {
 	var res []sizesRow
-	err := db.sql.Select(&res, `
+	err := s.sql.Select(&res, `
 		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
 		WHERE o.folder_id = ? AND local_flags & ? != 0
 	`, folder, protocol.FlagLocalReceiveOnly)
 	if err != nil {
-		return Counts{}
+		return db.Counts{}
 	}
 	return summarizeRows(res)
 }
 
-func summarizeRows(res []sizesRow) Counts {
-	c := Counts{
+func summarizeRows(res []sizesRow) db.Counts {
+	c := db.Counts{
 		DeviceID: protocol.LocalDeviceID,
 	}
 	for _, r := range res {
@@ -630,25 +661,25 @@ func summarizeRows(res []sizesRow) Counts {
 	return c
 }
 
-func (db *DB) folderIdxLocked(folderID string) (int64, error) {
-	if _, err := db.sql.Exec(`INSERT OR IGNORE INTO folders(folder_id) VALUES(?)`, folderID); err != nil {
+func (s *DB) folderIdxLocked(folderID string) (int64, error) {
+	if _, err := s.sql.Exec(`INSERT OR IGNORE INTO folders(folder_id) VALUES(?)`, folderID); err != nil {
 		return 0, wrap("folderIdx", err)
 	}
 	var idx int64
-	if err := db.sql.Get(&idx, `SELECT idx FROM folders WHERE folder_id = ?`, folderID); err != nil {
+	if err := s.sql.Get(&idx, `SELECT idx FROM folders WHERE folder_id = ?`, folderID); err != nil {
 		return 0, wrap("folderIdx", err)
 	}
 
 	return idx, nil
 }
 
-func (db *DB) deviceIdxLocked(deviceID protocol.DeviceID) (int64, error) {
+func (s *DB) deviceIdxLocked(deviceID protocol.DeviceID) (int64, error) {
 	devStr := deviceID.String()
-	if _, err := db.sql.Exec(`INSERT OR IGNORE INTO devices(device_id) VALUES(?)`, devStr); err != nil {
+	if _, err := s.sql.Exec(`INSERT OR IGNORE INTO devices(device_id) VALUES(?)`, devStr); err != nil {
 		return 0, wrap("deviceIdx", err)
 	}
 	var idx int64
-	if err := db.sql.Get(&idx, `SELECT idx FROM devices WHERE device_id = ?`, devStr); err != nil {
+	if err := s.sql.Get(&idx, `SELECT idx FROM devices WHERE device_id = ?`, devStr); err != nil {
 		return 0, wrap("deviceIdx", err)
 	}
 

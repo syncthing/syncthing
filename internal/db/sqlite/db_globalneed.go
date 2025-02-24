@@ -27,7 +27,7 @@ type fileRow struct {
 	LocalFlags int64 `db:"local_flags"`
 }
 
-func (db *DB) AllNeededNames(folder string, device protocol.DeviceID, order config.PullOrder, limit int) iter.Seq2[string, error] {
+func (s *DB) AllNeededNames(folder string, device protocol.DeviceID, order config.PullOrder, limit int) iter.Seq2[string, error] {
 	if device != protocol.LocalDeviceID {
 		return func(yield func(string, error) bool) {
 			yield("", errors.New("only implemented for local device"))
@@ -56,7 +56,7 @@ func (db *DB) AllNeededNames(folder string, device protocol.DeviceID, order conf
 	}
 
 	// Select all the files for the global device where the need bit is set.
-	vals := iterStructs[fileRow](db.sql.Queryx(`
+	vals := iterStructs[fileRow](s.sql.Queryx(`
 		SELECT g.name, g.modified, g.size FROM files g
 		INNER JOIN folders o ON o.idx = g.folder_idx
 		WHERE o.folder_id = ? AND g.local_flags & ? == ?
@@ -67,18 +67,18 @@ func (db *DB) AllNeededNames(folder string, device protocol.DeviceID, order conf
 	})
 }
 
-func (db *DB) Availability(folder, file string) ([]protocol.DeviceID, error) {
+func (s *DB) Availability(folder, file string) ([]protocol.DeviceID, error) {
 	file = osutil.NormalizedFilename(file)
 
 	var devStrs []string
-	err := db.sql.Select(&devStrs, `
+	err := s.sql.Select(&devStrs, `
 		SELECT d.device_id FROM files f
 		INNER JOIN devices d ON d.idx = f.device_idx
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN files g ON f.folder_idx = g.folder_idx AND g.version = f.version AND g.name = f.name
 		WHERE o.folder_id = ? AND g.name = ? AND g.local_flags & ? != 0 AND f.device_idx != ?
 		ORDER BY d.device_id`,
-		folder, file, protocol.FlagLocalGlobal, db.localDeviceIdx)
+		folder, file, protocol.FlagLocalGlobal, s.localDeviceIdx)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -98,7 +98,7 @@ func (db *DB) Availability(folder, file string) ([]protocol.DeviceID, error) {
 	return devs, nil
 }
 
-func (db *DB) recalcGlobalForFolder(txp *txPreparedStmts, folderIdx int64) error {
+func (s *DB) recalcGlobalForFolder(txp *txPreparedStmts, folderIdx int64) error {
 	namesStmt, err := txp.Preparex(`
 	SELECT name FROM files
 	WHERE folder_idx = ?
@@ -116,14 +116,14 @@ func (db *DB) recalcGlobalForFolder(txp *txPreparedStmts, folderIdx int64) error
 		if err := rows.Scan(&name); err != nil {
 			return wrap("recalc global for folder", err)
 		}
-		if err := db.recalcGlobalForFile(txp, folderIdx, name); err != nil {
+		if err := s.recalcGlobalForFile(txp, folderIdx, name); err != nil {
 			return wrap("recalc global for folder", err)
 		}
 	}
 	return wrap("recalc global for folder", rows.Err())
 }
 
-func (db *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file string) error {
+func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file string) error {
 	selStmt, err := txp.Preparex(`
 		SELECT name, folder_idx, device_idx, sequence, modified, version, deleted, invalid, local_flags FROM files
 		WHERE folder_idx = ? AND name = ?`)
@@ -154,7 +154,7 @@ func (db *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file st
 
 	// We "have" the file if the position in the list of versions is at the
 	// global version or better...
-	localIdx := slices.IndexFunc(es, func(e fileRow) bool { return e.DeviceIdx == db.localDeviceIdx })
+	localIdx := slices.IndexFunc(es, func(e fileRow) bool { return e.DeviceIdx == s.localDeviceIdx })
 	hasLocal := localIdx >= 0 && localIdx <= globIdx
 
 	// Set the global flag on the global entry. Set the need flag if the

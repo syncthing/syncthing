@@ -22,8 +22,8 @@ import (
 
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/kv"
-	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/api"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -66,7 +66,7 @@ type App struct {
 	myID              protocol.DeviceID
 	mainService       *suture.Supervisor
 	cfg               config.Wrapper
-	sdb               *sqlite.DB
+	sdb               db.DB
 	evLogger          events.Logger
 	cert              tls.Certificate
 	opts              Options
@@ -80,7 +80,7 @@ type App struct {
 	Internals *Internals
 }
 
-func New(cfg config.Wrapper, sdb *sqlite.DB, evLogger events.Logger, cert tls.Certificate, opts Options) (*App, error) {
+func New(cfg config.Wrapper, sdb db.DB, evLogger events.Logger, cert tls.Certificate, opts Options) (*App, error) {
 	a := &App{
 		cfg:      cfg,
 		sdb:      sdb,

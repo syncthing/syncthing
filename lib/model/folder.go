@@ -15,8 +15,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/kv"
-	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -47,7 +47,7 @@ type folder struct {
 
 	model         *model
 	shortID       protocol.ShortID
-	db            *sqlite.DB
+	db            db.DB
 	ignores       *ignore.Matcher
 	mtimefs       fs.Filesystem
 	modTimeWindow time.Duration
@@ -1378,7 +1378,7 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 }
 
 type cFiler struct {
-	db     *sqlite.DB
+	db     db.DB
 	folder string
 }
 

@@ -37,6 +37,7 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/cmd/syncthing/generate"
+	newdb "github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/kv"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
@@ -583,11 +584,12 @@ func syncthingMain(options serveOptions) {
 	}
 
 	dbFile := locations.Get(locations.Database)
-	sdb, err := sqlite.Open(dbFile + "-sqlite")
+	sql, err := sqlite.Open(dbFile + "-sqlite")
 	if err != nil {
 		l.Warnln("Error opening database:", err)
 		os.Exit(1)
 	}
+	sdb := newdb.MetricsWrap(sql)
 
 	miscDB := kv.NewMiscDB(sdb.KV())
 	if _, ok, _ := miscDB.Time("migrated-from-leveldb"); !ok {

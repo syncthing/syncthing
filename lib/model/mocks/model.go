@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/kv"
-	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stats"
@@ -263,16 +263,16 @@ type Model struct {
 		result1 []*model.TreeEntry
 		result2 error
 	}
-	GlobalSizeStub        func(string) sqlite.Counts
+	GlobalSizeStub        func(string) db.Counts
 	globalSizeMutex       sync.RWMutex
 	globalSizeArgsForCall []struct {
 		arg1 string
 	}
 	globalSizeReturns struct {
-		result1 sqlite.Counts
+		result1 db.Counts
 	}
 	globalSizeReturnsOnCall map[int]struct {
-		result1 sqlite.Counts
+		result1 db.Counts
 	}
 	IndexStub        func(protocol.Connection, *protocol.Index) error
 	indexMutex       sync.RWMutex
@@ -353,17 +353,17 @@ type Model struct {
 	localFilesSequencedReturnsOnCall map[int]struct {
 		result1 iter.Seq2[protocol.FileInfo, error]
 	}
-	LocalSizeStub        func(string, protocol.DeviceID) sqlite.Counts
+	LocalSizeStub        func(string, protocol.DeviceID) db.Counts
 	localSizeMutex       sync.RWMutex
 	localSizeArgsForCall []struct {
 		arg1 string
 		arg2 protocol.DeviceID
 	}
 	localSizeReturns struct {
-		result1 sqlite.Counts
+		result1 db.Counts
 	}
 	localSizeReturnsOnCall map[int]struct {
-		result1 sqlite.Counts
+		result1 db.Counts
 	}
 	NeedFolderFilesStub        func(string, int, int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error)
 	needFolderFilesMutex       sync.RWMutex
@@ -384,17 +384,17 @@ type Model struct {
 		result3 []protocol.FileInfo
 		result4 error
 	}
-	NeedSizeStub        func(string, protocol.DeviceID) sqlite.Counts
+	NeedSizeStub        func(string, protocol.DeviceID) db.Counts
 	needSizeMutex       sync.RWMutex
 	needSizeArgsForCall []struct {
 		arg1 string
 		arg2 protocol.DeviceID
 	}
 	needSizeReturns struct {
-		result1 sqlite.Counts
+		result1 db.Counts
 	}
 	needSizeReturnsOnCall map[int]struct {
-		result1 sqlite.Counts
+		result1 db.Counts
 	}
 	OnHelloStub        func(protocol.DeviceID, net.Addr, protocol.Hello) error
 	onHelloMutex       sync.RWMutex
@@ -439,16 +439,16 @@ type Model struct {
 		result1 map[string]kv.PendingFolder
 		result2 error
 	}
-	ReceiveOnlySizeStub        func(string) sqlite.Counts
+	ReceiveOnlySizeStub        func(string) db.Counts
 	receiveOnlySizeMutex       sync.RWMutex
 	receiveOnlySizeArgsForCall []struct {
 		arg1 string
 	}
 	receiveOnlySizeReturns struct {
-		result1 sqlite.Counts
+		result1 db.Counts
 	}
 	receiveOnlySizeReturnsOnCall map[int]struct {
-		result1 sqlite.Counts
+		result1 db.Counts
 	}
 	RemoteNeedFolderFilesStub        func(string, protocol.DeviceID, int, int) ([]protocol.FileInfo, error)
 	remoteNeedFolderFilesMutex       sync.RWMutex
@@ -1834,7 +1834,7 @@ func (fake *Model) GlobalDirectoryTreeReturnsOnCall(i int, result1 []*model.Tree
 	}{result1, result2}
 }
 
-func (fake *Model) GlobalSize(arg1 string) sqlite.Counts {
+func (fake *Model) GlobalSize(arg1 string) db.Counts {
 	fake.globalSizeMutex.Lock()
 	ret, specificReturn := fake.globalSizeReturnsOnCall[len(fake.globalSizeArgsForCall)]
 	fake.globalSizeArgsForCall = append(fake.globalSizeArgsForCall, struct {
@@ -1859,7 +1859,7 @@ func (fake *Model) GlobalSizeCallCount() int {
 	return len(fake.globalSizeArgsForCall)
 }
 
-func (fake *Model) GlobalSizeCalls(stub func(string) sqlite.Counts) {
+func (fake *Model) GlobalSizeCalls(stub func(string) db.Counts) {
 	fake.globalSizeMutex.Lock()
 	defer fake.globalSizeMutex.Unlock()
 	fake.GlobalSizeStub = stub
@@ -1872,26 +1872,26 @@ func (fake *Model) GlobalSizeArgsForCall(i int) string {
 	return argsForCall.arg1
 }
 
-func (fake *Model) GlobalSizeReturns(result1 sqlite.Counts) {
+func (fake *Model) GlobalSizeReturns(result1 db.Counts) {
 	fake.globalSizeMutex.Lock()
 	defer fake.globalSizeMutex.Unlock()
 	fake.GlobalSizeStub = nil
 	fake.globalSizeReturns = struct {
-		result1 sqlite.Counts
+		result1 db.Counts
 	}{result1}
 }
 
-func (fake *Model) GlobalSizeReturnsOnCall(i int, result1 sqlite.Counts) {
+func (fake *Model) GlobalSizeReturnsOnCall(i int, result1 db.Counts) {
 	fake.globalSizeMutex.Lock()
 	defer fake.globalSizeMutex.Unlock()
 	fake.GlobalSizeStub = nil
 	if fake.globalSizeReturnsOnCall == nil {
 		fake.globalSizeReturnsOnCall = make(map[int]struct {
-			result1 sqlite.Counts
+			result1 db.Counts
 		})
 	}
 	fake.globalSizeReturnsOnCall[i] = struct {
-		result1 sqlite.Counts
+		result1 db.Counts
 	}{result1}
 }
 
@@ -2277,7 +2277,7 @@ func (fake *Model) LocalFilesSequencedReturnsOnCall(i int, result1 iter.Seq2[pro
 	}{result1}
 }
 
-func (fake *Model) LocalSize(arg1 string, arg2 protocol.DeviceID) sqlite.Counts {
+func (fake *Model) LocalSize(arg1 string, arg2 protocol.DeviceID) db.Counts {
 	fake.localSizeMutex.Lock()
 	ret, specificReturn := fake.localSizeReturnsOnCall[len(fake.localSizeArgsForCall)]
 	fake.localSizeArgsForCall = append(fake.localSizeArgsForCall, struct {
@@ -2303,7 +2303,7 @@ func (fake *Model) LocalSizeCallCount() int {
 	return len(fake.localSizeArgsForCall)
 }
 
-func (fake *Model) LocalSizeCalls(stub func(string, protocol.DeviceID) sqlite.Counts) {
+func (fake *Model) LocalSizeCalls(stub func(string, protocol.DeviceID) db.Counts) {
 	fake.localSizeMutex.Lock()
 	defer fake.localSizeMutex.Unlock()
 	fake.LocalSizeStub = stub
@@ -2316,26 +2316,26 @@ func (fake *Model) LocalSizeArgsForCall(i int) (string, protocol.DeviceID) {
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *Model) LocalSizeReturns(result1 sqlite.Counts) {
+func (fake *Model) LocalSizeReturns(result1 db.Counts) {
 	fake.localSizeMutex.Lock()
 	defer fake.localSizeMutex.Unlock()
 	fake.LocalSizeStub = nil
 	fake.localSizeReturns = struct {
-		result1 sqlite.Counts
+		result1 db.Counts
 	}{result1}
 }
 
-func (fake *Model) LocalSizeReturnsOnCall(i int, result1 sqlite.Counts) {
+func (fake *Model) LocalSizeReturnsOnCall(i int, result1 db.Counts) {
 	fake.localSizeMutex.Lock()
 	defer fake.localSizeMutex.Unlock()
 	fake.LocalSizeStub = nil
 	if fake.localSizeReturnsOnCall == nil {
 		fake.localSizeReturnsOnCall = make(map[int]struct {
-			result1 sqlite.Counts
+			result1 db.Counts
 		})
 	}
 	fake.localSizeReturnsOnCall[i] = struct {
-		result1 sqlite.Counts
+		result1 db.Counts
 	}{result1}
 }
 
@@ -2411,7 +2411,7 @@ func (fake *Model) NeedFolderFilesReturnsOnCall(i int, result1 []protocol.FileIn
 	}{result1, result2, result3, result4}
 }
 
-func (fake *Model) NeedSize(arg1 string, arg2 protocol.DeviceID) sqlite.Counts {
+func (fake *Model) NeedSize(arg1 string, arg2 protocol.DeviceID) db.Counts {
 	fake.needSizeMutex.Lock()
 	ret, specificReturn := fake.needSizeReturnsOnCall[len(fake.needSizeArgsForCall)]
 	fake.needSizeArgsForCall = append(fake.needSizeArgsForCall, struct {
@@ -2437,7 +2437,7 @@ func (fake *Model) NeedSizeCallCount() int {
 	return len(fake.needSizeArgsForCall)
 }
 
-func (fake *Model) NeedSizeCalls(stub func(string, protocol.DeviceID) sqlite.Counts) {
+func (fake *Model) NeedSizeCalls(stub func(string, protocol.DeviceID) db.Counts) {
 	fake.needSizeMutex.Lock()
 	defer fake.needSizeMutex.Unlock()
 	fake.NeedSizeStub = stub
@@ -2450,26 +2450,26 @@ func (fake *Model) NeedSizeArgsForCall(i int) (string, protocol.DeviceID) {
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *Model) NeedSizeReturns(result1 sqlite.Counts) {
+func (fake *Model) NeedSizeReturns(result1 db.Counts) {
 	fake.needSizeMutex.Lock()
 	defer fake.needSizeMutex.Unlock()
 	fake.NeedSizeStub = nil
 	fake.needSizeReturns = struct {
-		result1 sqlite.Counts
+		result1 db.Counts
 	}{result1}
 }
 
-func (fake *Model) NeedSizeReturnsOnCall(i int, result1 sqlite.Counts) {
+func (fake *Model) NeedSizeReturnsOnCall(i int, result1 db.Counts) {
 	fake.needSizeMutex.Lock()
 	defer fake.needSizeMutex.Unlock()
 	fake.NeedSizeStub = nil
 	if fake.needSizeReturnsOnCall == nil {
 		fake.needSizeReturnsOnCall = make(map[int]struct {
-			result1 sqlite.Counts
+			result1 db.Counts
 		})
 	}
 	fake.needSizeReturnsOnCall[i] = struct {
-		result1 sqlite.Counts
+		result1 db.Counts
 	}{result1}
 }
 
@@ -2688,7 +2688,7 @@ func (fake *Model) PendingFoldersReturnsOnCall(i int, result1 map[string]kv.Pend
 	}{result1, result2}
 }
 
-func (fake *Model) ReceiveOnlySize(arg1 string) sqlite.Counts {
+func (fake *Model) ReceiveOnlySize(arg1 string) db.Counts {
 	fake.receiveOnlySizeMutex.Lock()
 	ret, specificReturn := fake.receiveOnlySizeReturnsOnCall[len(fake.receiveOnlySizeArgsForCall)]
 	fake.receiveOnlySizeArgsForCall = append(fake.receiveOnlySizeArgsForCall, struct {
@@ -2713,7 +2713,7 @@ func (fake *Model) ReceiveOnlySizeCallCount() int {
 	return len(fake.receiveOnlySizeArgsForCall)
 }
 
-func (fake *Model) ReceiveOnlySizeCalls(stub func(string) sqlite.Counts) {
+func (fake *Model) ReceiveOnlySizeCalls(stub func(string) db.Counts) {
 	fake.receiveOnlySizeMutex.Lock()
 	defer fake.receiveOnlySizeMutex.Unlock()
 	fake.ReceiveOnlySizeStub = stub
@@ -2726,26 +2726,26 @@ func (fake *Model) ReceiveOnlySizeArgsForCall(i int) string {
 	return argsForCall.arg1
 }
 
-func (fake *Model) ReceiveOnlySizeReturns(result1 sqlite.Counts) {
+func (fake *Model) ReceiveOnlySizeReturns(result1 db.Counts) {
 	fake.receiveOnlySizeMutex.Lock()
 	defer fake.receiveOnlySizeMutex.Unlock()
 	fake.ReceiveOnlySizeStub = nil
 	fake.receiveOnlySizeReturns = struct {
-		result1 sqlite.Counts
+		result1 db.Counts
 	}{result1}
 }
 
-func (fake *Model) ReceiveOnlySizeReturnsOnCall(i int, result1 sqlite.Counts) {
+func (fake *Model) ReceiveOnlySizeReturnsOnCall(i int, result1 db.Counts) {
 	fake.receiveOnlySizeMutex.Lock()
 	defer fake.receiveOnlySizeMutex.Unlock()
 	fake.ReceiveOnlySizeStub = nil
 	if fake.receiveOnlySizeReturnsOnCall == nil {
 		fake.receiveOnlySizeReturnsOnCall = make(map[int]struct {
-			result1 sqlite.Counts
+			result1 db.Counts
 		})
 	}
 	fake.receiveOnlySizeReturnsOnCall[i] = struct {
-		result1 sqlite.Counts
+		result1 db.Counts
 	}{result1}
 }
 

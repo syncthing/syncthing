@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/db/sqlite"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -45,11 +45,11 @@ type indexHandler struct {
 
 	cond   *sync.Cond
 	paused bool
-	sdb    *sqlite.DB
+	sdb    db.DB
 	runner service
 }
 
-func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, folder config.FolderConfiguration, sdb *sqlite.DB, runner service, startInfo *clusterConfigDeviceInfo, evLogger events.Logger) (*indexHandler, error) {
+func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, folder config.FolderConfiguration, sdb db.DB, runner service, startInfo *clusterConfigDeviceInfo, evLogger events.Logger) (*indexHandler, error) {
 	myIndexID, err := sdb.IndexID(folder.ID, protocol.LocalDeviceID)
 	if err != nil {
 		return nil, err
@@ -500,7 +500,7 @@ func (s *indexHandler) String() string {
 type indexHandlerRegistry struct {
 	evLogger      events.Logger
 	conn          protocol.Connection
-	sdb           *sqlite.DB
+	sdb           db.DB
 	downloads     *deviceDownloadState
 	indexHandlers *serviceMap[string, *indexHandler]
 	startInfos    map[string]*clusterConfigDeviceInfo
@@ -513,7 +513,7 @@ type indexHandlerFolderState struct {
 	runner service
 }
 
-func newIndexHandlerRegistry(conn protocol.Connection, sdb *sqlite.DB, downloads *deviceDownloadState, evLogger events.Logger) *indexHandlerRegistry {
+func newIndexHandlerRegistry(conn protocol.Connection, sdb db.DB, downloads *deviceDownloadState, evLogger events.Logger) *indexHandlerRegistry {
 	r := &indexHandlerRegistry{
 		evLogger:      evLogger,
 		conn:          conn,

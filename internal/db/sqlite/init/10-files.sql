@@ -22,15 +22,15 @@ CREATE TABLE IF NOT EXISTS files (
     device_idx INTEGER NOT NULL, -- actual device ID or LocalDeviceID
     sequence INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, -- our local database sequence, for each and every entry
     remote_sequence INTEGER, -- remote device's sequence number, null for local or synthetic entries
-    name TEXT NOT NULL,
+    name TEXT NOT NULL COLLATE BINARY,
     type INTEGER NOT NULL, -- protocol.FileInfoType
     modified INTEGER NOT NULL, -- Unix nanos
     size INTEGER NOT NULL,
-    version TEXT NOT NULL,
+    version TEXT NOT NULL COLLATE BINARY,
     deleted INTEGER NOT NULL, -- boolean
     invalid INTEGER NOT NULL, -- boolean
-    local_flags  INTEGER NOT NULL,
-    blocks_hash TEXT, -- null when there are no blocks
+    local_flags INTEGER NOT NULL,
+    blocklist_hash BLOB, -- null when there are no blocks
     FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
     FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE
 ) STRICT
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS files (
 CREATE TABLE IF NOT EXISTS fileinfos (
     sequence INTEGER NOT NULL PRIMARY KEY, -- our local database sequence from the files table
     fiprotobuf BLOB NOT NULL,
-    FOREIGN KEY(sequence) REFERENCES files(sequence) ON DELETE CASCADE
+    FOREIGN KEY(sequence) REFERENCES files(sequence) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 ) STRICT
 ;
 -- There can be only one file per folder, device, and remote sequence number
@@ -53,5 +53,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS files_device_name ON files (folder_idx, device
 CREATE INDEX IF NOT EXISTS files_name_only ON files (folder_idx, name)
 ;
 -- -- -- We want to be able to look up & iterate files based on blocks hash
-CREATE INDEX IF NOT EXISTS files_blocks_hash_only ON files (blocks_hash)
+CREATE INDEX IF NOT EXISTS files_blocklist_hash_only ON files (blocklist_hash)
 ;

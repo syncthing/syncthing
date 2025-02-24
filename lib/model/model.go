@@ -29,8 +29,8 @@ import (
 
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/kv"
-	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -97,10 +97,10 @@ type Model interface {
 
 	LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[protocol.FileInfo, error]
 	LocalFilesSequenced(folder string, device protocol.DeviceID, startSet int64) iter.Seq2[protocol.FileInfo, error]
-	LocalSize(folder string, device protocol.DeviceID) sqlite.Counts
-	GlobalSize(folder string) sqlite.Counts
-	NeedSize(folder string, device protocol.DeviceID) sqlite.Counts
-	ReceiveOnlySize(folder string) sqlite.Counts
+	LocalSize(folder string, device protocol.DeviceID) db.Counts
+	GlobalSize(folder string) db.Counts
+	NeedSize(folder string, device protocol.DeviceID) db.Counts
+	ReceiveOnlySize(folder string) db.Counts
 	Sequence(folder string, device protocol.DeviceID) (int64, error)
 
 	NeedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error)
@@ -135,7 +135,7 @@ type model struct {
 	// constructor parameters
 	cfg            config.Wrapper
 	id             protocol.DeviceID
-	sdb            *sqlite.DB
+	sdb            db.DB
 	protectedFiles []string
 	evLogger       events.Logger
 
@@ -209,7 +209,7 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb *sqlite.DB, protectedFiles []string, evLogger events.Logger, keyGen *protocol.KeyGenerator) Model {
+func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb db.DB, protectedFiles []string, evLogger events.Logger, keyGen *protocol.KeyGenerator) Model {
 	spec := svcutil.SpecWithDebugLogger(l)
 	m := &model{
 		Supervisor: suture.New("model", spec),
@@ -817,7 +817,7 @@ type FolderCompletion struct {
 	RemoteState   remoteFolderState
 }
 
-func newFolderCompletion(global, need sqlite.Counts, sequence int64, state remoteFolderState) FolderCompletion {
+func newFolderCompletion(global, need db.Counts, sequence int64, state remoteFolderState) FolderCompletion {
 	comp := FolderCompletion{
 		GlobalBytes: global.Bytes,
 		NeedBytes:   need.Bytes,
@@ -949,19 +949,19 @@ func (m *model) AllForBlocksHash(folder string, h []byte) iter.Seq2[protocol.Fil
 	return m.sdb.AllForBlocksHash(folder, h)
 }
 
-func (m *model) LocalSize(folder string, device protocol.DeviceID) sqlite.Counts {
+func (m *model) LocalSize(folder string, device protocol.DeviceID) db.Counts {
 	return m.sdb.LocalSize(folder, device)
 }
 
-func (m *model) GlobalSize(folder string) sqlite.Counts {
+func (m *model) GlobalSize(folder string) db.Counts {
 	return m.sdb.GlobalSize(folder)
 }
 
-func (m *model) NeedSize(folder string, device protocol.DeviceID) sqlite.Counts {
+func (m *model) NeedSize(folder string, device protocol.DeviceID) db.Counts {
 	return m.sdb.NeedSize(folder, device)
 }
 
-func (m *model) ReceiveOnlySize(folder string) sqlite.Counts {
+func (m *model) ReceiveOnlySize(folder string) db.Counts {
 	return m.sdb.ReceiveOnlySize(folder)
 }
 

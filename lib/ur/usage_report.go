@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/db/sqlite"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -39,7 +39,7 @@ const Version = 3
 var StartTime = time.Now().Truncate(time.Second)
 
 type Model interface {
-	GlobalSize(folder string) sqlite.Counts
+	GlobalSize(folder string) db.Counts
 	UsageReportingStats(report *contract.Report, version int, preview bool)
 }
 

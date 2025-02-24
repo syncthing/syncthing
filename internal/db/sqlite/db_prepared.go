@@ -23,8 +23,16 @@ func (p *txPreparedStmts) Preparex(query string) (*sqlx.Stmt, error) {
 	return stmt, nil
 }
 
-func (p *txPreparedStmts) Close() {
+func (p *txPreparedStmts) Commit() error {
 	for _, s := range p.stmts {
 		s.Close()
 	}
+	return p.Tx.Commit()
+}
+
+func (p *txPreparedStmts) Rollback() error {
+	for _, s := range p.stmts {
+		s.Close()
+	}
+	return p.Tx.Rollback()
 }
