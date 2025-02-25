@@ -1,14 +1,23 @@
 package sqlite
 
 import (
+	"crypto/sha256"
+	"encoding/binary"
 	"iter"
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
+)
+
+const (
+	folderID  = "test"
+	blockSize = 128 << 10
+	dirSize   = 128
 )
 
 func TestBasics(t *testing.T) {
@@ -24,43 +33,52 @@ func TestBasics(t *testing.T) {
 		}
 	})
 
-	const folderID = "test"
-
 	// Some local files
-	var v protocol.Vector
-	v = v.Update(1)
-	err = db.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{
-		{Name: "test1", Size: 1, Version: v, Blocks: genBlocks(2)},
-		{Name: "test2", Type: protocol.FileInfoTypeDirectory, Version: v, Blocks: genBlocks(2)},
-		{Name: "test2/a", Size: 100, Version: v, Blocks: genBlocks(2)},
-		{Name: "test2/b", Size: 200, Version: v, Blocks: genBlocks(2)},
-	})
+	local := []protocol.FileInfo{
+		genFile("test1", 1, 0),
+		genDir("test2", 0),
+		genFile("test2/a", 2, 0),
+		genFile("test2/b", 3, 0),
+	}
+	err = db.Update(folderID, protocol.LocalDeviceID, local)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Some remote files
-	err = db.Update(folderID, protocol.DeviceID{42}, []protocol.FileInfo{
-		{Name: "test3", Sequence: 101, Size: 100, ModifiedS: 300, Version: v.Update(42), Blocks: genBlocks(1)},
-		{Name: "test4", Sequence: 102, Size: 200, ModifiedS: 100, Version: v.Update(42), Blocks: genBlocks(2)},
-		{Name: "test1", Sequence: 103, Size: 300, ModifiedS: 200, Version: v.Update(42), Blocks: genBlocks(3)},
-	})
+	remote := []protocol.FileInfo{
+		genFile("test3", 3, 101),
+		genFile("test4", 4, 102),
+		genFile("test1", 5, 103),
+	}
+	// All newer than the local ones
+	for i := range remote {
+		remote[i].Version = remote[i].Version.Update(42)
+	}
+	err = db.Update(folderID, protocol.DeviceID{42}, remote)
 	if err != nil {
 		t.Fatal(err)
 	}
+	const (
+		localSize      = (1+2+3)*blockSize + dirSize
+		remoteSize     = (3 + 4 + 5) * blockSize
+		globalSize     = (2+3+3+4+5)*blockSize + dirSize
+		needSizeLocal  = remoteSize
+		needSizeRemote = (2+3)*blockSize + dirSize
+	)
 
 	t.Run("Local", func(t *testing.T) {
 		t.Parallel()
 
-		fi, ok, err := db.Local(folderID, protocol.LocalDeviceID, "test2") // exists
+		fi, ok, err := db.Local(folderID, protocol.LocalDeviceID, "test2/a") // exists
 		if err != nil {
 			t.Fatal(err)
 		}
 		if !ok {
 			t.Fatal("not found")
 		}
-		if fi.Name != "test2" {
-			t.Fatal("should have got test2")
+		if fi.Name != "test2/a" {
+			t.Fatal("should have got test2/a")
 		}
 		if len(fi.Blocks) != 2 {
 			t.Fatal("expected two blocks")
@@ -85,7 +103,7 @@ func TestBasics(t *testing.T) {
 		if !ok {
 			t.Fatal("not found")
 		}
-		if fi.Size != 300 {
+		if fi.Size != 5*blockSize {
 			t.Fatal("should be the remote file")
 		}
 	})
@@ -132,12 +150,12 @@ func TestBasics(t *testing.T) {
 		}
 
 		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderNewestFirst, 0))
-		if len(need) != 3 || need[0] != "test3" { // newest
+		if len(need) != 3 || need[0] != "test1" { // newest
 			t.Log(need)
 			t.Error("expected three files, ordered newest to oldest")
 		}
 		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderOldestFirst, 0))
-		if len(need) != 3 || need[0] != "test4" { // oldest
+		if len(need) != 3 || need[0] != "test3" { // oldest
 			t.Log(need)
 			t.Error("expected three files, ordered oldest to newest")
 		}
@@ -157,9 +175,9 @@ func TestBasics(t *testing.T) {
 			t.Log(c)
 			t.Error("one directory expected")
 		}
-		if c.Bytes != 1+128+100+200 {
+		if c.Bytes != localSize {
 			t.Log(c)
-			t.Error("size 1+128+100+200 expected")
+			t.Error("size unexpected")
 		}
 
 		// Other device
@@ -173,9 +191,9 @@ func TestBasics(t *testing.T) {
 			t.Log(c)
 			t.Error("no directories expected")
 		}
-		if c.Bytes != 600 {
+		if c.Bytes != remoteSize {
 			t.Log(c)
-			t.Error("size 600 expected")
+			t.Error("size unexpected")
 		}
 	})
 
@@ -191,9 +209,9 @@ func TestBasics(t *testing.T) {
 			t.Log(c)
 			t.Error("one directory expected")
 		}
-		if c.Bytes != 128+100+200+100+200+300 {
+		if c.Bytes != int64(globalSize) {
 			t.Log(c)
-			t.Error("size 128+100+200+100+200+300 expected")
+			t.Error("size unexpected")
 		}
 	})
 
@@ -209,9 +227,9 @@ func TestBasics(t *testing.T) {
 			t.Log(c)
 			t.Error("no directories expected")
 		}
-		if c.Bytes != 100+200+300 {
+		if c.Bytes != needSizeLocal {
 			t.Log(c)
-			t.Error("size 100+200+300 expected")
+			t.Error("size unexpected")
 		}
 	})
 
@@ -227,7 +245,7 @@ func TestBasics(t *testing.T) {
 			t.Log(c)
 			t.Error("one directory expected")
 		}
-		if c.Bytes != 128+100+200 {
+		if c.Bytes != needSizeRemote {
 			t.Log(c)
 			t.Error("size 128 expected")
 		}
@@ -364,11 +382,9 @@ func TestAvailability(t *testing.T) {
 	const folderID = "test"
 
 	// Some local files
-	var v protocol.Vector
-	v = v.Update(1)
 	err = db.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{
-		{Name: "test1", Size: 100, ModifiedS: 100, Version: v, Blocks: genBlocks(1)},
-		{Name: "test2", Size: 200, ModifiedS: 200, Version: v, Blocks: genBlocks(2)},
+		genFile("test1", 1, 0),
+		genFile("test2", 2, 0),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -376,8 +392,8 @@ func TestAvailability(t *testing.T) {
 
 	// Some remote files
 	err = db.Update(folderID, protocol.DeviceID{42}, []protocol.FileInfo{
-		{Name: "test2", Sequence: 1, Size: 200, ModifiedS: 200, Version: v, Blocks: genBlocks(1)},
-		{Name: "test3", Sequence: 2, Size: 300, ModifiedS: 300, Version: v, Blocks: genBlocks(2)},
+		genFile("test2", 2, 1),
+		genFile("test3", 3, 2),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -385,8 +401,8 @@ func TestAvailability(t *testing.T) {
 
 	// Further remote files
 	err = db.Update(folderID, protocol.DeviceID{45}, []protocol.FileInfo{
-		{Name: "test3", Sequence: 1, Size: 200, ModifiedS: 200, Version: v, Blocks: genBlocks(1)},
-		{Name: "test4", Sequence: 2, Size: 300, ModifiedS: 300, Version: v, Blocks: genBlocks(2)},
+		genFile("test3", 3, 1),
+		genFile("test4", 4, 2),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -438,11 +454,9 @@ func TestDropFilesNamed(t *testing.T) {
 	const folderID = "test"
 
 	// Some local files
-	var v protocol.Vector
-	v = v.Update(1)
 	err = db.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{
-		{Name: "test1", Size: 100, Version: v, Blocks: genBlocks(2)},
-		{Name: "test2", Size: 200, Version: v, Blocks: genBlocks(2)},
+		genFile("test1", 1, 0),
+		genFile("test2", 2, 0),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -480,13 +494,11 @@ func TestDropFolder(t *testing.T) {
 	})
 
 	// Some local files
-	var v protocol.Vector
-	v = v.Update(1)
 
 	// Folder A
 	err = db.Update("a", protocol.LocalDeviceID, []protocol.FileInfo{
-		{Name: "test1", Size: 100, Version: v, Blocks: genBlocks(2)},
-		{Name: "test2", Size: 200, Version: v, Blocks: genBlocks(2)},
+		genFile("test1", 1, 0),
+		genFile("test2", 2, 0),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -494,8 +506,8 @@ func TestDropFolder(t *testing.T) {
 
 	// Folder B
 	err = db.Update("b", protocol.LocalDeviceID, []protocol.FileInfo{
-		{Name: "test1", Size: 100, Version: v, Blocks: genBlocks(2)},
-		{Name: "test2", Size: 200, Version: v, Blocks: genBlocks(2)},
+		genFile("test1", 1, 0),
+		genFile("test2", 2, 0),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -538,13 +550,11 @@ func TestDropDevice(t *testing.T) {
 	})
 
 	// Some local files
-	var v protocol.Vector
-	v = v.Update(1)
 
 	// Device 1
 	err = db.Update("a", protocol.DeviceID{1}, []protocol.FileInfo{
-		{Name: "test1", Sequence: 1, Size: 100, Version: v, Blocks: genBlocks(2)},
-		{Name: "test2", Sequence: 2, Size: 200, Version: v, Blocks: genBlocks(2)},
+		genFile("test1", 1, 1),
+		genFile("test2", 2, 2),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -552,8 +562,8 @@ func TestDropDevice(t *testing.T) {
 
 	// Device 2
 	err = db.Update("a", protocol.DeviceID{2}, []protocol.FileInfo{
-		{Name: "test1", Sequence: 1, Size: 100, Version: v, Blocks: genBlocks(2)},
-		{Name: "test2", Sequence: 2, Size: 200, Version: v, Blocks: genBlocks(2)},
+		genFile("test1", 1, 1),
+		genFile("test2", 2, 2),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -600,13 +610,11 @@ func TestDropAllFiles(t *testing.T) {
 	})
 
 	// Some local files
-	var v protocol.Vector
-	v = v.Update(1)
 
 	// Device 1 folder A
 	err = db.Update("a", protocol.DeviceID{1}, []protocol.FileInfo{
-		{Name: "test1", Sequence: 1, Size: 100, Version: v, Blocks: genBlocks(2)},
-		{Name: "test2", Sequence: 2, Size: 200, Version: v, Blocks: genBlocks(2)},
+		genFile("test1", 1, 1),
+		genFile("test2", 2, 2),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -614,8 +622,8 @@ func TestDropAllFiles(t *testing.T) {
 
 	// Device 1 folder B
 	err = db.Update("b", protocol.DeviceID{1}, []protocol.FileInfo{
-		{Name: "test1", Sequence: 1, Size: 100, Version: v, Blocks: genBlocks(2)},
-		{Name: "test2", Sequence: 2, Size: 200, Version: v, Blocks: genBlocks(2)},
+		genFile("test1", 1, 1),
+		genFile("test2", 2, 2),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -671,13 +679,11 @@ func TestConcurrentUpdate(t *testing.T) {
 
 	const folderID = "test"
 
-	var v protocol.Vector
-	v = v.Update(1)
 	files := []protocol.FileInfo{
-		{Name: "test1", Sequence: 100, Size: 1, Version: v, Blocks: genBlocks(2)},
-		{Name: "test2", Sequence: 101, Type: protocol.FileInfoTypeDirectory, Size: 128, Version: v, Blocks: genBlocks(2)},
-		{Name: "test3", Sequence: 102, Size: 100, ModifiedS: 300, Version: v.Update(42), Blocks: genBlocks(1)},
-		{Name: "test4", Sequence: 103, Size: 200, ModifiedS: 100, Version: v.Update(42), Blocks: genBlocks(2)},
+		genFile("test1", 1, 1),
+		genFile("test2", 2, 2),
+		genFile("test3", 3, 3),
+		genFile("test4", 4, 4),
 	}
 
 	const n = 32
@@ -714,13 +720,11 @@ func TestConcurrentUpdateSelect(t *testing.T) {
 	const folderID = "test"
 
 	// Some local files
-	var v protocol.Vector
-	v = v.Update(1)
 	files := []protocol.FileInfo{
-		{Name: "test1", Sequence: 1, Size: 1, Version: v, Blocks: genBlocks(2)},
-		{Name: "test2", Sequence: 2, Type: protocol.FileInfoTypeDirectory, Size: 128, Version: v, Blocks: genBlocks(2)},
-		{Name: "test3", Sequence: 3, Size: 100, ModifiedS: 300, Version: v.Update(42), Blocks: genBlocks(1)},
-		{Name: "test4", Sequence: 4, Size: 200, ModifiedS: 100, Version: v.Update(42), Blocks: genBlocks(2)},
+		genFile("test1", 1, 1),
+		genFile("test2", 2, 2),
+		genFile("test3", 3, 3),
+		genFile("test4", 4, 4),
 	}
 
 	// Insert the files for a remote device
@@ -772,19 +776,15 @@ func TestAllForBlocksHash(t *testing.T) {
 		}
 	})
 
-	const folderID = "test"
-
-	var v protocol.Vector
-	v = v.Update(1)
-
 	// test1 is unique, while test2 and test3 have the same blocks and hence
 	// the same blocks hash
 
 	files := []protocol.FileInfo{
-		{Name: "test1", Sequence: 1, Size: 100, Version: v, Blocks: genBlocks(1)},
-		{Name: "test2", Sequence: 2, Size: 200, Version: v, Blocks: genBlocks(2)},
-		{Name: "test3", Sequence: 3, Size: 300, Version: v, Blocks: genBlocks(2)},
+		genFile("test1", 1, 1),
+		genFile("test2", 2, 2),
+		genFile("test3", 3, 3),
 	}
+	files[2].Blocks = files[1].Blocks
 
 	if err := db.Update(folderID, protocol.DeviceID{42}, files); err != nil {
 		t.Fatal(err)
@@ -834,16 +834,56 @@ func iterCollectTest[T any](t *testing.T, it iter.Seq2[T, error]) []T {
 	return vals
 }
 
-func genBlocks(n int) []protocol.BlockInfo {
-	b := make([]protocol.BlockInfo, n)
+func genDir(name string, seq int) protocol.FileInfo {
+	return protocol.FileInfo{
+		Name:        name,
+		Type:        protocol.FileInfoTypeDirectory,
+		ModifiedS:   time.Now().Unix(),
+		ModifiedBy:  1,
+		Sequence:    int64(seq),
+		Version:     protocol.Vector{}.Update(1),
+		Permissions: 0o755,
+		ModifiedNs:  12345678,
+	}
+}
+
+var clock = time.Now().Unix()
+
+func genFile(name string, numBlocks int, seq int) protocol.FileInfo {
+	clock++
+	return protocol.FileInfo{
+		Name:         name,
+		Size:         int64(numBlocks) * blockSize,
+		ModifiedS:    clock,
+		ModifiedBy:   1,
+		Version:      protocol.Vector{}.Update(1),
+		Sequence:     int64(seq),
+		Blocks:       genBlocks(name, 0, numBlocks),
+		Permissions:  0o644,
+		ModifiedNs:   12345678,
+		RawBlockSize: blockSize,
+	}
+}
+
+func genBlocks(name string, seed, count int) []protocol.BlockInfo {
+	b := make([]protocol.BlockInfo, count)
 	for i := range b {
-		h := make([]byte, 32)
-		for j := range h {
-			h[j] = byte(i + j)
-		}
-		b[i].Hash = h
-		b[i].Size = 128 << 10
-		b[i].Offset = (128 << 10) * int64(i)
+		b[i].Hash = genBlockHash(name, seed, i)
+		b[i].Size = blockSize
+		b[i].Offset = (blockSize) * int64(i)
 	}
 	return b
+}
+
+func genBlockHash(name string, seed, index int) []byte {
+	bs := sha256.Sum256([]byte(name))
+	ebs := binary.LittleEndian.AppendUint64(nil, uint64(seed))
+	for i := range ebs {
+		bs[i] ^= ebs[i]
+	}
+	ebs = binary.LittleEndian.AppendUint64(nil, uint64(index))
+	for i := range ebs {
+		bs[i] ^= ebs[i]
+	}
+	return bs[:]
 }
