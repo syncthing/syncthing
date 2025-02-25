@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS devices (
 ) STRICT
 ;
 
--- index_ids holds the index ID for a given device and folder
-CREATE TABLE IF NOT EXISTS index_ids (
+-- indexids holds the index ID for a given device and folder
+CREATE TABLE IF NOT EXISTS indexids (
     device_idx INTEGER NOT NULL,
     folder_idx INTEGER NOT NULL,
     index_id TEXT NOT NULL COLLATE BINARY,

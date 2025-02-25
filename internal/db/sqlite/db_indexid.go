@@ -15,7 +15,7 @@ func (s *DB) IndexID(folder string, device protocol.DeviceID) (protocol.IndexID,
 	// we'll do the full thing under a lock.
 	var indexID string
 	if err := s.sql.Get(&indexID, `
-		SELECT i.index_id FROM index_ids i
+		SELECT i.index_id FROM indexids i
 		INNER JOIN folders o ON o.idx  = i.folder_idx
 		INNER JOIN devices d ON d.idx  = i.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ?`,
@@ -46,7 +46,7 @@ func (s *DB) IndexID(folder string, device protocol.DeviceID) (protocol.IndexID,
 	defer tx.Rollback() //nolint:errcheck
 
 	if err := tx.Get(&indexID, `
-		SELECT index_id FROM index_ids WHERE folder_idx = ? AND device_idx = ?`,
+		SELECT index_id FROM indexids WHERE folder_idx = ? AND device_idx = ?`,
 		folderIdx, s.localDeviceIdx,
 	); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return 0, fmt.Errorf("indexID (get): %w", err)
@@ -55,7 +55,7 @@ func (s *DB) IndexID(folder string, device protocol.DeviceID) (protocol.IndexID,
 	if indexID == "" {
 		// Generate a new index ID
 		id := protocol.NewIndexID()
-		if _, err := tx.Exec(`INSERT INTO index_ids (folder_idx, device_idx, index_id) values (?, ?, ?)`,
+		if _, err := tx.Exec(`INSERT INTO indexids (folder_idx, device_idx, index_id) values (?, ?, ?)`,
 			folderIdx, s.localDeviceIdx, indexIDToHex(id),
 		); err != nil {
 			return 0, fmt.Errorf("indexID (insert): %w", err)
@@ -82,7 +82,7 @@ func (s *DB) SetIndexID(folder string, device protocol.DeviceID, id protocol.Ind
 		return fmt.Errorf("indexID (deviceIdx): %w", err)
 	}
 
-	if _, err := s.sql.Exec(`INSERT OR REPLACE INTO index_ids (folder_idx, device_idx, index_id) values (?, ?, ?)`,
+	if _, err := s.sql.Exec(`INSERT OR REPLACE INTO indexids (folder_idx, device_idx, index_id) values (?, ?, ?)`,
 		folderIdx, deviceIdx, indexIDToHex(id),
 	); err != nil {
 		return fmt.Errorf("indexID (insert): %w", err)
@@ -93,7 +93,7 @@ func (s *DB) SetIndexID(folder string, device protocol.DeviceID, id protocol.Ind
 func (s *DB) DropIndexIDs() error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
-	_, err := s.sql.Exec(`DELETE FROM index_ids`)
+	_, err := s.sql.Exec(`DELETE FROM indexids`)
 	return wrap("drop index IDs", err)
 }
 
