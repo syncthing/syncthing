@@ -28,6 +28,9 @@ var (
 	Stamp   = "0"
 	Tags    = ""
 
+	// Added to by other packages
+	ExtraTags []string
+
 	// Set by init()
 	Date        time.Time
 	IsRelease   bool
@@ -108,6 +111,7 @@ func TagsList() []string {
 	if Extra != "" {
 		tags = append(tags, Extra)
 	}
+	tags = append(tags, ExtraTags...)
 
 	sort.Strings(tags)
 	return tags
