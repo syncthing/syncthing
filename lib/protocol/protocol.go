@@ -871,6 +871,8 @@ func typeOf(msg proto.Message) bep.MessageType {
 		return bep.MessageType_MESSAGE_TYPE_RESPONSE
 	case *bep.DownloadProgress:
 		return bep.MessageType_MESSAGE_TYPE_DOWNLOAD_PROGRESS
+	case *bep.TunnelData:
+		return bep.MessageType_MESSAGE_TYPE_TUNNEL_DATA
 	case *bep.Ping:
 		return bep.MessageType_MESSAGE_TYPE_PING
 	case *bep.Close:
