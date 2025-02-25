@@ -13,5 +13,5 @@ const (
 )
 
 func init() {
-	build.ExtraTags = append(build.ExtraTags, "go-sqlite")
+	build.AddTag("go-sqlite")
 }
