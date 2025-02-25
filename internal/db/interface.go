@@ -5,9 +5,12 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/thejerf/suture/v4"
 )
 
 type DB interface {
+	suture.Service
+
 	AllForBlocksHash(folder string, h []byte) iter.Seq2[protocol.FileInfo, error]
 	AllForBlocksHashAnyFolder(errptr *error, h []byte) iter.Seq2[string, protocol.FileInfo]
 	AllGlobal(folder string) iter.Seq2[protocol.FileInfo, error]

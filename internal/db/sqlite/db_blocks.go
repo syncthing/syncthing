@@ -30,8 +30,12 @@ func (*DB) insertBlocksLocked(tx *txPreparedStmts, blocklistHash []byte, blocks 
 }
 
 func (s *DB) Blocks(hash []byte) iter.Seq2[db.BlockMapEntry, error] {
+	// We involve the files table in this select because deletion of blocks
+	// & blocklists is deferred (gabrage collected) while the files list is
+	// not. This filters out blocks that are in fact deleted.
 	return iterStructs[db.BlockMapEntry](s.sql.Queryx(`
-		SELECT b.blocklist_hash, b.idx, b.offset, b.size FROM blocks b
+		SELECT f.blocklist_hash, b.idx, b.offset, b.size FROM files f
+		LEFT JOIN blocks b ON f.blocklist_hash = b.blocklist_hash
 		WHERE b.hash = ?`,
 		hash))
 }

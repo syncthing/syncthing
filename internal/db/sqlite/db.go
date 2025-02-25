@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"iter"
 	"sync"
-	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/db"
@@ -33,16 +32,8 @@ func (s *DB) Close() error {
 }
 
 func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error {
-	t0 := time.Now()
-
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
-
-	t1 := time.Now()
-	defer func() {
-		d := time.Since(t1)
-		fmt.Printf("Update(%s, %v, %d files) took %v, delayed %v, %.01f/s\n", folder, device, len(fs), d, t1.Sub(t0), float64(len(fs))/d.Seconds())
-	}()
 
 	tx, err := s.sql.BeginTxx(context.Background(), nil)
 	if err != nil {
@@ -65,22 +56,21 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING sequence`)
 	if err != nil {
-		return wrap("update", err)
+		return wrap("update (prepare insert file)", err)
 	}
 
 	insertFileInfoStmt, err := txp.Preparex(`
 		INSERT INTO fileinfos (sequence, fiprotobuf)
 		VALUES (?, ?)`)
 	if err != nil {
-		return wrap("update", err)
+		return wrap("update (prepare insert fileinfo)", err)
 	}
 
 	insertBlockListStmt, err := txp.Preparex(`
-		INSERT INTO blocklists (blocklist_hash, refcount, blprotobuf)
-		VALUES (?, 1, ?)
-		ON CONFLICT DO UPDATE SET refcount = refcount + 1`)
+		INSERT OR IGNORE INTO blocklists (blocklist_hash, blprotobuf)
+		VALUES (?, ?)`)
 	if err != nil {
-		return wrap("update", err)
+		return wrap("update (prepare insert blocklist)", err)
 	}
 
 	var prevRemoteSeq int64
@@ -116,12 +106,8 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 			remoteSeq = &f.Sequence
 		}
 		var localSeq int64
-		t0 := time.Now()
 		if err := insertFileStmt.Get(&localSeq, folderIdx, deviceIdx, remoteSeq, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.IsInvalid(), f.LocalFlags, blockshash); err != nil {
 			return wrap("update (insert file)", err)
-		}
-		if d := time.Since(t0); d > 25*time.Millisecond {
-			fmt.Println("insertFileStmt", i, d)
 		}
 
 		if len(f.Blocks) > 0 {
@@ -131,22 +117,17 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 			if err != nil {
 				return wrap("update (marshal blocklist)", err)
 			}
-			t0 = time.Now()
-			if _, err := insertBlockListStmt.Exec(f.BlocksHash, bs); err != nil {
+			res, err := insertBlockListStmt.Exec(f.BlocksHash, bs)
+			if err != nil {
 				return wrap("update (insert blocklist)", err)
 			}
-			if d := time.Since(t0); d > 25*time.Millisecond {
-				fmt.Println("insertBlockListStmt", i, d, len(f.Blocks))
-			}
+			affected, _ := res.RowsAffected()
 
-			if device == protocol.LocalDeviceID {
-				// Update block lists
-				t0 = time.Now()
+			if device == protocol.LocalDeviceID && affected != 0 {
+				// Update block lists, unless we didn't have to insert the
+				// blocklist (all blocks already in place.)
 				if err := s.insertBlocksLocked(txp, f.BlocksHash, f.Blocks); err != nil {
-					return wrap("update", err)
-				}
-				if d := time.Since(t0); d > 25*time.Millisecond {
-					fmt.Println("insertBlocksLocked", i, d, len(f.Blocks))
+					return wrap("update (insert blocks)", err)
 				}
 			}
 
@@ -159,23 +140,15 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 		}
 		bs, err := proto.Marshal(f.ToWire(true))
 		if err != nil {
-			return wrap("update", err)
+			return wrap("update (marshal fileinfo)", err)
 		}
-		t0 = time.Now()
 		if _, err := insertFileInfoStmt.Exec(localSeq, bs); err != nil {
 			return wrap("update (insert fileinfo)", err)
 		}
-		if d := time.Since(t0); d > 25*time.Millisecond {
-			fmt.Println("insertFileInfoStmt", d)
-		}
 
 		// Update global and need
-		t0 = time.Now()
 		if err := s.recalcGlobalForFile(txp, folderIdx, f.Name); err != nil {
-			return wrap("update", err)
-		}
-		if d := time.Since(t0); d > 25*time.Millisecond {
-			fmt.Println("recalcGlobalForFile", d)
+			return wrap("update (recalc global)", err)
 		}
 	}
 

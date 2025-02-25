@@ -120,6 +120,8 @@ func (a *App) Start() error {
 func (a *App) startup() error {
 	a.mainService.Add(ur.NewFailureHandler(a.cfg, a.evLogger))
 
+	a.mainService.Add(a.sdb)
+
 	if a.opts.AuditWriter != nil {
 		a.mainService.Add(newAuditService(a.opts.AuditWriter, a.evLogger))
 	}
