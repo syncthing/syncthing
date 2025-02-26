@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -484,34 +483,6 @@ func (s *DB) AllForBlocksHashAnyFolder(errptr *error, h []byte) iter.Seq2[string
 	}
 }
 
-type sizesRow struct {
-	Type    protocol.FileInfoType
-	Count   int
-	Size    int64
-	FlagBit int64 `db:"local_flags"`
-}
-
-func (s *DB) LocalSize(folder string, device protocol.DeviceID) db.Counts {
-	var res []sizesRow
-	extra := ""
-	if device == protocol.LocalDeviceID {
-		// The size counters for the local device are special, in that we
-		// synthetise entries with both the Global and Need flag for files
-		// that we don't currently have. We need to exlude those from the
-		// local size sum.
-		extra = fmt.Sprintf(" AND local_flags & %[1]d != %[1]d", protocol.FlagLocalGlobal|protocol.FlagLocalNeeded)
-	}
-	if err := s.sql.Select(&res, `
-		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
-		INNER JOIN folders o ON o.idx = s.folder_idx
-		INNER JOIN devices d ON d.idx = s.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND s.local_flags & ? = 0`+extra,
-		folder, device.String(), protocol.FlagLocalIgnored); err != nil {
-		return db.Counts{}
-	}
-	return summarizeRows(res)
-}
-
 func (s *DB) Folders() ([]string, error) {
 	var res []string
 	err := s.sql.Select(&res, `SELECT folder_id FROM folders ORDER BY folder_id`)
@@ -540,98 +511,6 @@ func (s *DB) DevicesForFolder(folder string) ([]protocol.DeviceID, error) {
 		}
 	}
 	return devs, nil
-}
-
-func (s *DB) NeedSize(folder string, device protocol.DeviceID) db.Counts {
-	if device == protocol.LocalDeviceID {
-		return s.needSizeLocal(folder)
-	}
-	return s.needSizeRemote(folder, device)
-}
-
-func (s *DB) needSizeLocal(folder string) db.Counts {
-	// The need size for the local device is the sum of entries with both
-	// the global and need bit set.
-	var res []sizesRow
-	err := s.sql.Select(&res, `
-		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
-		INNER JOIN folders o ON o.idx = s.folder_idx
-		WHERE o.folder_id = ? AND s.local_flags & ? = ?
-	`, folder, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal)
-	if err != nil {
-		return db.Counts{}
-	}
-	return summarizeRows(res)
-}
-
-func (s *DB) needSizeRemote(folder string, device protocol.DeviceID) db.Counts {
-	// The need size for a remote device is the global size minus the local
-	// size plus the need size.
-	var res []sizesRow
-	err := s.sql.Select(&res, `
-		SELECT type, count, size, local_flags FROM sizes s
-		INNER JOIN folders o ON o.idx = s.folder_idx
-		INNER JOIN devices d ON d.idx = s.device_idx
-		WHERE d.device_id = ? AND local_flags & ? != 0
-	`, folder, device.String(), protocol.FlagLocalNeeded)
-	if err != nil {
-		panic(err)
-	}
-	need := summarizeRows(res)
-	have := s.LocalSize(folder, device)
-	global := s.GlobalSize(folder)
-	return global.Subtract(have).Add(need)
-}
-
-func (s *DB) GlobalSize(folder string) db.Counts {
-	// Exclude ignored and receive-only changed files from the global count
-	// (legacy expectation? it's a bit weird since those files can in fact
-	// be global and you can get them with GetGlobal etc.)
-	var res []sizesRow
-	err := s.sql.Select(&res, `
-		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
-		INNER JOIN folders o ON o.idx = s.folder_idx
-		WHERE o.folder_id = ? AND s.local_flags & ? != 0 AND s.local_flags & ? = 0
-	`, folder, protocol.FlagLocalGlobal, protocol.FlagLocalReceiveOnly|protocol.FlagLocalIgnored)
-	if err != nil {
-		return db.Counts{}
-	}
-	return summarizeRows(res)
-}
-
-func (s *DB) ReceiveOnlySize(folder string) db.Counts {
-	var res []sizesRow
-	err := s.sql.Select(&res, `
-		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
-		INNER JOIN folders o ON o.idx = s.folder_idx
-		WHERE o.folder_id = ? AND local_flags & ? != 0
-	`, folder, protocol.FlagLocalReceiveOnly)
-	if err != nil {
-		return db.Counts{}
-	}
-	return summarizeRows(res)
-}
-
-func summarizeRows(res []sizesRow) db.Counts {
-	c := db.Counts{
-		DeviceID: protocol.LocalDeviceID,
-	}
-	for _, r := range res {
-		switch {
-		case r.FlagBit&protocol.FlagLocalDeleted != 0:
-			c.Deleted += r.Count
-		case r.Type == protocol.FileInfoTypeFile:
-			c.Files += r.Count
-			c.Bytes += r.Size
-		case r.Type == protocol.FileInfoTypeDirectory:
-			c.Directories += r.Count
-			c.Bytes += r.Size
-		case r.Type == protocol.FileInfoTypeSymlink:
-			c.Symlinks += r.Count
-			c.Bytes += r.Size
-		}
-	}
-	return c
 }
 
 func (s *DB) folderIdxLocked(folderID string) (int64, error) {
