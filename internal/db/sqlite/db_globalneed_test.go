@@ -1,11 +1,71 @@
 package sqlite
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
+
+func TestNeed(t *testing.T) {
+	t.Helper()
+
+	db, err := OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// Some local files
+	var v protocol.Vector
+	baseV := v.Update(1)
+	newerV := baseV.Update(42)
+	files := []protocol.FileInfo{
+		genFile("test1", 1, 0), // remote need
+		genFile("test2", 2, 0), // local need
+		genFile("test3", 3, 0), // global
+	}
+	files[0].Version = baseV
+	files[1].Version = baseV
+	files[2].Version = newerV
+	err = db.Update(folderID, protocol.LocalDeviceID, files)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Some remote files
+	remote := []protocol.FileInfo{
+		genFile("test2", 2, 100), // global
+		genFile("test3", 3, 101), // remote need
+		genFile("test4", 4, 102), // local need
+	}
+	remote[0].Version = newerV
+	remote[1].Version = baseV
+	remote[2].Version = newerV
+	err = db.Update(folderID, protocol.DeviceID{42}, remote)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A couple are needed locally
+	localNeed := iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
+	if !slices.Equal(localNeed, []string{"test2", "test4"}) {
+		t.Log(localNeed)
+		t.Fatal("bad local need")
+	}
+
+	// Another couple are needed remotely
+	remoteNeed := iterCollectTest(t, db.AllNeededNames(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0))
+	if !slices.Equal(remoteNeed, []string{"test1", "test3"}) {
+		t.Log(remoteNeed)
+		t.Fatal("bad remote need")
+	}
+}
 
 func TestDropRecalcsGlobal(t *testing.T) {
 	// When we drop a device we may get a new global

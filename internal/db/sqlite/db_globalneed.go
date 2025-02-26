@@ -28,12 +28,6 @@ type fileRow struct {
 }
 
 func (s *DB) AllNeededNames(folder string, device protocol.DeviceID, order config.PullOrder, limit int) iter.Seq2[string, error] {
-	if device != protocol.LocalDeviceID {
-		return func(yield func(string, error) bool) {
-			yield("", errors.New("only implemented for local device"))
-		}
-	}
-
 	var orderBy string
 	switch order {
 	case config.PullOrderRandom:
@@ -55,13 +49,29 @@ func (s *DB) AllNeededNames(folder string, device protocol.DeviceID, order confi
 		limitStr = fmt.Sprintf(" LIMIT %d", limit)
 	}
 
-	// Select all the files for the global device where the need bit is set.
-	vals := iterStructs[fileRow](s.sql.Queryx(`
-		SELECT g.name, g.modified, g.size FROM files g
+	if device == protocol.LocalDeviceID {
+		// Select all the non-ignored files with the global and need bits set.
+		vals := iterStructs[fileRow](s.sql.Queryx(`
+		SELECT g.name FROM files g
 		INNER JOIN folders o ON o.idx = g.folder_idx
 		WHERE o.folder_id = ? AND g.local_flags & ? = 0 AND g.local_flags & ? = ?
 		`+orderBy+limitStr,
-		folder, protocol.FlagLocalIgnored, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal))
+			folder, protocol.FlagLocalIgnored, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal))
+		return itererr.Map(vals, func(r fileRow) string {
+			return osutil.NativeFilename(r.Name)
+		})
+	}
+
+	// Select all the global files that don't have a corresponding remote file with the same version.
+	vals := iterStructs[fileRow](s.sql.Queryx(`
+	SELECT g.name FROM files g
+	INNER JOIN folders o ON o.idx = g.folder_idx
+	WHERE o.folder_id = ? AND g.local_flags & ? != 0 AND NOT EXISTS (
+		SELECT 1 FROM FILES f
+		INNER JOIN devices d ON d.idx = f.device_idx
+		WHERE f.name = g.name AND f.version = g.version AND f.folder_idx = g.folder_idx AND d.device_id = ?
+	)`+orderBy+limitStr,
+		folder, protocol.FlagLocalGlobal, device.String()))
 	return itererr.Map(vals, func(r fileRow) string {
 		return osutil.NativeFilename(r.Name)
 	})
