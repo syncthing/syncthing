@@ -278,6 +278,14 @@ func (e encryptedConnection) Statistics() Statistics {
 	return e.conn.Statistics()
 }
 
+func (e encryptedConnection) TunnelIn() <-chan *TunnelData {
+	return e.conn.TunnelIn()
+}
+
+func (e encryptedConnection) TunnelOut() chan<- *TunnelData {
+	return e.conn.TunnelOut()
+}
+
 func encryptFileInfos(keyGen *KeyGenerator, files []FileInfo, folderKey *[keySize]byte) {
 	for i, fi := range files {
 		files[i] = encryptFileInfo(keyGen, fi, folderKey)
