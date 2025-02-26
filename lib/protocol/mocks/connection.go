@@ -964,6 +964,14 @@ func (fake *Connection) StartCalls(stub func()) {
 	fake.StartStub = stub
 }
 
+func (fake *Connection) TunnelIn() <-chan *protocol.TunnelData {
+	return nil
+}
+
+func (fake *Connection) TunnelOut() chan<- *protocol.TunnelData {
+	return nil
+}
+
 func (fake *Connection) Statistics() protocol.Statistics {
 	fake.statisticsMutex.Lock()
 	ret, specificReturn := fake.statisticsReturnsOnCall[len(fake.statisticsArgsForCall)]

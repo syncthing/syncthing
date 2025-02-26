@@ -137,6 +137,8 @@ type Connection interface {
 	DownloadProgress(ctx context.Context, dp *DownloadProgress)
 
 	Start()
+	TunnelIn() <-chan *TunnelData
+	TunnelOut() chan<- *TunnelData
 	SetFolderPasswords(passwords map[string]string)
 	Close(err error)
 	DeviceID() DeviceID

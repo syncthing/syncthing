@@ -166,6 +166,7 @@ type model struct {
 	deviceDownloads                map[protocol.DeviceID]*deviceDownloadState
 	remoteFolderStates             map[protocol.DeviceID]map[string]remoteFolderState // deviceID -> folders
 	indexHandlers                  *serviceMap[protocol.DeviceID, *indexHandlerRegistry]
+	tunnelConnections              map[string]net.Conn
 
 	// for testing only
 	foldersRunning atomic.Int32
@@ -244,6 +245,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, protec
 		deviceDownloads:                make(map[protocol.DeviceID]*deviceDownloadState),
 		remoteFolderStates:             make(map[protocol.DeviceID]map[string]remoteFolderState),
 		indexHandlers:                  newServiceMap[protocol.DeviceID, *indexHandlerRegistry](evLogger),
+		tunnelConnections:              make(map[string]net.Conn),
 	}
 	for devID, cfg := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID)
@@ -2371,6 +2373,33 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 
 	m.deviceWasSeen(deviceID)
 	m.scheduleConnectionPromotion()
+
+	go m.handleTunnelData(conn)
+}
+
+func (m *model) handleTunnelData(conn protocol.Connection) {
+	for {
+		select {
+		case <-conn.Closed():
+			return
+		case data := <-conn.TunnelIn():
+			m.forwardTunnelData(data)
+		}
+	}
+}
+
+func (m *model) forwardTunnelData(data *protocol.TunnelData) {
+	m.mut.RLock()
+	tcpConn, ok := m.tunnelConnections[data.TunnelID]
+	m.mut.RUnlock()
+	if ok {
+		_, err := tcpConn.Write(data.Data)
+		if err != nil {
+			l.Warnf("Failed to forward tunnel data: %v", err)
+		}
+	} else {
+		l.Warnf("No TCP connection found for TunnelID: %s", data.TunnelID)
+	}
 }
 
 func (m *model) scheduleConnectionPromotion() {
