@@ -27,6 +27,7 @@ func NewTunnelManager(configFile string) *TunnelManager {
 	if err != nil {
 		panic(err)
 	}
+	l.Debugln("TunnelManager created with config file:", configFile)
 	return &TunnelManager{
 		idGenerator:          gen,
 		localTunnelEndpoints: make(map[uint64]io.ReadWriteCloser),
@@ -35,6 +36,7 @@ func NewTunnelManager(configFile string) *TunnelManager {
 }
 
 func (tm *TunnelManager) Serve(ctx context.Context) error {
+	l.Debugln("TunnelManager Serve started")
 	// Load listener address and destination device from JSON config file
 	config, err := loadTunnelConfig(tm.configFile)
 	if err != nil {
@@ -42,14 +44,17 @@ func (tm *TunnelManager) Serve(ctx context.Context) error {
 	}
 
 	for _, tunnel := range config.Tunnels {
+		l.Debugln("Starting listener for tunnel:", tunnel)
 		go tm.ServeListener(ctx, tunnel.LocalListenAddress, protocol.DeviceID(tunnel.DeviceID), tunnel.RemoteAddress)
 	}
 
 	<-ctx.Done()
+	l.Debugln("TunnelManager Serve stopped")
 	return nil
 }
 
 func (tm *TunnelManager) ServeListener(ctx context.Context, listenAddress string, destinationDevice protocol.DeviceID, destinationAddress string) error {
+	l.Debugln("ServeListener started for address:", listenAddress, "destination device:", destinationDevice, "destination address:", destinationAddress)
 	listener, err := net.Listen("tcp", listenAddress)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", listenAddress, err)
@@ -71,6 +76,7 @@ func (tm *TunnelManager) ServeListener(ctx context.Context, listenAddress string
 		}
 
 		tunnelID := tm.generateTunnelID()
+		l.Debugln("Accepted connection, tunnel ID:", tunnelID)
 		tm.registerLocalTunnelEndpoint(tunnelID, conn)
 
 		// send open command to the destination device
@@ -89,6 +95,7 @@ func (tm *TunnelManager) ServeListener(ctx context.Context, listenAddress string
 }
 
 func (tm *TunnelManager) handleLocalTunnelEndpoint(ctx context.Context, tunnelID uint64, conn io.ReadWriter, destinationDevice protocol.DeviceID, destinationAddress string) {
+	l.Debugln("Handling local tunnel endpoint, tunnel ID:", tunnelID, "destination device:", destinationDevice, "destination address:", destinationAddress)
 	defer tm.deregisterLocalTunnelEndpoint(tunnelID)
 	defer func() {
 		// send close command to the destination device
@@ -98,6 +105,7 @@ func (tm *TunnelManager) handleLocalTunnelEndpoint(ctx context.Context, tunnelID
 				Command:  bep.TunnelCommand_TUNNEL_COMMAND_CLOSE,
 			},
 		}
+		l.Debugln("Closed local tunnel endpoint, tunnel ID:", tunnelID)
 	}()
 
 	// Example: Forward data to the destination address
@@ -105,6 +113,7 @@ func (tm *TunnelManager) handleLocalTunnelEndpoint(ctx context.Context, tunnelID
 	for {
 		select {
 		case <-ctx.Done():
+			l.Debugln("Context done for tunnel ID:", tunnelID)
 			return
 		default:
 			// Read data from the connection and forward it
@@ -115,7 +124,7 @@ func (tm *TunnelManager) handleLocalTunnelEndpoint(ctx context.Context, tunnelID
 			}
 			// Forward data to the destination
 			// This is a placeholder implementation
-			fmt.Printf("Forwarding data to device %v, %s (%d tunnel id): len: %s\n", destinationDevice, destinationAddress, tunnelID, n)
+			l.Debugf("Forwarding data to device %v, %s (%d tunnel id): len: %d\n", destinationDevice, destinationAddress, tunnelID, n)
 
 			// Send the data to the destination device
 			tm.deviceConnections[destinationDevice] <- &protocol.TunnelData{
@@ -130,18 +139,21 @@ func (tm *TunnelManager) handleLocalTunnelEndpoint(ctx context.Context, tunnelID
 }
 
 func (tm *TunnelManager) registerLocalTunnelEndpoint(tunnelID uint64, conn io.ReadWriteCloser) {
+	l.Debugln("Registering local tunnel endpoint, tunnel ID:", tunnelID)
 	tm.Lock()
 	defer tm.Unlock()
 	tm.localTunnelEndpoints[tunnelID] = conn
 }
 
 func (tm *TunnelManager) deregisterLocalTunnelEndpoint(tunnelID uint64) {
+	l.Debugln("Deregistering local tunnel endpoint, tunnel ID:", tunnelID)
 	tm.Lock()
 	defer tm.Unlock()
 	delete(tm.localTunnelEndpoints, tunnelID)
 }
 
 func (tm *TunnelManager) RegisterDeviceConnection(device protocol.DeviceID, tunnelIn <-chan *protocol.TunnelData, tunnelOut chan<- *protocol.TunnelData) {
+	l.Debugln("Registering device connection, device ID:", device)
 	tm.Lock()
 	defer tm.Unlock()
 	tm.deviceConnections[device] = tunnelOut
@@ -155,13 +167,14 @@ func (tm *TunnelManager) RegisterDeviceConnection(device protocol.DeviceID, tunn
 }
 
 func (tm *TunnelManager) DeregisterDeviceConnection(device protocol.DeviceID) {
+	l.Debugln("Deregistering device connection, device ID:", device)
 	tm.Lock()
 	defer tm.Unlock()
 	delete(tm.deviceConnections, device)
 }
 
 func (tm *TunnelManager) forwardRemoteTunnelData(fromDevice protocol.DeviceID, data *protocol.TunnelData) {
-
+	l.Debugln("Forwarding remote tunnel data, from device ID:", fromDevice, "command:", data.D.Command)
 	switch data.D.Command {
 	case bep.TunnelCommand_TUNNEL_COMMAND_OPEN:
 		if data.D.TunnelDestination == nil {
@@ -212,10 +225,12 @@ func (tm *TunnelManager) generateTunnelID() uint64 {
 	if err != nil {
 		panic(err)
 	}
+	l.Debugln("Generated tunnel ID:", id)
 	return uint64(id)
 }
 
 func loadTunnelConfig(path string) (*bep.TunnelConfig, error) {
+	l.Debugln("Loading tunnel config from file:", path)
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -228,5 +243,6 @@ func loadTunnelConfig(path string) (*bep.TunnelConfig, error) {
 		return nil, err
 	}
 
+	l.Debugln("Loaded tunnel config:", config)
 	return &config, nil
 }
