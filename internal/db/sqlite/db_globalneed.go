@@ -187,35 +187,15 @@ func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file str
 		return wrap("processNeed (insert global)", err)
 	}
 
-	// Clear the need and global flags on non-global entries that have the
-	// same version vector or are newer than the global
-	for _, f := range es[:globIdx] {
-		f.LocalFlags &= ^(protocol.FlagLocalNeeded | protocol.FlagLocalGlobal)
-		upStmt, err := txp.Prepare(`
-			UPDATE files SET local_flags = ?
-			WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`)
-		if err != nil {
-			return wrap("processNeed (clear need)", err)
-		}
-		if _, err := upStmt.Exec(f.LocalFlags, f.FolderIdx, f.DeviceIdx, f.Sequence); err != nil {
-			return wrap("processNeed (clear need)", err)
-		}
+	// Clear the need and global flags on all other entries
+	upStmt, err = txp.Prepare(`
+			UPDATE files SET local_flags = local_flags & ?
+			WHERE folder_idx = ? AND name = ? AND sequence != ?`)
+	if err != nil {
+		return wrap("processNeed (clear need)", err)
 	}
-
-	// Set the need flag and clear the global flag on all other entries
-	// (these are now on the need list)
-	for _, f := range es[globIdx+1:] {
-		f.LocalFlags &= ^protocol.FlagLocalGlobal
-		f.LocalFlags |= protocol.FlagLocalNeeded
-		upStmt, err := txp.Prepare(`
-			UPDATE files SET local_flags = ?
-			WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`)
-		if err != nil {
-			return wrap("processNeed (clear need)", err)
-		}
-		if _, err := upStmt.Exec(f.LocalFlags, f.FolderIdx, f.DeviceIdx, f.Sequence); err != nil {
-			return wrap("processNeed (set need)", err)
-		}
+	if _, err := upStmt.Exec(^(protocol.FlagLocalNeeded | protocol.FlagLocalGlobal), folderIdx, global.Name, global.Sequence); err != nil {
+		return wrap("processNeed (clear need)", err)
 	}
 
 	return nil
