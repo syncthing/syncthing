@@ -12,7 +12,7 @@ import (
 func Open(path string) (*DB, error) {
 	// Open the database with options to enable foreign keys and recursive
 	// triggers (needed for the delete+insert triggers on row replace).
-	sqlDB, err := sqlx.Open(dbDriver, path+"?"+commonOptions)
+	sqlDB, err := sqlx.Open(dbDriver, "file:"+path+"?"+commonOptions)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
