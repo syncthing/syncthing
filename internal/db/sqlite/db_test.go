@@ -221,7 +221,7 @@ func TestBasics(t *testing.T) {
 		c := db.NeedSize(folderID, protocol.LocalDeviceID)
 		if c.Files != 3 {
 			t.Log(c)
-			t.Error("one file expected")
+			t.Error("three files expected")
 		}
 		if c.Directories != 0 {
 			t.Log(c)
@@ -247,7 +247,7 @@ func TestBasics(t *testing.T) {
 		}
 		if c.Bytes != needSizeRemote {
 			t.Log(c)
-			t.Error("size 128 expected")
+			t.Error("size unexpected")
 		}
 	})
 

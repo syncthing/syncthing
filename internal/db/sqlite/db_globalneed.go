@@ -279,8 +279,8 @@ func (s *DB) needSizeRemote(folder string, device protocol.DeviceID) db.Counts {
 		SELECT type, count, size, local_flags FROM sizes s
 		INNER JOIN folders o ON o.idx = s.folder_idx
 		INNER JOIN devices d ON d.idx = s.device_idx
-		WHERE d.device_id = ? AND local_flags & ? != 0
-	`, folder, device.String(), protocol.FlagLocalNeeded)
+		WHERE o.folder_id = ? AND d.device_id = ? AND local_flags & ? = ?
+	`, folder, device.String(), protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded)
 	if err != nil {
 		panic(err)
 	}
