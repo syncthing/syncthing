@@ -252,22 +252,22 @@ func (s *DB) needSizeLocal(folder string) db.Counts {
 }
 
 func (s *DB) needSizeRemote(folder string, device protocol.DeviceID) db.Counts {
-	// The need size for a remote device is the global size minus the local
-	// size plus the need size.
+	// Select all the global files that don't have a corresponding remote
+	// file with the same version.
 	var res []sizesRow
-	err := s.sql.Select(&res, `
-		SELECT type, count, size, local_flags FROM sizes s
-		INNER JOIN folders o ON o.idx = s.folder_idx
-		INNER JOIN devices d ON d.idx = s.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND local_flags & ? = ?
-	`, folder, device.String(), protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded)
-	if err != nil {
-		panic(err)
+	if err := s.sql.Select(&res, `
+	SELECT g.type, count(*) as count, sum(g.size) as size, g.local_flags FROM files g
+	INNER JOIN folders o ON o.idx = g.folder_idx
+	WHERE o.folder_id = ? AND g.local_flags & ? != 0 AND NOT EXISTS (
+		SELECT 1 FROM FILES f
+		INNER JOIN devices d ON d.idx = f.device_idx
+		WHERE f.name = g.name AND f.version = g.version AND f.folder_idx = g.folder_idx AND d.device_id = ?
+	)
+	GROUP BY g.type, g.local_flags`,
+		folder, protocol.FlagLocalGlobal, device.String()); err != nil {
+		return db.Counts{}
 	}
-	need := summarizeRows(res)
-	have := s.LocalSize(folder, device)
-	global := s.GlobalSize(folder)
-	return global.Subtract(have).Add(need)
+	return summarizeRows(res)
 }
 
 func (s *DB) GlobalSize(folder string) db.Counts {
