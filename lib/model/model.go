@@ -166,7 +166,8 @@ type model struct {
 	deviceDownloads                map[protocol.DeviceID]*deviceDownloadState
 	remoteFolderStates             map[protocol.DeviceID]map[string]remoteFolderState // deviceID -> folders
 	indexHandlers                  *serviceMap[protocol.DeviceID, *indexHandlerRegistry]
-	tunnelConnections              map[string]io.ReadWriter
+	tunnelConnections              map[uint64]io.ReadWriter
+	tunnelManager                  *TunnelManager
 
 	// for testing only
 	foldersRunning atomic.Int32
@@ -245,7 +246,8 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, protec
 		deviceDownloads:                make(map[protocol.DeviceID]*deviceDownloadState),
 		remoteFolderStates:             make(map[protocol.DeviceID]map[string]remoteFolderState),
 		indexHandlers:                  newServiceMap[protocol.DeviceID, *indexHandlerRegistry](evLogger),
-		tunnelConnections:              make(map[string]io.ReadWriter),
+		tunnelConnections:              make(map[uint64]io.ReadWriter),
+		tunnelManager:                  NewTunnelManager(),
 	}
 	for devID, cfg := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID)
@@ -255,6 +257,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, protec
 	m.Add(m.progressEmitter)
 	m.Add(m.indexHandlers)
 	m.Add(svcutil.AsService(m.serve, m.String()))
+	m.Add(m.tunnelManager)
 
 	return m
 }
@@ -269,6 +272,8 @@ func (m *model) serve(ctx context.Context) error {
 		close(m.started)
 		return svcutil.AsFatalErr(err, svcutil.ExitError)
 	}
+
+	go m.tunnelManager.Serve(ctx)
 
 	close(m.started)
 
@@ -3540,13 +3545,13 @@ func without[E comparable, S ~[]E](s S, e E) S {
 	return s
 }
 
-func (m *model) RegisterTunnelConnection(tunnelID string, conn io.ReadWriter) {
+func (m *model) RegisterTunnelConnection(tunnelID uint64, conn io.ReadWriter) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 	m.tunnelConnections[tunnelID] = conn
 }
 
-func (m *model) DeregisterTunnelConnection(tunnelID string) {
+func (m *model) DeregisterTunnelConnection(tunnelID uint64) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 	delete(m.tunnelConnections, tunnelID)

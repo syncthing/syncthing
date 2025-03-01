@@ -1159,7 +1159,7 @@ func (c *connectionWrappingModel) DownloadProgress(p *DownloadProgress) error {
 
 // TunnelData represents the structure for tunnel data messages.
 type TunnelData struct {
-	TunnelID string
+	TunnelID uint64
 	Data     []byte
 }
 

@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/protobuf/any.proto";
+
 package bep;
 
 // --- Pre-auth ---
@@ -27,6 +29,7 @@ enum MessageType {
   MESSAGE_TYPE_RESPONSE = 4;
   MESSAGE_TYPE_DOWNLOAD_PROGRESS = 5;
   MESSAGE_TYPE_TUNNEL_DATA = 64;
+  MESSAGE_TYPE_TUNNEL_MANAGE = 65;
   MESSAGE_TYPE_PING = 6;
   MESSAGE_TYPE_CLOSE = 7;
 }
@@ -243,11 +246,21 @@ enum FileDownloadProgressUpdateType {
   FILE_DOWNLOAD_PROGRESS_UPDATE_TYPE_FORGET = 1;
 }
 
-// TunnelData
+// Tunnel
 
 message TunnelData {
-  string tunnel_id = 1;
+  uint64 tunnel_id = 1;
   bytes data = 2;
+}
+
+message TunnelManageRequest {
+  uint64 request_id = 1;
+  google.protobuf.Any command = 2;
+}
+
+message TunnelManageResponse {
+  uint64 request_id = 1;
+  google.protobuf.Any response = 2;
 }
 
 // Ping
