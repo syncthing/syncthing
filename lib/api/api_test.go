@@ -761,8 +761,7 @@ func TestHTTPLogin(t *testing.T) {
 				APIKey:     testAPIKey,
 				User:       "user",
 			}
-			err := gui.SetPassword(password)
-			if err != nil {
+			if err := gui.SetPassword(password); err != nil {
 				t.Fatal(err, "Failed to set initial password")
 			}
 			cfg := config.Configuration{
