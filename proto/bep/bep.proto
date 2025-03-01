@@ -267,7 +267,7 @@ message TunnelConfig {
 
 message Tunnel {
   string localListenAddress = 1;
-  bytes DeviceID = 2;
+  string DeviceID = 2;
   string remoteAddress = 3;
 }
 

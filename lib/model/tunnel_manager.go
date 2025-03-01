@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/hitoshi44/go-uid64"
@@ -16,19 +17,31 @@ import (
 
 type TunnelManager struct {
 	sync.Mutex
-	configFile           string
+	config               *bep.TunnelConfig
 	idGenerator          *uid64.Generator
 	localTunnelEndpoints map[uint64]io.ReadWriteCloser
 	deviceConnections    map[protocol.DeviceID]chan<- *protocol.TunnelData
 }
 
 func NewTunnelManager(configFile string) *TunnelManager {
+	// Replace the filename with "tunnels.json"
+	configFile = fmt.Sprintf("%s/tunnels.json", filepath.Dir(configFile))
+	l.Debugln("TunnelManager created with config file:", configFile)
+	config, err := loadTunnelConfig(configFile)
+	if err != nil {
+		l.Infoln("failed to load tunnel config: %w", err)
+		config = nil
+	}
+	return NewTunnelManagerFromConfig(config)
+}
+
+func NewTunnelManagerFromConfig(config *bep.TunnelConfig) *TunnelManager {
 	gen, err := uid64.NewGenerator(0)
 	if err != nil {
 		panic(err)
 	}
-	l.Debugln("TunnelManager created with config file:", configFile)
 	return &TunnelManager{
+		config:               config,
 		idGenerator:          gen,
 		localTunnelEndpoints: make(map[uint64]io.ReadWriteCloser),
 		deviceConnections:    make(map[protocol.DeviceID]chan<- *protocol.TunnelData),
@@ -37,15 +50,16 @@ func NewTunnelManager(configFile string) *TunnelManager {
 
 func (tm *TunnelManager) Serve(ctx context.Context) error {
 	l.Debugln("TunnelManager Serve started")
-	// Load listener address and destination device from JSON config file
-	config, err := loadTunnelConfig(tm.configFile)
-	if err != nil {
-		return fmt.Errorf("failed to load tunnel config: %w", err)
-	}
 
-	for _, tunnel := range config.Tunnels {
-		l.Debugln("Starting listener for tunnel:", tunnel)
-		go tm.ServeListener(ctx, tunnel.LocalListenAddress, protocol.DeviceID(tunnel.DeviceID), tunnel.RemoteAddress)
+	if tm.config != nil {
+		for _, tunnel := range tm.config.Tunnels {
+			l.Debugln("Starting listener for tunnel, device:", tunnel)
+			device, err := protocol.DeviceIDFromString(tunnel.DeviceID)
+			if err != nil {
+				return fmt.Errorf("failed to parse device ID: %w", err)
+			}
+			go tm.ServeListener(ctx, tunnel.LocalListenAddress, device, tunnel.RemoteAddress)
+		}
 	}
 
 	<-ctx.Done()

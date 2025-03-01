@@ -247,7 +247,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, protec
 		remoteFolderStates:             make(map[protocol.DeviceID]map[string]remoteFolderState),
 		indexHandlers:                  newServiceMap[protocol.DeviceID, *indexHandlerRegistry](evLogger),
 		tunnelConnections:              make(map[uint64]io.ReadWriter),
-		tunnelManager:                  NewTunnelManager(cfg.ConfigPath() + "/tunnels.json"),
+		tunnelManager:                  NewTunnelManager(cfg.ConfigPath()),
 	}
 	for devID, cfg := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID)
