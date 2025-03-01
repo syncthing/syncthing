@@ -1868,7 +1868,7 @@ angular.module('syncthing.core')
             $scope.webauthn.errors = {};
             return $http.post(authUrlbase + '/webauthn-start')
                 .then(function (resp) {
-                    if (resp && resp.data && resp.data.options.publicKey) {
+                    if ((((resp || {}).data || {}).options || {}).publicKey) {
                         $scope.webauthn.request = resp.data;
                         return resp.data;
                     } else {
