@@ -71,7 +71,7 @@ func TestBasics(t *testing.T) {
 	t.Run("Local", func(t *testing.T) {
 		t.Parallel()
 
-		fi, ok, err := db.Local(folderID, protocol.LocalDeviceID, "test2/a") // exists
+		fi, ok, err := db.GetDeviceFile(folderID, protocol.LocalDeviceID, "test2/a") // exists
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -85,7 +85,7 @@ func TestBasics(t *testing.T) {
 			t.Fatal("expected two blocks")
 		}
 
-		_, ok, err = db.Local(folderID, protocol.LocalDeviceID, "test3") // does not exist
+		_, ok, err = db.GetDeviceFile(folderID, protocol.LocalDeviceID, "test3") // does not exist
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -97,7 +97,7 @@ func TestBasics(t *testing.T) {
 	t.Run("Global", func(t *testing.T) {
 		t.Parallel()
 
-		fi, ok, err := db.Global(folderID, "test1")
+		fi, ok, err := db.GetGlobalFile(folderID, "test1")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -112,12 +112,12 @@ func TestBasics(t *testing.T) {
 	t.Run("AllLocal", func(t *testing.T) {
 		t.Parallel()
 
-		have := iterCollectTest(t, db.AllLocal(folderID, protocol.LocalDeviceID))
+		have := iterCollectTest(t, db.AllLocalFiles(folderID, protocol.LocalDeviceID))
 		if len(have) != 4 {
 			t.Log(have)
 			t.Error("expected four files")
 		}
-		have = iterCollectTest(t, db.AllLocal(folderID, protocol.DeviceID{42}))
+		have = iterCollectTest(t, db.AllLocalFiles(folderID, protocol.DeviceID{42}))
 		if len(have) != 3 {
 			t.Log(have)
 			t.Error("expected three files")
@@ -127,35 +127,35 @@ func TestBasics(t *testing.T) {
 	t.Run("AllNeededNamesLocal", func(t *testing.T) {
 		t.Parallel()
 
-		need := iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
+		need := iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
 		if len(need) != 3 || need[0] != "test1" {
 			t.Log(need)
 			t.Error("expected three files, ordered alphabetically")
 		}
 
-		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 1))
+		need = iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 1))
 		if len(need) != 1 || need[0] != "test1" {
 			t.Log(need)
 			t.Error("expected one file, limited, ordered alphabetically")
 		}
 
-		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderLargestFirst, 0))
+		need = iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderLargestFirst, 0))
 		if len(need) != 3 || need[0] != "test1" { // largest
 			t.Log(need)
 			t.Error("expected three files, ordered largest to smallest")
 		}
-		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderSmallestFirst, 0))
+		need = iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderSmallestFirst, 0))
 		if len(need) != 3 || need[0] != "test3" { // smallest
 			t.Log(need)
 			t.Error("expected three files, ordered smallest to largest")
 		}
 
-		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderNewestFirst, 0))
+		need = iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderNewestFirst, 0))
 		if len(need) != 3 || need[0] != "test1" { // newest
 			t.Log(need)
 			t.Error("expected three files, ordered newest to oldest")
 		}
-		need = iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderOldestFirst, 0))
+		need = iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderOldestFirst, 0))
 		if len(need) != 3 || need[0] != "test3" { // oldest
 			t.Log(need)
 			t.Error("expected three files, ordered oldest to newest")
@@ -167,7 +167,7 @@ func TestBasics(t *testing.T) {
 
 		// Local device
 
-		c, err := db.LocalSize(folderID, protocol.LocalDeviceID)
+		c, err := db.CountLocal(folderID, protocol.LocalDeviceID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -186,7 +186,7 @@ func TestBasics(t *testing.T) {
 
 		// Other device
 
-		c, err = db.LocalSize(folderID, protocol.DeviceID{42})
+		c, err = db.CountLocal(folderID, protocol.DeviceID{42})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -207,7 +207,7 @@ func TestBasics(t *testing.T) {
 	t.Run("GlobalSize", func(t *testing.T) {
 		t.Parallel()
 
-		c, err := db.GlobalSize(folderID)
+		c, err := db.CountGlobal(folderID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -228,7 +228,7 @@ func TestBasics(t *testing.T) {
 	t.Run("NeedSizeLocal", func(t *testing.T) {
 		t.Parallel()
 
-		c, err := db.NeedSize(folderID, protocol.LocalDeviceID)
+		c, err := db.CountNeed(folderID, protocol.LocalDeviceID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -249,7 +249,7 @@ func TestBasics(t *testing.T) {
 	t.Run("NeedSizeRemote", func(t *testing.T) {
 		t.Parallel()
 
-		c, err := db.NeedSize(folderID, protocol.DeviceID{42})
+		c, err := db.CountNeed(folderID, protocol.DeviceID{42})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -270,7 +270,7 @@ func TestBasics(t *testing.T) {
 	t.Run("Folders", func(t *testing.T) {
 		t.Parallel()
 
-		folders, err := db.Folders()
+		folders, err := db.ListFolders()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -282,7 +282,7 @@ func TestBasics(t *testing.T) {
 	t.Run("DevicesForFolder", func(t *testing.T) {
 		t.Parallel()
 
-		devs, err := db.DevicesForFolder("test")
+		devs, err := db.ListDevicesForFolder("test")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -295,14 +295,14 @@ func TestBasics(t *testing.T) {
 	t.Run("Sequence", func(t *testing.T) {
 		t.Parallel()
 
-		if seq, err := db.Sequence(folderID, protocol.LocalDeviceID); err != nil {
+		if seq, err := db.GetDeviceSequence(folderID, protocol.LocalDeviceID); err != nil {
 			t.Fatal(err)
 		} else if seq != 4 {
 			t.Log(seq)
 			t.Error("expected local sequence to match number of files inserted")
 		}
 
-		if seq, err := db.Sequence(folderID, protocol.DeviceID{42}); err != nil {
+		if seq, err := db.GetDeviceSequence(folderID, protocol.DeviceID{42}); err != nil {
 			t.Fatal(err)
 		} else if seq != 103 {
 			t.Log(seq)
@@ -310,19 +310,19 @@ func TestBasics(t *testing.T) {
 		}
 
 		// Non-existent should be zero and no error
-		if seq, err := db.Sequence("trolol", protocol.LocalDeviceID); err != nil {
+		if seq, err := db.GetDeviceSequence("trolol", protocol.LocalDeviceID); err != nil {
 			t.Fatal(err)
 		} else if seq != 0 {
 			t.Log(seq)
 			t.Error("expected zero sequence")
 		}
-		if seq, err := db.Sequence("trolol", protocol.DeviceID{42}); err != nil {
+		if seq, err := db.GetDeviceSequence("trolol", protocol.DeviceID{42}); err != nil {
 			t.Fatal(err)
 		} else if seq != 0 {
 			t.Log(seq)
 			t.Error("expected zero sequence")
 		}
-		if seq, err := db.Sequence(folderID, protocol.DeviceID{99}); err != nil {
+		if seq, err := db.GetDeviceSequence(folderID, protocol.DeviceID{99}); err != nil {
 			t.Fatal(err)
 		} else if seq != 0 {
 			t.Log(seq)
@@ -333,7 +333,7 @@ func TestBasics(t *testing.T) {
 	t.Run("AllGlobalPrefix", func(t *testing.T) {
 		t.Parallel()
 
-		it, errFn := db.AllGlobalPrefix(folderID, "test2")
+		it, errFn := db.AllGlobalFilesPrefix(folderID, "test2")
 		vals := slices.Collect(it)
 		if err := errFn(); err != nil {
 			t.Fatal(err)
@@ -348,7 +348,7 @@ func TestBasics(t *testing.T) {
 		}
 
 		// Empty prefix should be all the files
-		it, errFn = db.AllGlobalPrefix(folderID, "")
+		it, errFn = db.AllGlobalFilesPrefix(folderID, "")
 		vals = slices.Collect(it)
 		if err := errFn(); err != nil {
 			t.Fatal(err)
@@ -363,7 +363,7 @@ func TestBasics(t *testing.T) {
 	t.Run("AllLocalPrefix", func(t *testing.T) {
 		t.Parallel()
 
-		vals := iterCollectTest(t, db.AllLocalPrefixed(folderID, protocol.LocalDeviceID, "test2"))
+		vals := iterCollectTest(t, db.AllLocalFilesPrefix(folderID, protocol.LocalDeviceID, "test2"))
 
 		// Vals should be test2, test2/a, test2/b
 		if len(vals) != 3 {
@@ -374,7 +374,7 @@ func TestBasics(t *testing.T) {
 		}
 
 		// Empty prefix should be all the files
-		vals = iterCollectTest(t, db.AllLocalPrefixed(folderID, protocol.LocalDeviceID, ""))
+		vals = iterCollectTest(t, db.AllLocalFilesPrefix(folderID, protocol.LocalDeviceID, ""))
 
 		if len(vals) != 4 {
 			t.Log(vals)
@@ -385,7 +385,7 @@ func TestBasics(t *testing.T) {
 	t.Run("AllLocalSequenced", func(t *testing.T) {
 		t.Parallel()
 
-		vals := iterCollectTest(t, db.AllLocalSequenced(folderID, protocol.LocalDeviceID, 3))
+		vals := iterCollectTest(t, db.AllLocalFilesBySequence(folderID, protocol.LocalDeviceID, 3))
 
 		// Vals should be test2/a, test2/b
 		if len(vals) != 2 {
@@ -432,7 +432,7 @@ func TestAvailability(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	a, err := db.Availability(folderID, "test1")
+	a, err := db.GetGlobalAvailability(folderID, "test1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +441,7 @@ func TestAvailability(t *testing.T) {
 		t.Error("expected no availability (only local)")
 	}
 
-	a, err = db.Availability(folderID, "test2")
+	a, err = db.GetGlobalAvailability(folderID, "test2")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -450,7 +450,7 @@ func TestAvailability(t *testing.T) {
 		t.Error("expected one availability (only 42)")
 	}
 
-	a, err = db.Availability(folderID, "test3")
+	a, err = db.GetGlobalAvailability(folderID, "test3")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -492,17 +492,17 @@ func TestDropFilesNamed(t *testing.T) {
 	}
 
 	// Check
-	if _, ok, err := db.Local(folderID, protocol.LocalDeviceID, "test1"); err != nil || ok {
+	if _, ok, err := db.GetDeviceFile(folderID, protocol.LocalDeviceID, "test1"); err != nil || ok {
 		t.Log(err, ok)
 		t.Error("expected to not exist")
 	}
-	if c, err := db.LocalSize(folderID, protocol.LocalDeviceID); err != nil {
+	if c, err := db.CountLocal(folderID, protocol.LocalDeviceID); err != nil {
 		t.Fatal(err)
 	} else if c.Files != 1 {
 		t.Log(c)
 		t.Error("expected count to be one")
 	}
-	if _, ok, err := db.Local(folderID, protocol.LocalDeviceID, "test2"); err != nil || !ok {
+	if _, ok, err := db.GetDeviceFile(folderID, protocol.LocalDeviceID, "test2"); err != nil || !ok {
 		t.Log(err, ok)
 		t.Error("expected to exist")
 	}
@@ -545,22 +545,22 @@ func TestDropFolder(t *testing.T) {
 	}
 
 	// Check
-	if _, ok, err := db.Local("a", protocol.LocalDeviceID, "test1"); err != nil || ok {
+	if _, ok, err := db.GetDeviceFile("a", protocol.LocalDeviceID, "test1"); err != nil || ok {
 		t.Log(err, ok)
 		t.Error("expected to not exist")
 	}
-	if c, err := db.LocalSize("a", protocol.LocalDeviceID); err != nil {
+	if c, err := db.CountLocal("a", protocol.LocalDeviceID); err != nil {
 		t.Fatal(err)
 	} else if c.Files != 0 {
 		t.Log(c)
 		t.Error("expected count to be zero")
 	}
 
-	if _, ok, err := db.Local("b", protocol.LocalDeviceID, "test1"); err != nil || !ok {
+	if _, ok, err := db.GetDeviceFile("b", protocol.LocalDeviceID, "test1"); err != nil || !ok {
 		t.Log(err, ok)
 		t.Error("expected to exist")
 	}
-	if c, err := db.LocalSize("b", protocol.LocalDeviceID); err != nil {
+	if c, err := db.CountLocal("b", protocol.LocalDeviceID); err != nil {
 		t.Fatal(err)
 	} else if c.Files != 2 {
 		t.Log(c)
@@ -605,21 +605,21 @@ func TestDropDevice(t *testing.T) {
 	}
 
 	// Check
-	if _, ok, err := db.Local("a", protocol.DeviceID{1}, "test1"); err != nil || ok {
+	if _, ok, err := db.GetDeviceFile("a", protocol.DeviceID{1}, "test1"); err != nil || ok {
 		t.Log(err, ok)
 		t.Error("expected to not exist")
 	}
-	if c, err := db.LocalSize("a", protocol.DeviceID{1}); err != nil {
+	if c, err := db.CountLocal("a", protocol.DeviceID{1}); err != nil {
 		t.Fatal(err)
 	} else if c.Files != 0 {
 		t.Log(c)
 		t.Error("expected count to be zero")
 	}
-	if _, ok, err := db.Local("a", protocol.DeviceID{2}, "test1"); err != nil || !ok {
+	if _, ok, err := db.GetDeviceFile("a", protocol.DeviceID{2}, "test1"); err != nil || !ok {
 		t.Log(err, ok)
 		t.Error("expected to exist")
 	}
-	if c, err := db.LocalSize("a", protocol.DeviceID{2}); err != nil {
+	if c, err := db.CountLocal("a", protocol.DeviceID{2}); err != nil {
 		t.Fatal(err)
 	} else if c.Files != 2 {
 		t.Log(c)
@@ -669,21 +669,21 @@ func TestDropAllFiles(t *testing.T) {
 	}
 
 	// Check
-	if _, ok, err := db.Local("a", protocol.DeviceID{1}, "test1"); err != nil || ok {
+	if _, ok, err := db.GetDeviceFile("a", protocol.DeviceID{1}, "test1"); err != nil || ok {
 		t.Log(err, ok)
 		t.Error("expected to not exist")
 	}
-	if c, err := db.LocalSize("a", protocol.DeviceID{1}); err != nil {
+	if c, err := db.CountLocal("a", protocol.DeviceID{1}); err != nil {
 		t.Fatal(err)
 	} else if c.Files != 0 {
 		t.Log(c)
 		t.Error("expected count to be zero")
 	}
-	if _, ok, err := db.Local("b", protocol.DeviceID{1}, "test1"); err != nil || !ok {
+	if _, ok, err := db.GetDeviceFile("b", protocol.DeviceID{1}, "test1"); err != nil || !ok {
 		t.Log(err, ok)
 		t.Error("expected to exist")
 	}
-	if c, err := db.LocalSize("b", protocol.DeviceID{1}); err != nil {
+	if c, err := db.CountLocal("b", protocol.DeviceID{1}); err != nil {
 		t.Fatal(err)
 	} else if c.Files != 2 {
 		t.Log(c)
@@ -774,12 +774,12 @@ func TestConcurrentUpdateSelect(t *testing.T) {
 	// This is similar to a pattern we have in other places and should
 	// work.
 	handled := 0
-	for name, err := range db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
+	for name, err := range db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		glob, ok, err := db.Global(folderID, name)
+		glob, ok, err := db.GetGlobalFile(folderID, name)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -824,18 +824,18 @@ func TestAllForBlocksHash(t *testing.T) {
 	}
 	files[2].Blocks = files[1].Blocks
 
-	if err := db.Update(folderID, protocol.DeviceID{42}, files); err != nil {
+	if err := db.Update(folderID, protocol.LocalDeviceID, files); err != nil {
 		t.Fatal(err)
 	}
 
 	// Check test1
 
-	test1, ok, err := db.Local(folderID, protocol.DeviceID{42}, "test1")
+	test1, ok, err := db.GetDeviceFile(folderID, protocol.LocalDeviceID, "test1")
 	if err != nil || !ok {
 		t.Fatal("expected to exist")
 	}
 
-	vals := iterCollectTest(t, db.AllForBlocksHash(folderID, test1.BlocksHash))
+	vals := iterCollectTest(t, db.AllLocalFilesWithBlocksHash(folderID, test1.BlocksHash))
 	if len(vals) != 1 {
 		t.Log(vals)
 		t.Fatal("expected one file to match")
@@ -843,12 +843,12 @@ func TestAllForBlocksHash(t *testing.T) {
 
 	// Check test2 which also matches test3
 
-	test2, ok, err := db.Local(folderID, protocol.DeviceID{42}, "test2")
+	test2, ok, err := db.GetDeviceFile(folderID, protocol.LocalDeviceID, "test2")
 	if err != nil || !ok {
 		t.Fatal("expected to exist")
 	}
 
-	vals = iterCollectTest(t, db.AllForBlocksHash(folderID, test2.BlocksHash))
+	vals = iterCollectTest(t, db.AllLocalFilesWithBlocksHash(folderID, test2.BlocksHash))
 	if len(vals) != 2 {
 		t.Log(vals)
 		t.Fatal("expected two files to match")

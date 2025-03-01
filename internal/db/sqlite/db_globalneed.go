@@ -28,7 +28,7 @@ type fileRow struct {
 	LocalFlags int64 `db:"local_flags"`
 }
 
-func (s *DB) AllNeededNames(folder string, device protocol.DeviceID, order config.PullOrder, limit int) iter.Seq2[string, error] {
+func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit int) iter.Seq2[string, error] {
 	var orderBy string
 	switch order {
 	case config.PullOrderRandom:
@@ -98,7 +98,7 @@ func (s *DB) AllNeededNames(folder string, device protocol.DeviceID, order confi
 	})
 }
 
-func (s *DB) Availability(folder, file string) ([]protocol.DeviceID, error) {
+func (s *DB) GetGlobalAvailability(folder, file string) ([]protocol.DeviceID, error) {
 	file = osutil.NormalizedFilename(file)
 
 	var devStrs []string
@@ -231,7 +231,7 @@ type sizesRow struct {
 	FlagBit int64 `db:"local_flags"`
 }
 
-func (s *DB) LocalSize(folder string, device protocol.DeviceID) (db.Counts, error) {
+func (s *DB) CountLocal(folder string, device protocol.DeviceID) (db.Counts, error) {
 	var res []sizesRow
 	extra := ""
 	if device == protocol.LocalDeviceID {
@@ -252,7 +252,7 @@ func (s *DB) LocalSize(folder string, device protocol.DeviceID) (db.Counts, erro
 	return summarizeRows(res), nil
 }
 
-func (s *DB) NeedSize(folder string, device protocol.DeviceID) (db.Counts, error) {
+func (s *DB) CountNeed(folder string, device protocol.DeviceID) (db.Counts, error) {
 	if device == protocol.LocalDeviceID {
 		return s.needSizeLocal(folder)
 	}
@@ -305,7 +305,7 @@ func (s *DB) needSizeRemote(folder string, device protocol.DeviceID) (db.Counts,
 	return summarizeRows(res), nil
 }
 
-func (s *DB) GlobalSize(folder string) (db.Counts, error) {
+func (s *DB) CountGlobal(folder string) (db.Counts, error) {
 	// Exclude ignored and receive-only changed files from the global count
 	// (legacy expectation? it's a bit weird since those files can in fact
 	// be global and you can get them with GetGlobal etc.)
@@ -321,7 +321,7 @@ func (s *DB) GlobalSize(folder string) (db.Counts, error) {
 	return summarizeRows(res), nil
 }
 
-func (s *DB) ReceiveOnlySize(folder string) (db.Counts, error) {
+func (s *DB) CountReceiveOnlyChanged(folder string) (db.Counts, error) {
 	var res []sizesRow
 	err := s.sql.Select(&res, `
 		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s

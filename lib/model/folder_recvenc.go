@@ -50,7 +50,7 @@ func (f *receiveEncryptedFolder) revert() error {
 
 	var iterErr error
 	var dirs []string
-	for fi, err := range f.db.AllLocal(f.folderID, protocol.LocalDeviceID) {
+	for fi, err := range f.db.AllLocalFiles(f.folderID, protocol.LocalDeviceID) {
 		if err != nil {
 			return err
 		}

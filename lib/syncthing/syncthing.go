@@ -178,7 +178,7 @@ func (a *App) startup() error {
 
 	if a.opts.ResetDeltaIdxs {
 		l.Infoln("Reinitializing delta index IDs")
-		if err := a.sdb.DropIndexIDs(); err != nil {
+		if err := a.sdb.IndexIDDropAll(); err != nil {
 			l.Warnln("Drop index IDs:", err)
 			return err
 		}
@@ -193,7 +193,7 @@ func (a *App) startup() error {
 
 	// Remove database entries for folders that no longer exist in the config
 	cfgFolders := a.cfg.Folders()
-	dbFolders, err := a.sdb.Folders()
+	dbFolders, err := a.sdb.ListFolders()
 	if err != nil {
 		l.Warnln("Listing folders:", err)
 		return err
@@ -228,7 +228,7 @@ func (a *App) startup() error {
 		if a.cfg.Options().SendFullIndexOnUpgrade {
 			// Drop delta indexes in case we've changed random stuff we
 			// shouldn't have. We will resend our index on next connect.
-			if err := a.sdb.DropIndexIDs(); err != nil {
+			if err := a.sdb.IndexIDDropAll(); err != nil {
 				l.Warnln("Drop index IDs:", err)
 				return err
 			}

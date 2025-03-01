@@ -392,7 +392,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 	// Do the same changes on the remote
 
 	files := make([]protocol.FileInfo, 0, 2)
-	for f, err := range f.db.AllLocal("ro", protocol.LocalDeviceID) {
+	for f, err := range f.db.AllLocalFiles("ro", protocol.LocalDeviceID) {
 		if err != nil {
 			t.Fatal(err)
 		}

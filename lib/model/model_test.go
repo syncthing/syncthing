@@ -2133,7 +2133,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 	m.sdb.DropAllFiles("default", device2)
 	m.sdb.Update("default", device2, genFiles(1))
 
-	if devs, err := m.sdb.DevicesForFolder("default"); err != nil || len(devs) != 2 {
+	if devs, err := m.sdb.ListDevicesForFolder("default"); err != nil || len(devs) != 2 {
 		t.Log(devs, err)
 		t.Error("expected two devices")
 	}
@@ -2141,7 +2141,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 	m.newFolder(defaultFolderConfig, false)
 	defer cleanupModel(m)
 
-	if devs, err := m.sdb.DevicesForFolder("default"); err != nil || len(devs) != 1 {
+	if devs, err := m.sdb.ListDevicesForFolder("default"); err != nil || len(devs) != 1 {
 		t.Log(devs, err)
 		t.Error("expected one device")
 	}

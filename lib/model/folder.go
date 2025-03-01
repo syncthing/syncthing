@@ -369,7 +369,7 @@ func (f *folder) pull() (success bool, err error) {
 
 	// If there is nothing to do, don't even enter sync-waiting state.
 	abort := true
-	for _, err := range f.db.AllNeededNames(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 1) {
+	for _, err := range f.db.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 1) {
 		if err != nil {
 			return false, err
 		}
@@ -484,7 +484,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	// directory, and don't scan subdirectories of things we've already
 	// scanned.
 	subDirs = unifySubs(subDirs, func(file string) bool {
-		_, ok, err := f.db.Local(f.folderID, protocol.LocalDeviceID, file)
+		_, ok, err := f.db.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file)
 		return err == nil && ok
 	})
 
@@ -603,7 +603,7 @@ func (b *scanBatch) Update(fi protocol.FileInfo) (bool, error) {
 	}
 	// Resolve receive-only items which are identical with the global state or
 	// the global item is our own receive-only item.
-	switch gf, ok, err := b.f.db.Global(b.f.folderID, fi.Name); {
+	switch gf, ok, err := b.f.db.GetGlobalFile(b.f.folderID, fi.Name); {
 	case err != nil:
 		return false, err
 	case !ok:
@@ -711,7 +711,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 
 	for _, sub := range subDirs {
 		l.Debugf("consider local prefixed %q %q", f.folderID, sub)
-		for fi, err := range f.db.AllLocalPrefixed(f.folderID, protocol.LocalDeviceID, sub) {
+		for fi, err := range f.db.AllLocalFilesPrefix(f.folderID, protocol.LocalDeviceID, sub) {
 			l.Debugf("considering %v (%v)", fi, err)
 			if err != nil {
 				return 0, err
@@ -805,7 +805,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 			case fi.IsDeleted() && fi.IsReceiveOnlyChanged():
 				switch f.Type {
 				case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
-					switch gf, ok, err := f.db.Global(f.folderID, fi.Name); {
+					switch gf, ok, err := f.db.GetGlobalFile(f.folderID, fi.Name); {
 					case err != nil:
 						return 0, err
 					case !ok:
@@ -873,7 +873,7 @@ func (f *folder) findRename(file protocol.FileInfo, alreadyUsedOrExisting map[st
 	found := false
 	nf := protocol.FileInfo{}
 
-	for fi, err := range f.db.AllForBlocksHash(f.folderID, file.BlocksHash) {
+	for fi, err := range f.db.AllLocalFilesWithBlocksHash(f.folderID, file.BlocksHash) {
 		if err != nil {
 			return protocol.FileInfo{}, false
 		}
@@ -1258,7 +1258,7 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) error {
 	}
 	f.forcedRescanPathsMut.Unlock()
 
-	seq, err := f.db.Sequence(f.folderID, protocol.LocalDeviceID)
+	seq, err := f.db.GetDeviceSequence(f.folderID, protocol.LocalDeviceID)
 	if err != nil {
 		return err
 	}
@@ -1325,7 +1325,7 @@ func (f *folder) handleForcedRescans() error {
 			return err
 		}
 
-		fi, ok, err := f.db.Local(f.folderID, protocol.LocalDeviceID, path)
+		fi, ok, err := f.db.GetDeviceFile(f.folderID, protocol.LocalDeviceID, path)
 		if err != nil {
 			return err
 		}
@@ -1384,7 +1384,7 @@ type cFiler struct {
 
 // Implements scanner.CurrentFiler
 func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
-	fi, ok, err := cf.db.Local(cf.folder, protocol.LocalDeviceID, file)
+	fi, ok, err := cf.db.GetDeviceFile(cf.folder, protocol.LocalDeviceID, file)
 	if err != nil || !ok {
 		return protocol.FileInfo{}, false
 	}

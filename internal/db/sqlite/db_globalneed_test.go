@@ -53,14 +53,14 @@ func TestNeed(t *testing.T) {
 	}
 
 	// A couple are needed locally
-	localNeed := iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
+	localNeed := iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
 	if !slices.Equal(localNeed, []string{"test2", "test4"}) {
 		t.Log(localNeed)
 		t.Fatal("bad local need")
 	}
 
 	// Another couple are needed remotely
-	remoteNeed := iterCollectTest(t, db.AllNeededNames(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0))
+	remoteNeed := iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0))
 	if !slices.Equal(remoteNeed, []string{"test1", "test3"}) {
 		t.Log(remoteNeed)
 		t.Fatal("bad remote need")
@@ -139,7 +139,7 @@ func testDropWithDropper(t *testing.T, dropper func(t *testing.T, db *DB)) {
 	}
 
 	// Remote test1 wins as the global, verify.
-	size, err := db.GlobalSize(folderID)
+	size, err := db.CountGlobal(folderID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func testDropWithDropper(t *testing.T, dropper func(t *testing.T, db *DB)) {
 		t.Log(size)
 		t.Fatal("bad global size to begin with")
 	}
-	if g, ok, err := db.Global(folderID, "test1"); err != nil || !ok {
+	if g, ok, err := db.GetGlobalFile(folderID, "test1"); err != nil || !ok {
 		t.Fatal("missing global to begin with")
 	} else if g.Size != 3*128<<10 {
 		t.Fatal("remote test1 should be the global")
@@ -157,7 +157,7 @@ func testDropWithDropper(t *testing.T, dropper func(t *testing.T, db *DB)) {
 	dropper(t, db)
 
 	// Our test1 should now be the global
-	size, err = db.GlobalSize(folderID)
+	size, err = db.CountGlobal(folderID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,7 @@ func testDropWithDropper(t *testing.T, dropper func(t *testing.T, db *DB)) {
 		t.Log(size)
 		t.Fatal("bad global size after drop")
 	}
-	if g, ok, err := db.Global(folderID, "test1"); err != nil || !ok {
+	if g, ok, err := db.GetGlobalFile(folderID, "test1"); err != nil || !ok {
 		t.Fatal("missing global after drop")
 	} else if g.Size != 1*128<<10 {
 		t.Fatal("local test1 should be the global")
@@ -205,7 +205,7 @@ func TestNeedDeleted(t *testing.T) {
 	}
 
 	// We need the one deleted file
-	s, err := db.NeedSize(folderID, protocol.LocalDeviceID)
+	s, err := db.CountNeed(folderID, protocol.LocalDeviceID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +245,7 @@ func TestDontNeedIgnored(t *testing.T) {
 	}
 
 	// We don't need it
-	s, err := db.NeedSize(folderID, protocol.LocalDeviceID)
+	s, err := db.CountNeed(folderID, protocol.LocalDeviceID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,7 +255,7 @@ func TestDontNeedIgnored(t *testing.T) {
 	}
 
 	// It shouldn't show up in the need list
-	names := iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
+	names := iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
 	if len(names) != 0 {
 		t.Log(names)
 		t.Error("need no files")
@@ -287,7 +287,7 @@ func TestRemoveDontNeedLocalIgnored(t *testing.T) {
 	// Which the remote doesn't have (no update)
 
 	// They don't need it
-	s, err := db.NeedSize(folderID, protocol.DeviceID{42})
+	s, err := db.CountNeed(folderID, protocol.DeviceID{42})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +297,7 @@ func TestRemoveDontNeedLocalIgnored(t *testing.T) {
 	}
 
 	// It shouldn't show up in their need list
-	names := iterCollectTest(t, db.AllNeededNames(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0))
+	names := iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0))
 	if len(names) != 0 {
 		t.Log(names)
 		t.Error("need no files")
@@ -329,7 +329,7 @@ func TestLocalDontNeedDeletedMissing(t *testing.T) {
 	// Which we don't have (no local update)
 
 	// We don't need it
-	s, err := db.NeedSize(folderID, protocol.LocalDeviceID)
+	s, err := db.CountNeed(folderID, protocol.LocalDeviceID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -339,7 +339,7 @@ func TestLocalDontNeedDeletedMissing(t *testing.T) {
 	}
 
 	// It shouldn't show up in the need list
-	names := iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
+	names := iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
 	if len(names) != 0 {
 		t.Log(names)
 		t.Error("need no files")
@@ -371,7 +371,7 @@ func TestRemoteDontNeedDeletedMissing(t *testing.T) {
 	// Which the remote doesn't have (no local update)
 
 	// They don't need it
-	s, err := db.NeedSize(folderID, protocol.DeviceID{42})
+	s, err := db.CountNeed(folderID, protocol.DeviceID{42})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -381,7 +381,7 @@ func TestRemoteDontNeedDeletedMissing(t *testing.T) {
 	}
 
 	// It shouldn't show up in their need list
-	names := iterCollectTest(t, db.AllNeededNames(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0))
+	names := iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0))
 	if len(names) != 0 {
 		t.Log(names)
 		t.Error("need no files")

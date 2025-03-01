@@ -449,11 +449,11 @@ func TestCopierCleanup(t *testing.T) {
 	// Update index (removing old blocks)
 	f.updateLocalsFromScanning([]protocol.FileInfo{file})
 
-	if vals, err := itererr.Collect(m.sdb.Blocks(blocks[0].Hash)); err != nil || len(vals) > 0 {
+	if vals, err := itererr.Collect(m.sdb.AllLocalBlocksWithHash(blocks[0].Hash)); err != nil || len(vals) > 0 {
 		t.Error("Unexpected block found")
 	}
 
-	if vals, err := itererr.Collect(m.sdb.Blocks(blocks[1].Hash)); err != nil || len(vals) == 0 {
+	if vals, err := itererr.Collect(m.sdb.AllLocalBlocksWithHash(blocks[1].Hash)); err != nil || len(vals) == 0 {
 		t.Error("Expected block not found")
 	}
 
@@ -462,11 +462,11 @@ func TestCopierCleanup(t *testing.T) {
 	// Update index (removing old blocks)
 	f.updateLocalsFromScanning([]protocol.FileInfo{file})
 
-	if vals, err := itererr.Collect(m.sdb.Blocks(blocks[0].Hash)); err != nil || len(vals) == 0 {
+	if vals, err := itererr.Collect(m.sdb.AllLocalBlocksWithHash(blocks[0].Hash)); err != nil || len(vals) == 0 {
 		t.Error("Unexpected block found")
 	}
 
-	if vals, err := itererr.Collect(m.sdb.Blocks(blocks[1].Hash)); err != nil || len(vals) > 0 {
+	if vals, err := itererr.Collect(m.sdb.AllLocalBlocksWithHash(blocks[1].Hash)); err != nil || len(vals) > 0 {
 		t.Error("Expected block not found")
 	}
 }

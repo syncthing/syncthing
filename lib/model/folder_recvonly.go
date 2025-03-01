@@ -87,7 +87,7 @@ func (f *receiveOnlyFolder) revert() error {
 		return nil
 	})
 
-	for fi, err := range f.db.AllLocal(f.folderID, protocol.LocalDeviceID) {
+	for fi, err := range f.db.AllLocalFiles(f.folderID, protocol.LocalDeviceID) {
 		if err != nil {
 			return err
 		}
@@ -99,7 +99,7 @@ func (f *receiveOnlyFolder) revert() error {
 
 		fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
 
-		switch gf, ok, err := f.db.Global(f.folderID, fi.Name); {
+		switch gf, ok, err := f.db.GetGlobalFile(f.folderID, fi.Name); {
 		case err != nil:
 			return err
 		case !ok:

@@ -109,7 +109,7 @@ func TestStartupFail(t *testing.T) {
 		t.Errorf(`Got different errors "%v" from Start and "%v" from Error`, startErr, err)
 	}
 
-	if _, err := sdb.Folders(); err == nil {
+	if _, err := sdb.ListFolders(); err == nil {
 		t.Error("Expected error due to db being closed, got nil")
 	} else if !strings.Contains(err.Error(), "closed") {
 		t.Error("Expected error due to db being closed, got", err)

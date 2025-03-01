@@ -365,7 +365,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	// Find any devices for which we hold the index in the db, but the folder
 	// is not shared, and drop it.
 	expected := mapDevices(cfg.DeviceIDs())
-	devs, _ := m.sdb.DevicesForFolder(cfg.ID)
+	devs, _ := m.sdb.ListDevicesForFolder(cfg.ID)
 	for _, available := range devs {
 		if _, ok := expected[available]; !ok {
 			l.Debugln("dropping", folder, "state for", available)
@@ -373,7 +373,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 		}
 	}
 
-	seq, err := m.sdb.Sequence(folder, protocol.LocalDeviceID)
+	seq, err := m.sdb.GetDeviceSequence(folder, protocol.LocalDeviceID)
 	if err != nil {
 		panic(fmt.Errorf("error getting sequence number: %w", err))
 	}
@@ -920,7 +920,7 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 	downloaded := m.deviceDownloads[device].BytesDownloaded(folder)
 	m.mut.RUnlock()
 
-	need, err := m.sdb.NeedSize(folder, device)
+	need, err := m.sdb.CountNeed(folder, device)
 	if err != nil {
 		return FolderCompletion{}, err
 	}
@@ -930,11 +930,11 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 		need.Bytes = 0
 	}
 
-	seq, err := m.sdb.Sequence(folder, device)
+	seq, err := m.sdb.GetDeviceSequence(folder, device)
 	if err != nil {
 		return FolderCompletion{}, err
 	}
-	glob, err := m.sdb.GlobalSize(folder)
+	glob, err := m.sdb.CountGlobal(folder)
 	if err != nil {
 		return FolderCompletion{}, err
 	}
@@ -945,35 +945,35 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 }
 
 func (m *model) LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[protocol.FileInfo, error] {
-	return m.sdb.AllLocal(folder, device)
+	return m.sdb.AllLocalFiles(folder, device)
 }
 
 func (m *model) LocalFilesSequenced(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[protocol.FileInfo, error] {
-	return m.sdb.AllLocalSequenced(folder, device, startSeq)
+	return m.sdb.AllLocalFilesBySequence(folder, device, startSeq)
 }
 
 func (m *model) AllForBlocksHash(folder string, h []byte) iter.Seq2[protocol.FileInfo, error] {
-	return m.sdb.AllForBlocksHash(folder, h)
+	return m.sdb.AllLocalFilesWithBlocksHash(folder, h)
 }
 
 func (m *model) LocalSize(folder string, device protocol.DeviceID) (db.Counts, error) {
-	return m.sdb.LocalSize(folder, device)
+	return m.sdb.CountLocal(folder, device)
 }
 
 func (m *model) GlobalSize(folder string) (db.Counts, error) {
-	return m.sdb.GlobalSize(folder)
+	return m.sdb.CountGlobal(folder)
 }
 
 func (m *model) NeedSize(folder string, device protocol.DeviceID) (db.Counts, error) {
-	return m.sdb.NeedSize(folder, device)
+	return m.sdb.CountNeed(folder, device)
 }
 
 func (m *model) ReceiveOnlySize(folder string) (db.Counts, error) {
-	return m.sdb.ReceiveOnlySize(folder)
+	return m.sdb.CountReceiveOnlyChanged(folder)
 }
 
 func (m *model) Sequence(folder string, device protocol.DeviceID) (int64, error) {
-	return m.sdb.Sequence(folder, device)
+	return m.sdb.GetDeviceSequence(folder, device)
 }
 
 func (m *model) FolderProgressBytesCompleted(folder string) int64 {
@@ -1005,14 +1005,14 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]protocol.Fi
 		seen = make(map[string]struct{}, len(progressNames)+len(queuedNames))
 
 		for i, name := range progressNames {
-			if f, ok, err := m.sdb.Global(folder, name); err == nil && ok {
+			if f, ok, err := m.sdb.GetGlobalFile(folder, name); err == nil && ok {
 				progress[i] = f
 				seen[name] = struct{}{}
 			}
 		}
 
 		for i, name := range queuedNames {
-			if f, ok, err := m.sdb.Global(folder, name); err == nil && ok {
+			if f, ok, err := m.sdb.GetGlobalFile(folder, name); err == nil && ok {
 				queued[i] = f
 				seen[name] = struct{}{}
 			}
@@ -1026,11 +1026,11 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]protocol.Fi
 	}
 
 	rest = make([]protocol.FileInfo, 0, perpage)
-	for name, err := range m.sdb.AllNeededNames(folder, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
+	for name, err := range m.sdb.AllNeededGlobalFiles(folder, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
 		if err != nil {
 			break
 		}
-		f, ok, err := m.sdb.Global(folder, name)
+		f, ok, err := m.sdb.GetGlobalFile(folder, name)
 		if err != nil || !ok {
 			continue
 		}
@@ -1066,14 +1066,14 @@ func (m *model) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, p
 
 	files := make([]protocol.FileInfo, 0, perpage)
 	p := newPager(page, perpage)
-	for name, err := range m.sdb.AllNeededNames(folder, device, config.PullOrderAlphabetic, 0) {
+	for name, err := range m.sdb.AllNeededGlobalFiles(folder, device, config.PullOrderAlphabetic, 0) {
 		if err != nil {
 			return nil, err
 		}
 		if p.skip() {
 			continue
 		}
-		f, ok, err := m.sdb.Global(folder, name)
+		f, ok, err := m.sdb.GetGlobalFile(folder, name)
 		if err != nil {
 			return nil, err
 		}
@@ -1097,7 +1097,7 @@ func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]pro
 		return nil, ErrFolderMissing
 	}
 
-	ros, err := m.sdb.ReceiveOnlySize(folder)
+	ros, err := m.sdb.CountReceiveOnlyChanged(folder)
 	if err != nil {
 		return nil, err
 	}
@@ -1108,7 +1108,7 @@ func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]pro
 	p := newPager(page, perpage)
 	files := make([]protocol.FileInfo, 0, perpage)
 
-	for f, err := range m.sdb.AllLocal(folder, protocol.LocalDeviceID) { // XXX: can be more efficient by checking flags in select
+	for f, err := range m.sdb.AllLocalFiles(folder, protocol.LocalDeviceID) { // XXX: can be more efficient by checking flags in select
 		if err != nil {
 			return nil, err
 		}
@@ -2165,11 +2165,11 @@ func (m *model) recheckFile(deviceID protocol.DeviceID, folder, name string, off
 }
 
 func (m *model) CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool, error) {
-	return m.sdb.Local(folder, protocol.LocalDeviceID, file)
+	return m.sdb.GetDeviceFile(folder, protocol.LocalDeviceID, file)
 }
 
 func (m *model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool, error) {
-	return m.sdb.Global(folder, file)
+	return m.sdb.GetGlobalFile(folder, file)
 }
 
 // Connection returns if we are connected to the given device.
@@ -2631,11 +2631,11 @@ func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protoco
 			}
 
 			if deviceCfg.DeviceID == m.id {
-				protocolDevice.IndexID, _ = m.sdb.IndexID(folderCfg.ID, protocol.LocalDeviceID)
-				protocolDevice.MaxSequence, _ = m.sdb.Sequence(folderCfg.ID, protocol.LocalDeviceID)
+				protocolDevice.IndexID, _ = m.sdb.IndexIDGet(folderCfg.ID, protocol.LocalDeviceID)
+				protocolDevice.MaxSequence, _ = m.sdb.GetDeviceSequence(folderCfg.ID, protocol.LocalDeviceID)
 			} else {
-				protocolDevice.IndexID, _ = m.sdb.IndexID(folderCfg.ID, deviceCfg.DeviceID)
-				protocolDevice.MaxSequence, _ = m.sdb.Sequence(folderCfg.ID, deviceCfg.DeviceID)
+				protocolDevice.IndexID, _ = m.sdb.IndexIDGet(folderCfg.ID, deviceCfg.DeviceID)
+				protocolDevice.MaxSequence, _ = m.sdb.GetDeviceSequence(folderCfg.ID, deviceCfg.DeviceID)
 			}
 
 			protocolFolder.Devices = append(protocolFolder.Devices, protocolDevice)
@@ -2748,7 +2748,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 		prefix = prefix + sep
 	}
 
-	it, errFn := m.sdb.AllGlobalPrefix(folder, prefix)
+	it, errFn := m.sdb.AllGlobalFilesPrefix(folder, prefix)
 	for f := range it {
 		// Don't include the prefix itself.
 		if f.IsInvalid() || f.IsDeleted() || strings.HasPrefix(prefix, f.Name) {
@@ -2872,7 +2872,7 @@ func (m *model) fileAvailability(cfg config.FolderConfiguration, file protocol.F
 
 func (m *model) fileAvailabilityRLocked(cfg config.FolderConfiguration, file protocol.FileInfo) []Availability {
 	var availabilities []Availability
-	devs, err := m.sdb.Availability(cfg.ID, file.Name)
+	devs, err := m.sdb.GetGlobalAvailability(cfg.ID, file.Name)
 	if err != nil {
 		return nil
 	}

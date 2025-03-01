@@ -275,7 +275,7 @@ func basicClusterConfig(local, remote protocol.DeviceID, folders ...string) *pro
 
 func localIndexUpdate(m *testModel, folder string, fs []protocol.FileInfo) {
 	m.sdb.Update(folder, protocol.LocalDeviceID, fs)
-	seq, err := m.sdb.Sequence(folder, protocol.LocalDeviceID)
+	seq, err := m.sdb.GetDeviceSequence(folder, protocol.LocalDeviceID)
 	if err != nil {
 		panic(err)
 	}

@@ -44,7 +44,7 @@ func (f *sendOnlyFolder) pull() (bool, error) {
 		return nil
 	})
 
-	for name, err := range f.db.AllNeededNames(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
+	for name, err := range f.db.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
 		if err != nil {
 			return false, err
 		}
@@ -53,7 +53,7 @@ func (f *sendOnlyFolder) pull() (bool, error) {
 			return false, err
 		}
 
-		file, ok, err := f.db.Global(f.folderID, name)
+		file, ok, err := f.db.GetGlobalFile(f.folderID, name)
 		if err != nil {
 			return false, err
 		}
@@ -68,7 +68,7 @@ func (f *sendOnlyFolder) pull() (bool, error) {
 			continue
 		}
 
-		curFile, ok, err := f.db.Local(f.folderID, protocol.LocalDeviceID, file.FileName())
+		curFile, ok, err := f.db.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.FileName())
 		if err != nil {
 			return false, err
 		}
@@ -113,7 +113,7 @@ func (f *sendOnlyFolder) override() error {
 		return nil
 	})
 
-	for name, err := range f.db.AllNeededNames(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
+	for name, err := range f.db.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
 		if err != nil {
 			return err
 		}
@@ -121,7 +121,7 @@ func (f *sendOnlyFolder) override() error {
 			return err
 		}
 
-		have, haveOk, err := f.db.Local(f.folderID, protocol.LocalDeviceID, name)
+		have, haveOk, err := f.db.GetDeviceFile(f.folderID, protocol.LocalDeviceID, name)
 		if err != nil {
 			return err
 		}
@@ -132,7 +132,7 @@ func (f *sendOnlyFolder) override() error {
 			continue
 		}
 
-		need, ok, err := f.db.Global(f.folderID, name)
+		need, ok, err := f.db.GetGlobalFile(f.folderID, name)
 		if err != nil {
 			return err
 		}

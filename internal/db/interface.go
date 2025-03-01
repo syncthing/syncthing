@@ -12,45 +12,58 @@ import (
 type DB interface {
 	suture.Service
 
-	AllForBlocksHash(folder string, h []byte) iter.Seq2[protocol.FileInfo, error]
-	AllForBlocksHashAnyFolder(errptr *error, h []byte) iter.Seq2[string, protocol.FileInfo]
-	AllGlobal(folder string) (iter.Seq[protocol.FileInfo], func() error)
-	AllGlobalPrefix(folder string, prefix string) (iter.Seq[protocol.FileInfo], func() error)
-	AllLocal(folder string, device protocol.DeviceID) iter.Seq2[protocol.FileInfo, error]
-	AllLocalPrefixed(folder string, device protocol.DeviceID, prefix string) iter.Seq2[protocol.FileInfo, error]
-	AllLocalSequenced(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[protocol.FileInfo, error]
-	AllNeededNames(folder string, device protocol.DeviceID, order config.PullOrder, limit int) iter.Seq2[string, error]
-	Availability(folder, file string) ([]protocol.DeviceID, error)
-	Blocks(hash []byte) iter.Seq2[BlockMapEntry, error]
+	// Basics
+	Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error
 	Close() error
-	DevicesForFolder(folder string) ([]protocol.DeviceID, error)
+
+	// Single files
+	GetDeviceFile(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error)
+	GetGlobalAvailability(folder, file string) ([]protocol.DeviceID, error)
+	GetGlobalFile(folder string, file string) (protocol.FileInfo, bool, error)
+
+	// File iterators
+	AllGlobalFiles(folder string) (iter.Seq[protocol.FileInfo], func() error)
+	AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[protocol.FileInfo], func() error)
+	AllLocalBlocksWithHash(hash []byte) iter.Seq2[BlockMapEntry, error]
+	AllLocalFiles(folder string, device protocol.DeviceID) iter.Seq2[protocol.FileInfo, error]
+	AllLocalFilesBySequence(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[protocol.FileInfo, error]
+	AllLocalFilesPrefix(folder string, device protocol.DeviceID, prefix string) iter.Seq2[protocol.FileInfo, error]
+	AllLocalFilesWithBlocksHash(folder string, h []byte) iter.Seq2[protocol.FileInfo, error]
+	AllLocalFilesWithBlocksHashAnyFolder(errptr *error, h []byte) iter.Seq2[string, protocol.FileInfo]
+	AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit int) iter.Seq2[string, error]
+
+	// Cleanup
 	DropAllFiles(folder string, device protocol.DeviceID) error
 	DropDevice(device protocol.DeviceID) error
 	DropFilesNamed(folder string, device protocol.DeviceID, names []string) error
 	DropFolder(folder string) error
-	DropIndexIDs() error
-	Folders() ([]string, error)
-	Global(folder string, file string) (protocol.FileInfo, bool, error)
-	GlobalSize(folder string) (Counts, error)
-	IndexID(folder string, device protocol.DeviceID) (protocol.IndexID, error)
-	Local(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error)
-	LocalSize(folder string, device protocol.DeviceID) (Counts, error)
-	NeedSize(folder string, device protocol.DeviceID) (Counts, error)
-	ReceiveOnlySize(folder string) (Counts, error)
-	Sequence(folder string, device protocol.DeviceID) (int64, error)
-	SetIndexID(folder string, device protocol.DeviceID, id protocol.IndexID) error
-	Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error
 
-	// mtimefs
+	// Various metadata
+	GetDeviceSequence(folder string, device protocol.DeviceID) (int64, error)
+	ListFolders() ([]string, error)
+	ListDevicesForFolder(folder string) ([]protocol.DeviceID, error)
+
+	// Counts
+	CountGlobal(folder string) (Counts, error)
+	CountLocal(folder string, device protocol.DeviceID) (Counts, error)
+	CountNeed(folder string, device protocol.DeviceID) (Counts, error)
+	CountReceiveOnlyChanged(folder string) (Counts, error)
+
+	// Index IDs
+	IndexIDDropAll() error
+	IndexIDGet(folder string, device protocol.DeviceID) (protocol.IndexID, error)
+	IndexIDSet(folder string, device protocol.DeviceID, id protocol.IndexID) error
+
+	// MtimeFS
+	MtimeDelete(folder, name string) error
 	MtimeGet(folder, name string) (ondisk, virtual time.Time)
 	MtimePut(folder, name string, ondisk, virtual time.Time) error
-	MtimeDelete(folder, name string) error
 
-	// generic KV
-	KVGet(key string) ([]byte, error)
-	KVPut(key string, val []byte) error
+	// Generic KV
 	KVDelete(key string) error
+	KVGet(key string) ([]byte, error)
 	KVPrefix(prefix string) (iter.Seq2[string, []byte], func() error)
+	KVPut(key string, val []byte) error
 }
 
 type BlockMapEntry struct {

@@ -50,11 +50,11 @@ type indexHandler struct {
 }
 
 func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, folder config.FolderConfiguration, sdb db.DB, runner service, startInfo *clusterConfigDeviceInfo, evLogger events.Logger) (*indexHandler, error) {
-	myIndexID, err := sdb.IndexID(folder.ID, protocol.LocalDeviceID)
+	myIndexID, err := sdb.IndexIDGet(folder.ID, protocol.LocalDeviceID)
 	if err != nil {
 		return nil, err
 	}
-	mySequence, err := sdb.Sequence(folder.ID, protocol.LocalDeviceID)
+	mySequence, err := sdb.GetDeviceSequence(folder.ID, protocol.LocalDeviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 	// otherwise we drop our old index data and expect to get a
 	// completely new set.
 
-	theirIndexID, _ := sdb.IndexID(folder.ID, conn.DeviceID())
+	theirIndexID, _ := sdb.IndexIDGet(folder.ID, conn.DeviceID())
 	if startInfo.remote.IndexID == 0 {
 		// They're not announcing an index ID. This means they
 		// do not support delta indexes and we should clear any
@@ -113,7 +113,7 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 		// instead.
 		l.Infof("Device %v folder %s has a new index ID (%v)", conn.DeviceID().Short(), folder.Description(), startInfo.remote.IndexID)
 		sdb.DropAllFiles(folder.ID, conn.DeviceID())
-		sdb.SetIndexID(folder.ID, conn.DeviceID(), startInfo.remote.IndexID)
+		sdb.IndexIDSet(folder.ID, conn.DeviceID(), startInfo.remote.IndexID)
 	}
 
 	return &indexHandler{
@@ -192,7 +192,7 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 		// currently in the database, wait for the local index to update. The
 		// local index may update for other folders than the one we are
 		// sending for.
-		seq, err := s.sdb.Sequence(s.folder, protocol.LocalDeviceID)
+		seq, err := s.sdb.GetDeviceSequence(s.folder, protocol.LocalDeviceID)
 		if err != nil {
 			return err
 		}
@@ -292,7 +292,7 @@ func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 
 	var f protocol.FileInfo
 	previousWasDelete := false
-	for fi, err := range s.sdb.AllLocalSequenced(s.folder, protocol.LocalDeviceID, s.localPrevSequence+1) {
+	for fi, err := range s.sdb.AllLocalFilesBySequence(s.folder, protocol.LocalDeviceID, s.localPrevSequence+1) {
 		if err != nil {
 			return err
 		}
@@ -371,7 +371,7 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 	l.Debugf("Received %d files for %s from %s, prevSeq=%d, lastSeq=%d", len(fs), s.folder, deviceID.Short(), prevSequence, lastSequence)
 
 	// Verify that the previous sequence number matches what we expected
-	exp, err := s.sdb.Sequence(s.folder, deviceID)
+	exp, err := s.sdb.GetDeviceSequence(s.folder, deviceID)
 	if err != nil {
 		return err
 	}
@@ -434,7 +434,7 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 	if err := s.sdb.Update(s.folder, deviceID, fs); err != nil {
 		return err
 	}
-	seq, err := s.sdb.Sequence(s.folder, deviceID)
+	seq, err := s.sdb.GetDeviceSequence(s.folder, deviceID)
 	if err != nil {
 		return err
 	}

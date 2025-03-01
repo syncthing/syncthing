@@ -46,7 +46,7 @@ func TestBlocks(t *testing.T) {
 
 	// Search for blocks
 
-	vals, err := itererr.Collect(db.Blocks([]byte{1, 2, 3}))
+	vals, err := itererr.Collect(db.AllLocalBlocksWithHash([]byte{1, 2, 3}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestBlocks(t *testing.T) {
 	// Get FileInfos for those blocks
 
 	found := 0
-	for folder, fileInfo := range db.AllForBlocksHashAnyFolder(&err, vals[0].BlocklistHash) {
+	for folder, fileInfo := range db.AllLocalFilesWithBlocksHashAnyFolder(&err, vals[0].BlocklistHash) {
 		fmt.Println(folder, fileInfo)
 		if folder != folderID {
 			t.Fatal("should be same folder")
@@ -80,7 +80,7 @@ func TestBlocks(t *testing.T) {
 
 	// Get the other blocks
 
-	vals, err = itererr.Collect(db.Blocks([]byte{3, 4, 5}))
+	vals, err = itererr.Collect(db.AllLocalBlocksWithHash([]byte{3, 4, 5}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestBlocksDeleted(t *testing.T) {
 
 	// We should find one entry for the block hash
 	search := file.Blocks[0].Hash
-	es := iterCollectTest(t, db.Blocks(search))
+	es := iterCollectTest(t, db.AllLocalBlocksWithHash(search))
 	if len(es) != 1 {
 		t.Fatal("expected one hit")
 	}
@@ -131,13 +131,13 @@ func TestBlocksDeleted(t *testing.T) {
 	}
 
 	// Searching for the old hash should yield no hits
-	if hits := iterCollectTest(t, db.Blocks(search)); len(hits) != 0 {
+	if hits := iterCollectTest(t, db.AllLocalBlocksWithHash(search)); len(hits) != 0 {
 		t.Log(hits)
 		t.Error("expected no hits")
 	}
 
 	// Searching for the new hash should yield one hits
-	if hits := iterCollectTest(t, db.Blocks(file.Blocks[0].Hash)); len(hits) != 1 {
+	if hits := iterCollectTest(t, db.AllLocalBlocksWithHash(file.Blocks[0].Hash)); len(hits) != 1 {
 		t.Log(hits)
 		t.Error("expected one hit")
 	}

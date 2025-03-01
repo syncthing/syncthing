@@ -33,7 +33,7 @@ func BenchmarkUpdate(b *testing.B) {
 		b.Log("garbage collect in", time.Since(t0))
 
 		for {
-			local, err := db.LocalSize(folderID, protocol.LocalDeviceID)
+			local, err := db.CountLocal(folderID, protocol.LocalDeviceID)
 			if err != nil {
 				b.Fatal(err)
 			}

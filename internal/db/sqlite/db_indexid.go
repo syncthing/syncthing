@@ -10,7 +10,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func (s *DB) IndexID(folder string, device protocol.DeviceID) (protocol.IndexID, error) {
+func (s *DB) IndexIDGet(folder string, device protocol.DeviceID) (protocol.IndexID, error) {
 	// Try a fast read-only query to begin with. If it does not find the ID
 	// we'll do the full thing under a lock.
 	var indexID string
@@ -69,7 +69,7 @@ func (s *DB) IndexID(folder string, device protocol.DeviceID) (protocol.IndexID,
 	return indexIDFromHex(indexID)
 }
 
-func (s *DB) SetIndexID(folder string, device protocol.DeviceID, id protocol.IndexID) error {
+func (s *DB) IndexIDSet(folder string, device protocol.DeviceID, id protocol.IndexID) error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
 
@@ -90,7 +90,7 @@ func (s *DB) SetIndexID(folder string, device protocol.DeviceID, id protocol.Ind
 	return nil
 }
 
-func (s *DB) DropIndexIDs() error {
+func (s *DB) IndexIDDropAll() error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
 	_, err := s.sql.Exec(`DELETE FROM indexids`)
