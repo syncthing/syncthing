@@ -426,11 +426,11 @@ func (s *WebauthnVolatileState) init() {
 func (s *webauthnService) loadVolatileState() *WebauthnVolatileState {
 	s.volStateMut.RLock()
 	defer s.volStateMut.RUnlock()
-	return s.unsafeLoadVolatileState()
+	return s.loadVolatileStateRLocked()
 }
 
 // Load volatile WebAuthn state without acquiring a read lock.
-func (s *webauthnService) unsafeLoadVolatileState() *WebauthnVolatileState {
+func (s *webauthnService) loadVolatileStateRLocked() *WebauthnVolatileState {
 	stateBytes, ok, err := s.miscDB.Bytes(s.miscDBKey)
 	if err != nil {
 		l.Warnf("Failed to load WebAuthn dynamic state: %v", err)
@@ -454,7 +454,7 @@ func (s *webauthnService) updateVolatileState(update func(state *WebauthnVolatil
 	s.volStateMut.Lock()
 	defer s.volStateMut.Unlock()
 
-	state := s.unsafeLoadVolatileState()
+	state := s.loadVolatileStateRLocked()
 	update(state)
 	stateBytes, err := json.Marshal(state)
 	if err != nil {
