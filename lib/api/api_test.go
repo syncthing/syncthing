@@ -762,7 +762,6 @@ func TestHTTPLogin(t *testing.T) {
 				User:       "user",
 			}
 			err := gui.SetPassword(password)
-			l.Infof("Initial password: %v", gui.Password)
 			if err != nil {
 				t.Fatal(err, "Failed to set initial password")
 			}
