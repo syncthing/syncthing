@@ -247,7 +247,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, ldb *db.Lowlevel, protec
 		remoteFolderStates:             make(map[protocol.DeviceID]map[string]remoteFolderState),
 		indexHandlers:                  newServiceMap[protocol.DeviceID, *indexHandlerRegistry](evLogger),
 		tunnelConnections:              make(map[uint64]io.ReadWriter),
-		tunnelManager:                  NewTunnelManager(),
+		tunnelManager:                  NewTunnelManager(cfg.ConfigPath() + "/tunnels.json"),
 	}
 	for devID, cfg := range cfg.Devices() {
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(m.db, devID)
@@ -2379,32 +2379,7 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	m.deviceWasSeen(deviceID)
 	m.scheduleConnectionPromotion()
 
-	go m.handleTunnelData(conn)
-}
-
-func (m *model) handleTunnelData(conn protocol.Connection) {
-	for {
-		select {
-		case <-conn.Closed():
-			return
-		case data := <-conn.TunnelIn():
-			m.forwardTunnelData(data)
-		}
-	}
-}
-
-func (m *model) forwardTunnelData(data *protocol.TunnelData) {
-	m.mut.RLock()
-	tcpConn, ok := m.tunnelConnections[data.TunnelID]
-	m.mut.RUnlock()
-	if ok {
-		_, err := tcpConn.Write(data.Data)
-		if err != nil {
-			l.Warnf("Failed to forward tunnel data: %v", err)
-		}
-	} else {
-		l.Warnf("No TCP connection found for TunnelID: %s", data.TunnelID)
-	}
+	m.tunnelManager.RegisterDeviceConnection(deviceID, conn.TunnelIn(), conn.TunnelOut())
 }
 
 func (m *model) scheduleConnectionPromotion() {

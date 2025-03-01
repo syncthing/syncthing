@@ -249,18 +249,26 @@ enum FileDownloadProgressUpdateType {
 // Tunnel
 
 message TunnelData {
-  uint64 tunnel_id = 1;
-  bytes data = 2;
+  TunnelCommand command = 1;
+  uint64 tunnel_id = 2;
+  optional string tunnel_destination = 4;
+  optional bytes data = 3;
 }
 
-message TunnelManageRequest {
-  uint64 request_id = 1;
-  google.protobuf.Any command = 2;
+enum TunnelCommand {
+  TUNNEL_COMMAND_OPEN = 0;
+  TUNNEL_COMMAND_CLOSE = 1;
+  TUNNEL_COMMAND_DATA = 2;
 }
 
-message TunnelManageResponse {
-  uint64 request_id = 1;
-  google.protobuf.Any response = 2;
+message TunnelConfig {
+  repeated Tunnel tunnels = 1;
+}
+
+message Tunnel {
+  string localListenAddress = 1;
+  bytes DeviceID = 2;
+  string remoteAddress = 3;
 }
 
 // Ping

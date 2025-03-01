@@ -1159,23 +1159,16 @@ func (c *connectionWrappingModel) DownloadProgress(p *DownloadProgress) error {
 
 // TunnelData represents the structure for tunnel data messages.
 type TunnelData struct {
-	TunnelID uint64
-	Data     []byte
+	D *bep.TunnelData
 }
 
 // MarshalBinary encodes the TunnelData into a binary form.
 func (t *TunnelData) toWire() *bep.TunnelData {
-	return &bep.TunnelData{
-		TunnelId: t.TunnelID,
-		Data:     t.Data,
-	}
+	return t.D
 }
 
 func tunnelDataFromWire(data *bep.TunnelData) *TunnelData {
-	return &TunnelData{
-		TunnelID: data.TunnelId,
-		Data:     data.Data,
-	}
+	return &TunnelData{data}
 }
 
 // HandleTunnelData handles incoming TunnelData messages.
