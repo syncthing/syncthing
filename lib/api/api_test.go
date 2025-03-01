@@ -38,6 +38,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/gen/apiproto"
 	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -2109,14 +2110,14 @@ func TestWebauthnRegistration(t *testing.T) {
 			t.Errorf("Wrong Nickname in registration success response")
 		}
 
-		var volState WebauthnVolatileState
+		var volState apiproto.WebauthnVolatileState
 		getVolStateResp := httpGetCsrf(baseURL+"/rest/webauthn/state", csrfTokenName, csrfTokenValue, t)
 		err = unmarshalTo(getVolStateResp.Body, &volState)
 		if err != nil {
 			t.Fatal(err)
 		}
 		credVolState := volState.Credentials[pendingCred.ID]
-		if !(time.Since(credVolState.LastUseTime) < 10*time.Second) {
+		if !(time.Since(credVolState.LastUseTime.AsTime()) < 10*time.Second) {
 			t.Errorf("Wrong LastUseTime after registration success")
 		}
 		if credVolState.SignCount != 42 {
@@ -2458,7 +2459,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 				}
 			}
 
-			var volState WebauthnVolatileState
+			var volState apiproto.WebauthnVolatileState
 			getVolStateResp := httpGet("/rest/webauthn/state", testAPIKey, csrfTokenName, csrfTokenValue)
 			err := unmarshalTo(getVolStateResp.Body, &volState)
 			if err != nil {
@@ -2468,7 +2469,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 			if !ok {
 				t.Fatalf("Failed to get credential state")
 			}
-			if !(time.Since(credVolState.LastUseTime) < 10*time.Second) {
+			if !(time.Since(credVolState.LastUseTime.AsTime()) < 10*time.Second) {
 				t.Errorf("Wrong LastUseTime after authentication success")
 			}
 			if credVolState.SignCount != 42 {

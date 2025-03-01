@@ -9,16 +9,19 @@ package api
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"slices"
 	"sync"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	webauthnProtocol "github.com/go-webauthn/webauthn/protocol"
 	webauthnLib "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
+	"github.com/syncthing/syncthing/internal/gen/apiproto"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -81,17 +84,6 @@ type webauthnService struct {
 	volStateMut                    sync.RWMutex
 }
 
-// State that changes often but also is not security-critical,
-// and therefore can be wiped and overwritten without much consequence if needed.
-type WebauthnVolatileState struct {
-	Credentials map[string]WebauthnCredentialVolatileState `json:"credentials,omitempty"` // Keys are base64.RawURLEncoding.EncodeToString(credential ID)
-}
-
-type WebauthnCredentialVolatileState struct {
-	SignCount   uint32    `json:"signCount,omitempty"`
-	LastUseTime time.Time `json:"lastUseTime,omitempty"`
-}
-
 func newWebauthnService(guiCfg config.GUIConfiguration, deviceName string, evLogger events.Logger, miscDB *db.NamespacedKV, miscDBKey string) (webauthnService, error) {
 	engine, err := newWebauthnEngine(guiCfg, deviceName)
 	if err != nil {
@@ -144,7 +136,7 @@ func (webauthnLibUser) WebAuthnIcon() string {
 func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 	var result []webauthnLib.Credential
 	eligibleCredentials := u.guiCfg.EligibleWebAuthnCredentials(u.guiCfg)
-	credentialVolState := u.service.loadVolatileState()
+	webauthnVolState := u.service.loadVolatileState()
 
 	for _, cred := range eligibleCredentials {
 		id, err := base64.RawURLEncoding.DecodeString(cred.ID)
@@ -164,11 +156,16 @@ func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 			transports[i] = webauthnProtocol.AuthenticatorTransport(t)
 		}
 
+		credentialVolState, ok := webauthnVolState.Credentials[cred.ID]
+		if !ok || credentialVolState == nil {
+			credentialVolState = &apiproto.WebauthnCredentialVolatileState{}
+		}
+
 		result = append(result, webauthnLib.Credential{
 			ID:        id,
 			PublicKey: pubkey,
 			Authenticator: webauthnLib.Authenticator{
-				SignCount: credentialVolState.Credentials[cred.ID].SignCount,
+				SignCount: credentialVolState.SignCount,
 			},
 			Transport: transports,
 		})
@@ -410,27 +407,27 @@ func (s *webauthnService) deleteOldStates() {
 	}
 }
 
-func newVolState() *WebauthnVolatileState {
-	s := WebauthnVolatileState{}
-	s.init()
+func newVolState() *apiproto.WebauthnVolatileState {
+	s := apiproto.WebauthnVolatileState{}
+	initVolatileState(&s)
 	return &s
 }
 
-func (s *WebauthnVolatileState) init() {
+func initVolatileState(s *apiproto.WebauthnVolatileState) {
 	if s.Credentials == nil {
-		s.Credentials = make(map[string]WebauthnCredentialVolatileState, 1)
+		s.Credentials = make(map[string]*apiproto.WebauthnCredentialVolatileState, 1)
 	}
 }
 
 // Load volatile WebAuthn state with a read lock during loading.
-func (s *webauthnService) loadVolatileState() *WebauthnVolatileState {
+func (s *webauthnService) loadVolatileState() *apiproto.WebauthnVolatileState {
 	s.volStateMut.RLock()
 	defer s.volStateMut.RUnlock()
 	return s.loadVolatileStateRLocked()
 }
 
 // Load volatile WebAuthn state without acquiring a read lock.
-func (s *webauthnService) loadVolatileStateRLocked() *WebauthnVolatileState {
+func (s *webauthnService) loadVolatileStateRLocked() *apiproto.WebauthnVolatileState {
 	stateBytes, ok, err := s.miscDB.Bytes(s.miscDBKey)
 	if err != nil {
 		l.Warnf("Failed to load WebAuthn dynamic state: %v", err)
@@ -440,23 +437,23 @@ func (s *webauthnService) loadVolatileStateRLocked() *WebauthnVolatileState {
 		return newVolState()
 	}
 
-	var state WebauthnVolatileState
-	err = json.Unmarshal(stateBytes, &state)
+	var state apiproto.WebauthnVolatileState
+	err = proto.Unmarshal(stateBytes, &state)
 	if err != nil {
 		l.Warnf("Failed to unmarshal WebAuthn dynamic state: %v", err)
 		return newVolState()
 	}
-	state.init()
+	initVolatileState(&state)
 	return &state
 }
 
-func (s *webauthnService) updateVolatileState(update func(state *WebauthnVolatileState)) error {
+func (s *webauthnService) updateVolatileState(update func(state *apiproto.WebauthnVolatileState)) error {
 	s.volStateMut.Lock()
 	defer s.volStateMut.Unlock()
 
 	state := s.loadVolatileStateRLocked()
 	update(state)
-	stateBytes, err := json.Marshal(state)
+	stateBytes, err := proto.Marshal(state)
 	if err != nil {
 		return err
 	}
@@ -466,14 +463,14 @@ func (s *webauthnService) updateVolatileState(update func(state *WebauthnVolatil
 
 func (s *webauthnService) updateCredentialVolatileState(credId string, updatedCred *webauthnLib.Credential) {
 	var signCountBefore uint32 = 0
-	err := s.updateVolatileState(func(volState *WebauthnVolatileState) {
+	err := s.updateVolatileState(func(volState *apiproto.WebauthnVolatileState) {
 		dynCredState, ok := volState.Credentials[credId]
 		if !ok {
-			dynCredState = WebauthnCredentialVolatileState{}
+			dynCredState = &apiproto.WebauthnCredentialVolatileState{}
 		}
 		signCountBefore = dynCredState.SignCount
 		dynCredState.SignCount = updatedCred.Authenticator.SignCount
-		dynCredState.LastUseTime = s.timeNow().Truncate(time.Second).UTC()
+		dynCredState.LastUseTime = timestamppb.New(s.timeNow().Truncate(time.Second).UTC())
 		volState.Credentials[credId] = dynCredState
 	})
 	if err != nil {
