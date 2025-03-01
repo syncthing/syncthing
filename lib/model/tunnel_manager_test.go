@@ -52,10 +52,12 @@ func TestTunnelManager_ServeListener(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Wait for the TunnelData to be sent
+	var tunnelID uint64
 	select {
 	case data := <-tunnelDataChan:
 		assert.Equal(t, bep.TunnelCommand_TUNNEL_COMMAND_OPEN, data.D.Command)
 		assert.Equal(t, destinationAddress, *data.D.TunnelDestination)
+		tunnelID = data.D.TunnelId
 	case <-time.After(1 * time.Second):
 		t.Fatal("Timed out waiting for TunnelData")
 	}
@@ -68,6 +70,7 @@ func TestTunnelManager_ServeListener(t *testing.T) {
 	case data := <-tunnelDataChan:
 		assert.Equal(t, bep.TunnelCommand_TUNNEL_COMMAND_DATA, data.D.Command)
 		assert.Equal(t, msg, data.D.Data)
+		assert.Equal(t, tunnelID, data.D.TunnelId)
 	case <-time.After(1 * time.Second):
 		t.Fatal("Timed out waiting for TunnelData")
 	}
@@ -78,6 +81,7 @@ func TestTunnelManager_ServeListener(t *testing.T) {
 	select {
 	case data := <-tunnelDataChan:
 		assert.Equal(t, bep.TunnelCommand_TUNNEL_COMMAND_CLOSE, data.D.Command)
+		assert.Equal(t, tunnelID, data.D.TunnelId)
 	case <-time.After(1 * time.Second):
 		t.Fatal("Timed out waiting for TunnelData")
 	}
@@ -117,7 +121,6 @@ func TestTunnelManager_HandleOpenCommand(t *testing.T) {
 	// Wait for the TunnelManager to connect to the listener
 	conn, err := listener.Accept()
 	assert.NoError(t, err)
-	defer conn.Close()
 
 	// Verify the connection
 	msg_from_server := []byte("hello from server")
@@ -129,6 +132,7 @@ func TestTunnelManager_HandleOpenCommand(t *testing.T) {
 	case data := <-tunnelDataChanOut:
 		assert.Equal(t, bep.TunnelCommand_TUNNEL_COMMAND_DATA, data.D.Command)
 		assert.Equal(t, msg_from_server, data.D.Data)
+		assert.Equal(t, tunnelID, data.D.TunnelId)
 	case <-time.After(1 * time.Second):
 		t.Fatal("Timed out waiting for TunnelData")
 	}
@@ -146,4 +150,15 @@ func TestTunnelManager_HandleOpenCommand(t *testing.T) {
 	n, err := conn.Read(buf)
 	assert.NoError(t, err)
 	assert.Equal(t, msg_from_client, buf[:n])
+
+	conn.Close()
+
+	// Wait for the TunnelData to be sent
+	select {
+	case data := <-tunnelDataChanOut:
+		assert.Equal(t, bep.TunnelCommand_TUNNEL_COMMAND_CLOSE, data.D.Command)
+		assert.Equal(t, tunnelID, data.D.TunnelId)
+	case <-time.After(1 * time.Second):
+		t.Fatal("Timed out waiting for TunnelData")
+	}
 }
