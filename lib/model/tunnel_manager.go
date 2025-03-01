@@ -227,7 +227,7 @@ func (tm *TunnelManager) forwardRemoteTunnelData(fromDevice protocol.DeviceID, d
 		if ok {
 			tcpConn.Close()
 		} else {
-			l.Warnf("Close: No TCP connection found for TunnelID: %s", data.D.TunnelId)
+			l.Infof("Close: No TCP connection found for TunnelID: %s", data.D.TunnelId)
 		}
 	default: // unknown command
 		l.Warnf("Unknown tunnel command: %v", data.D.Command)
