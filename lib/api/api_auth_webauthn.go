@@ -174,33 +174,37 @@ func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 	return result
 }
 
-// Registration step 1: server response from "start WebAuthn" endpoint
+// Registration step 1a: POST to startWebauthnRegistration with no body
+// Registration step 1b: startWebauthnRegistration returns startWebauthnRegistrationResponse as body
+// Registration step 1c: Client invokes WebAuthn with webauthnProtocol.CredentialCreation as input
 type startWebauthnRegistrationResponse struct {
-	RequestID string `json:"requestId"`
-	// Inputs for WebAuthn call on client
-	Options webauthnProtocol.CredentialCreation `json:"options"`
+	RequestID string                              `json:"requestId"`
+	Options   webauthnProtocol.CredentialCreation `json:"options"`
 }
 
-// Registration step 2: client request to "finish WebAuthn" endpoint
+// Registration step 2a: WebAuthn returns webauthnProtocol.CredentialCreationResponse to Client
+// Registration step 2b: POST to finishWebauthnRegistration with finishWebauthnRegistrationRequest as body
+// Registration step 2c: finishWebauthnRegistration returns config.WebauthnCredential
 type finishWebauthnRegistrationRequest struct {
-	RequestID string `json:"requestId"`
-	// WebAuthn response from client
+	RequestID  string                                      `json:"requestId"`
 	Credential webauthnProtocol.CredentialCreationResponse `json:"credential"`
 }
 
-// Authentication step 1: server response from "start WebAuthn" endpoint
+// Authentication step 1a: POST to startWebauthnAuthentication with no body
+// Authentication step 1b: startWebauthnAuthentication returns startWebauthnAuthenticationResponse as body
+// Authentication step 1c: Client invokes WebAuthn with webauthnProtocol.CredentialAssertion as input
 type startWebauthnAuthenticationResponse struct {
-	RequestID string `json:"requestId"`
-	// Inputs for WebAuthn call on client
-	Options webauthnProtocol.CredentialAssertion `json:"options"`
+	RequestID string                               `json:"requestId"`
+	Options   webauthnProtocol.CredentialAssertion `json:"options"`
 }
 
-// Authentication step 2: client request to "finish WebAuthn" endpoint
+// Authentication step 2a: WebAuthn returns webauthnProtocol.CredentialAssertionResponse to Client
+// Authentication step 2a: POST to finishWebauthnAuthentication with finishWebauthnAuthenticationRequest as body
+// Authentication step 2b: finishWebauthnAuthentication returns 204 No Content
 type finishWebauthnAuthenticationRequest struct {
-	StayLoggedIn bool   `json:"stayLoggedIn"`
-	RequestID    string `json:"requestId"`
-	// WebAuthn response from client
-	Credential webauthnProtocol.CredentialAssertionResponse `json:"credential"`
+	StayLoggedIn bool                                         `json:"stayLoggedIn"`
+	RequestID    string                                       `json:"requestId"`
+	Credential   webauthnProtocol.CredentialAssertionResponse `json:"credential"`
 }
 
 func (s *webauthnService) startWebauthnRegistration(guiCfg config.GUIConfiguration) http.HandlerFunc {
