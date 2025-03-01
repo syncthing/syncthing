@@ -751,6 +751,127 @@ func TestHTTPLogin(t *testing.T) {
 	testWith(false, http.StatusOK, http.StatusOK, "/")
 	testWith(false, http.StatusOK, http.StatusForbidden, "/meta.js")
 	testWith(false, http.StatusNotFound, http.StatusForbidden, "/any-path/that/does/nooooooot/match-any/noauth-pattern")
+
+	t.Run("Password change invalidates old and enables new password", func(t *testing.T) {
+		t.Parallel()
+
+		initConfig := func(password string, t *testing.T) config.Wrapper {
+			gui := config.GUIConfiguration{
+				RawAddress: "127.0.0.1:0",
+				APIKey:     testAPIKey,
+				User:       "user",
+			}
+			err := gui.SetPassword(password)
+			l.Infof("Initial password: %v", gui.Password)
+			if err != nil {
+				t.Fatal(err, "Failed to set initial password")
+			}
+			cfg := config.Configuration{
+				GUI: gui,
+			}
+
+			tmpFile, err := os.CreateTemp("", "syncthing-testConfig-Password-*")
+			if err != nil {
+				t.Fatal(err, "Failed to create tmpfile for test")
+			}
+			w := config.Wrap(tmpFile.Name(), cfg, protocol.LocalDeviceID, events.NoopLogger)
+			tmpFile.Close()
+			cfgCtx, cfgCancel := context.WithCancel(context.Background())
+			go w.Serve(cfgCtx)
+			t.Cleanup(func() {
+				os.Remove(tmpFile.Name())
+				cfgCancel()
+			})
+			return w
+		}
+
+		initialPassword := "Asdf123!"
+		newPassword := "123!asdF"
+
+		t.Run("when done via /rest/config", func(t *testing.T) {
+			t.Parallel()
+
+			w := initConfig(initialPassword, t)
+			{
+				baseURL, cancel, err := startHTTP(w)
+				cfgPath := baseURL + "/rest/config"
+				path := baseURL + "/meta.js"
+				t.Cleanup(cancel)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				resp := httpGetBasicAuth(path, "user", initialPassword)
+				if resp.StatusCode != http.StatusOK {
+					t.Fatalf("Unexpected non-200 return code %d for auth with initial password", resp.StatusCode)
+				}
+
+				cfg := w.RawCopy()
+				cfg.GUI.Password = newPassword
+				httpRequest(http.MethodPut, cfgPath, cfg, "", "", testAPIKey, "", "", "", nil, t)
+			}
+			{
+				baseURL, cancel, err := startHTTP(w)
+				path := baseURL + "/meta.js"
+				t.Cleanup(cancel)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				resp := httpGetBasicAuth(path, "user", initialPassword)
+				if resp.StatusCode != http.StatusForbidden {
+					t.Errorf("Unexpected non-403 return code %d for request authed with old password", resp.StatusCode)
+				}
+
+				resp2 := httpGetBasicAuth(path, "user", newPassword)
+				if resp2.StatusCode != http.StatusOK {
+					t.Errorf("Unexpected non-200 return code %d for request authed with new password", resp2.StatusCode)
+				}
+			}
+		})
+
+		t.Run("when done via /rest/config/gui", func(t *testing.T) {
+			t.Parallel()
+
+			w := initConfig(initialPassword, t)
+			{
+				baseURL, cancel, err := startHTTP(w)
+				cfgPath := baseURL + "/rest/config/gui"
+				path := baseURL + "/meta.js"
+				t.Cleanup(cancel)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				resp := httpGetBasicAuth(path, "user", initialPassword)
+				if resp.StatusCode != http.StatusOK {
+					t.Fatalf("Unexpected non-200 return code %d for auth with initial password", resp.StatusCode)
+				}
+
+				cfg := w.RawCopy()
+				cfg.GUI.Password = newPassword
+				httpRequest(http.MethodPut, cfgPath, cfg.GUI, "", "", testAPIKey, "", "", "", nil, t)
+			}
+			{
+				baseURL, cancel, err := startHTTP(w)
+				path := baseURL + "/meta.js"
+				t.Cleanup(cancel)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				resp := httpGetBasicAuth(path, "user", initialPassword)
+				if resp.StatusCode != http.StatusForbidden {
+					t.Errorf("Unexpected non-403 return code %d for request authed with old password", resp.StatusCode)
+				}
+
+				resp2 := httpGetBasicAuth(path, "user", newPassword)
+				if resp2.StatusCode != http.StatusOK {
+					t.Errorf("Unexpected non-200 return code %d for request authed with new password", resp2.StatusCode)
+				}
+			}
+		})
+	})
 }
 
 func TestHtmlFormLogin(t *testing.T) {
