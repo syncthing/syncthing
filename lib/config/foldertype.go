@@ -30,6 +30,13 @@ func (t FolderType) String() string {
 	}
 }
 
+func (t FolderType) SupportsIgnores() bool {
+	// return t != FolderTypeReceiveEncrypted
+	// To be able to use the sharding feature, ignores must be enabled
+	// TODO: discuss with maintainer how this can be solved properly
+	return true
+}
+
 func (t FolderType) MarshalText() ([]byte, error) {
 	return []byte(t.String()), nil
 }
