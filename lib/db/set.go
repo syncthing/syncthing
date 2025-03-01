@@ -18,7 +18,6 @@ import (
 
 	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/lib/db/backend"
-	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -410,19 +409,6 @@ func (s *deprecatedFileSet) SetIndexID(device protocol.DeviceID, id protocol.Ind
 	if err := s.db.setIndexID(device[:], []byte(s.folder), id); err != nil && !backend.IsClosed(err) {
 		fatalError(err, opStr, s.db)
 	}
-}
-
-func (s *deprecatedFileSet) MtimeOption() fs.Option {
-	opStr := fmt.Sprintf("%s MtimeOption()", s.folder)
-	l.Debugf(opStr)
-	prefix, err := s.db.keyer.GenerateMtimesKey(nil, []byte(s.folder))
-	if backend.IsClosed(err) {
-		return nil
-	} else if err != nil {
-		fatalError(err, opStr, s.db)
-	}
-	kv := NewNamespacedKV(s.db, string(prefix))
-	return fs.NewMtimeOption(kv)
 }
 
 func (s *deprecatedFileSet) ListDevices() []protocol.DeviceID {

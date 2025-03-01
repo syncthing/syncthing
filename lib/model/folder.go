@@ -108,7 +108,7 @@ func newFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfigura
 		shortID:       model.shortID,
 		db:            model.sdb,
 		ignores:       ignores,
-		mtimefs:       cfg.Filesystem(fs.NewMtimeOption(kv.NewTyped(model.sdb.KV(), "mtimes/"+cfg.ID))),
+		mtimefs:       cfg.Filesystem(fs.NewMtimeOption(model.sdb, cfg.ID)),
 		modTimeWindow: cfg.ModTimeWindow(),
 		done:          make(chan struct{}),
 

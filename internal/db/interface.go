@@ -2,6 +2,7 @@ package db // import "github.com/syncthing/syncthing/internal/db/sqlite"
 
 import (
 	"iter"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -40,6 +41,11 @@ type DB interface {
 	Sequence(folder string, device protocol.DeviceID) (int64, error)
 	SetIndexID(folder string, device protocol.DeviceID, id protocol.IndexID) error
 	Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error
+
+	// mtimefs
+	GetMtimePair(folder, name string) (ondisk, virtual time.Time)
+	PutMtimePair(folder, name string, ondisk, virtual time.Time) error
+	DeleteMtimePair(folder, name string) error
 }
 
 type KV interface {
