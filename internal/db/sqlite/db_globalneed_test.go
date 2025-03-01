@@ -262,6 +262,48 @@ func TestDontNeedIgnored(t *testing.T) {
 	}
 }
 
+func TestRemoveDontNeedLocalIgnored(t *testing.T) {
+	t.Parallel()
+
+	db, err := OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// A local ignored file
+	file := genFile("test1", 1, 103)
+	file.SetIgnored()
+	files := []protocol.FileInfo{file}
+	err = db.Update(folderID, protocol.LocalDeviceID, files)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Which the remote doesn't have (no update)
+
+	// They don't need it
+	s, err := db.NeedSize(folderID, protocol.DeviceID{42})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Bytes != 0 || s.Files != 0 {
+		t.Log(s)
+		t.Error("bad need")
+	}
+
+	// It shouldn't show up in their need list
+	names := iterCollectTest(t, db.AllNeededNames(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0))
+	if len(names) != 0 {
+		t.Log(names)
+		t.Error("need no files")
+	}
+}
+
 func TestLocalDontNeedDeletedMissing(t *testing.T) {
 	t.Parallel()
 

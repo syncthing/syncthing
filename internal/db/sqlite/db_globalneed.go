@@ -63,11 +63,18 @@ func (s *DB) AllNeededNames(folder string, device protocol.DeviceID, order confi
 		})
 	}
 
-	// Select all the global files that don't have a corresponding remote file with the same version.
+	// Select:
+	//
+	// - all the valid, non-deleted global files that don't have a corresponding
+	//   remote file with the same version.
+	//
+	// - all the valid, deleted global files that have a corresponding non-deleted
+	//   remote file (of any version)
+
 	vals := iterStructs[fileRow](s.sql.Queryx(`
 	SELECT g.name FROM files g
 	INNER JOIN folders o ON o.idx = g.folder_idx
-	WHERE o.folder_id = ? AND g.local_flags & ? != 0 AND NOT g.deleted AND NOT EXISTS (
+	WHERE o.folder_id = ? AND g.local_flags & ? != 0 AND NOT g.deleted AND NOT g.invalid AND NOT EXISTS (
 		SELECT 1 FROM FILES f
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE f.name = g.name AND f.version = g.version AND f.folder_idx = g.folder_idx AND d.device_id = ?
@@ -77,7 +84,7 @@ func (s *DB) AllNeededNames(folder string, device protocol.DeviceID, order confi
 
 	SELECT g.name FROM files g
 	INNER JOIN folders o ON o.idx = g.folder_idx
-	WHERE o.folder_id = ? AND g.local_flags & ? != 0 AND g.deleted AND EXISTS (
+	WHERE o.folder_id = ? AND g.local_flags & ? != 0 AND g.deleted AND NOT g.invalid AND EXISTS (
 		SELECT 1 FROM FILES f
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE f.name = g.name AND f.folder_idx = g.folder_idx AND d.device_id = ? AND NOT f.deleted
@@ -268,19 +275,12 @@ func (s *DB) needSizeLocal(folder string) (db.Counts, error) {
 }
 
 func (s *DB) needSizeRemote(folder string, device protocol.DeviceID) (db.Counts, error) {
-	// Select:
-	//
-	// - all the non-deleted global files that don't have a corresponding
-	//   remote file with the same version.
-	//
-	// - all the deleted global files that have a corresponding non-deleted
-	//   remote file (of any version)
-
 	var res []sizesRow
+	// See AllNeededNames for commentary as that is the same query without summing
 	if err := s.sql.Select(&res, `
 	SELECT g.type, count(*) as count, sum(g.size) as size, g.local_flags FROM files g
 	INNER JOIN folders o ON o.idx = g.folder_idx
-	WHERE o.folder_id = ? AND g.local_flags & ? != 0 AND NOT g.deleted AND NOT EXISTS (
+	WHERE o.folder_id = ? AND g.local_flags & ? != 0 AND NOT g.deleted AND NOT g.invalid AND NOT EXISTS (
 		SELECT 1 FROM FILES f
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE f.name = g.name AND f.version = g.version AND f.folder_idx = g.folder_idx AND d.device_id = ?
@@ -291,7 +291,7 @@ func (s *DB) needSizeRemote(folder string, device protocol.DeviceID) (db.Counts,
 
 	SELECT g.type, count(*) as count, sum(g.size) as size, g.local_flags FROM files g
 	INNER JOIN folders o ON o.idx = g.folder_idx
-	WHERE o.folder_id = ? AND g.local_flags & ? != 0 AND g.deleted AND EXISTS (
+	WHERE o.folder_id = ? AND g.local_flags & ? != 0 AND g.deleted AND NOT g.invalid AND EXISTS (
 		SELECT 1 FROM FILES f
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE f.name = g.name AND f.folder_idx = g.folder_idx AND d.device_id = ? AND NOT f.deleted
