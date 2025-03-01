@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -23,6 +24,8 @@ type DB struct {
 	updateLock     sync.Mutex
 	prepared       map[string]*sqlx.Stmt
 }
+
+var _ db.DB = (*DB)(nil)
 
 func (s *DB) Close() error {
 	s.updateLock.Lock()

@@ -157,7 +157,7 @@ func (m metricsDB) Global(folder string, file string) (protocol.FileInfo, bool, 
 	return m.DB.Global(folder, file)
 }
 
-func (m metricsDB) GlobalSize(folder string) Counts {
+func (m metricsDB) GlobalSize(folder string) (Counts, error) {
 	defer m.account(folder, "GlobalSize")()
 	return m.DB.GlobalSize(folder)
 }
@@ -177,17 +177,17 @@ func (m metricsDB) Local(folder string, device protocol.DeviceID, file string) (
 	return m.DB.Local(folder, device, file)
 }
 
-func (m metricsDB) LocalSize(folder string, device protocol.DeviceID) Counts {
+func (m metricsDB) LocalSize(folder string, device protocol.DeviceID) (Counts, error) {
 	defer m.account(folder, "LocalSize")()
 	return m.DB.LocalSize(folder, device)
 }
 
-func (m metricsDB) NeedSize(folder string, device protocol.DeviceID) Counts {
+func (m metricsDB) NeedSize(folder string, device protocol.DeviceID) (Counts, error) {
 	defer m.account(folder, "NeedSize")()
 	return m.DB.NeedSize(folder, device)
 }
 
-func (m metricsDB) ReceiveOnlySize(folder string) Counts {
+func (m metricsDB) ReceiveOnlySize(folder string) (Counts, error) {
 	defer m.account(folder, "ReceiveOnlySize")()
 	return m.DB.ReceiveOnlySize(folder)
 }

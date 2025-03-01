@@ -30,13 +30,13 @@ type DB interface {
 	DropIndexIDs() error
 	Folders() ([]string, error)
 	Global(folder string, file string) (protocol.FileInfo, bool, error)
-	GlobalSize(folder string) Counts
+	GlobalSize(folder string) (Counts, error)
 	IndexID(folder string, device protocol.DeviceID) (protocol.IndexID, error)
 	KV() KV
 	Local(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error)
-	LocalSize(folder string, device protocol.DeviceID) Counts
-	NeedSize(folder string, device protocol.DeviceID) Counts
-	ReceiveOnlySize(folder string) Counts
+	LocalSize(folder string, device protocol.DeviceID) (Counts, error)
+	NeedSize(folder string, device protocol.DeviceID) (Counts, error)
+	ReceiveOnlySize(folder string) (Counts, error)
 	Sequence(folder string, device protocol.DeviceID) (int64, error)
 	SetIndexID(folder string, device protocol.DeviceID, id protocol.IndexID) error
 	Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error

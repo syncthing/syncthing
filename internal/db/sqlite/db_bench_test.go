@@ -32,7 +32,14 @@ func BenchmarkUpdate(b *testing.B) {
 		}
 		b.Log("garbage collect in", time.Since(t0))
 
-		for db.LocalSize(folderID, protocol.LocalDeviceID).Files < size {
+		for {
+			local, err := db.LocalSize(folderID, protocol.LocalDeviceID)
+			if err != nil {
+				b.Fatal(err)
+			}
+			if local.Files >= size {
+				break
+			}
 			fs := make([]protocol.FileInfo, 1000)
 			for i := range fs {
 				fs[i] = genFile(rand.String(24), 64, 0)

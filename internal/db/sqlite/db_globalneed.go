@@ -67,12 +67,25 @@ func (s *DB) AllNeededNames(folder string, device protocol.DeviceID, order confi
 	vals := iterStructs[fileRow](s.sql.Queryx(`
 	SELECT g.name FROM files g
 	INNER JOIN folders o ON o.idx = g.folder_idx
-	WHERE o.folder_id = ? AND g.local_flags & ? != 0 AND NOT EXISTS (
+	WHERE o.folder_id = ? AND g.local_flags & ? != 0 AND NOT g.deleted AND NOT EXISTS (
 		SELECT 1 FROM FILES f
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE f.name = g.name AND f.version = g.version AND f.folder_idx = g.folder_idx AND d.device_id = ?
-	)`+orderBy+limitStr,
-		folder, protocol.FlagLocalGlobal, device.String()))
+	)
+
+	UNION
+
+	SELECT g.name FROM files g
+	INNER JOIN folders o ON o.idx = g.folder_idx
+	WHERE o.folder_id = ? AND g.local_flags & ? != 0 AND g.deleted AND EXISTS (
+		SELECT 1 FROM FILES f
+		INNER JOIN devices d ON d.idx = f.device_idx
+		WHERE f.name = g.name AND f.folder_idx = g.folder_idx AND d.device_id = ? AND NOT f.deleted
+	)
+	`+orderBy+limitStr,
+		folder, protocol.FlagLocalGlobal, device.String(),
+		folder, protocol.FlagLocalGlobal, device.String(),
+	))
 	return itererr.Map(vals, func(r fileRow) string {
 		return osutil.NativeFilename(r.Name)
 	})
@@ -165,9 +178,12 @@ func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file str
 
 	// We "have" the file if the position in the list of versions is at the
 	// global version or better, or if the version is the same as the global
-	// file (we might be further down the list due to invalid flags)...
+	// file (we might be further down the list due to invalid flags), or if
+	// the global is deleted and we don't have it at all...
 	localIdx := slices.IndexFunc(es, func(e fileRow) bool { return e.DeviceIdx == s.localDeviceIdx })
-	hasLocal := localIdx >= 0 && (localIdx <= globIdx || es[localIdx].Version.Equal(global.Version.Vector))
+	hasLocal := localIdx >= 0 && localIdx <= globIdx || // have a better or equal version
+		localIdx >= 0 && es[localIdx].Version.Equal(global.Version.Vector) || // have an equal version but invalid/ignored
+		localIdx < 0 && global.Deleted // missing it, but the global is also deleted
 
 	// Set the global flag on the global entry. Set the need flag if the
 	// local device needs this file, unless it's invalid.
@@ -208,7 +224,7 @@ type sizesRow struct {
 	FlagBit int64 `db:"local_flags"`
 }
 
-func (s *DB) LocalSize(folder string, device protocol.DeviceID) db.Counts {
+func (s *DB) LocalSize(folder string, device protocol.DeviceID) (db.Counts, error) {
 	var res []sizesRow
 	extra := ""
 	if device == protocol.LocalDeviceID {
@@ -224,19 +240,19 @@ func (s *DB) LocalSize(folder string, device protocol.DeviceID) db.Counts {
 		INNER JOIN devices d ON d.idx = s.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ? AND s.local_flags & ? = 0`+extra,
 		folder, device.String(), protocol.FlagLocalIgnored); err != nil {
-		return db.Counts{}
+		return db.Counts{}, err
 	}
-	return summarizeRows(res)
+	return summarizeRows(res), nil
 }
 
-func (s *DB) NeedSize(folder string, device protocol.DeviceID) db.Counts {
+func (s *DB) NeedSize(folder string, device protocol.DeviceID) (db.Counts, error) {
 	if device == protocol.LocalDeviceID {
 		return s.needSizeLocal(folder)
 	}
 	return s.needSizeRemote(folder, device)
 }
 
-func (s *DB) needSizeLocal(folder string) db.Counts {
+func (s *DB) needSizeLocal(folder string) (db.Counts, error) {
 	// The need size for the local device is the sum of entries with both
 	// the global and need bit set.
 	var res []sizesRow
@@ -246,31 +262,50 @@ func (s *DB) needSizeLocal(folder string) db.Counts {
 		WHERE o.folder_id = ? AND s.local_flags & ? = ?
 	`, folder, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal)
 	if err != nil {
-		return db.Counts{}
+		return db.Counts{}, err
 	}
-	return summarizeRows(res)
+	return summarizeRows(res), nil
 }
 
-func (s *DB) needSizeRemote(folder string, device protocol.DeviceID) db.Counts {
-	// Select all the global files that don't have a corresponding remote
-	// file with the same version.
+func (s *DB) needSizeRemote(folder string, device protocol.DeviceID) (db.Counts, error) {
+	// Select:
+	//
+	// - all the non-deleted global files that don't have a corresponding
+	//   remote file with the same version.
+	//
+	// - all the deleted global files that have a corresponding non-deleted
+	//   remote file (of any version)
+
 	var res []sizesRow
 	if err := s.sql.Select(&res, `
 	SELECT g.type, count(*) as count, sum(g.size) as size, g.local_flags FROM files g
 	INNER JOIN folders o ON o.idx = g.folder_idx
-	WHERE o.folder_id = ? AND g.local_flags & ? != 0 AND NOT EXISTS (
+	WHERE o.folder_id = ? AND g.local_flags & ? != 0 AND NOT g.deleted AND NOT EXISTS (
 		SELECT 1 FROM FILES f
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE f.name = g.name AND f.version = g.version AND f.folder_idx = g.folder_idx AND d.device_id = ?
 	)
+	GROUP BY g.type, g.local_flags
+
+	UNION
+
+	SELECT g.type, count(*) as count, sum(g.size) as size, g.local_flags FROM files g
+	INNER JOIN folders o ON o.idx = g.folder_idx
+	WHERE o.folder_id = ? AND g.local_flags & ? != 0 AND g.deleted AND EXISTS (
+		SELECT 1 FROM FILES f
+		INNER JOIN devices d ON d.idx = f.device_idx
+		WHERE f.name = g.name AND f.folder_idx = g.folder_idx AND d.device_id = ? AND NOT f.deleted
+	)
 	GROUP BY g.type, g.local_flags`,
+		folder, protocol.FlagLocalGlobal, device.String(),
 		folder, protocol.FlagLocalGlobal, device.String()); err != nil {
-		return db.Counts{}
+		return db.Counts{}, err
 	}
-	return summarizeRows(res)
+
+	return summarizeRows(res), nil
 }
 
-func (s *DB) GlobalSize(folder string) db.Counts {
+func (s *DB) GlobalSize(folder string) (db.Counts, error) {
 	// Exclude ignored and receive-only changed files from the global count
 	// (legacy expectation? it's a bit weird since those files can in fact
 	// be global and you can get them with GetGlobal etc.)
@@ -281,12 +316,12 @@ func (s *DB) GlobalSize(folder string) db.Counts {
 		WHERE o.folder_id = ? AND s.local_flags & ? != 0 AND s.local_flags & ? = 0
 	`, folder, protocol.FlagLocalGlobal, protocol.FlagLocalReceiveOnly|protocol.FlagLocalIgnored)
 	if err != nil {
-		return db.Counts{}
+		return db.Counts{}, err
 	}
-	return summarizeRows(res)
+	return summarizeRows(res), nil
 }
 
-func (s *DB) ReceiveOnlySize(folder string) db.Counts {
+func (s *DB) ReceiveOnlySize(folder string) (db.Counts, error) {
 	var res []sizesRow
 	err := s.sql.Select(&res, `
 		SELECT s.type, s.count, s.size, s.local_flags FROM sizes s
@@ -294,9 +329,9 @@ func (s *DB) ReceiveOnlySize(folder string) db.Counts {
 		WHERE o.folder_id = ? AND local_flags & ? != 0
 	`, folder, protocol.FlagLocalReceiveOnly)
 	if err != nil {
-		return db.Counts{}
+		return db.Counts{}, err
 	}
-	return summarizeRows(res)
+	return summarizeRows(res), nil
 }
 
 func summarizeRows(res []sizesRow) db.Counts {

@@ -166,7 +166,10 @@ func TestBasics(t *testing.T) {
 
 		// Local device
 
-		c := db.LocalSize(folderID, protocol.LocalDeviceID)
+		c, err := db.LocalSize(folderID, protocol.LocalDeviceID)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if c.Files != 3 {
 			t.Log(c)
 			t.Error("one file expected")
@@ -182,7 +185,10 @@ func TestBasics(t *testing.T) {
 
 		// Other device
 
-		c = db.LocalSize(folderID, protocol.DeviceID{42})
+		c, err = db.LocalSize(folderID, protocol.DeviceID{42})
+		if err != nil {
+			t.Fatal(err)
+		}
 		if c.Files != 3 {
 			t.Log(c)
 			t.Error("three files expected")
@@ -200,7 +206,10 @@ func TestBasics(t *testing.T) {
 	t.Run("GlobalSize", func(t *testing.T) {
 		t.Parallel()
 
-		c := db.GlobalSize(folderID)
+		c, err := db.GlobalSize(folderID)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if c.Files != 5 {
 			t.Log(c)
 			t.Error("five files expected")
@@ -218,7 +227,10 @@ func TestBasics(t *testing.T) {
 	t.Run("NeedSizeLocal", func(t *testing.T) {
 		t.Parallel()
 
-		c := db.NeedSize(folderID, protocol.LocalDeviceID)
+		c, err := db.NeedSize(folderID, protocol.LocalDeviceID)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if c.Files != 3 {
 			t.Log(c)
 			t.Error("three files expected")
@@ -236,7 +248,10 @@ func TestBasics(t *testing.T) {
 	t.Run("NeedSizeRemote", func(t *testing.T) {
 		t.Parallel()
 
-		c := db.NeedSize(folderID, protocol.DeviceID{42})
+		c, err := db.NeedSize(folderID, protocol.DeviceID{42})
+		if err != nil {
+			t.Fatal(err)
+		}
 		if c.Files != 2 {
 			t.Log(c)
 			t.Error("two files expected")
@@ -472,7 +487,9 @@ func TestDropFilesNamed(t *testing.T) {
 		t.Log(err, ok)
 		t.Error("expected to not exist")
 	}
-	if c := db.LocalSize(folderID, protocol.LocalDeviceID); c.Files != 1 {
+	if c, err := db.LocalSize(folderID, protocol.LocalDeviceID); err != nil {
+		t.Fatal(err)
+	} else if c.Files != 1 {
 		t.Log(c)
 		t.Error("expected count to be one")
 	}
@@ -523,7 +540,9 @@ func TestDropFolder(t *testing.T) {
 		t.Log(err, ok)
 		t.Error("expected to not exist")
 	}
-	if c := db.LocalSize("a", protocol.LocalDeviceID); c.Files != 0 {
+	if c, err := db.LocalSize("a", protocol.LocalDeviceID); err != nil {
+		t.Fatal(err)
+	} else if c.Files != 0 {
 		t.Log(c)
 		t.Error("expected count to be zero")
 	}
@@ -532,7 +551,9 @@ func TestDropFolder(t *testing.T) {
 		t.Log(err, ok)
 		t.Error("expected to exist")
 	}
-	if c := db.LocalSize("b", protocol.LocalDeviceID); c.Files != 2 {
+	if c, err := db.LocalSize("b", protocol.LocalDeviceID); err != nil {
+		t.Fatal(err)
+	} else if c.Files != 2 {
 		t.Log(c)
 		t.Error("expected count to be two")
 	}
@@ -579,7 +600,9 @@ func TestDropDevice(t *testing.T) {
 		t.Log(err, ok)
 		t.Error("expected to not exist")
 	}
-	if c := db.LocalSize("a", protocol.DeviceID{1}); c.Files != 0 {
+	if c, err := db.LocalSize("a", protocol.DeviceID{1}); err != nil {
+		t.Fatal(err)
+	} else if c.Files != 0 {
 		t.Log(c)
 		t.Error("expected count to be zero")
 	}
@@ -587,7 +610,9 @@ func TestDropDevice(t *testing.T) {
 		t.Log(err, ok)
 		t.Error("expected to exist")
 	}
-	if c := db.LocalSize("a", protocol.DeviceID{2}); c.Files != 2 {
+	if c, err := db.LocalSize("a", protocol.DeviceID{2}); err != nil {
+		t.Fatal(err)
+	} else if c.Files != 2 {
 		t.Log(c)
 		t.Error("expected count to be two")
 	}
@@ -639,7 +664,9 @@ func TestDropAllFiles(t *testing.T) {
 		t.Log(err, ok)
 		t.Error("expected to not exist")
 	}
-	if c := db.LocalSize("a", protocol.DeviceID{1}); c.Files != 0 {
+	if c, err := db.LocalSize("a", protocol.DeviceID{1}); err != nil {
+		t.Fatal(err)
+	} else if c.Files != 0 {
 		t.Log(c)
 		t.Error("expected count to be zero")
 	}
@@ -647,7 +674,9 @@ func TestDropAllFiles(t *testing.T) {
 		t.Log(err, ok)
 		t.Error("expected to exist")
 	}
-	if c := db.LocalSize("b", protocol.DeviceID{1}); c.Files != 2 {
+	if c, err := db.LocalSize("b", protocol.DeviceID{1}); err != nil {
+		t.Fatal(err)
+	} else if c.Files != 2 {
 		t.Log(c)
 		t.Error("expected count to be two")
 	}

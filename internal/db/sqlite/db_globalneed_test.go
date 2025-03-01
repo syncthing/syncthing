@@ -139,7 +139,11 @@ func testDropWithDropper(t *testing.T, dropper func(t *testing.T, db *DB)) {
 	}
 
 	// Remote test1 wins as the global, verify.
-	if size := db.GlobalSize(folderID); size.Bytes != (2+3)*128<<10 {
+	size, err := db.GlobalSize(folderID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if size.Bytes != (2+3)*128<<10 {
 		t.Log(size)
 		t.Fatal("bad global size to begin with")
 	}
@@ -153,7 +157,11 @@ func testDropWithDropper(t *testing.T, dropper func(t *testing.T, db *DB)) {
 	dropper(t, db)
 
 	// Our test1 should now be the global
-	if size := db.GlobalSize(folderID); size.Bytes != (1+2)*128<<10 {
+	size, err = db.GlobalSize(folderID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if size.Bytes != (1+2)*128<<10 {
 		t.Log(size)
 		t.Fatal("bad global size after drop")
 	}
@@ -197,14 +205,17 @@ func TestNeedDeleted(t *testing.T) {
 	}
 
 	// We need the one deleted file
-	s := db.NeedSize(folderID, protocol.LocalDeviceID)
+	s, err := db.NeedSize(folderID, protocol.LocalDeviceID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if s.Bytes != 0 || s.Deleted != 1 {
 		t.Log(s)
 		t.Error("bad need")
 	}
 }
 
-func TestDontNeedDeleted(t *testing.T) {
+func TestDontNeedIgnored(t *testing.T) {
 	t.Parallel()
 
 	db, err := OpenMemory()
@@ -218,10 +229,8 @@ func TestDontNeedDeleted(t *testing.T) {
 	})
 
 	// A remote file
-	var v protocol.Vector
-	v = v.Update(1)
 	files := []protocol.FileInfo{
-		{Name: "test1", Sequence: 103, Deleted: true, ModifiedS: 200, Version: v.Update(42)},
+		genFile("test1", 1, 103),
 	}
 	err = db.Update(folderID, protocol.DeviceID{42}, files)
 	if err != nil {
@@ -236,7 +245,10 @@ func TestDontNeedDeleted(t *testing.T) {
 	}
 
 	// We don't need it
-	s := db.NeedSize(folderID, protocol.LocalDeviceID)
+	s, err := db.NeedSize(folderID, protocol.LocalDeviceID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if s.Bytes != 0 || s.Files != 0 {
 		t.Log(s)
 		t.Error("bad need")
@@ -244,6 +256,90 @@ func TestDontNeedDeleted(t *testing.T) {
 
 	// It shouldn't show up in the need list
 	names := iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
+	if len(names) != 0 {
+		t.Log(names)
+		t.Error("need no files")
+	}
+}
+
+func TestLocalDontNeedDeletedMissing(t *testing.T) {
+	t.Parallel()
+
+	db, err := OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// A remote deleted file
+	file := genFile("test1", 1, 103)
+	file.SetDeleted(42)
+	files := []protocol.FileInfo{file}
+	err = db.Update(folderID, protocol.DeviceID{42}, files)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Which we don't have (no local update)
+
+	// We don't need it
+	s, err := db.NeedSize(folderID, protocol.LocalDeviceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Bytes != 0 || s.Files != 0 || s.Deleted != 0 {
+		t.Log(s)
+		t.Error("bad need")
+	}
+
+	// It shouldn't show up in the need list
+	names := iterCollectTest(t, db.AllNeededNames(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
+	if len(names) != 0 {
+		t.Log(names)
+		t.Error("need no files")
+	}
+}
+
+func TestRemoteDontNeedDeletedMissing(t *testing.T) {
+	t.Parallel()
+
+	db, err := OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// A local deleted file
+	file := genFile("test1", 1, 103)
+	file.SetDeleted(42)
+	files := []protocol.FileInfo{file}
+	err = db.Update(folderID, protocol.LocalDeviceID, files)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Which the remote doesn't have (no local update)
+
+	// They don't need it
+	s, err := db.NeedSize(folderID, protocol.DeviceID{42})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Bytes != 0 || s.Files != 0 || s.Deleted != 0 {
+		t.Log(s)
+		t.Error("bad need")
+	}
+
+	// It shouldn't show up in their need list
+	names := iterCollectTest(t, db.AllNeededNames(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0))
 	if len(names) != 0 {
 		t.Log(names)
 		t.Error("need no files")
