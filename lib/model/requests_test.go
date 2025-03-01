@@ -1427,7 +1427,9 @@ func TestRequestGlobalInvalidToValid(t *testing.T) {
 			}
 			globalUpdated = true
 		}
-		if m.NeedSize(fcfg.ID, protocol.LocalDeviceID).Files == 0 {
+		if s, err := m.NeedSize(fcfg.ID, protocol.LocalDeviceID); err != nil {
+			t.Fatal(err)
+		} else if s.Files == 0 {
 			break
 		}
 	}

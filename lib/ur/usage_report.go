@@ -39,7 +39,7 @@ const Version = 3
 var StartTime = time.Now().Truncate(time.Second)
 
 type Model interface {
-	GlobalSize(folder string) db.Counts
+	GlobalSize(folder string) (db.Counts, error)
 	UsageReportingStats(report *contract.Report, version int, preview bool)
 }
 
@@ -81,7 +81,10 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 	var totFiles, maxFiles int
 	var totBytes, maxBytes int64
 	for folderID := range s.cfg.Folders() {
-		global := s.model.GlobalSize(folderID)
+		global, err := s.model.GlobalSize(folderID)
+		if err != nil {
+			return nil, err
+		}
 		totFiles += int(global.Files)
 		totBytes += global.Bytes
 		if int(global.Files) > maxFiles {

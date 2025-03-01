@@ -2040,8 +2040,8 @@ func TestIssue3028(t *testing.T) {
 	// Scan, and get a count of how many files are there now
 
 	m.ScanFolderSubdirs("default", []string{"testrm", "testrm2"})
-	locorigfiles := m.LocalSize("default", protocol.LocalDeviceID).Files
-	globorigfiles := m.GlobalSize("default").Files
+	locorigfiles := mustV(m.LocalSize("default", protocol.LocalDeviceID)).Files
+	globorigfiles := mustV(m.GlobalSize("default")).Files
 
 	// Delete
 
@@ -2052,8 +2052,8 @@ func TestIssue3028(t *testing.T) {
 	// deleted files increases by two
 
 	m.ScanFolderSubdirs("default", []string{"testrm", "testrm2"})
-	loc := m.LocalSize("default", protocol.LocalDeviceID)
-	glob := m.GlobalSize("default")
+	loc := mustV(m.LocalSize("default", protocol.LocalDeviceID))
+	glob := mustV(m.GlobalSize("default"))
 
 	if loc.Files != locorigfiles-2 {
 		t.Errorf("Incorrect local accounting; got %d current files, expected %d", loc.Files, locorigfiles-2)
@@ -3605,7 +3605,7 @@ func TestScanDeletedROChangedOnSR(t *testing.T) {
 	must(t, ffs.Remove(name))
 	m.ScanFolders()
 
-	if m.ReceiveOnlySize(fcfg.ID).Deleted != 1 {
+	if mustV(m.ReceiveOnlySize(fcfg.ID)).Deleted != 1 {
 		t.Fatal("expected one receive only changed deleted item")
 	}
 
@@ -3613,10 +3613,10 @@ func TestScanDeletedROChangedOnSR(t *testing.T) {
 	setFolder(t, m.cfg, fcfg)
 	m.ScanFolders()
 
-	if m.ReceiveOnlySize(fcfg.ID).Deleted != 0 {
+	if mustV(m.ReceiveOnlySize(fcfg.ID)).Deleted != 0 {
 		t.Fatal("expected no receive only changed deleted item")
 	}
-	if m.LocalSize(fcfg.ID, protocol.LocalDeviceID).Deleted != 1 {
+	if mustV(m.LocalSize(fcfg.ID, protocol.LocalDeviceID)).Deleted != 1 {
 		t.Fatal("expected one local deleted item")
 	}
 }

@@ -127,10 +127,10 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 	var remoteSeq map[protocol.DeviceID]int64
 	errors, err := c.model.FolderErrors(folder)
 	if err == nil {
-		global = c.model.GlobalSize(folder)
-		local = c.model.LocalSize(folder, protocol.LocalDeviceID)
-		need = c.model.NeedSize(folder, protocol.LocalDeviceID)
-		// ro = c.model.ReceiveOnlyChangedSize() XXX
+		global, _ = c.model.GlobalSize(folder)
+		local, _ = c.model.LocalSize(folder, protocol.LocalDeviceID)
+		need, _ = c.model.NeedSize(folder, protocol.LocalDeviceID)
+		ro, _ = c.model.ReceiveOnlySize(folder)
 		ourSeq, _ = c.model.Sequence(folder, protocol.LocalDeviceID)
 		// remoteSeq = snap.RemoteSequences() XXX
 	}

@@ -97,10 +97,10 @@ type Model interface {
 
 	LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[protocol.FileInfo, error]
 	LocalFilesSequenced(folder string, device protocol.DeviceID, startSet int64) iter.Seq2[protocol.FileInfo, error]
-	LocalSize(folder string, device protocol.DeviceID) db.Counts
-	GlobalSize(folder string) db.Counts
-	NeedSize(folder string, device protocol.DeviceID) db.Counts
-	ReceiveOnlySize(folder string) db.Counts
+	LocalSize(folder string, device protocol.DeviceID) (db.Counts, error)
+	GlobalSize(folder string) (db.Counts, error)
+	NeedSize(folder string, device protocol.DeviceID) (db.Counts, error)
+	ReceiveOnlySize(folder string) (db.Counts, error)
 	Sequence(folder string, device protocol.DeviceID) (int64, error)
 
 	NeedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error)
@@ -920,7 +920,10 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 	downloaded := m.deviceDownloads[device].BytesDownloaded(folder)
 	m.mut.RUnlock()
 
-	need := m.sdb.NeedSize(folder, device)
+	need, err := m.sdb.NeedSize(folder, device)
+	if err != nil {
+		return FolderCompletion{}, err
+	}
 	need.Bytes -= downloaded
 	// This might be more than it really is, because some blocks can be of a smaller size.
 	if need.Bytes < 0 {
@@ -931,7 +934,11 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 	if err != nil {
 		return FolderCompletion{}, err
 	}
-	comp := newFolderCompletion(m.sdb.GlobalSize(folder), need, seq, state)
+	glob, err := m.sdb.GlobalSize(folder)
+	if err != nil {
+		return FolderCompletion{}, err
+	}
+	comp := newFolderCompletion(glob, need, seq, state)
 
 	l.Debugf("%v Completion(%s, %q): %v", m, device, folder, comp.Map())
 	return comp, nil
@@ -949,19 +956,19 @@ func (m *model) AllForBlocksHash(folder string, h []byte) iter.Seq2[protocol.Fil
 	return m.sdb.AllForBlocksHash(folder, h)
 }
 
-func (m *model) LocalSize(folder string, device protocol.DeviceID) db.Counts {
+func (m *model) LocalSize(folder string, device protocol.DeviceID) (db.Counts, error) {
 	return m.sdb.LocalSize(folder, device)
 }
 
-func (m *model) GlobalSize(folder string) db.Counts {
+func (m *model) GlobalSize(folder string) (db.Counts, error) {
 	return m.sdb.GlobalSize(folder)
 }
 
-func (m *model) NeedSize(folder string, device protocol.DeviceID) db.Counts {
+func (m *model) NeedSize(folder string, device protocol.DeviceID) (db.Counts, error) {
 	return m.sdb.NeedSize(folder, device)
 }
 
-func (m *model) ReceiveOnlySize(folder string) db.Counts {
+func (m *model) ReceiveOnlySize(folder string) (db.Counts, error) {
 	return m.sdb.ReceiveOnlySize(folder)
 }
 
@@ -1090,7 +1097,11 @@ func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]pro
 		return nil, ErrFolderMissing
 	}
 
-	if m.sdb.ReceiveOnlySize(folder).TotalItems() == 0 {
+	ros, err := m.sdb.ReceiveOnlySize(folder)
+	if err != nil {
+		return nil, err
+	}
+	if ros.TotalItems() == 0 {
 		return nil, nil
 	}
 
