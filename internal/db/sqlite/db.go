@@ -349,18 +349,18 @@ func (s *DB) Global(folder string, file string) (protocol.FileInfo, bool, error)
 	return fi, true, nil
 }
 
-func (s *DB) AllGlobal(folder string) iter.Seq2[protocol.FileInfo, error] {
-	beps := iterStructs[indirectFI](s.sql.Queryx(`
+func (s *DB) AllGlobal(folder string) (iter.Seq[protocol.FileInfo], func() error) {
+	beps, errFn := iterStructsErrFn[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.local_flags & ? != 0`,
 		folder, protocol.FlagLocalGlobal))
-	return itererr.Map2(beps, indirectFI.FileInfo)
+	return iterMapErrFn(beps, errFn, indirectFI.FileInfo)
 }
 
-func (s *DB) AllGlobalPrefix(folder string, prefix string) iter.Seq2[protocol.FileInfo, error] {
+func (s *DB) AllGlobalPrefix(folder string, prefix string) (iter.Seq[protocol.FileInfo], func() error) {
 	if prefix == "" {
 		return s.AllGlobal(folder)
 	}
@@ -368,14 +368,14 @@ func (s *DB) AllGlobalPrefix(folder string, prefix string) iter.Seq2[protocol.Fi
 	prefix = osutil.NormalizedFilename(prefix)
 	pattern := prefix + "%"
 
-	beps := iterStructs[indirectFI](s.sql.Queryx(`
+	beps, errFn := iterStructsErrFn[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND (f.name = ? OR f.name LIKE ?) AND f.local_flags & ? != 0`,
 		folder, prefix, pattern, protocol.FlagLocalGlobal))
-	return itererr.Map2(beps, indirectFI.FileInfo)
+	return iterMapErrFn(beps, errFn, indirectFI.FileInfo)
 }
 
 func (s *DB) Sequence(folder string, device protocol.DeviceID) (int64, error) {

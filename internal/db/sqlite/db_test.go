@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"iter"
 	"path/filepath"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -332,7 +333,11 @@ func TestBasics(t *testing.T) {
 	t.Run("AllGlobalPrefix", func(t *testing.T) {
 		t.Parallel()
 
-		vals := iterCollectTest(t, db.AllGlobalPrefix(folderID, "test2"))
+		it, errFn := db.AllGlobalPrefix(folderID, "test2")
+		vals := slices.Collect(it)
+		if err := errFn(); err != nil {
+			t.Fatal(err)
+		}
 
 		// Vals should be test2, test2/a, test2/b
 		if len(vals) != 3 {
@@ -343,7 +348,11 @@ func TestBasics(t *testing.T) {
 		}
 
 		// Empty prefix should be all the files
-		vals = iterCollectTest(t, db.AllGlobalPrefix(folderID, ""))
+		it, errFn = db.AllGlobalPrefix(folderID, "")
+		vals = slices.Collect(it)
+		if err := errFn(); err != nil {
+			t.Fatal(err)
+		}
 
 		if len(vals) != 6 {
 			t.Log(vals)

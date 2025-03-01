@@ -13,8 +13,8 @@ type DB interface {
 
 	AllForBlocksHash(folder string, h []byte) iter.Seq2[protocol.FileInfo, error]
 	AllForBlocksHashAnyFolder(errptr *error, h []byte) iter.Seq2[string, protocol.FileInfo]
-	AllGlobal(folder string) iter.Seq2[protocol.FileInfo, error]
-	AllGlobalPrefix(folder string, prefix string) iter.Seq2[protocol.FileInfo, error]
+	AllGlobal(folder string) (iter.Seq[protocol.FileInfo], func() error)
+	AllGlobalPrefix(folder string, prefix string) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocal(folder string, device protocol.DeviceID) iter.Seq2[protocol.FileInfo, error]
 	AllLocalPrefixed(folder string, device protocol.DeviceID, prefix string) iter.Seq2[protocol.FileInfo, error]
 	AllLocalSequenced(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[protocol.FileInfo, error]

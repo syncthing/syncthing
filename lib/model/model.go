@@ -2748,11 +2748,8 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 		prefix = prefix + sep
 	}
 
-	for f, err := range m.sdb.AllGlobalPrefix(folder, prefix) {
-		if err != nil {
-			return nil, err
-		}
-
+	it, errFn := m.sdb.AllGlobalPrefix(folder, prefix)
+	for f := range it {
 		// Don't include the prefix itself.
 		if f.IsInvalid() || f.IsDeleted() || strings.HasPrefix(prefix, f.Name) {
 			continue
@@ -2772,8 +2769,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 			for _, path := range strings.Split(dir, sep) {
 				child := findByName(parent.Children, path)
 				if child == nil {
-					err = fmt.Errorf("could not find child '%s' for path '%s' in parent '%s'", path, f.Name, parent.Name)
-					break
+					return nil, fmt.Errorf("could not find child '%s' for path '%s' in parent '%s'", path, f.Name, parent.Name)
 				}
 				parent = child
 			}
@@ -2789,6 +2785,9 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 			ModTime: f.ModTime(),
 			Size:    f.FileSize(),
 		})
+	}
+	if err := errFn(); err != nil {
+		return nil, err
 	}
 
 	return root.Children, nil

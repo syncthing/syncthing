@@ -72,12 +72,12 @@ func (m metricsDB) AllForBlocksHashAnyFolder(errptr *error, h []byte) iter.Seq2[
 	return m.DB.AllForBlocksHashAnyFolder(errptr, h)
 }
 
-func (m metricsDB) AllGlobal(folder string) iter.Seq2[protocol.FileInfo, error] {
+func (m metricsDB) AllGlobal(folder string) (iter.Seq[protocol.FileInfo], func() error) {
 	defer m.account(folder, "AllGlobal")()
 	return m.DB.AllGlobal(folder)
 }
 
-func (m metricsDB) AllGlobalPrefix(folder string, prefix string) iter.Seq2[protocol.FileInfo, error] {
+func (m metricsDB) AllGlobalPrefix(folder string, prefix string) (iter.Seq[protocol.FileInfo], func() error) {
 	defer m.account(folder, "AllGlobalPrefix")()
 	return m.DB.AllGlobalPrefix(folder, prefix)
 }
