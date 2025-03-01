@@ -596,14 +596,15 @@ func syncthingMain(options serveOptions) {
 		// We have not migrated. We should do that.
 		be, err := backend.OpenLevelDBRO(dbFile)
 		if err != nil {
-			l.Warnln("Failed to migrate FileInfos:", err)
+			l.Warnln("Failed to migrate:", err)
 			os.Exit(1)
 		}
 		ll, err := db.NewLowlevel(be, evLogger)
 		if err != nil {
-			l.Warnln("Failed to migrate FileInfos:", err)
+			l.Warnln("Failed to migrate:", err)
 			os.Exit(1)
 		}
+
 		for _, folder := range ll.ListFolders() {
 			l.Infoln("Migrating folder", folder, "to SQLite...")
 			var batch []protocol.FileInfo
@@ -636,7 +637,14 @@ func syncthingMain(options serveOptions) {
 			}
 		}
 
+		l.Infoln("Migrating virtual mtimes to SQLite...")
+		if err := ll.IterateMtimes(sdb.MtimePut); err != nil {
+			l.Warnln("Failed to migrate mtimes:", err)
+		}
+
 		_ = miscDB.PutTime("migrated-from-leveldb", time.Now())
+		l.Infoln("Migration complete")
+		be.Close()
 	}
 
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial

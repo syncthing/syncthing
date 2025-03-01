@@ -686,6 +686,34 @@ func (db *deprecatedLowlevel) dropMtimes(folder []byte) error {
 	return db.dropPrefix(key)
 }
 
+func (db *deprecatedLowlevel) IterateMtimes(fn func(folder, name string, ondisk, virtual time.Time) error) error {
+	it, err := db.NewPrefixIterator([]byte{KeyTypeVirtualMtime})
+	if err != nil {
+		return err
+	}
+	defer it.Release()
+	for it.Next() {
+		key := it.Key()[1:]
+		folderId, ok := db.folderIdx.Val(binary.BigEndian.Uint32(key))
+		if !ok {
+			continue
+		}
+		name := key[4:]
+		val := it.Value()
+		var ondisk, virtual time.Time
+		if err := ondisk.UnmarshalBinary(val[:len(val)/2]); err != nil {
+			continue
+		}
+		if err := virtual.UnmarshalBinary(val[len(val)/2:]); err != nil {
+			continue
+		}
+		if err := fn(string(folderId), string(name), ondisk, virtual); err != nil {
+			return err
+		}
+	}
+	return it.Error()
+}
+
 func (db *deprecatedLowlevel) dropFolderMeta(folder []byte) error {
 	key, err := db.keyer.GenerateFolderMetaKey(nil, folder)
 	if err != nil {
