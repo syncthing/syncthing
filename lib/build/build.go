@@ -28,6 +28,9 @@ var (
 	Stamp   = "0"
 	Tags    = ""
 
+	// Added to by other packages
+	extraTags []string
+
 	// Set by init()
 	Date        time.Time
 	IsRelease   bool
@@ -108,6 +111,7 @@ func TagsList() []string {
 	if Extra != "" {
 		tags = append(tags, Extra)
 	}
+	tags = append(tags, extraTags...)
 
 	sort.Strings(tags)
 	return tags
@@ -123,4 +127,9 @@ func filterString(s, allowedChars string) string {
 		}
 	}
 	return res.String()
+}
+
+func AddTag(tag string) {
+	extraTags = append(extraTags, tag)
+	LongVersion = LongVersionFor("syncthing")
 }

@@ -18,15 +18,14 @@ import (
 
 	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/lib/db/backend"
-	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-type FileSet struct {
+type deprecatedFileSet struct {
 	folder string
-	db     *Lowlevel
+	db     *deprecatedLowlevel
 	meta   *metadataTracker
 
 	updateMutex sync.Mutex // protects database updates and the corresponding metadata changes
@@ -37,7 +36,7 @@ type FileSet struct {
 // continue iteration, false to stop.
 type Iterator func(f protocol.FileInfo) bool
 
-func NewFileSet(folder string, db *Lowlevel) (*FileSet, error) {
+func NewFileSet(folder string, db *deprecatedLowlevel) (*deprecatedFileSet, error) {
 	select {
 	case <-db.oneFileSetCreated:
 	default:
@@ -48,7 +47,7 @@ func NewFileSet(folder string, db *Lowlevel) (*FileSet, error) {
 		db.handleFailure(err)
 		return nil, err
 	}
-	s := &FileSet{
+	s := &deprecatedFileSet{
 		folder:      folder,
 		db:          db,
 		meta:        meta,
@@ -65,7 +64,7 @@ func NewFileSet(folder string, db *Lowlevel) (*FileSet, error) {
 	return s, nil
 }
 
-func (s *FileSet) Drop(device protocol.DeviceID) {
+func (s *deprecatedFileSet) Drop(device protocol.DeviceID) {
 	opStr := fmt.Sprintf("%s Drop(%v)", s.folder, device)
 	l.Debugf(opStr)
 
@@ -113,7 +112,7 @@ func (s *FileSet) Drop(device protocol.DeviceID) {
 	}
 }
 
-func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
+func (s *deprecatedFileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	opStr := fmt.Sprintf("%s Update(%v, [%d])", s.folder, device, len(fs))
 	l.Debugf(opStr)
 
@@ -144,7 +143,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	}
 }
 
-func (s *FileSet) RemoveLocalItems(items []string) {
+func (s *deprecatedFileSet) RemoveLocalItems(items []string) {
 	opStr := fmt.Sprintf("%s RemoveLocalItems([%d])", s.folder, len(items))
 	l.Debugf(opStr)
 
@@ -167,7 +166,7 @@ type Snapshot struct {
 	fatalError func(error, string)
 }
 
-func (s *FileSet) Snapshot() (*Snapshot, error) {
+func (s *deprecatedFileSet) Snapshot() (*Snapshot, error) {
 	opStr := fmt.Sprintf("%s Snapshot()", s.folder)
 	l.Debugf(opStr)
 
@@ -360,20 +359,20 @@ func (s *Snapshot) RemoteSequences() map[protocol.DeviceID]int64 {
 	return res
 }
 
-func (s *Snapshot) LocalSize() Counts {
+func (s *Snapshot) LocalSize() deprecatedCounts {
 	local := s.meta.Counts(protocol.LocalDeviceID, 0)
 	return local.Add(s.ReceiveOnlyChangedSize())
 }
 
-func (s *Snapshot) ReceiveOnlyChangedSize() Counts {
+func (s *Snapshot) ReceiveOnlyChangedSize() deprecatedCounts {
 	return s.meta.Counts(protocol.LocalDeviceID, protocol.FlagLocalReceiveOnly)
 }
 
-func (s *Snapshot) GlobalSize() Counts {
+func (s *Snapshot) GlobalSize() deprecatedCounts {
 	return s.meta.Counts(protocol.GlobalDeviceID, 0)
 }
 
-func (s *Snapshot) NeedSize(device protocol.DeviceID) Counts {
+func (s *Snapshot) NeedSize(device protocol.DeviceID) deprecatedCounts {
 	return s.meta.Counts(device, needFlag)
 }
 
@@ -385,11 +384,11 @@ func (s *Snapshot) WithBlocksHash(hash []byte, fn Iterator) {
 	}
 }
 
-func (s *FileSet) Sequence(device protocol.DeviceID) int64 {
+func (s *deprecatedFileSet) Sequence(device protocol.DeviceID) int64 {
 	return s.meta.Sequence(device)
 }
 
-func (s *FileSet) IndexID(device protocol.DeviceID) protocol.IndexID {
+func (s *deprecatedFileSet) IndexID(device protocol.DeviceID) protocol.IndexID {
 	opStr := fmt.Sprintf("%s IndexID(%v)", s.folder, device)
 	l.Debugf(opStr)
 	id, err := s.db.getIndexID(device[:], []byte(s.folder))
@@ -401,7 +400,7 @@ func (s *FileSet) IndexID(device protocol.DeviceID) protocol.IndexID {
 	return id
 }
 
-func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
+func (s *deprecatedFileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 	if device == protocol.LocalDeviceID {
 		panic("do not explicitly set index ID for local device")
 	}
@@ -412,38 +411,25 @@ func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 	}
 }
 
-func (s *FileSet) MtimeOption() fs.Option {
-	opStr := fmt.Sprintf("%s MtimeOption()", s.folder)
-	l.Debugf(opStr)
-	prefix, err := s.db.keyer.GenerateMtimesKey(nil, []byte(s.folder))
-	if backend.IsClosed(err) {
-		return nil
-	} else if err != nil {
-		fatalError(err, opStr, s.db)
-	}
-	kv := NewNamespacedKV(s.db, string(prefix))
-	return fs.NewMtimeOption(kv)
-}
-
-func (s *FileSet) ListDevices() []protocol.DeviceID {
+func (s *deprecatedFileSet) ListDevices() []protocol.DeviceID {
 	return s.meta.devices()
 }
 
-func (s *FileSet) RepairSequence() (int, error) {
+func (s *deprecatedFileSet) RepairSequence() (int, error) {
 	s.updateAndGCMutexLock() // Ensures consistent locking order
 	defer s.updateMutex.Unlock()
 	defer s.db.gcMut.RUnlock()
 	return s.db.repairSequenceGCLocked(s.folder, s.meta)
 }
 
-func (s *FileSet) updateAndGCMutexLock() {
+func (s *deprecatedFileSet) updateAndGCMutexLock() {
 	s.updateMutex.Lock()
 	s.db.gcMut.RLock()
 }
 
 // DropFolder clears out all information related to the given folder from the
 // database.
-func DropFolder(db *Lowlevel, folder string) {
+func DropFolder(db *deprecatedLowlevel, folder string) {
 	opStr := fmt.Sprintf("DropFolder(%v)", folder)
 	l.Debugf(opStr)
 	droppers := []func([]byte) error{
@@ -466,7 +452,7 @@ func DropFolder(db *Lowlevel, folder string) {
 // This will cause a full index transmission on the next connection.
 // Must be called before using FileSets, i.e. before NewFileSet is called for
 // the first time.
-func DropDeltaIndexIDs(db *Lowlevel) {
+func DropDeltaIndexIDs(db *deprecatedLowlevel) {
 	select {
 	case <-db.oneFileSetCreated:
 		panic("DropDeltaIndexIDs must not be called after NewFileSet for the same Lowlevel")
@@ -509,7 +495,7 @@ func nativeFileIterator(fn Iterator) Iterator {
 	}
 }
 
-func fatalError(err error, opStr string, db *Lowlevel) {
+func fatalError(err error, opStr string, db *deprecatedLowlevel) {
 	db.checkErrorForRepair(err)
 	l.Warnf("Fatal error: %v: %v", opStr, err)
 	panic(ldbPathRe.ReplaceAllString(err.Error(), "$1 x: "))
