@@ -38,7 +38,7 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/cmd/syncthing/generate"
 	newdb "github.com/syncthing/syncthing/internal/db"
-	"github.com/syncthing/syncthing/internal/db/kv"
+	"github.com/syncthing/syncthing/internal/db/dbext"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
@@ -591,7 +591,7 @@ func syncthingMain(options serveOptions) {
 	}
 	sdb := newdb.MetricsWrap(sql)
 
-	miscDB := kv.NewMiscDB(sdb)
+	miscDB := dbext.NewMiscDB(sdb)
 	if _, ok, _ := miscDB.Time("migrated-from-leveldb"); !ok {
 		// We have not migrated. We should do that.
 		be, err := backend.OpenLevelDBRO(dbFile)
@@ -875,7 +875,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 	}
 }
 
-func initialAutoUpgradeCheck(misc *kv.Typed) (upgrade.Release, error) {
+func initialAutoUpgradeCheck(misc *dbext.Typed) (upgrade.Release, error) {
 	if last, ok, err := misc.Time(upgradeCheckKey); err == nil && ok && time.Since(last) < upgradeCheckInterval {
 		return upgrade.Release{}, errTooEarlyUpgradeCheck
 	}

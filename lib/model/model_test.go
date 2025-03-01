@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
-	"github.com/syncthing/syncthing/internal/db/kv"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -3985,7 +3984,7 @@ func TestPendingFolder(t *testing.T) {
 
 	setDevice(t, w, config.DeviceConfiguration{DeviceID: device2})
 	pfolder := "default"
-	of := kv.ObservedFolder{
+	of := dbext.ObservedFolder{
 		Time:  time.Now().Truncate(time.Second),
 		Label: pfolder,
 	}

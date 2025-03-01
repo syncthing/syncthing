@@ -9,7 +9,7 @@ package stats
 import (
 	"time"
 
-	"github.com/syncthing/syncthing/internal/db/kv"
+	"github.com/syncthing/syncthing/internal/db/dbext"
 )
 
 const (
@@ -23,10 +23,10 @@ type DeviceStatistics struct {
 }
 
 type DeviceStatisticsReference struct {
-	kv *kv.Typed
+	kv *dbext.Typed
 }
 
-func NewDeviceStatisticsReference(kv *kv.Typed) *DeviceStatisticsReference {
+func NewDeviceStatisticsReference(kv *dbext.Typed) *DeviceStatisticsReference {
 	return &DeviceStatisticsReference{
 		kv: kv,
 	}

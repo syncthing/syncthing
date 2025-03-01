@@ -10,7 +10,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/db/kv"
+	"github.com/syncthing/syncthing/internal/db/dbext"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stats"
@@ -73,7 +73,7 @@ func (m *Internals) DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatis
 	return m.model.DeviceStatistics()
 }
 
-func (m *Internals) PendingFolders(deviceID protocol.DeviceID) (map[string]kv.PendingFolder, error) {
+func (m *Internals) PendingFolders(deviceID protocol.DeviceID) (map[string]dbext.PendingFolder, error) {
 	return m.model.PendingFolders(deviceID)
 }
 

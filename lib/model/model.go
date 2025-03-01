@@ -30,7 +30,7 @@ import (
 	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/internal/db"
-	"github.com/syncthing/syncthing/internal/db/kv"
+	"github.com/syncthing/syncthing/internal/db/dbext"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -119,8 +119,8 @@ type Model interface {
 	UsageReportingStats(report *contract.Report, version int, preview bool)
 	ConnectedTo(remoteID protocol.DeviceID) bool
 
-	PendingDevices() (map[protocol.DeviceID]kv.ObservedDevice, error)
-	PendingFolders(device protocol.DeviceID) (map[string]kv.PendingFolder, error)
+	PendingDevices() (map[protocol.DeviceID]dbext.ObservedDevice, error)
+	PendingFolders(device protocol.DeviceID) (map[string]dbext.PendingFolder, error)
 	DismissPendingDevice(device protocol.DeviceID) error
 	DismissPendingFolder(device protocol.DeviceID, folder string) error
 
@@ -152,7 +152,7 @@ type model struct {
 	started         chan struct{}
 	keyGen          *protocol.KeyGenerator
 	promotionTimer  *time.Timer
-	observed        *kv.ObservedDB
+	observed        *dbext.ObservedDB
 
 	// fields protected by mut
 	mut                            sync.RWMutex
@@ -230,7 +230,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb db.DB, protectedFile
 		started:              make(chan struct{}),
 		keyGen:               keyGen,
 		promotionTimer:       time.NewTimer(0),
-		observed:             kv.NewObservedDB(sdb),
+		observed:             dbext.NewObservedDB(sdb),
 
 		// fields protected by mut
 		mut:                            sync.NewRWMutex(),
@@ -252,7 +252,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb db.DB, protectedFile
 		indexHandlers:                  newServiceMap[protocol.DeviceID, *indexHandlerRegistry](evLogger),
 	}
 	for devID, cfg := range cfg.Devices() {
-		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(kv.NewTyped(sdb, "devicestats/"+devID.String()))
+		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(dbext.NewTyped(sdb, "devicestats/"+devID.String()))
 		m.setConnRequestLimitersLocked(cfg)
 	}
 	m.Add(m.folderRunners)
@@ -1403,7 +1403,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	if err != nil {
 		l.Infof("Could not get pending folders for cleanup: %v", err)
 	}
-	of := kv.ObservedFolder{Time: time.Now().Truncate(time.Second)}
+	of := dbext.ObservedFolder{Time: time.Now().Truncate(time.Second)}
 	for _, folder := range folders {
 		seenFolders[folder.ID] = remoteFolderValid
 
@@ -3034,7 +3034,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	for deviceID, toCfg := range toDevices {
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok {
-			sr := stats.NewDeviceStatisticsReference(kv.NewTyped(m.sdb, "devicestats/"+deviceID.String()))
+			sr := stats.NewDeviceStatisticsReference(dbext.NewTyped(m.sdb, "devicestats/"+deviceID.String()))
 			m.mut.Lock()
 			m.deviceStatRefs[deviceID] = sr
 			m.mut.Unlock()
@@ -3240,14 +3240,14 @@ func (m *model) checkFolderRunningRLocked(folder string) error {
 }
 
 // PendingDevices lists unknown devices that tried to connect.
-func (m *model) PendingDevices() (map[protocol.DeviceID]kv.ObservedDevice, error) {
+func (m *model) PendingDevices() (map[protocol.DeviceID]dbext.ObservedDevice, error) {
 	return m.observed.PendingDevices()
 }
 
 // PendingFolders lists folders that we don't yet share with the offering devices.  It
 // returns the entries grouped by folder and filters for a given device unless the
 // argument is specified as EmptyDeviceID.
-func (m *model) PendingFolders(device protocol.DeviceID) (map[string]kv.PendingFolder, error) {
+func (m *model) PendingFolders(device protocol.DeviceID) (map[string]dbext.PendingFolder, error) {
 	return m.observed.PendingFoldersForDevice(device)
 }
 
