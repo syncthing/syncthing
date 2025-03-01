@@ -101,7 +101,7 @@ func newFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfigura
 	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
-		FolderStatisticsReference: stats.NewFolderStatisticsReference(kv.NewTyped(model.sdb.KV(), "folderstats/"+cfg.ID)),
+		FolderStatisticsReference: stats.NewFolderStatisticsReference(kv.NewTyped(model.sdb, "folderstats/"+cfg.ID)),
 		ioLimiter:                 ioLimiter,
 
 		model:         model,

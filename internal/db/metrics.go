@@ -167,11 +167,6 @@ func (m metricsDB) IndexID(folder string, device protocol.DeviceID) (protocol.In
 	return m.DB.IndexID(folder, device)
 }
 
-func (m metricsDB) KV() KV {
-	defer m.account("-", "KV")()
-	return m.DB.KV()
-}
-
 func (m metricsDB) Local(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {
 	defer m.account(folder, "Local")()
 	return m.DB.Local(folder, device, file)
@@ -206,4 +201,24 @@ func (m metricsDB) Update(folder string, device protocol.DeviceID, fs []protocol
 	defer m.account(folder, "Update")()
 	defer metricTotalFilesUpdatedCount.WithLabelValues(folder).Add(float64(len(fs)))
 	return m.DB.Update(folder, device, fs)
+}
+
+func (m metricsDB) KVGet(key string) ([]byte, error) {
+	defer m.account("-", "KVGet")()
+	return m.DB.KVGet(key)
+}
+
+func (m metricsDB) KVPut(key string, val []byte) error {
+	defer m.account("-", "KVPut")()
+	return m.DB.KVPut(key, val)
+}
+
+func (m metricsDB) KVDelete(key string) error {
+	defer m.account("-", "KVDelete")()
+	return m.DB.KVDelete(key)
+}
+
+func (m metricsDB) KVPrefix(prefix string) (iter.Seq2[string, []byte], func() error) {
+	defer m.account("-", "KVPrefix")()
+	return m.DB.KVPrefix(prefix)
 }

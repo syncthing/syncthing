@@ -33,7 +33,6 @@ type DB interface {
 	Global(folder string, file string) (protocol.FileInfo, bool, error)
 	GlobalSize(folder string) (Counts, error)
 	IndexID(folder string, device protocol.DeviceID) (protocol.IndexID, error)
-	KV() KV
 	Local(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error)
 	LocalSize(folder string, device protocol.DeviceID) (Counts, error)
 	NeedSize(folder string, device protocol.DeviceID) (Counts, error)
@@ -43,21 +42,15 @@ type DB interface {
 	Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error
 
 	// mtimefs
-	GetMtimePair(folder, name string) (ondisk, virtual time.Time)
-	PutMtimePair(folder, name string, ondisk, virtual time.Time) error
-	DeleteMtimePair(folder, name string) error
-}
+	MtimeGet(folder, name string) (ondisk, virtual time.Time)
+	MtimePut(folder, name string, ondisk, virtual time.Time) error
+	MtimeDelete(folder, name string) error
 
-type KV interface {
-	Get(key string) ([]byte, error)
-	Put(key string, val []byte) error
-	Delete(key string) error
-	Prefix(prefix string) iter.Seq2[KVEntry, error]
-}
-
-type KVEntry struct {
-	Key   string
-	Value []byte
+	// generic KV
+	KVGet(key string) ([]byte, error)
+	KVPut(key string, val []byte) error
+	KVDelete(key string) error
+	KVPrefix(prefix string) (iter.Seq2[string, []byte], func() error)
 }
 
 type BlockMapEntry struct {

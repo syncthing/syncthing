@@ -230,7 +230,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb db.DB, protectedFile
 		started:              make(chan struct{}),
 		keyGen:               keyGen,
 		promotionTimer:       time.NewTimer(0),
-		observed:             kv.NewObservedDB(sdb.KV()),
+		observed:             kv.NewObservedDB(sdb),
 
 		// fields protected by mut
 		mut:                            sync.NewRWMutex(),
@@ -252,7 +252,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb db.DB, protectedFile
 		indexHandlers:                  newServiceMap[protocol.DeviceID, *indexHandlerRegistry](evLogger),
 	}
 	for devID, cfg := range cfg.Devices() {
-		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(kv.NewTyped(sdb.KV(), "devicestats/"+devID.String()))
+		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(kv.NewTyped(sdb, "devicestats/"+devID.String()))
 		m.setConnRequestLimitersLocked(cfg)
 	}
 	m.Add(m.folderRunners)
@@ -3034,7 +3034,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 	for deviceID, toCfg := range toDevices {
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok {
-			sr := stats.NewDeviceStatisticsReference(kv.NewTyped(m.sdb.KV(), "devicestats/"+deviceID.String()))
+			sr := stats.NewDeviceStatisticsReference(kv.NewTyped(m.sdb, "devicestats/"+deviceID.String()))
 			m.mut.Lock()
 			m.deviceStatRefs[deviceID] = sr
 			m.mut.Unlock()

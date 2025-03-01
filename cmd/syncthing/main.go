@@ -591,7 +591,7 @@ func syncthingMain(options serveOptions) {
 	}
 	sdb := newdb.MetricsWrap(sql)
 
-	miscDB := kv.NewMiscDB(sdb.KV())
+	miscDB := kv.NewMiscDB(sdb)
 	if _, ok, _ := miscDB.Time("migrated-from-leveldb"); !ok {
 		// We have not migrated. We should do that.
 		be, err := backend.OpenLevelDBRO(dbFile)
@@ -648,7 +648,7 @@ func syncthingMain(options serveOptions) {
 	autoUpgradePossible := autoUpgradePossible(options)
 	if autoUpgradePossible && cfgWrapper.Options().AutoUpgradeEnabled() {
 		// try to do upgrade directly and log the error if relevant.
-		release, err := initialAutoUpgradeCheck(kv.NewMiscDB(sdb.KV()))
+		release, err := initialAutoUpgradeCheck(miscDB)
 		if err == nil {
 			err = upgrade.To(release)
 		}

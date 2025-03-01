@@ -207,7 +207,7 @@ func (a *App) startup() error {
 
 	// Grab the previously running version string from the database.
 
-	miscDB := kv.NewMiscDB(a.sdb.KV())
+	miscDB := kv.NewMiscDB(a.sdb)
 	prevVersion, _, err := miscDB.String("prevVersion")
 	if err != nil {
 		l.Warnln("Database:", err)
@@ -240,7 +240,7 @@ func (a *App) startup() error {
 		miscDB.PutString("prevVersion", build.Version)
 	}
 
-	if err := globalMigration(a.sdb.KV(), a.cfg); err != nil {
+	if err := globalMigration(a.sdb, a.cfg); err != nil {
 		l.Warnln("Global migration:", err)
 		return err
 	}

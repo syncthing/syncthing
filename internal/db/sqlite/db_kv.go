@@ -2,41 +2,51 @@ package sqlite
 
 import (
 	"iter"
-
-	"github.com/syncthing/syncthing/internal/db"
 )
 
-type KV struct {
-	s *DB
-}
-
-func (s *DB) KV() db.KV {
-	return &KV{s: s}
-}
-
-func (kv *KV) Get(key string) ([]byte, error) {
+func (db *DB) KVGet(key string) ([]byte, error) {
 	var val []byte
-	if err := kv.s.sql.Get(&val, `SELECT value FROM kv WHERE key = ?`, key); err != nil {
+	if err := db.sql.Get(&val, `SELECT value FROM kv WHERE key = ?`, key); err != nil {
 		return nil, err
 	}
 	return val, nil
 }
 
-func (kv *KV) Put(key string, val []byte) error {
-	kv.s.updateLock.Lock()
-	defer kv.s.updateLock.Unlock()
-	_, err := kv.s.sql.Exec(`INSERT OR REPLACE INTO kv (key, value) values (?, ?)`, key, val)
+func (db *DB) KVPut(key string, val []byte) error {
+	db.updateLock.Lock()
+	defer db.updateLock.Unlock()
+	_, err := db.sql.Exec(`INSERT OR REPLACE INTO kv (key, value) values (?, ?)`, key, val)
 	return err
 }
 
-func (kv *KV) Delete(key string) error {
-	kv.s.updateLock.Lock()
-	defer kv.s.updateLock.Unlock()
-	_, err := kv.s.sql.Exec(`DELETE FROM kv WHERE key = ?`, key)
+func (db *DB) KVDelete(key string) error {
+	db.updateLock.Lock()
+	defer db.updateLock.Unlock()
+	_, err := db.sql.Exec(`DELETE FROM kv WHERE key = ?`, key)
 	return err
 }
 
-func (kv *KV) Prefix(prefix string) iter.Seq2[db.KVEntry, error] {
+func (db *DB) KVPrefix(prefix string) (iter.Seq2[string, []byte], func() error) {
 	prefix += "%"
-	return iterStructs[db.KVEntry](kv.s.sql.Queryx(`SELECT key, value FROM kv WHERE key LIKE ?`, prefix))
+	rows, err := db.sql.Queryx(`SELECT key, value FROM kv WHERE key LIKE ?`, prefix)
+	if err != nil {
+		return func(yield func(string, []byte) bool) {}, func() error { return err }
+	}
+
+	return func(yield func(string, []byte) bool) {
+			defer rows.Close()
+			for rows.Next() {
+				var key string
+				var val []byte
+				if err = rows.Scan(&key, &val); err != nil {
+					return
+				}
+				if !yield(key, val) {
+					return
+				}
+			}
+			err = rows.Err()
+		}, func() error {
+			return err
+		}
 }

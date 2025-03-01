@@ -137,7 +137,7 @@ func TestTokenManager(t *testing.T) {
 	t.Cleanup(func() {
 		mdb.Close()
 	})
-	kdb := kv.NewMiscDB(mdb.KV())
+	kdb := kv.NewMiscDB(mdb)
 	clock := &mockClock{now: time.Now()}
 
 	// Token manager keeps up to three tokens with a validity time of 24 hours.

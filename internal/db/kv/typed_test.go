@@ -25,8 +25,8 @@ func TestNamespacedInt(t *testing.T) {
 		ldb.Close()
 	})
 
-	n1 := kv.NewTyped(ldb.KV(), "foo")
-	n2 := kv.NewTyped(ldb.KV(), "bar")
+	n1 := kv.NewTyped(ldb, "foo")
+	n2 := kv.NewTyped(ldb, "bar")
 
 	t.Run("Int", func(t *testing.T) {
 		t.Parallel()

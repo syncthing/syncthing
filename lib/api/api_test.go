@@ -91,7 +91,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	t.Cleanup(func() {
 		mdb.Close()
 	})
-	kdb := kv.NewMiscDB(mdb.KV())
+	kdb := kv.NewMiscDB(mdb)
 	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb).(*service)
 
 	srv.started = make(chan string)
@@ -943,7 +943,7 @@ func startHTTP(t *testing.T, cfg config.Wrapper) string {
 	t.Cleanup(func() {
 		mdb.Close()
 	})
-	kdb := kv.NewMiscDB(mdb.KV())
+	kdb := kv.NewMiscDB(mdb)
 	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, mockedSummary, errorLog, systemLog, false, kdb).(*service)
 	svc.started = addrChan
 
@@ -1457,7 +1457,7 @@ func TestEventMasks(t *testing.T) {
 	t.Cleanup(func() {
 		mdb.Close()
 	})
-	kdb := kv.NewMiscDB(mdb.KV())
+	kdb := kv.NewMiscDB(mdb)
 	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb).(*service)
 
 	if mask := svc.getEventMask(""); mask != DefaultEventMask {
