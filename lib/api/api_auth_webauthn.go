@@ -285,16 +285,7 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 			CreateTime:    now,
 		}
 		s.credentialsPendingRegistration = append(s.credentialsPendingRegistration, configCred)
-
-		err = s.updateVolatileState(func(state *WebauthnVolatileState) {
-			state.Credentials[configCred.ID] = WebauthnCredentialVolatileState{
-				SignCount:   credential.Authenticator.SignCount,
-				LastUseTime: now,
-			}
-		})
-		if err != nil {
-			l.Warnf("Failed to save WebAuthn dynamic state: %v", err)
-		}
+		s.updateCredentialVolatileState(configCred.ID, credential)
 
 		sendJSON(w, configCred)
 	}
