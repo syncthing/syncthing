@@ -68,7 +68,7 @@ func (tm *TunnelManager) Serve(ctx context.Context) error {
 }
 
 func (tm *TunnelManager) ServeListener(ctx context.Context, listenAddress string, destinationDevice protocol.DeviceID, destinationAddress string) error {
-	l.Debugln("ServeListener started for address:", listenAddress, "destination device:", destinationDevice, "destination address:", destinationAddress)
+	l.Infoln("ServeListener started for address:", listenAddress, "destination device:", destinationDevice, "destination address:", destinationAddress)
 	listener, err := net.Listen("tcp", listenAddress)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", listenAddress, err)
@@ -218,7 +218,7 @@ func (tm *TunnelManager) forwardRemoteTunnelData(fromDevice protocol.DeviceID, d
 				l.Warnf("Failed to forward tunnel data: %v", err)
 			}
 		} else {
-			l.Warnf("No TCP connection found for TunnelID: %s", data.D.TunnelId)
+			l.Warnf("Data: No TCP connection found for TunnelID: %s", data.D.TunnelId)
 		}
 	case bep.TunnelCommand_TUNNEL_COMMAND_CLOSE:
 		tm.Lock()
@@ -227,7 +227,7 @@ func (tm *TunnelManager) forwardRemoteTunnelData(fromDevice protocol.DeviceID, d
 		if ok {
 			tcpConn.Close()
 		} else {
-			l.Warnf("No TCP connection found for TunnelID: %s", data.D.TunnelId)
+			l.Warnf("Close: No TCP connection found for TunnelID: %s", data.D.TunnelId)
 		}
 	default: // unknown command
 		l.Warnf("Unknown tunnel command: %v", data.D.Command)
