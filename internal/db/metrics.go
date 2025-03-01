@@ -63,52 +63,52 @@ func (m metricsDB) account(folder, op string) func() {
 }
 
 func (m metricsDB) AllLocalFilesWithBlocksHash(folder string, h []byte) iter.Seq2[protocol.FileInfo, error] {
-	defer m.account(folder, "AllForBlocksHash")()
+	defer m.account(folder, "AllLocalFilesWithBlocksHash")()
 	return m.DB.AllLocalFilesWithBlocksHash(folder, h)
 }
 
-func (m metricsDB) AllLocalFilesWithBlocksHashAnyFolder(errptr *error, h []byte) iter.Seq2[string, protocol.FileInfo] {
-	defer m.account("-", "AllForBlocksHashAnyFolder")()
-	return m.DB.AllLocalFilesWithBlocksHashAnyFolder(errptr, h)
+func (m metricsDB) AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, protocol.FileInfo], func() error) {
+	defer m.account("-", "AllLocalFilesWithBlocksHashAnyFolder")()
+	return m.DB.AllLocalFilesWithBlocksHashAnyFolder(h)
 }
 
 func (m metricsDB) AllGlobalFiles(folder string) (iter.Seq[protocol.FileInfo], func() error) {
-	defer m.account(folder, "AllGlobal")()
+	defer m.account(folder, "AllGlobalFiles")()
 	return m.DB.AllGlobalFiles(folder)
 }
 
 func (m metricsDB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[protocol.FileInfo], func() error) {
-	defer m.account(folder, "AllGlobalPrefix")()
+	defer m.account(folder, "AllGlobalFilesPrefix")()
 	return m.DB.AllGlobalFilesPrefix(folder, prefix)
 }
 
 func (m metricsDB) AllLocalFiles(folder string, device protocol.DeviceID) iter.Seq2[protocol.FileInfo, error] {
-	defer m.account(folder, "AllLocal")()
+	defer m.account(folder, "AllLocalFiles")()
 	return m.DB.AllLocalFiles(folder, device)
 }
 
 func (m metricsDB) AllLocalFilesPrefix(folder string, device protocol.DeviceID, prefix string) iter.Seq2[protocol.FileInfo, error] {
-	defer m.account(folder, "AllLocalPrefixed")()
+	defer m.account(folder, "AllLocalFilesPrefix")()
 	return m.DB.AllLocalFilesPrefix(folder, device, prefix)
 }
 
 func (m metricsDB) AllLocalFilesBySequence(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[protocol.FileInfo, error] {
-	defer m.account(folder, "AllLocalSequenced")()
+	defer m.account(folder, "AllLocalFilesBySequence")()
 	return m.DB.AllLocalFilesBySequence(folder, device, startSeq)
 }
 
 func (m metricsDB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit int) iter.Seq2[string, error] {
-	defer m.account(folder, "AllNeededNames")()
+	defer m.account(folder, "AllNeededGlobalFiles")()
 	return m.DB.AllNeededGlobalFiles(folder, device, order, limit)
 }
 
 func (m metricsDB) GetGlobalAvailability(folder, file string) ([]protocol.DeviceID, error) {
-	defer m.account(folder, "Availability")()
+	defer m.account(folder, "GetGlobalAvailability")()
 	return m.DB.GetGlobalAvailability(folder, file)
 }
 
 func (m metricsDB) AllLocalBlocksWithHash(hash []byte) iter.Seq2[BlockMapEntry, error] {
-	defer m.account("-", "Blocks")()
+	defer m.account("-", "AllLocalBlocksWithHash")()
 	return m.DB.AllLocalBlocksWithHash(hash)
 }
 
@@ -118,7 +118,7 @@ func (m metricsDB) Close() error {
 }
 
 func (m metricsDB) ListDevicesForFolder(folder string) ([]protocol.DeviceID, error) {
-	defer m.account(folder, "DevicesForFolder")()
+	defer m.account(folder, "ListDevicesForFolder")()
 	return m.DB.ListDevicesForFolder(folder)
 }
 
@@ -143,57 +143,57 @@ func (m metricsDB) DropFolder(folder string) error {
 }
 
 func (m metricsDB) IndexIDDropAll() error {
-	defer m.account("-", "DropIndexIDs")()
+	defer m.account("-", "IndexIDDropAll")()
 	return m.DB.IndexIDDropAll()
 }
 
 func (m metricsDB) ListFolders() ([]string, error) {
-	defer m.account("-", "Folders")()
+	defer m.account("-", "ListFolders")()
 	return m.DB.ListFolders()
 }
 
 func (m metricsDB) GetGlobalFile(folder string, file string) (protocol.FileInfo, bool, error) {
-	defer m.account(folder, "Global")()
+	defer m.account(folder, "GetGlobalFile")()
 	return m.DB.GetGlobalFile(folder, file)
 }
 
 func (m metricsDB) CountGlobal(folder string) (Counts, error) {
-	defer m.account(folder, "GlobalSize")()
+	defer m.account(folder, "CountGlobal")()
 	return m.DB.CountGlobal(folder)
 }
 
 func (m metricsDB) IndexIDGet(folder string, device protocol.DeviceID) (protocol.IndexID, error) {
-	defer m.account(folder, "IndexID")()
+	defer m.account(folder, "IndexIDGet")()
 	return m.DB.IndexIDGet(folder, device)
 }
 
 func (m metricsDB) GetDeviceFile(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {
-	defer m.account(folder, "Local")()
+	defer m.account(folder, "GetDeviceFile")()
 	return m.DB.GetDeviceFile(folder, device, file)
 }
 
 func (m metricsDB) CountLocal(folder string, device protocol.DeviceID) (Counts, error) {
-	defer m.account(folder, "LocalSize")()
+	defer m.account(folder, "CountLocal")()
 	return m.DB.CountLocal(folder, device)
 }
 
 func (m metricsDB) CountNeed(folder string, device protocol.DeviceID) (Counts, error) {
-	defer m.account(folder, "NeedSize")()
+	defer m.account(folder, "CountNeed")()
 	return m.DB.CountNeed(folder, device)
 }
 
 func (m metricsDB) CountReceiveOnlyChanged(folder string) (Counts, error) {
-	defer m.account(folder, "ReceiveOnlySize")()
+	defer m.account(folder, "CountReceiveOnlyChanged")()
 	return m.DB.CountReceiveOnlyChanged(folder)
 }
 
 func (m metricsDB) GetDeviceSequence(folder string, device protocol.DeviceID) (int64, error) {
-	defer m.account(folder, "Sequence")()
+	defer m.account(folder, "GetDeviceSequence")()
 	return m.DB.GetDeviceSequence(folder, device)
 }
 
 func (m metricsDB) IndexIDSet(folder string, device protocol.DeviceID, id protocol.IndexID) error {
-	defer m.account(folder, "SetIndexID")()
+	defer m.account(folder, "IndexIDSet")()
 	return m.DB.IndexIDSet(folder, device, id)
 }
 

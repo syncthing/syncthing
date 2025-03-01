@@ -29,7 +29,7 @@ type DB interface {
 	AllLocalFilesBySequence(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[protocol.FileInfo, error]
 	AllLocalFilesPrefix(folder string, device protocol.DeviceID, prefix string) iter.Seq2[protocol.FileInfo, error]
 	AllLocalFilesWithBlocksHash(folder string, h []byte) iter.Seq2[protocol.FileInfo, error]
-	AllLocalFilesWithBlocksHashAnyFolder(errptr *error, h []byte) iter.Seq2[string, protocol.FileInfo]
+	AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, protocol.FileInfo], func() error)
 	AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit int) iter.Seq2[string, error]
 
 	// Cleanup
@@ -67,8 +67,8 @@ type DB interface {
 }
 
 type BlockMapEntry struct {
-	BlocklistHash []byte `db:"blocklist_hash"`
-	Index         int    `db:"idx"`
+	BlocklistHash []byte
+	BlockIndex    int
 	Offset        int64
 	Size          int
 }

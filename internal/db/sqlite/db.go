@@ -458,7 +458,7 @@ func (s *DB) AllLocalFilesWithBlocksHash(folder string, h []byte) iter.Seq2[prot
 	return itererr.Map2(beps, indirectFI.FileInfo)
 }
 
-func (s *DB) AllLocalFilesWithBlocksHashAnyFolder(errptr *error, h []byte) iter.Seq2[string, protocol.FileInfo] {
+func (s *DB) AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, protocol.FileInfo], func() error) {
 	type row struct {
 		FolderID   string `db:"folder_id"`
 		FiProtobuf []byte
@@ -471,19 +471,26 @@ func (s *DB) AllLocalFilesWithBlocksHashAnyFolder(errptr *error, h []byte) iter.
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE f.device_idx = ? AND f.blocklist_hash = ?`,
 		s.localDeviceIdx, h)
-	items := iterStructsErr[row](errptr, rows, err)
+	items, errFn := iterStructsErrFn[row](rows, err)
+	var retErr error
+	errFn2 := func() error {
+		if err := errFn(); err != nil {
+			return err
+		}
+		return retErr
+	}
 	return func(yield func(string, protocol.FileInfo) bool) {
 		for r := range items {
 			fi, err := indirectFI{FiProtobuf: r.FiProtobuf, BlProtobuf: r.BlProtobuf}.FileInfo()
 			if err != nil {
-				*errptr = err
+				retErr = err
 				return
 			}
 			if !yield(r.FolderID, fi) {
 				return
 			}
 		}
-	}
+	}, errFn2
 }
 
 func (s *DB) ListFolders() ([]string, error) {

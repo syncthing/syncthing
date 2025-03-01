@@ -34,7 +34,7 @@ func (s *DB) AllLocalBlocksWithHash(hash []byte) iter.Seq2[db.BlockMapEntry, err
 	// & blocklists is deferred (gabrage collected) while the files list is
 	// not. This filters out blocks that are in fact deleted.
 	return iterStructs[db.BlockMapEntry](s.sql.Queryx(`
-		SELECT f.blocklist_hash, b.idx, b.offset, b.size FROM files f
+		SELECT f.blocklist_hash as blocklisthash, b.idx as blockindex, b.offset, b.size FROM files f
 		LEFT JOIN blocks b ON f.blocklist_hash = b.blocklist_hash
 		WHERE f.device_idx = ? AND b.hash = ?`,
 		s.localDeviceIdx, hash))

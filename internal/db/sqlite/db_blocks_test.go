@@ -56,7 +56,7 @@ func TestBlocks(t *testing.T) {
 	if len(vals) != 1 {
 		t.Log(vals)
 		t.Fatal("expected one hit")
-	} else if vals[0].Index != 0 || vals[0].Offset != 0 || vals[0].Size != 42 {
+	} else if vals[0].BlockIndex != 0 || vals[0].Offset != 0 || vals[0].Size != 42 {
 		t.Log(vals[0])
 		t.Fatal("bad entry")
 	}
@@ -64,7 +64,8 @@ func TestBlocks(t *testing.T) {
 	// Get FileInfos for those blocks
 
 	found := 0
-	for folder, fileInfo := range db.AllLocalFilesWithBlocksHashAnyFolder(&err, vals[0].BlocklistHash) {
+	it, errFn := db.AllLocalFilesWithBlocksHashAnyFolder(vals[0].BlocklistHash)
+	for folder, fileInfo := range it {
 		fmt.Println(folder, fileInfo)
 		if folder != folderID {
 			t.Fatal("should be same folder")
@@ -73,6 +74,9 @@ func TestBlocks(t *testing.T) {
 			t.Fatal("should be file1")
 		}
 		found++
+	}
+	if err := errFn(); err != nil {
+		t.Fatal(err)
 	}
 	if found != 1 {
 		t.Fatal("should find one file")

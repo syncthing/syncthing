@@ -1365,7 +1365,8 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 					if err != nil {
 						break
 					}
-					for folderID, fi := range f.model.sdb.AllLocalFilesWithBlocksHashAnyFolder(&err, e.BlocklistHash) {
+					it, errFn := f.model.sdb.AllLocalFilesWithBlocksHashAnyFolder(e.BlocklistHash)
+					for folderID, fi := range it {
 						ffs := folderFilesystems[folderID]
 						fd, err := ffs.Open(fi.Name)
 						if err != nil {
@@ -1410,7 +1411,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 						found = true
 						break
 					}
-					if err != nil {
+					if err := errFn(); err != nil {
 						l.Warnln(err)
 					}
 				}
