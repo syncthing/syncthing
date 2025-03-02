@@ -1830,11 +1830,7 @@ angular.module('syncthing.core')
                     });
                     return webauthnJSON.create(resp.data.options)
                         .then(function (pkc) {
-                            var body = {
-                                requestId: resp.data.requestId,
-                                credential: pkc,
-                            };
-                            return $http.post(urlbase + '/config/webauthn/register-finish', body);
+                            return $http.post(urlbase + '/config/webauthn/register-finish/' + resp.data.requestId, pkc);
                         })
                         .then(function (resp) {
                             $scope.tmpGUI.webauthnCredentials.push(resp.data);

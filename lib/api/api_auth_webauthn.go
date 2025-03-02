@@ -18,6 +18,7 @@ import (
 	webauthnProtocol "github.com/go-webauthn/webauthn/protocol"
 	webauthnLib "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
+	"github.com/julienschmidt/httprouter"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -189,27 +190,24 @@ func (s *webauthnService) startWebauthnRegistration(guiCfg config.GUIConfigurati
 	}
 }
 
-func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfiguration) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfiguration) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		defer s.deleteOldStates()
-
-		var req struct {
-			RequestID  string                                      `json:"requestId"`
-			Credential webauthnProtocol.CredentialCreationResponse `json:"credential"`
-		}
-		if err := unmarshalTo(r.Body, &req); err != nil {
+		requestID := p.ByName("requestId")
+		var credResp webauthnProtocol.CredentialCreationResponse
+		if err := unmarshalTo(r.Body, &credResp); err != nil {
 			l.Infof("Failed to parse WebAuthn response: %v", err)
 			http.Error(w, "Failed to parse WebAuthn response.", http.StatusBadRequest)
 			return
 		}
 
-		state, ok := s.registrationStates[req.RequestID]
+		state, ok := s.registrationStates[requestID]
 		if !ok {
-			l.Debugf("Unknown request ID: %s", req.RequestID)
+			l.Debugf("Unknown request ID: %s", requestID)
 			badRequest(w)
 			return
 		}
-		delete(s.registrationStates, req.RequestID) // Allow only one attempt per challenge
+		delete(s.registrationStates, requestID) // Allow only one attempt per challenge
 
 		if s.expired(&state) {
 			l.Debugf("WebAuthn registration timed out: %v", state)
@@ -217,7 +215,7 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 			return
 		}
 
-		parsedResponse, err := req.Credential.Parse()
+		parsedResponse, err := credResp.Parse()
 		if err != nil {
 			l.Infof("Failed to parse WebAuthn registration response: %v", err)
 			badRequest(w)
