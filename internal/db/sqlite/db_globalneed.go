@@ -140,7 +140,8 @@ func (s *DB) recalcGlobalForFolder(txp *txPreparedStmts, folderIdx int64) error 
 	SELECT f.name FROM files f
 	WHERE f.folder_idx = ? AND NOT EXISTS (
 		SELECT 1 FROM files g
-		WHERE g.folder_idx = ? AND g.name = f.name AND g.local_flags & ? != 0 )
+		WHERE g.folder_idx = ? AND g.name = f.name AND g.local_flags & ? != 0
+	)
 	GROUP BY name`)
 	if err != nil {
 		return wrap("recalc global for folder", err)
