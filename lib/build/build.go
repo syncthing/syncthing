@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const Codename = "Gold Grasshopper"
+const Codename = "Hafnium Hornet"
 
 var (
 	// Injected by build script
