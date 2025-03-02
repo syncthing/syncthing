@@ -591,61 +591,12 @@ func syncthingMain(options serveOptions) {
 	sdb := newdb.MetricsWrap(sql)
 	miscDB := dbext.NewMiscDB(sdb)
 
-	oldDbDir := locations.Get(locations.LegacyDatabase)
-	if be, err := backend.OpenLevelDBRO(oldDbDir); err == nil {
+	oldDBDir := locations.Get(locations.LegacyDatabase)
+	if be, err := backend.OpenLevelDBRO(oldDBDir); err == nil {
 		// We have not migrated. We should do that.
-		ll, err := db.NewLowlevel(be, evLogger)
-		if err != nil {
-			l.Warnln("Failed to migrate:", err)
-			os.Exit(1)
-		}
-
-		for _, folder := range ll.ListFolders() {
-			l.Infoln("Migrating folder", folder, "to SQLite...")
-			var batch []protocol.FileInfo
-			fs, err := db.NewFileSet(folder, ll)
-			if err != nil {
-				l.Warnln("Failed to migrate FileInfos:", err)
-				os.Exit(1)
-			}
-			snap, err := fs.Snapshot()
-			if err != nil {
-				l.Warnln("Failed to migrate FileInfos:", err)
-				os.Exit(1)
-			}
-			snap.WithHaveSequence(0, func(f protocol.FileInfo) bool {
-				batch = append(batch, f)
-				if len(batch) == 1000 {
-					if err := sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
-						l.Warnln("Failed to migrate FileInfos:", err)
-						os.Exit(1)
-					}
-					batch = batch[:0]
-				}
-				return true
-			})
-			if len(batch) > 0 {
-				if err := sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
-					l.Warnln("Failed to migrate FileInfos:", err)
-					os.Exit(1)
-				}
-			}
-			snap.Release()
-		}
-
-		l.Infoln("Migrating virtual mtimes to SQLite...")
-		if err := ll.IterateMtimes(sdb.MtimePut); err != nil {
-			l.Warnln("Failed to migrate mtimes:", err)
-		}
-
-		_ = miscDB.PutTime("migrated-from-leveldb", time.Now())
-		l.Infoln("Migration complete")
-		be.Close()
-
-		if err := os.Rename(oldDbDir, oldDbDir+"-migrated"); err != nil {
-			l.Warnln("Failed to rename old, migrated database; please manually move or remove", oldDbDir)
-			os.Exit(0) // prevent automatic restart by the monitor
-		}
+		migrateDatabase(be, evLogger, sdb, oldDBDir)
+		_ = miscDB.PutTime("migrated-from-leveldb-at", time.Now())
+		_ = miscDB.PutString("migrated-from-leveldb-by", build.LongVersion)
 	}
 
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial
@@ -742,6 +693,60 @@ func syncthingMain(options serveOptions) {
 	}
 
 	os.Exit(int(status))
+}
+
+func migrateDatabase(be backend.Backend, evLogger events.Logger, sdb newdb.DB, oldDBDir string) {
+	ll, err := db.NewLowlevel(be, evLogger)
+	if err != nil {
+		l.Warnln("Failed to migrate:", err)
+		os.Exit(1)
+	}
+
+	for _, folder := range ll.ListFolders() {
+		l.Infoln("Migrating folder", folder, "to SQLite...")
+		var batch []protocol.FileInfo
+		fs, err := db.NewFileSet(folder, ll)
+		if err != nil {
+			l.Warnln("Failed to migrate FileInfos:", err)
+			os.Exit(1)
+		}
+		snap, err := fs.Snapshot()
+		if err != nil {
+			l.Warnln("Failed to migrate FileInfos:", err)
+			os.Exit(1)
+		}
+		snap.WithHaveSequence(0, func(f protocol.FileInfo) bool {
+			batch = append(batch, f)
+			if len(batch) == 1000 {
+				if err := sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
+					l.Warnln("Failed to migrate FileInfos:", err)
+					os.Exit(1)
+				}
+				batch = batch[:0]
+			}
+			return true
+		})
+		if len(batch) > 0 {
+			if err := sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
+				l.Warnln("Failed to migrate FileInfos:", err)
+				os.Exit(1)
+			}
+		}
+		snap.Release()
+	}
+
+	l.Infoln("Migrating virtual mtimes to SQLite...")
+	if err := ll.IterateMtimes(sdb.MtimePut); err != nil {
+		l.Warnln("Failed to migrate mtimes:", err)
+	}
+
+	l.Infoln("Migration complete")
+	be.Close()
+
+	if err := os.Rename(oldDBDir, oldDBDir+"-migrated"); err != nil {
+		l.Warnln("Failed to rename old, migrated database; please manually move or remove", oldDBDir)
+		os.Exit(0) // prevent automatic restart by the monitor
+	}
 }
 
 func setupSignalHandling(app *syncthing.App) {
