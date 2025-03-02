@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"iter"
 	"path/filepath"
-	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -112,14 +111,12 @@ func TestBasics(t *testing.T) {
 	t.Run("AllLocal", func(t *testing.T) {
 		t.Parallel()
 
-		it, errFn := db.AllLocalFiles(folderID, protocol.LocalDeviceID)
-		have := iterCollectTestErrFn(t, it, errFn)
+		have := mustCollect[protocol.FileInfo](t)(db.AllLocalFiles(folderID, protocol.LocalDeviceID))
 		if len(have) != 4 {
 			t.Log(have)
 			t.Error("expected four files")
 		}
-		it, errFn = db.AllLocalFiles(folderID, protocol.DeviceID{42})
-		have = iterCollectTestErrFn(t, it, errFn)
+		have = mustCollect[protocol.FileInfo](t)(db.AllLocalFiles(folderID, protocol.DeviceID{42}))
 		if len(have) != 3 {
 			t.Log(have)
 			t.Error("expected three files")
@@ -129,41 +126,34 @@ func TestBasics(t *testing.T) {
 	t.Run("AllNeededNamesLocal", func(t *testing.T) {
 		t.Parallel()
 
-		it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0, 0)
-		need := fiNames(iterCollectTestErrFn(t, it, errFn))
+		need := fiNames(mustCollect[protocol.FileInfo](t)(db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0, 0)))
 		if len(need) != 3 || need[0] != "test1" {
 			t.Log(need)
 			t.Error("expected three files, ordered alphabetically")
 		}
 
-		it, errFn = db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 1, 0)
-		need = fiNames(iterCollectTestErrFn(t, it, errFn))
+		need = fiNames(mustCollect[protocol.FileInfo](t)(db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 1, 0)))
 		if len(need) != 1 || need[0] != "test1" {
 			t.Log(need)
 			t.Error("expected one file, limited, ordered alphabetically")
 		}
-
-		it, errFn = db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderLargestFirst, 0, 0)
-		need = fiNames(iterCollectTestErrFn(t, it, errFn))
+		need = fiNames(mustCollect[protocol.FileInfo](t)(db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderLargestFirst, 0, 0)))
 		if len(need) != 3 || need[0] != "test1" { // largest
 			t.Log(need)
 			t.Error("expected three files, ordered largest to smallest")
 		}
-		it, errFn = db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderSmallestFirst, 0, 0)
-		need = fiNames(iterCollectTestErrFn(t, it, errFn))
+		need = fiNames(mustCollect[protocol.FileInfo](t)(db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderSmallestFirst, 0, 0)))
 		if len(need) != 3 || need[0] != "test3" { // smallest
 			t.Log(need)
 			t.Error("expected three files, ordered smallest to largest")
 		}
 
-		it, errFn = db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderNewestFirst, 0, 0)
-		need = fiNames(iterCollectTestErrFn(t, it, errFn))
+		need = fiNames(mustCollect[protocol.FileInfo](t)(db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderNewestFirst, 0, 0)))
 		if len(need) != 3 || need[0] != "test1" { // newest
 			t.Log(need)
 			t.Error("expected three files, ordered newest to oldest")
 		}
-		it, errFn = db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderOldestFirst, 0, 0)
-		need = fiNames(iterCollectTestErrFn(t, it, errFn))
+		need = fiNames(mustCollect[protocol.FileInfo](t)(db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderOldestFirst, 0, 0)))
 		if len(need) != 3 || need[0] != "test3" { // oldest
 			t.Log(need)
 			t.Error("expected three files, ordered oldest to newest")
@@ -341,11 +331,7 @@ func TestBasics(t *testing.T) {
 	t.Run("AllGlobalPrefix", func(t *testing.T) {
 		t.Parallel()
 
-		it, errFn := db.AllGlobalFilesPrefix(folderID, "test2")
-		vals := slices.Collect(it)
-		if err := errFn(); err != nil {
-			t.Fatal(err)
-		}
+		vals := mustCollect[protocol.FileInfo](t)(db.AllGlobalFilesPrefix(folderID, "test2"))
 
 		// Vals should be test2, test2/a, test2/b
 		if len(vals) != 3 {
@@ -356,12 +342,7 @@ func TestBasics(t *testing.T) {
 		}
 
 		// Empty prefix should be all the files
-		it, errFn = db.AllGlobalFilesPrefix(folderID, "")
-		vals = slices.Collect(it)
-		if err := errFn(); err != nil {
-			t.Fatal(err)
-		}
-
+		vals = mustCollect[protocol.FileInfo](t)(db.AllGlobalFilesPrefix(folderID, ""))
 		if len(vals) != 6 {
 			t.Log(vals)
 			t.Error("expected six items")
@@ -371,8 +352,7 @@ func TestBasics(t *testing.T) {
 	t.Run("AllLocalPrefix", func(t *testing.T) {
 		t.Parallel()
 
-		it, errFn := db.AllLocalFilesPrefix(folderID, protocol.LocalDeviceID, "test2")
-		vals := iterCollectTestErrFn(t, it, errFn)
+		vals := mustCollect[protocol.FileInfo](t)(db.AllLocalFilesPrefix(folderID, protocol.LocalDeviceID, "test2"))
 
 		// Vals should be test2, test2/a, test2/b
 		if len(vals) != 3 {
@@ -383,8 +363,7 @@ func TestBasics(t *testing.T) {
 		}
 
 		// Empty prefix should be all the files
-		it, errFn = db.AllLocalFilesPrefix(folderID, protocol.LocalDeviceID, "")
-		vals = iterCollectTestErrFn(t, it, errFn)
+		vals = mustCollect[protocol.FileInfo](t)(db.AllLocalFilesPrefix(folderID, protocol.LocalDeviceID, ""))
 
 		if len(vals) != 4 {
 			t.Log(vals)
@@ -395,8 +374,7 @@ func TestBasics(t *testing.T) {
 	t.Run("AllLocalSequenced", func(t *testing.T) {
 		t.Parallel()
 
-		it, errFn := db.AllLocalFilesBySequence(folderID, protocol.LocalDeviceID, 3, 0)
-		vals := iterCollectTestErrFn(t, it, errFn)
+		vals := mustCollect[protocol.FileInfo](t)(db.AllLocalFilesBySequence(folderID, protocol.LocalDeviceID, 3, 0))
 
 		// Vals should be test2/a, test2/b
 		if len(vals) != 2 {
@@ -837,8 +815,7 @@ func TestAllForBlocksHash(t *testing.T) {
 		t.Fatal("expected to exist")
 	}
 
-	it, errFn := db.AllLocalFilesWithBlocksHash(folderID, test1.BlocksHash)
-	vals := iterCollectTestErrFn(t, it, errFn)
+	vals := mustCollect[protocol.FileInfo](t)(db.AllLocalFilesWithBlocksHash(folderID, test1.BlocksHash))
 	if len(vals) != 1 {
 		t.Log(vals)
 		t.Fatal("expected one file to match")
@@ -851,8 +828,7 @@ func TestAllForBlocksHash(t *testing.T) {
 		t.Fatal("expected to exist")
 	}
 
-	it, errFn = db.AllLocalFilesWithBlocksHash(folderID, test2.BlocksHash)
-	vals = iterCollectTestErrFn(t, it, errFn)
+	vals = mustCollect[protocol.FileInfo](t)(db.AllLocalFilesWithBlocksHash(folderID, test2.BlocksHash))
 	if len(vals) != 2 {
 		t.Log(vals)
 		t.Fatal("expected two files to match")
@@ -867,22 +843,16 @@ func TestAllForBlocksHash(t *testing.T) {
 	}
 }
 
-func iterCollectTest[T any](t *testing.T, it iter.Seq2[T, error]) []T {
+func mustCollect[T any](t *testing.T) func(it iter.Seq[T], errFn func() error) []T {
 	t.Helper()
-	vals, err := itererr.Collect(it)
-	if err != nil {
-		t.Fatal(err)
+	return func(it iter.Seq[T], errFn func() error) []T {
+		t.Helper()
+		vals, err := itererr.Collect(it, errFn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return vals
 	}
-	return vals
-}
-
-func iterCollectTestErrFn[T any](t *testing.T, it iter.Seq[T], errFn func() error) []T {
-	t.Helper()
-	vals := slices.Collect(it)
-	if err := errFn(); err != nil {
-		t.Fatal(err)
-	}
-	return vals
 }
 
 func fiNames(fs []protocol.FileInfo) []string {

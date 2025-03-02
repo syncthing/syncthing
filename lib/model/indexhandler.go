@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -295,8 +296,10 @@ func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 	previousWasDelete := false
 
 	t0 := time.Now()
-	it, errFn := s.sdb.AllLocalFilesBySequence(s.folder, protocol.LocalDeviceID, s.localPrevSequence+1, 5000)
-	for fi := range it {
+	for fi, err := range itererr.Zip(s.sdb.AllLocalFilesBySequence(s.folder, protocol.LocalDeviceID, s.localPrevSequence+1, 5000)) {
+		if err != nil {
+			return err
+		}
 		if time.Since(t0) > 10*time.Second {
 			break
 		}
@@ -341,9 +344,6 @@ func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 		previousWasDelete = f.IsDeleted()
 
 		batch.Append(f)
-	}
-	if err := errFn(); err != nil {
-		return err
 	}
 	if err := batch.Flush(); err != nil {
 		return err

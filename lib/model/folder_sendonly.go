@@ -7,6 +7,7 @@
 package model
 
 import (
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -42,8 +43,10 @@ func (f *sendOnlyFolder) pull() (bool, error) {
 		return nil
 	})
 
-	it, errFn := f.db.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0, 0)
-	for file := range it {
+	for file, err := range itererr.Zip(f.db.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0, 0)) {
+		if err != nil {
+			return false, err
+		}
 		if err := batch.FlushIfFull(); err != nil {
 			return false, err
 		}
@@ -79,9 +82,6 @@ func (f *sendOnlyFolder) pull() (bool, error) {
 		batch.Append(file)
 		l.Debugln(f, "Merging versions of identical file", file)
 	}
-	if err := errFn(); err != nil {
-		return false, err
-	}
 
 	batch.Flush()
 
@@ -103,8 +103,10 @@ func (f *sendOnlyFolder) override() error {
 		return nil
 	})
 
-	it, errFn := f.db.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0, 0)
-	for need := range it {
+	for need, err := range itererr.Zip(f.db.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0, 0)) {
+		if err != nil {
+			return err
+		}
 		if err := batch.FlushIfFull(); err != nil {
 			return err
 		}
@@ -130,9 +132,6 @@ func (f *sendOnlyFolder) override() error {
 		}
 		need.Sequence = 0
 		batch.Append(need)
-	}
-	if err := errFn(); err != nil {
-		return err
 	}
 	return batch.Flush()
 }

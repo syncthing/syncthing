@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -49,8 +50,10 @@ func (f *receiveEncryptedFolder) revert() error {
 	})
 
 	var dirs []string
-	it, errFn := f.db.AllLocalFiles(f.folderID, protocol.LocalDeviceID)
-	for fi := range it {
+	for fi, err := range itererr.Zip(f.db.AllLocalFiles(f.folderID, protocol.LocalDeviceID)) {
+		if err != nil {
+			return err
+		}
 		if err := batch.FlushIfFull(); err != nil {
 			return err
 		}
@@ -78,9 +81,6 @@ func (f *receiveEncryptedFolder) revert() error {
 		// deleted, it will not show up as an unexpected file in the UI
 		// anymore.
 		batch.Append(fi)
-	}
-	if err := errFn(); err != nil {
-		return err
 	}
 
 	f.revertHandleDirs(dirs)

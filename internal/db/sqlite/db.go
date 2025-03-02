@@ -11,6 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/gen/dbproto"
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sliceutil"
@@ -349,14 +350,14 @@ func (s *DB) GetGlobalFile(folder string, file string) (protocol.FileInfo, bool,
 }
 
 func (s *DB) AllGlobalFiles(folder string) (iter.Seq[protocol.FileInfo], func() error) {
-	beps, errFn := iterStructsErrFn[indirectFI](s.sql.Queryx(`
+	beps, errFn := iterStructs[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.local_flags & ? != 0`,
 		folder, protocol.FlagLocalGlobal))
-	return iterMapErrFn(beps, errFn, indirectFI.FileInfo)
+	return itererr.Map(beps, errFn, indirectFI.FileInfo)
 }
 
 func (s *DB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[protocol.FileInfo], func() error) {
@@ -367,14 +368,14 @@ func (s *DB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[protoc
 	prefix = osutil.NormalizedFilename(prefix)
 	pattern := prefix + "%"
 
-	beps, errFn := iterStructsErrFn[indirectFI](s.sql.Queryx(`
+	beps, errFn := iterStructs[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND (f.name = ? OR f.name LIKE ?) AND f.local_flags & ? != 0`,
 		folder, prefix, pattern, protocol.FlagLocalGlobal))
-	return iterMapErrFn(beps, errFn, indirectFI.FileInfo)
+	return itererr.Map(beps, errFn, indirectFI.FileInfo)
 }
 
 func (s *DB) GetDeviceSequence(folder string, device protocol.DeviceID) (int64, error) {
@@ -403,7 +404,7 @@ func (s *DB) GetDeviceSequence(folder string, device protocol.DeviceID) (int64, 
 }
 
 func (s *DB) AllLocalFiles(folder string, device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error) {
-	it, errFn := iterStructsErrFn[indirectFI](s.sql.Queryx(`
+	it, errFn := iterStructs[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
@@ -411,7 +412,7 @@ func (s *DB) AllLocalFiles(folder string, device protocol.DeviceID) (iter.Seq[pr
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ?`,
 		folder, device.String()))
-	return iterMapErrFn(it, errFn, indirectFI.FileInfo)
+	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 
 func (s *DB) AllLocalFilesBySequence(folder string, device protocol.DeviceID, startSeq int64, limit int) (iter.Seq[protocol.FileInfo], func() error) {
@@ -419,7 +420,7 @@ func (s *DB) AllLocalFilesBySequence(folder string, device protocol.DeviceID, st
 	if limit > 0 {
 		limitStr = fmt.Sprintf(" LIMIT %d", limit)
 	}
-	it, errFn := iterStructsErrFn[indirectFI](s.sql.Queryx(`
+	it, errFn := iterStructs[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
@@ -428,7 +429,7 @@ func (s *DB) AllLocalFilesBySequence(folder string, device protocol.DeviceID, st
 		WHERE o.folder_id = ? AND d.device_id = ? AND f.sequence >= ?
 		ORDER BY f.sequence`+limitStr,
 		folder, device.String(), startSeq))
-	return iterMapErrFn(it, errFn, indirectFI.FileInfo)
+	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 
 func (s *DB) AllLocalFilesPrefix(folder string, device protocol.DeviceID, prefix string) (iter.Seq[protocol.FileInfo], func() error) {
@@ -439,7 +440,7 @@ func (s *DB) AllLocalFilesPrefix(folder string, device protocol.DeviceID, prefix
 	prefix = osutil.NormalizedFilename(prefix)
 	pattern := prefix + "%"
 
-	it, errFn := iterStructsErrFn[indirectFI](s.sql.Queryx(`
+	it, errFn := iterStructs[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
@@ -447,18 +448,18 @@ func (s *DB) AllLocalFilesPrefix(folder string, device protocol.DeviceID, prefix
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ? AND (f.name = ? OR f.name LIKE ?)`,
 		folder, device.String(), prefix, pattern))
-	return iterMapErrFn(it, errFn, indirectFI.FileInfo)
+	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 
 func (s *DB) AllLocalFilesWithBlocksHash(folder string, h []byte) (iter.Seq[protocol.FileInfo], func() error) {
-	it, errFn := iterStructsErrFn[indirectFI](s.sql.Queryx(`
+	it, errFn := iterStructs[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.device_idx = ? AND f.blocklist_hash = ?`,
 		folder, s.localDeviceIdx, h))
-	return iterMapErrFn(it, errFn, indirectFI.FileInfo)
+	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 
 func (s *DB) AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, protocol.FileInfo], func() error) {
@@ -474,7 +475,7 @@ func (s *DB) AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, p
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE f.device_idx = ? AND f.blocklist_hash = ?`,
 		s.localDeviceIdx, h)
-	items, errFn := iterStructsErrFn[row](rows, err)
+	items, errFn := iterStructs[row](rows, err)
 	var retErr error
 	errFn2 := func() error {
 		if err := errFn(); err != nil {

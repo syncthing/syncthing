@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -319,8 +320,10 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 	// Regular files to pull goes into the file queue, everything else
 	// (directories, symlinks and deletes) goes into the "process directly"
 	// pile.
-	it, errFn := f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, f.Order, 0, 0)
-	for file := range it { // XXX limit
+	for file, err := range itererr.Zip(f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, f.Order, 0, 0)) { // XXX limit
+		if err != nil {
+			return changed, nil, nil, err
+		}
 		select {
 		case <-f.ctx.Done():
 			break
@@ -421,9 +424,6 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			l.Warnln(file)
 			panic("unhandleable item type, can't happen")
 		}
-	}
-	if err := errFn(); err != nil {
-		return changed, nil, nil, err
 	}
 
 	select {
@@ -1352,7 +1352,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			}
 
 			if !found {
-				for e, err := range f.model.sdb.AllLocalBlocksWithHash(block.Hash) {
+				for e, err := range itererr.Zip(f.model.sdb.AllLocalBlocksWithHash(block.Hash)) {
 					if err != nil {
 						break
 					}

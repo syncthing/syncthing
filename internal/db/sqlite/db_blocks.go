@@ -29,7 +29,7 @@ func (*DB) insertBlocksLocked(tx *txPreparedStmts, blocklistHash []byte, blocks 
 	return nil
 }
 
-func (s *DB) AllLocalBlocksWithHash(hash []byte) iter.Seq2[db.BlockMapEntry, error] {
+func (s *DB) AllLocalBlocksWithHash(hash []byte) (iter.Seq[db.BlockMapEntry], func() error) {
 	// We involve the files table in this select because deletion of blocks
 	// & blocklists is deferred (gabrage collected) while the files list is
 	// not. This filters out blocks that are in fact deleted.

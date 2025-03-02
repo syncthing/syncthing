@@ -54,7 +54,7 @@ func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order
 
 	if device == protocol.LocalDeviceID {
 		// Select all the non-ignored files with the global and need bits set.
-		it, errFn := iterStructsErrFn[indirectFI](s.sql.Queryx(`
+		it, errFn := iterStructs[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf, g.name, g.size, g.modified FROM fileinfos fi
 		INNER JOIN files g on fi.sequence = g.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = g.blocklist_hash
@@ -62,7 +62,7 @@ func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order
 		WHERE o.folder_id = ? AND g.local_flags & ? = 0 AND g.local_flags & ? = ?
 		`+selectOpts,
 			folder, protocol.FlagLocalIgnored, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal))
-		return iterMapErrFn(it, errFn, indirectFI.FileInfo)
+		return itererr.Map(it, errFn, indirectFI.FileInfo)
 	}
 
 	// Select:
@@ -73,7 +73,7 @@ func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order
 	// - all the valid, deleted global files that have a corresponding non-deleted
 	//   remote file (of any version)
 
-	it, errFn := iterStructsErrFn[indirectFI](s.sql.Queryx(`
+	it, errFn := iterStructs[indirectFI](s.sql.Queryx(`
 	SELECT fi.fiprotobuf, bl.blprotobuf, g.name, g.size, g.modified FROM fileinfos fi
 	INNER JOIN files g on fi.sequence = g.sequence
 	LEFT JOIN blocklists bl ON bl.blocklist_hash = g.blocklist_hash
@@ -99,7 +99,7 @@ func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order
 		folder, protocol.FlagLocalGlobal, device.String(),
 		folder, protocol.FlagLocalGlobal, device.String(),
 	))
-	return iterMapErrFn(it, errFn, indirectFI.FileInfo)
+	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 
 func (s *DB) GetGlobalAvailability(folder, file string) ([]protocol.DeviceID, error) {
@@ -170,8 +170,7 @@ func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file str
 	if err != nil {
 		return wrap("processNeed (select)", err)
 	}
-	vals := iterStructs[fileRow](selStmt.Queryx(folderIdx, file))
-	es, err := itererr.Collect(vals)
+	es, err := itererr.Collect(iterStructs[fileRow](selStmt.Queryx(folderIdx, file)))
 	if err != nil {
 		return wrap("processNeed (select)", err)
 	}

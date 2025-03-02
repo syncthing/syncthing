@@ -32,6 +32,7 @@ import (
 
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/dbext"
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -2730,8 +2731,11 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 		prefix = prefix + sep
 	}
 
-	it, errFn := m.sdb.AllGlobalFilesPrefix(folder, prefix)
-	for f := range it {
+	for f, err := range itererr.Zip(m.sdb.AllGlobalFilesPrefix(folder, prefix)) {
+		if err != nil {
+			return nil, err
+		}
+
 		// Don't include the prefix itself.
 		if f.IsInvalid() || f.IsDeleted() || strings.HasPrefix(prefix, f.Name) {
 			continue
@@ -2767,9 +2771,6 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 			ModTime: f.ModTime(),
 			Size:    f.FileSize(),
 		})
-	}
-	if err := errFn(); err != nil {
-		return nil, err
 	}
 
 	return root.Children, nil

@@ -10,6 +10,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -87,8 +88,10 @@ func (f *receiveOnlyFolder) revert() error {
 		return nil
 	})
 
-	it, errFn := f.db.AllLocalFiles(f.folderID, protocol.LocalDeviceID)
-	for fi := range it {
+	for fi, err := range itererr.Zip(f.db.AllLocalFiles(f.folderID, protocol.LocalDeviceID)) {
+		if err != nil {
+			return err
+		}
 		if !fi.IsReceiveOnlyChanged() {
 			// We're only interested in files that have changed locally in
 			// receive only mode.
@@ -142,9 +145,6 @@ func (f *receiveOnlyFolder) revert() error {
 
 		batch.Append(fi)
 		_ = batch.FlushIfFull()
-	}
-	if err := errFn(); err != nil {
-		return err
 	}
 	if err := batch.Flush(); err != nil {
 		return err

@@ -17,6 +17,7 @@ import (
 
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/dbext"
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -706,8 +707,11 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 	changes := 0
 
 	for _, sub := range subDirs {
-		it, errFn := f.db.AllLocalFilesPrefix(f.folderID, protocol.LocalDeviceID, sub)
-		for fi := range it {
+		for fi, err := range itererr.Zip(f.db.AllLocalFilesPrefix(f.folderID, protocol.LocalDeviceID, sub)) {
+			if err != nil {
+				return changes, err
+			}
+
 			select {
 			case <-f.ctx.Done():
 				break
@@ -828,9 +832,6 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 				}
 			}
 		}
-		if err := errFn(); err != nil {
-			return changes, err
-		}
 
 		select {
 		case <-f.ctx.Done():
@@ -867,8 +868,11 @@ func (f *folder) findRename(file protocol.FileInfo, alreadyUsedOrExisting map[st
 	found := false
 	nf := protocol.FileInfo{}
 
-	it, errFn := f.db.AllLocalFilesWithBlocksHash(f.folderID, file.BlocksHash)
-	for fi := range it {
+	for fi, err := range itererr.Zip(f.db.AllLocalFilesWithBlocksHash(f.folderID, file.BlocksHash)) {
+		if err != nil {
+			return protocol.FileInfo{}, false
+		}
+
 		select {
 		case <-f.ctx.Done():
 			break
@@ -910,9 +914,6 @@ func (f *folder) findRename(file protocol.FileInfo, alreadyUsedOrExisting map[st
 		nf.LocalFlags = f.localFlags
 		found = true
 		break
-	}
-	if err := errFn(); err != nil {
-		return nf, false
 	}
 
 	return nf, found

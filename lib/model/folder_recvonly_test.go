@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -392,17 +393,16 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 	// Do the same changes on the remote
 
 	files := make([]protocol.FileInfo, 0, 2)
-	it, errFn := f.db.AllLocalFiles("ro", protocol.LocalDeviceID)
-	for f := range it {
+	for f, err := range itererr.Zip(f.db.AllLocalFiles("ro", protocol.LocalDeviceID)) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		if f.Name != file && f.Name != knownFile {
 			continue
 		}
 		f.LocalFlags = 0
 		f.Version = protocol.Vector{}.Update(device1.Short())
 		files = append(files, f)
-	}
-	if err := errFn(); err != nil {
-		t.Fatal(err)
 	}
 	must(t, m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: "ro", Files: files}))
 

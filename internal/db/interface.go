@@ -24,7 +24,7 @@ type DB interface {
 	// File iterators
 	AllGlobalFiles(folder string) (iter.Seq[protocol.FileInfo], func() error)
 	AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[protocol.FileInfo], func() error)
-	AllLocalBlocksWithHash(hash []byte) iter.Seq2[BlockMapEntry, error]
+	AllLocalBlocksWithHash(hash []byte) (iter.Seq[BlockMapEntry], func() error)
 	AllLocalFiles(folder string, device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocalFilesBySequence(folder string, device protocol.DeviceID, startSeq int64, limit int) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocalFilesPrefix(folder string, device protocol.DeviceID, prefix string) (iter.Seq[protocol.FileInfo], func() error)

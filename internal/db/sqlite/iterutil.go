@@ -6,31 +6,7 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-func iterStructs[T any](rows *sqlx.Rows, err error) iter.Seq2[T, error] {
-	return func(yield func(T, error) bool) {
-		var zero T
-		if err != nil {
-			yield(zero, err)
-			return
-		}
-		defer rows.Close()
-		for rows.Next() {
-			v := new(T)
-			if err := rows.StructScan(v); err != nil {
-				yield(zero, err)
-				return
-			}
-			if !yield(*v, nil) {
-				return
-			}
-		}
-		if err := rows.Err(); err != nil {
-			yield(zero, err)
-		}
-	}
-}
-
-func iterStructsErrFn[T any](rows *sqlx.Rows, err error) (iter.Seq[T], func() error) {
+func iterStructs[T any](rows *sqlx.Rows, err error) (iter.Seq[T], func() error) {
 	if err != nil {
 		return func(_ func(T) bool) {}, func() error { return err }
 	}
@@ -52,25 +28,4 @@ func iterStructsErrFn[T any](rows *sqlx.Rows, err error) (iter.Seq[T], func() er
 			retErr = err
 		}
 	}, func() error { return retErr }
-}
-
-func iterMapErrFn[A, B any](i iter.Seq[A], errFn func() error, mapFn func(A) (B, error)) (iter.Seq[B], func() error) {
-	var retErr error
-	return func(yield func(B) bool) {
-			for v := range i {
-				mapped, err := mapFn(v)
-				if err != nil {
-					retErr = err
-					return
-				}
-				if !yield(mapped) {
-					return
-				}
-			}
-		}, func() error {
-			if prevErr := errFn(); prevErr != nil {
-				return prevErr
-			}
-			return retErr
-		}
 }

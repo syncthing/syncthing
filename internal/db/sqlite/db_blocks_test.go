@@ -3,6 +3,7 @@ package sqlite
 import (
 	"testing"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -46,9 +47,6 @@ func TestBlocks(t *testing.T) {
 	// Search for blocks
 
 	vals, err := itererr.Collect(db.AllLocalBlocksWithHash([]byte{1, 2, 3}))
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,43 +101,43 @@ func TestBlocks(t *testing.T) {
 func TestBlocksDeleted(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenMemory()
+	sdb, err := OpenMemory()
 	if err != nil {
 		t.Fatal()
 	}
 	t.Cleanup(func() {
-		if err := db.Close(); err != nil {
+		if err := sdb.Close(); err != nil {
 			t.Fatal(err)
 		}
 	})
 
 	// Insert a file
 	file := genFile("foo", 1, 0)
-	if err := db.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{file}); err != nil {
+	if err := sdb.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{file}); err != nil {
 		t.Fatal()
 	}
 
 	// We should find one entry for the block hash
 	search := file.Blocks[0].Hash
-	es := iterCollectTest(t, db.AllLocalBlocksWithHash(search))
+	es := mustCollect[db.BlockMapEntry](t)(sdb.AllLocalBlocksWithHash(search))
 	if len(es) != 1 {
 		t.Fatal("expected one hit")
 	}
 
 	// Update the file with a new block hash
 	file.Blocks = genBlocks("foo", 42, 1)
-	if err := db.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{file}); err != nil {
+	if err := sdb.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{file}); err != nil {
 		t.Fatal()
 	}
 
 	// Searching for the old hash should yield no hits
-	if hits := iterCollectTest(t, db.AllLocalBlocksWithHash(search)); len(hits) != 0 {
+	if hits := mustCollect[db.BlockMapEntry](t)(sdb.AllLocalBlocksWithHash(search)); len(hits) != 0 {
 		t.Log(hits)
 		t.Error("expected no hits")
 	}
 
 	// Searching for the new hash should yield one hits
-	if hits := iterCollectTest(t, db.AllLocalBlocksWithHash(file.Blocks[0].Hash)); len(hits) != 1 {
+	if hits := mustCollect[db.BlockMapEntry](t)(sdb.AllLocalBlocksWithHash(file.Blocks[0].Hash)); len(hits) != 1 {
 		t.Log(hits)
 		t.Error("expected one hit")
 	}
