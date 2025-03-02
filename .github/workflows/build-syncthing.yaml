@@ -187,7 +187,7 @@ jobs:
             }
           }
         env:
-          CGO_ENABLED: "1"
+          CGO_ENABLED: "0"
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
@@ -288,7 +288,7 @@ jobs:
             done
           done
         env:
-          CGO_ENABLED: "1"
+          CGO_ENABLED: "0"
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
@@ -943,7 +943,7 @@ jobs:
             mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-"$arch"
           done
         env:
-          CGO_ENABLED: "1"
+          CGO_ENABLED: "0"
           BUILD_USER: docker
 
       - name: Check if we will be able to push images
@@ -1048,7 +1048,7 @@ jobs:
             mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-"$arch"
           done
         env:
-          CGO_ENABLED: "1"
+          CGO_ENABLED: "0"
           BUILD_USER: docker
 
       - name: Login to GHCR
