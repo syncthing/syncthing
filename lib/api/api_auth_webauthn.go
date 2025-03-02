@@ -183,15 +183,9 @@ func (s *webauthnService) startWebauthnRegistration(guiCfg config.GUIConfigurati
 			return
 		}
 
-		var resp struct {
-			RequestID string                              `json:"requestId"`
-			Options   webauthnProtocol.CredentialCreation `json:"options"`
-		}
-		resp.Options = *options
-		resp.RequestID = uuid.New().String()
-		s.registrationStates[resp.RequestID] = s.startTimedSessionData(sessionData)
-
-		sendJSON(w, resp)
+		requestID := uuid.New().String()
+		s.registrationStates[requestID] = s.startTimedSessionData(sessionData)
+		sendJSON(w, map[string]any{"requestId": requestID, "options": *options})
 	}
 }
 
@@ -304,15 +298,9 @@ func (s *webauthnService) startWebauthnAuthentication(guiCfg config.GUIConfigura
 			return
 		}
 
-		var resp struct {
-			RequestID string                               `json:"requestId"`
-			Options   webauthnProtocol.CredentialAssertion `json:"options"`
-		}
-		resp.Options = *options
-		resp.RequestID = uuid.New().String()
-		s.authenticationStates[resp.RequestID] = s.startTimedSessionData(sessionData)
-
-		sendJSON(w, resp)
+		requestID := uuid.New().String()
+		s.authenticationStates[requestID] = s.startTimedSessionData(sessionData)
+		sendJSON(w, map[string]any{"requestId": requestID, "options": *options})
 	}
 }
 

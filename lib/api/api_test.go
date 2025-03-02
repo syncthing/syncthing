@@ -1985,7 +1985,7 @@ func createWebauthnAssertionResponse(
 	}
 }
 
-// This needs to match the anonymous `resp` struct in api.startWebauthnRegistration
+// This needs to match the JSON response from api.startWebauthnRegistration
 type startWebauthnRegistrationResponse struct {
 	RequestID string                              `json:"requestId"`
 	Options   webauthnProtocol.CredentialCreation `json:"options"`
@@ -2328,7 +2328,7 @@ func TestWebauthnRegistration(t *testing.T) {
 	})
 }
 
-// This needs to match the anonymous `resp` struct in api.startWebauthnAuthentication
+// This needs to match the JSON response from api.startWebauthnAuthentication
 type startWebauthnAuthenticationResponse struct {
 	RequestID string                               `json:"requestId"`
 	Options   webauthnProtocol.CredentialAssertion `json:"options"`
