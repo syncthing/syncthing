@@ -2,6 +2,8 @@ package sqlite
 
 import (
 	"iter"
+
+	"github.com/syncthing/syncthing/internal/db"
 )
 
 func (s *DB) KVGet(key string) ([]byte, error) {
@@ -26,14 +28,14 @@ func (s *DB) KVDelete(key string) error {
 	return err
 }
 
-func (s *DB) KVPrefix(prefix string) (iter.Seq2[string, []byte], func() error) {
+func (s *DB) KVPrefix(prefix string) (iter.Seq[db.KeyValue], func() error) {
 	prefix += "%"
 	rows, err := s.sql.Queryx(`SELECT key, value FROM kv WHERE key LIKE ?`, prefix)
 	if err != nil {
-		return func(_ func(string, []byte) bool) {}, func() error { return err }
+		return func(_ func(db.KeyValue) bool) {}, func() error { return err }
 	}
 
-	return func(yield func(string, []byte) bool) {
+	return func(yield func(db.KeyValue) bool) {
 			defer rows.Close()
 			for rows.Next() {
 				var key string
@@ -41,7 +43,7 @@ func (s *DB) KVPrefix(prefix string) (iter.Seq2[string, []byte], func() error) {
 				if err = rows.Scan(&key, &val); err != nil {
 					return
 				}
-				if !yield(key, val) {
+				if !yield(db.KeyValue{Key: key, Value: val}) {
 					return
 				}
 			}

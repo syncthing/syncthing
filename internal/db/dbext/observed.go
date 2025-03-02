@@ -80,10 +80,10 @@ func (db *ObservedDB) RemovePendingDevice(device protocol.DeviceID) error {
 func (db *ObservedDB) PendingDevices() (map[protocol.DeviceID]ObservedDevice, error) {
 	res := make(map[protocol.DeviceID]ObservedDevice)
 	it, errFn := db.kv.KVPrefix("device/")
-	for key, val := range it {
-		_, keyDev, ok := strings.Cut(key, "/")
+	for kv := range it {
+		_, keyDev, ok := strings.Cut(kv.Key, "/")
 		if !ok {
-			if err := db.kv.KVDelete(key); err != nil {
+			if err := db.kv.KVDelete(kv.Key); err != nil {
 				return nil, err
 			}
 			continue
@@ -95,7 +95,7 @@ func (db *ObservedDB) PendingDevices() (map[protocol.DeviceID]ObservedDevice, er
 		if err != nil {
 			goto deleteKey
 		}
-		if err = proto.Unmarshal(val, &protoD); err != nil {
+		if err = proto.Unmarshal(kv.Value, &protoD); err != nil {
 			goto deleteKey
 		}
 		od.fromWire(&protoD)
@@ -105,7 +105,7 @@ func (db *ObservedDB) PendingDevices() (map[protocol.DeviceID]ObservedDevice, er
 		// Deleting invalid entries is the only possible "repair" measure and
 		// appropriate for the importance of pending entries.  They will come back
 		// soon if still relevant.
-		if err := db.kv.KVDelete(key); err != nil {
+		if err := db.kv.KVDelete(kv.Key); err != nil {
 			return nil, err
 		}
 	}
@@ -126,12 +126,12 @@ func (db *ObservedDB) RemovePendingFolderForDevice(id string, device protocol.De
 // RemovePendingFolder removes all entries matching a specific folder ID.
 func (db *ObservedDB) RemovePendingFolder(id string) error {
 	it, errFn := db.kv.KVPrefix("folder/")
-	for key := range it {
-		parts := strings.Split(key, "/")
+	for kv := range it {
+		parts := strings.Split(kv.Key, "/")
 		if len(parts) != 3 || parts[2] != id {
 			continue
 		}
-		if err := db.kv.KVDelete(key); err != nil {
+		if err := db.kv.KVDelete(kv.Key); err != nil {
 			return err
 		}
 	}
@@ -157,8 +157,8 @@ func (db *ObservedDB) PendingFoldersForDevice(device protocol.DeviceID) (map[str
 	}
 	res := make(map[string]PendingFolder)
 	it, errFn := db.kv.KVPrefix(prefix)
-	for key, val := range it {
-		parts := strings.Split(key, "/")
+	for kv := range it {
+		parts := strings.Split(kv.Key, "/")
 		if len(parts) != 3 {
 			continue
 		}
@@ -173,7 +173,7 @@ func (db *ObservedDB) PendingFoldersForDevice(device protocol.DeviceID) (map[str
 		if folderID = parts[2]; len(folderID) < 1 {
 			goto deleteKey
 		}
-		if err = proto.Unmarshal(val, &protoF); err != nil {
+		if err = proto.Unmarshal(kv.Value, &protoF); err != nil {
 			goto deleteKey
 		}
 		if _, ok := res[folderID]; !ok {
@@ -188,7 +188,7 @@ func (db *ObservedDB) PendingFoldersForDevice(device protocol.DeviceID) (map[str
 		// Deleting invalid entries is the only possible "repair" measure and
 		// appropriate for the importance of pending entries.  They will come back
 		// soon if still relevant.
-		if err := db.kv.KVDelete(key); err != nil {
+		if err := db.kv.KVDelete(kv.Key); err != nil {
 			return nil, err
 		}
 	}

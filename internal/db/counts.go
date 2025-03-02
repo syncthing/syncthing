@@ -13,11 +13,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-type CountsSet struct {
-	Counts  []Counts
-	Created int64 // unix nanos
-}
-
 type Counts struct {
 	Files       int
 	Directories int
@@ -39,18 +34,6 @@ func (c Counts) Add(other Counts) Counts {
 		Sequence:    c.Sequence + other.Sequence,
 		DeviceID:    protocol.EmptyDeviceID,
 		LocalFlags:  c.LocalFlags | other.LocalFlags,
-	}
-}
-
-func (c Counts) Subtract(other Counts) Counts {
-	return Counts{
-		Files:       c.Files - other.Files,
-		Directories: c.Directories - other.Directories,
-		Symlinks:    c.Symlinks - other.Symlinks,
-		Deleted:     c.Deleted - other.Deleted,
-		Bytes:       c.Bytes - other.Bytes,
-		Sequence:    c.Sequence - other.Sequence,
-		DeviceID:    protocol.EmptyDeviceID,
 	}
 }
 

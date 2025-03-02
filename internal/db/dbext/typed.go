@@ -12,13 +12,15 @@ import (
 	"errors"
 	"iter"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/db"
 )
 
 type KV interface {
 	KVGet(key string) ([]byte, error)
 	KVPut(key string, val []byte) error
 	KVDelete(key string) error
-	KVPrefix(prefix string) (iter.Seq2[string, []byte], func() error)
+	KVPrefix(prefix string) (iter.Seq[db.KeyValue], func() error)
 }
 
 // Typed is a simple key-value store using a specific namespace within a

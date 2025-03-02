@@ -218,7 +218,7 @@ func (m metricsDB) KVDelete(key string) error {
 	return m.DB.KVDelete(key)
 }
 
-func (m metricsDB) KVPrefix(prefix string) (iter.Seq2[string, []byte], func() error) {
+func (m metricsDB) KVPrefix(prefix string) (iter.Seq[KeyValue], func() error) {
 	defer m.account("-", "KVPrefix")()
 	return m.DB.KVPrefix(prefix)
 }

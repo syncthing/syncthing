@@ -62,7 +62,7 @@ type DB interface {
 	// Generic KV
 	KVDelete(key string) error
 	KVGet(key string) ([]byte, error)
-	KVPrefix(prefix string) (iter.Seq2[string, []byte], func() error)
+	KVPrefix(prefix string) (iter.Seq[KeyValue], func() error)
 	KVPut(key string, val []byte) error
 }
 
@@ -71,4 +71,9 @@ type BlockMapEntry struct {
 	BlockIndex    int
 	Offset        int64
 	Size          int
+}
+
+type KeyValue struct {
+	Key   string
+	Value []byte
 }
