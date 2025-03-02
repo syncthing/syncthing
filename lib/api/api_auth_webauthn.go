@@ -409,14 +409,10 @@ func (s *webauthnService) deleteOldStates() {
 
 func newVolState() *apiproto.WebauthnVolatileState {
 	s := apiproto.WebauthnVolatileState{}
-	initVolatileState(&s)
-	return &s
-}
-
-func initVolatileState(s *apiproto.WebauthnVolatileState) {
 	if s.Credentials == nil {
 		s.Credentials = make(map[string]*apiproto.WebauthnCredentialVolatileState, 1)
 	}
+	return &s
 }
 
 // Load volatile WebAuthn state with a read lock during loading.
@@ -437,14 +433,16 @@ func (s *webauthnService) loadVolatileStateRLocked() *apiproto.WebauthnVolatileS
 		return newVolState()
 	}
 
-	var state apiproto.WebauthnVolatileState
-	err = proto.Unmarshal(stateBytes, &state)
+	state := newVolState()
+	err = proto.Unmarshal(stateBytes, state)
 	if err != nil {
 		l.Warnf("Failed to unmarshal WebAuthn dynamic state: %v", err)
 		return newVolState()
 	}
-	initVolatileState(&state)
-	return &state
+	if state.Credentials == nil {
+		state.Credentials = newVolState().Credentials
+	}
+	return state
 }
 
 func (s *webauthnService) updateVolatileState(update func(state *apiproto.WebauthnVolatileState)) error {
