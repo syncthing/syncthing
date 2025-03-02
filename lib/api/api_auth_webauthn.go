@@ -302,28 +302,26 @@ func (s *webauthnService) startWebauthnAuthentication(guiCfg config.GUIConfigura
 	}
 }
 
-func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *tokenCookieManager, guiCfg config.GUIConfiguration) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *tokenCookieManager, guiCfg config.GUIConfiguration) httprouter.Handle {
+	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		defer s.deleteOldStates()
+		requestID := p.ByName("requestId")
+		stayLoggedIn := p.ByName("stayLoggedIn") == "true"
 
-		var req struct {
-			StayLoggedIn bool                                         `json:"stayLoggedIn"`
-			RequestID    string                                       `json:"requestId"`
-			Credential   webauthnProtocol.CredentialAssertionResponse `json:"credential"`
-		}
-		if err := unmarshalTo(r.Body, &req); err != nil {
+		var credResp webauthnProtocol.CredentialAssertionResponse
+		if err := unmarshalTo(r.Body, &credResp); err != nil {
 			l.Infof("Failed to parse WebAuthn response: %v", err)
 			http.Error(w, "Failed to parse WebAuthn response.", http.StatusBadRequest)
 			return
 		}
 
-		state, ok := s.authenticationStates[req.RequestID]
+		state, ok := s.authenticationStates[requestID]
 		if !ok {
-			l.Debugf("Unknown request ID: %s", req.RequestID)
+			l.Debugf("Unknown request ID: %s", requestID)
 			badRequest(w)
 			return
 		}
-		delete(s.authenticationStates, req.RequestID) // Allow only one attempt per challenge
+		delete(s.authenticationStates, requestID) // Allow only one attempt per challenge
 
 		if s.expired(&state) {
 			l.Debugf("WebAuthn authentication timed out: %v", state)
@@ -331,7 +329,7 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 			return
 		}
 
-		parsedResponse, err := req.Credential.Parse()
+		parsedResponse, err := credResp.Parse()
 		if err != nil {
 			l.Infof("Failed to parse WebAuthn authentication response: %v", err)
 			badRequest(w)
@@ -385,7 +383,7 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 			l.Warnf("Invalid WebAuthn signature count for credential %q: expected > %d, was: %d. The credential may have been cloned.", authenticatedCredId, signCountBefore, parsedResponse.Response.AuthenticatorData.Counter)
 		}
 
-		tokenCookieManager.createSession(guiCfg.User, req.StayLoggedIn, w, r)
+		tokenCookieManager.createSession(guiCfg.User, stayLoggedIn, w, r)
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

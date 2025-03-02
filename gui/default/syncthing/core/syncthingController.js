@@ -1889,13 +1889,10 @@ angular.module('syncthing.core')
                 $scope.login.inProgress = true;
                 return webauthnJSON.get(request.options)
                     .then(function (pkc) {
+                        var stayLoggedIn = ($scope.login.stayLoggedIn ? 'true' : 'false');
                         return $http.post(
-                            authUrlbase + '/webauthn-finish',
-                            {
-                                requestId: request.requestId,
-                                credential: pkc,
-                                stayLoggedIn: $scope.login.stayLoggedIn,
-                            },
+                            authUrlbase + '/webauthn-finish/' + request.requestId + '/' + stayLoggedIn,
+                            pkc,
                         );
                     })
                     .then(function () {
