@@ -294,8 +294,12 @@ func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 	var f protocol.FileInfo
 	previousWasDelete := false
 
-	it, errFn := s.sdb.AllLocalFilesBySequence(s.folder, protocol.LocalDeviceID, s.localPrevSequence+1, 0)
+	t0 := time.Now()
+	it, errFn := s.sdb.AllLocalFilesBySequence(s.folder, protocol.LocalDeviceID, s.localPrevSequence+1, 5000)
 	for fi := range it {
+		if time.Since(t0) > 10*time.Second {
+			break
+		}
 		// This is to make sure that renames (which is an add followed by a delete) land in the same batch.
 		// Even if the batch is full, we allow a last delete to slip in, we do this by making sure that
 		// the batch ends with a non-delete, or that the last item in the batch is already a delete

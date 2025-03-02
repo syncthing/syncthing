@@ -1,4 +1,6 @@
-PRAGMA journal_mode=WAL
+PRAGMA journal_mode = WAL
+;
+PRAGMA auto_vacuum = INCREMENTAL
 ;
 
 -- folders map folder IDs as used by Syncthing to database folder indexes

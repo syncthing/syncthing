@@ -5,9 +5,11 @@ import (
 	"time"
 )
 
+const dbMaintenanceInterval = time.Hour
+
 func (s *DB) Serve(ctx context.Context) error {
 	// Run periodic garbage collection
-	timer := time.NewTimer(0)
+	timer := time.NewTimer(dbMaintenanceInterval / 2)
 	for {
 		select {
 		case <-ctx.Done():
@@ -19,19 +21,28 @@ func (s *DB) Serve(ctx context.Context) error {
 			return err
 		}
 
-		timer.Reset(time.Hour)
+		timer.Reset(dbMaintenanceInterval)
 	}
 }
 
 func (s *DB) periodic(ctx context.Context) error {
+	t0 := time.Now()
+	l.Debugln("Periodic start")
+
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
+
+	t1 := time.Now()
+	defer func() { l.Debugln("Periodic done in", time.Since(t1), "+", t1.Sub(t0)) }()
 
 	if err := s.garbageCollectBlocklistsAndBlocksLocked(ctx); err != nil {
 		return err
 	}
 
-	_, _ = s.sql.Exec(`ANALYZE`)
+	_, _ = s.sql.ExecContext(ctx, `ANALYZE`)
+	_, _ = s.sql.ExecContext(ctx, `PRAGMA optimize`)
+	_, _ = s.sql.ExecContext(ctx, `PRAGMA incremental_vacuum`)
+	_, _ = s.sql.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)
 
 	return nil
 }
@@ -66,7 +77,7 @@ func (s *DB) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context) error 
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.Exec(`
+	if _, err := tx.ExecContext(ctx, `
 		DELETE FROM blocklists
 		WHERE blocklist_hash NOT IN (
 			SELECT blocklist_hash FROM files
@@ -74,7 +85,7 @@ func (s *DB) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context) error 
 		return wrap("garbage collect blocklists", err)
 	}
 
-	if _, err := tx.Exec(`
+	if _, err := tx.ExecContext(ctx, `
 		DELETE FROM blocks
 		WHERE blocklist_hash NOT IN (
 			SELECT blocklist_hash FROM blocklists
