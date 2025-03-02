@@ -28,26 +28,28 @@ type fileRow struct {
 	LocalFlags int64 `db:"local_flags"`
 }
 
-func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit int) (iter.Seq[protocol.FileInfo], func() error) {
-	var orderBy string
+func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit, offset int) (iter.Seq[protocol.FileInfo], func() error) {
+	var selectOpts string
 	switch order {
 	case config.PullOrderRandom:
-		orderBy = "ORDER BY RANDOM()"
+		selectOpts = "ORDER BY RANDOM()"
 	case config.PullOrderAlphabetic:
-		orderBy = "ORDER BY g.name ASC"
+		selectOpts = "ORDER BY g.name ASC"
 	case config.PullOrderSmallestFirst:
-		orderBy = "ORDER BY g.size ASC"
+		selectOpts = "ORDER BY g.size ASC"
 	case config.PullOrderLargestFirst:
-		orderBy = "ORDER BY g.size DESC"
+		selectOpts = "ORDER BY g.size DESC"
 	case config.PullOrderOldestFirst:
-		orderBy = "ORDER BY g.modified ASC"
+		selectOpts = "ORDER BY g.modified ASC"
 	case config.PullOrderNewestFirst:
-		orderBy = "ORDER BY g.modified DESC"
+		selectOpts = "ORDER BY g.modified DESC"
 	}
 
-	var limitStr string
 	if limit > 0 {
-		limitStr = fmt.Sprintf(" LIMIT %d", limit)
+		selectOpts += fmt.Sprintf(" LIMIT %d", limit)
+	}
+	if offset > 0 {
+		selectOpts += fmt.Sprintf(" OFFSET %d", offset)
 	}
 
 	if device == protocol.LocalDeviceID {
@@ -58,7 +60,7 @@ func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = g.blocklist_hash
 		INNER JOIN folders o ON o.idx = g.folder_idx
 		WHERE o.folder_id = ? AND g.local_flags & ? = 0 AND g.local_flags & ? = ?
-		`+orderBy+limitStr,
+		`+selectOpts,
 			folder, protocol.FlagLocalIgnored, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal))
 		return iterMapErrFn(it, errFn, indirectFI.FileInfo)
 	}
@@ -93,7 +95,7 @@ func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE f.name = g.name AND f.folder_idx = g.folder_idx AND d.device_id = ? AND NOT f.deleted
 	)
-	`+orderBy+limitStr,
+	`+selectOpts,
 		folder, protocol.FlagLocalGlobal, device.String(),
 		folder, protocol.FlagLocalGlobal, device.String(),
 	))

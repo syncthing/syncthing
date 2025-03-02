@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 	stdsync "sync"
 	"sync/atomic"
@@ -1025,26 +1026,28 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]protocol.Fi
 		p.toSkip -= skipped
 	}
 
-	rest = make([]protocol.FileInfo, 0, perpage)
-	it, errFn := m.sdb.AllNeededGlobalFiles(folder, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0)
-	for f := range it {
-		if cfg.IgnoreDelete && f.IsDeleted() {
-			continue
-		}
+	if p.get > 0 {
+		rest = make([]protocol.FileInfo, 0, p.get)
+		it, errFn := m.sdb.AllNeededGlobalFiles(folder, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0, 0)
+		for f := range it {
+			if cfg.IgnoreDelete && f.IsDeleted() {
+				continue
+			}
 
-		if p.skip() {
-			continue
+			if p.skip() {
+				continue
+			}
+			if _, ok := seen[f.Name]; !ok {
+				rest = append(rest, f)
+				p.get--
+			}
+			if p.get == 0 {
+				break
+			}
 		}
-		if _, ok := seen[f.Name]; !ok {
-			rest = append(rest, f)
-			p.get--
+		if err := errFn(); err != nil {
+			return nil, nil, nil, err
 		}
-		if p.get == 0 {
-			break
-		}
-	}
-	if err := errFn(); err != nil {
-		return nil, nil, nil, err
 	}
 
 	return progress, queued, rest, nil
@@ -1061,22 +1064,9 @@ func (m *model) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, p
 		return nil, ErrFolderMissing
 	}
 
-	files := make([]protocol.FileInfo, 0, perpage)
-	p := newPager(page, perpage)
-	it, errFn := m.sdb.AllNeededGlobalFiles(folder, device, config.PullOrderAlphabetic, 0)
-	for f := range it {
-		if p.skip() {
-			continue
-		}
-		files = append(files, f)
-		if p.done() {
-			break
-		}
-	}
-	if err := errFn(); err != nil {
-		return nil, err
-	}
-	return files, nil
+	it, errFn := m.sdb.AllNeededGlobalFiles(folder, device, config.PullOrderAlphabetic, perpage, (page-1)*perpage)
+	files := slices.Collect(it)
+	return files, errFn()
 }
 
 func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, error) {

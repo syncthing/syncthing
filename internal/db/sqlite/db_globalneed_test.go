@@ -53,7 +53,7 @@ func TestNeed(t *testing.T) {
 	}
 
 	// A couple are needed locally
-	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0)
+	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0, 0)
 	localNeed := fiNames(iterCollectTestErrFn(t, it, errFn))
 	if !slices.Equal(localNeed, []string{"test2", "test4"}) {
 		t.Log(localNeed)
@@ -61,7 +61,7 @@ func TestNeed(t *testing.T) {
 	}
 
 	// Another couple are needed remotely
-	it, errFn = db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0)
+	it, errFn = db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0, 0)
 	remoteNeed := fiNames(iterCollectTestErrFn(t, it, errFn))
 	if !slices.Equal(remoteNeed, []string{"test1", "test3"}) {
 		t.Log(remoteNeed)
@@ -257,7 +257,7 @@ func TestDontNeedIgnored(t *testing.T) {
 	}
 
 	// It shouldn't show up in the need list
-	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0)
+	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0, 0)
 	names := iterCollectTestErrFn(t, it, errFn)
 	if len(names) != 0 {
 		t.Log(names)
@@ -300,7 +300,7 @@ func TestRemoveDontNeedLocalIgnored(t *testing.T) {
 	}
 
 	// It shouldn't show up in their need list
-	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0)
+	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0, 0)
 	names := iterCollectTestErrFn(t, it, errFn)
 	if len(names) != 0 {
 		t.Log(names)
@@ -343,7 +343,7 @@ func TestLocalDontNeedDeletedMissing(t *testing.T) {
 	}
 
 	// It shouldn't show up in the need list
-	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0)
+	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0, 0)
 	names := iterCollectTestErrFn(t, it, errFn)
 	if len(names) != 0 {
 		t.Log(names)
@@ -386,7 +386,7 @@ func TestRemoteDontNeedDeletedMissing(t *testing.T) {
 	}
 
 	// It shouldn't show up in their need list
-	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0)
+	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0, 0)
 	names := iterCollectTestErrFn(t, it, errFn)
 	if len(names) != 0 {
 		t.Log(names)
@@ -430,9 +430,67 @@ func TestNeedRemoteSymlinkAndDir(t *testing.T) {
 	}
 
 	// They should be in the need list
-	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0)
+	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0, 0)
 	names := iterCollectTestErrFn(t, it, errFn)
 	if len(names) != 2 {
+		t.Log(names)
+		t.Error("bad need")
+	}
+}
+
+func TestNeedPagination(t *testing.T) {
+	t.Parallel()
+
+	db, err := OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// Several remote files
+	var v protocol.Vector
+	v.Update(1)
+	files := []protocol.FileInfo{
+		genFile("test0", 1, 100),
+		genFile("test1", 1, 101),
+		genFile("test2", 1, 102),
+		genFile("test3", 1, 103),
+		genFile("test4", 1, 104),
+		genFile("test5", 1, 105),
+		genFile("test6", 1, 106),
+		genFile("test7", 1, 107),
+		genFile("test8", 1, 108),
+		genFile("test9", 1, 109),
+	}
+	err = db.Update(folderID, protocol.DeviceID{42}, files)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// We should get the first two
+	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 2, 0)
+	names := fiNames(iterCollectTestErrFn(t, it, errFn))
+	if !slices.Equal(names, []string{"test0", "test1"}) {
+		t.Log(names)
+		t.Error("bad need")
+	}
+
+	// We should get the next three
+	it, errFn = db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 3, 2)
+	names = fiNames(iterCollectTestErrFn(t, it, errFn))
+	if !slices.Equal(names, []string{"test2", "test3", "test4"}) {
+		t.Log(names)
+		t.Error("bad need")
+	}
+
+	// We should get the last five
+	it, errFn = db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 5, 5)
+	names = fiNames(iterCollectTestErrFn(t, it, errFn))
+	if !slices.Equal(names, []string{"test5", "test6", "test7", "test8", "test9"}) {
 		t.Log(names)
 		t.Error("bad need")
 	}

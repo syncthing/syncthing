@@ -97,9 +97,9 @@ func (m metricsDB) AllLocalFilesBySequence(folder string, device protocol.Device
 	return m.DB.AllLocalFilesBySequence(folder, device, startSeq)
 }
 
-func (m metricsDB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit int) (iter.Seq[protocol.FileInfo], func() error) {
+func (m metricsDB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit, offset int) (iter.Seq[protocol.FileInfo], func() error) {
 	defer m.account(folder, "AllNeededGlobalFiles")()
-	return m.DB.AllNeededGlobalFiles(folder, device, order, limit)
+	return m.DB.AllNeededGlobalFiles(folder, device, order, limit, offset)
 }
 
 func (m metricsDB) GetGlobalAvailability(folder, file string) ([]protocol.DeviceID, error) {

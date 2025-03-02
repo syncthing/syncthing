@@ -319,7 +319,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 	// Regular files to pull goes into the file queue, everything else
 	// (directories, symlinks and deletes) goes into the "process directly"
 	// pile.
-	it, errFn := f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, f.Order, 0)
+	it, errFn := f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, f.Order, 0, 0)
 	for file := range it { // XXX limit
 		select {
 		case <-f.ctx.Done():

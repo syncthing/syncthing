@@ -42,7 +42,7 @@ func (f *sendOnlyFolder) pull() (bool, error) {
 		return nil
 	})
 
-	it, errFn := f.db.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0)
+	it, errFn := f.db.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0, 0)
 	for file := range it {
 		if err := batch.FlushIfFull(); err != nil {
 			return false, err
@@ -103,7 +103,7 @@ func (f *sendOnlyFolder) override() error {
 		return nil
 	})
 
-	it, errFn := f.db.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0)
+	it, errFn := f.db.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0, 0)
 	for need := range it {
 		if err := batch.FlushIfFull(); err != nil {
 			return err
