@@ -1026,14 +1026,8 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]protocol.Fi
 	}
 
 	rest = make([]protocol.FileInfo, 0, perpage)
-	for name, err := range m.sdb.AllNeededGlobalFiles(folder, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
-		if err != nil {
-			break
-		}
-		f, ok, err := m.sdb.GetGlobalFile(folder, name)
-		if err != nil || !ok {
-			continue
-		}
+	it, errFn := m.sdb.AllNeededGlobalFiles(folder, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0)
+	for f := range it {
 		if cfg.IgnoreDelete && f.IsDeleted() {
 			continue
 		}
@@ -1048,6 +1042,9 @@ func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]protocol.Fi
 		if p.get == 0 {
 			break
 		}
+	}
+	if err := errFn(); err != nil {
+		return nil, nil, nil, err
 	}
 
 	return progress, queued, rest, nil
@@ -1066,24 +1063,18 @@ func (m *model) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, p
 
 	files := make([]protocol.FileInfo, 0, perpage)
 	p := newPager(page, perpage)
-	for name, err := range m.sdb.AllNeededGlobalFiles(folder, device, config.PullOrderAlphabetic, 0) {
-		if err != nil {
-			return nil, err
-		}
+	it, errFn := m.sdb.AllNeededGlobalFiles(folder, device, config.PullOrderAlphabetic, 0)
+	for f := range it {
 		if p.skip() {
-			continue
-		}
-		f, ok, err := m.sdb.GetGlobalFile(folder, name)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
 			continue
 		}
 		files = append(files, f)
 		if p.done() {
 			break
 		}
+	}
+	if err := errFn(); err != nil {
+		return nil, err
 	}
 	return files, nil
 }

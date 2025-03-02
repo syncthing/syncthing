@@ -127,35 +127,41 @@ func TestBasics(t *testing.T) {
 	t.Run("AllNeededNamesLocal", func(t *testing.T) {
 		t.Parallel()
 
-		need := iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
+		it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0)
+		need := fiNames(iterCollectTestErrFn(t, it, errFn))
 		if len(need) != 3 || need[0] != "test1" {
 			t.Log(need)
 			t.Error("expected three files, ordered alphabetically")
 		}
 
-		need = iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 1))
+		it, errFn = db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 1)
+		need = fiNames(iterCollectTestErrFn(t, it, errFn))
 		if len(need) != 1 || need[0] != "test1" {
 			t.Log(need)
 			t.Error("expected one file, limited, ordered alphabetically")
 		}
 
-		need = iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderLargestFirst, 0))
+		it, errFn = db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderLargestFirst, 0)
+		need = fiNames(iterCollectTestErrFn(t, it, errFn))
 		if len(need) != 3 || need[0] != "test1" { // largest
 			t.Log(need)
 			t.Error("expected three files, ordered largest to smallest")
 		}
-		need = iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderSmallestFirst, 0))
+		it, errFn = db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderSmallestFirst, 0)
+		need = fiNames(iterCollectTestErrFn(t, it, errFn))
 		if len(need) != 3 || need[0] != "test3" { // smallest
 			t.Log(need)
 			t.Error("expected three files, ordered smallest to largest")
 		}
 
-		need = iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderNewestFirst, 0))
+		it, errFn = db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderNewestFirst, 0)
+		need = fiNames(iterCollectTestErrFn(t, it, errFn))
 		if len(need) != 3 || need[0] != "test1" { // newest
 			t.Log(need)
 			t.Error("expected three files, ordered newest to oldest")
 		}
-		need = iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderOldestFirst, 0))
+		it, errFn = db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderOldestFirst, 0)
+		need = fiNames(iterCollectTestErrFn(t, it, errFn))
 		if len(need) != 3 || need[0] != "test3" { // oldest
 			t.Log(need)
 			t.Error("expected three files, ordered oldest to newest")
@@ -774,25 +780,16 @@ func TestConcurrentUpdateSelect(t *testing.T) {
 	// This is similar to a pattern we have in other places and should
 	// work.
 	handled := 0
-	for name, err := range db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		glob, ok, err := db.GetGlobalFile(folderID, name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !ok {
-			t.Fatal("should exist")
-		}
-
+	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0)
+	for glob := range it {
 		glob.Version = glob.Version.Update(1)
 		if err := db.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{glob}); err != nil {
 			t.Fatal(err)
 		}
-
 		handled++
+	}
+	if err := errFn(); err != nil {
+		t.Fatal(err)
 	}
 
 	if handled != len(files) {
@@ -870,6 +867,23 @@ func iterCollectTest[T any](t *testing.T, it iter.Seq2[T, error]) []T {
 		t.Fatal(err)
 	}
 	return vals
+}
+
+func iterCollectTestErrFn[T any](t *testing.T, it iter.Seq[T], errFn func() error) []T {
+	t.Helper()
+	vals := slices.Collect(it)
+	if err := errFn(); err != nil {
+		t.Fatal(err)
+	}
+	return vals
+}
+
+func fiNames(fs []protocol.FileInfo) []string {
+	names := make([]string, len(fs))
+	for i, fi := range fs {
+		names[i] = fi.Name
+	}
+	return names
 }
 
 func genDir(name string, seq int) protocol.FileInfo {

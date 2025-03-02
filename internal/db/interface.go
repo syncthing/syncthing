@@ -30,7 +30,7 @@ type DB interface {
 	AllLocalFilesPrefix(folder string, device protocol.DeviceID, prefix string) iter.Seq2[protocol.FileInfo, error]
 	AllLocalFilesWithBlocksHash(folder string, h []byte) iter.Seq2[protocol.FileInfo, error]
 	AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, protocol.FileInfo], func() error)
-	AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit int) iter.Seq2[string, error]
+	AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit int) (iter.Seq[protocol.FileInfo], func() error)
 
 	// Cleanup
 	DropAllFiles(folder string, device protocol.DeviceID) error

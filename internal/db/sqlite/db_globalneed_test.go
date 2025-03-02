@@ -53,14 +53,16 @@ func TestNeed(t *testing.T) {
 	}
 
 	// A couple are needed locally
-	localNeed := iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
+	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0)
+	localNeed := fiNames(iterCollectTestErrFn(t, it, errFn))
 	if !slices.Equal(localNeed, []string{"test2", "test4"}) {
 		t.Log(localNeed)
 		t.Fatal("bad local need")
 	}
 
 	// Another couple are needed remotely
-	remoteNeed := iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0))
+	it, errFn = db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0)
+	remoteNeed := fiNames(iterCollectTestErrFn(t, it, errFn))
 	if !slices.Equal(remoteNeed, []string{"test1", "test3"}) {
 		t.Log(remoteNeed)
 		t.Fatal("bad remote need")
@@ -255,7 +257,8 @@ func TestDontNeedIgnored(t *testing.T) {
 	}
 
 	// It shouldn't show up in the need list
-	names := iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
+	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0)
+	names := iterCollectTestErrFn(t, it, errFn)
 	if len(names) != 0 {
 		t.Log(names)
 		t.Error("need no files")
@@ -297,7 +300,8 @@ func TestRemoveDontNeedLocalIgnored(t *testing.T) {
 	}
 
 	// It shouldn't show up in their need list
-	names := iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0))
+	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0)
+	names := iterCollectTestErrFn(t, it, errFn)
 	if len(names) != 0 {
 		t.Log(names)
 		t.Error("need no files")
@@ -339,7 +343,8 @@ func TestLocalDontNeedDeletedMissing(t *testing.T) {
 	}
 
 	// It shouldn't show up in the need list
-	names := iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0))
+	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0)
+	names := iterCollectTestErrFn(t, it, errFn)
 	if len(names) != 0 {
 		t.Log(names)
 		t.Error("need no files")
@@ -381,9 +386,54 @@ func TestRemoteDontNeedDeletedMissing(t *testing.T) {
 	}
 
 	// It shouldn't show up in their need list
-	names := iterCollectTest(t, db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0))
+	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0)
+	names := iterCollectTestErrFn(t, it, errFn)
 	if len(names) != 0 {
 		t.Log(names)
 		t.Error("need no files")
+	}
+}
+
+func TestNeedRemoteSymlinkAndDir(t *testing.T) {
+	t.Parallel()
+
+	db, err := OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// Two remote "specials", a symlink and a directory
+	var v protocol.Vector
+	v.Update(1)
+	files := []protocol.FileInfo{
+		{Name: "sym", Type: protocol.FileInfoTypeSymlink, Sequence: 100, Version: v, Blocks: genBlocks("symlink", 0, 1)},
+		{Name: "dir", Type: protocol.FileInfoTypeDirectory, Sequence: 101, Version: v},
+	}
+	err = db.Update(folderID, protocol.DeviceID{42}, files)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// We need them
+	s, err := db.CountNeed(folderID, protocol.LocalDeviceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Directories != 1 || s.Symlinks != 1 {
+		t.Log(s)
+		t.Error("bad need")
+	}
+
+	// They should be in the need list
+	it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0)
+	names := iterCollectTestErrFn(t, it, errFn)
+	if len(names) != 2 {
+		t.Log(names)
+		t.Error("bad need")
 	}
 }

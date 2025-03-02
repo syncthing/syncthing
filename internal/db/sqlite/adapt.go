@@ -40,6 +40,12 @@ func (v *dbVector) Scan(value any) error {
 type indirectFI struct {
 	FiProtobuf []byte
 	BlProtobuf []byte
+
+	// not used, but must be present as a destination for the ordering
+	// columns in the Need iterator
+	Name     string
+	Size     int64
+	Modified int64
 }
 
 func (i indirectFI) FileInfo() (protocol.FileInfo, error) {

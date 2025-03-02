@@ -7,8 +7,6 @@
 package model
 
 import (
-	"errors"
-
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -44,21 +42,10 @@ func (f *sendOnlyFolder) pull() (bool, error) {
 		return nil
 	})
 
-	for name, err := range f.db.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
-		if err != nil {
-			return false, err
-		}
-
+	it, errFn := f.db.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0)
+	for file := range it {
 		if err := batch.FlushIfFull(); err != nil {
 			return false, err
-		}
-
-		file, ok, err := f.db.GetGlobalFile(f.folderID, name)
-		if err != nil {
-			return false, err
-		}
-		if !ok {
-			return false, errors.New("unexpectedly missing global file")
 		}
 
 		if f.ignores.Match(file.FileName()).IsIgnored() {
@@ -92,6 +79,9 @@ func (f *sendOnlyFolder) pull() (bool, error) {
 		batch.Append(file)
 		l.Debugln(f, "Merging versions of identical file", file)
 	}
+	if err := errFn(); err != nil {
+		return false, err
+	}
 
 	batch.Flush()
 
@@ -113,15 +103,13 @@ func (f *sendOnlyFolder) override() error {
 		return nil
 	})
 
-	for name, err := range f.db.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0) {
-		if err != nil {
-			return err
-		}
+	it, errFn := f.db.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0)
+	for need := range it {
 		if err := batch.FlushIfFull(); err != nil {
 			return err
 		}
 
-		have, haveOk, err := f.db.GetDeviceFile(f.folderID, protocol.LocalDeviceID, name)
+		have, haveOk, err := f.db.GetDeviceFile(f.folderID, protocol.LocalDeviceID, need.Name)
 		if err != nil {
 			return err
 		}
@@ -132,15 +120,7 @@ func (f *sendOnlyFolder) override() error {
 			continue
 		}
 
-		need, ok, err := f.db.GetGlobalFile(f.folderID, name)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			return errors.New("unexpectedly missing global file")
-		}
-
-		if !haveOk || have.Name != name {
+		if !haveOk || have.Name != need.Name {
 			// We are missing the file
 			need.SetDeleted(f.shortID)
 		} else {
@@ -150,6 +130,9 @@ func (f *sendOnlyFolder) override() error {
 		}
 		need.Sequence = 0
 		batch.Append(need)
+	}
+	if err := errFn(); err != nil {
+		return err
 	}
 	return batch.Flush()
 }

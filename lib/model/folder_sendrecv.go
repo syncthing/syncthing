@@ -319,24 +319,12 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 	// Regular files to pull goes into the file queue, everything else
 	// (directories, symlinks and deletes) goes into the "process directly"
 	// pile.
-	for name, err := range f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, f.Order, 0) { // XXX limit
-		if err != nil {
-			return 0, nil, nil, err
-		}
-
+	it, errFn := f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, f.Order, 0)
+	for file := range it { // XXX limit
 		select {
 		case <-f.ctx.Done():
 			break
 		default:
-		}
-
-		file, ok, err := f.model.sdb.GetGlobalFile(f.folderID, name)
-		if err != nil {
-			return 0, nil, nil, err
-		}
-		if !ok {
-			// can't happen
-			return 0, nil, nil, errors.New("unexpectedly need file without a global version")
 		}
 
 		if f.IgnoreDelete && file.IsDeleted() {
@@ -433,6 +421,9 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			l.Warnln(file)
 			panic("unhandleable item type, can't happen")
 		}
+	}
+	if err := errFn(); err != nil {
+		return changed, nil, nil, err
 	}
 
 	select {

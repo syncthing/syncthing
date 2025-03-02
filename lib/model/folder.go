@@ -368,15 +368,11 @@ func (f *folder) pull() (success bool, err error) {
 	}()
 
 	// If there is nothing to do, don't even enter sync-waiting state.
-	abort := true
-	for _, err := range f.db.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 1) {
-		if err != nil {
-			return false, err
-		}
-		abort = false
-		break
+	needCount, err := f.db.CountNeed(f.folderID, protocol.LocalDeviceID)
+	if err != nil {
+		return false, err
 	}
-	if abort {
+	if needCount.TotalItems() == 0 {
 		// Clears pull failures on items that were needed before, but aren't anymore.
 		f.errorsMut.Lock()
 		f.pullErrors = nil
