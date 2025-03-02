@@ -4,31 +4,31 @@ import (
 	"iter"
 )
 
-func (db *DB) KVGet(key string) ([]byte, error) {
+func (s *DB) KVGet(key string) ([]byte, error) {
 	var val []byte
-	if err := db.sql.Get(&val, `SELECT value FROM kv WHERE key = ?`, key); err != nil {
+	if err := s.sql.Get(&val, `SELECT value FROM kv WHERE key = ?`, key); err != nil {
 		return nil, err
 	}
 	return val, nil
 }
 
-func (db *DB) KVPut(key string, val []byte) error {
-	db.updateLock.Lock()
-	defer db.updateLock.Unlock()
-	_, err := db.sql.Exec(`INSERT OR REPLACE INTO kv (key, value) values (?, ?)`, key, val)
+func (s *DB) KVPut(key string, val []byte) error {
+	s.updateLock.Lock()
+	defer s.updateLock.Unlock()
+	_, err := s.sql.Exec(`INSERT OR REPLACE INTO kv (key, value) values (?, ?)`, key, val)
 	return err
 }
 
-func (db *DB) KVDelete(key string) error {
-	db.updateLock.Lock()
-	defer db.updateLock.Unlock()
-	_, err := db.sql.Exec(`DELETE FROM kv WHERE key = ?`, key)
+func (s *DB) KVDelete(key string) error {
+	s.updateLock.Lock()
+	defer s.updateLock.Unlock()
+	_, err := s.sql.Exec(`DELETE FROM kv WHERE key = ?`, key)
 	return err
 }
 
-func (db *DB) KVPrefix(prefix string) (iter.Seq2[string, []byte], func() error) {
+func (s *DB) KVPrefix(prefix string) (iter.Seq2[string, []byte], func() error) {
 	prefix += "%"
-	rows, err := db.sql.Queryx(`SELECT key, value FROM kv WHERE key LIKE ?`, prefix)
+	rows, err := s.sql.Queryx(`SELECT key, value FROM kv WHERE key LIKE ?`, prefix)
 	if err != nil {
 		return func(yield func(string, []byte) bool) {}, func() error { return err }
 	}

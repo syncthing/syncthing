@@ -1,14 +1,17 @@
 package sqlite
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
 	"iter"
 	"sync"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/pierrec/lz4/v4"
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/internal/itererr"
@@ -76,6 +79,7 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 	}
 
 	var prevRemoteSeq int64
+	lz4c := lz4.NewCompressingReader(nil)
 	for i, f := range fs {
 		f.Name = osutil.NormalizedFilename(f.Name)
 
@@ -119,7 +123,12 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 			if err != nil {
 				return wrap("update (marshal blocklist)", err)
 			}
-			res, err := insertBlockListStmt.Exec(f.BlocksHash, bs)
+			lz4c.Reset(io.NopCloser(bytes.NewReader(bs)))
+			comp, err := io.ReadAll(lz4c)
+			if err != nil {
+				return wrap("update (compress blocklist)", err)
+			}
+			res, err := insertBlockListStmt.Exec(f.BlocksHash, comp)
 			if err != nil {
 				return wrap("update (insert blocklist)", err)
 			}
@@ -144,7 +153,12 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 		if err != nil {
 			return wrap("update (marshal fileinfo)", err)
 		}
-		if _, err := insertFileInfoStmt.Exec(localSeq, bs); err != nil {
+		lz4c.Reset(io.NopCloser(bytes.NewReader(bs)))
+		comp, err := io.ReadAll(lz4c)
+		if err != nil {
+			return wrap("update (compress fileinfo)", err)
+		}
+		if _, err := insertFileInfoStmt.Exec(localSeq, comp); err != nil {
 			return wrap("update (insert fileinfo)", err)
 		}
 

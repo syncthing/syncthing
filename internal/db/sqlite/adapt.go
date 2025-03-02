@@ -1,9 +1,12 @@
 package sqlite
 
 import (
+	"bytes"
 	"database/sql/driver"
 	"errors"
+	"io"
 
+	"github.com/pierrec/lz4/v4"
 	"github.com/syncthing/syncthing/internal/gen/bep"
 	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -50,13 +53,23 @@ type indirectFI struct {
 
 func (i indirectFI) FileInfo() (protocol.FileInfo, error) {
 	var fi bep.FileInfo
-	if err := proto.Unmarshal(i.FiProtobuf, &fi); err != nil {
-		return protocol.FileInfo{}, err
+	lz4r := lz4.NewReader(bytes.NewReader(i.FiProtobuf))
+	bs, err := io.ReadAll(lz4r)
+	if err != nil {
+		return protocol.FileInfo{}, wrap("indirect FI decompress", err)
+	}
+	if err := proto.Unmarshal(bs, &fi); err != nil {
+		return protocol.FileInfo{}, wrap("indirect FI unmarshal", err)
 	}
 	if len(i.BlProtobuf) > 0 {
+		lz4r.Reset(bytes.NewReader(i.BlProtobuf))
+		bs, err := io.ReadAll(lz4r)
+		if err != nil {
+			return protocol.FileInfo{}, wrap("indirect BL decompress", err)
+		}
 		var bl dbproto.BlockList
-		if err := proto.Unmarshal(i.BlProtobuf, &bl); err != nil {
-			return protocol.FileInfo{}, err
+		if err := proto.Unmarshal(bs, &bl); err != nil {
+			return protocol.FileInfo{}, wrap("indirect BL unmarshal", err)
 		}
 		fi.Blocks = bl.Blocks
 	}
