@@ -942,7 +942,7 @@ jobs:
             mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-"$arch"
           done
         env:
-          CGO_ENABLED: "0"
+          CGO_ENABLED: "1"
           BUILD_USER: docker
 
       - name: Check if we will be able to push images
@@ -1047,7 +1047,7 @@ jobs:
             mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-"$arch"
           done
         env:
-          CGO_ENABLED: "0"
+          CGO_ENABLED: "1"
           BUILD_USER: docker
 
       - name: Login to GHCR
