@@ -87,6 +87,7 @@ jobs:
           LOKI_USER: ${{ secrets.LOKI_USER }}
           LOKI_PASSWORD: ${{ secrets.LOKI_PASSWORD }}
           LOKI_LABELS: "go=${{ matrix.go }},runner=${{ matrix.runner }},repo=${{ github.repository }},ref=${{ github.ref }}"
+          CGO_ENABLED: "1"
 
   #
   # Meta checks for formatting, copyright, etc
