@@ -158,7 +158,7 @@ func TestNamespacedReset(t *testing.T) {
 }
 
 // reset removes all entries in this namespace.
-func reset(n *NamespacedKV) {
+func reset(n *deprecatedNamespacedKV) {
 	tr, err := n.db.NewWriteTransaction()
 	if err != nil {
 		return

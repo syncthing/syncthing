@@ -64,7 +64,7 @@ func TestSimpleVersioningVersionCount(t *testing.T) {
 			},
 		},
 	}
-	fs := cfg.Filesystem(nil)
+	fs := cfg.Filesystem()
 
 	v := newSimple(cfg)
 
@@ -116,7 +116,7 @@ func TestPathTildes(t *testing.T) {
 			},
 		},
 	}
-	fs := cfg.Filesystem(nil)
+	fs := cfg.Filesystem()
 	v := newSimple(cfg)
 
 	const testPath = "test"
