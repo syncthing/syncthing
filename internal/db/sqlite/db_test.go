@@ -784,7 +784,7 @@ func TestConcurrentUpdateSelect(t *testing.T) {
 func TestAllForBlocksHash(t *testing.T) {
 	t.Parallel()
 
-	db, err := Open(filepath.Join(t.TempDir(), "db"))
+	db, err := OpenMemory()
 	if err != nil {
 		t.Fatal(err)
 	}
