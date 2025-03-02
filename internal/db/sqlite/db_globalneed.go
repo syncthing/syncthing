@@ -217,11 +217,11 @@ func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file str
 	// Clear the need and global flags on all other entries
 	upStmt, err = txp.Prepare(`
 			UPDATE files SET local_flags = local_flags & ?
-			WHERE folder_idx = ? AND name = ? AND sequence != ?`)
+			WHERE folder_idx = ? AND name = ? AND sequence != ? AND local_flags & ? != 0`)
 	if err != nil {
 		return wrap("processNeed (clear need)", err)
 	}
-	if _, err := upStmt.Exec(^(protocol.FlagLocalNeeded | protocol.FlagLocalGlobal), folderIdx, global.Name, global.Sequence); err != nil {
+	if _, err := upStmt.Exec(^(protocol.FlagLocalNeeded | protocol.FlagLocalGlobal), folderIdx, global.Name, global.Sequence, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal); err != nil {
 		return wrap("processNeed (clear need)", err)
 	}
 

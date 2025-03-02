@@ -97,7 +97,7 @@ type Model interface {
 	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]error, error)
 
 	LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[protocol.FileInfo, error]
-	LocalFilesSequenced(folder string, device protocol.DeviceID, startSet int64) iter.Seq2[protocol.FileInfo, error]
+	LocalFilesSequenced(folder string, device protocol.DeviceID, startSet int64) (iter.Seq[protocol.FileInfo], func() error)
 	LocalSize(folder string, device protocol.DeviceID) (db.Counts, error)
 	GlobalSize(folder string) (db.Counts, error)
 	NeedSize(folder string, device protocol.DeviceID) (db.Counts, error)
@@ -488,10 +488,10 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 		return nil
 	})
 
+	m.mut.Unlock()
+
 	// Remove it from the database
 	m.sdb.DropFolder(cfg.ID)
-
-	m.mut.Unlock()
 }
 
 // Need to hold lock on m.mut when calling this.
@@ -949,8 +949,8 @@ func (m *model) LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[pr
 	return m.sdb.AllLocalFiles(folder, device)
 }
 
-func (m *model) LocalFilesSequenced(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[protocol.FileInfo, error] {
-	return m.sdb.AllLocalFilesBySequence(folder, device, startSeq)
+func (m *model) LocalFilesSequenced(folder string, device protocol.DeviceID, startSeq int64) (iter.Seq[protocol.FileInfo], func() error) {
+	return m.sdb.AllLocalFilesBySequence(folder, device, startSeq, 0)
 }
 
 func (m *model) AllForBlocksHash(folder string, h []byte) iter.Seq2[protocol.FileInfo, error] {

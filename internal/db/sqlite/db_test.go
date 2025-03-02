@@ -391,7 +391,8 @@ func TestBasics(t *testing.T) {
 	t.Run("AllLocalSequenced", func(t *testing.T) {
 		t.Parallel()
 
-		vals := iterCollectTest(t, db.AllLocalFilesBySequence(folderID, protocol.LocalDeviceID, 3))
+		it, errFn := db.AllLocalFilesBySequence(folderID, protocol.LocalDeviceID, 3, 0)
+		vals := iterCollectTestErrFn(t, it, errFn)
 
 		// Vals should be test2/a, test2/b
 		if len(vals) != 2 {

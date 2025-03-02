@@ -90,3 +90,48 @@ func BenchmarkUpdate(b *testing.B) {
 		size <<= 1
 	}
 }
+
+func TestBenchmarkDropAllRemote(t *testing.T) {
+	if testing.Short() {
+		t.Skip("slow test")
+	}
+
+	db, err := OpenMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	fs := make([]protocol.FileInfo, 1000)
+	seq := 0
+	for {
+		local, err := db.CountLocal(folderID, protocol.LocalDeviceID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if local.Files >= 15_000 {
+			break
+		}
+		for i := range fs {
+			seq++
+			fs[i] = genFile(rand.String(24), 64, seq)
+		}
+		if err := db.Update(folderID, protocol.DeviceID{42}, fs); err != nil {
+			t.Fatal(err)
+		}
+		if err := db.Update(folderID, protocol.LocalDeviceID, fs); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	t0 := time.Now()
+	if err := db.DropAllFiles(folderID, protocol.DeviceID{42}); err != nil {
+		t.Fatal(err)
+	}
+	d := time.Since(t0)
+	t.Log("drop all took", d)
+}

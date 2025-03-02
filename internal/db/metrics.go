@@ -92,9 +92,9 @@ func (m metricsDB) AllLocalFilesPrefix(folder string, device protocol.DeviceID, 
 	return m.DB.AllLocalFilesPrefix(folder, device, prefix)
 }
 
-func (m metricsDB) AllLocalFilesBySequence(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[protocol.FileInfo, error] {
+func (m metricsDB) AllLocalFilesBySequence(folder string, device protocol.DeviceID, startSeq int64, limit int) (iter.Seq[protocol.FileInfo], func() error) {
 	defer m.account(folder, "AllLocalFilesBySequence")()
-	return m.DB.AllLocalFilesBySequence(folder, device, startSeq)
+	return m.DB.AllLocalFilesBySequence(folder, device, startSeq, limit)
 }
 
 func (m metricsDB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit, offset int) (iter.Seq[protocol.FileInfo], func() error) {

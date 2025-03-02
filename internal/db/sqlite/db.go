@@ -415,17 +415,21 @@ func (s *DB) AllLocalFiles(folder string, device protocol.DeviceID) iter.Seq2[pr
 	return itererr.Map2(beps, indirectFI.FileInfo)
 }
 
-func (s *DB) AllLocalFilesBySequence(folder string, device protocol.DeviceID, startSeq int64) iter.Seq2[protocol.FileInfo, error] {
-	beps := iterStructs[indirectFI](s.sql.Queryx(`
+func (s *DB) AllLocalFilesBySequence(folder string, device protocol.DeviceID, startSeq int64, limit int) (iter.Seq[protocol.FileInfo], func() error) {
+	var limitStr string
+	if limit > 0 {
+		limitStr = fmt.Sprintf(" LIMIT %d", limit)
+	}
+	it, errFn := iterStructsErrFn[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ? AND f.sequence >= ?
-		ORDER BY f.sequence`,
+		ORDER BY f.sequence`+limitStr,
 		folder, device.String(), startSeq))
-	return itererr.Map2(beps, indirectFI.FileInfo)
+	return iterMapErrFn(it, errFn, indirectFI.FileInfo)
 }
 
 func (s *DB) AllLocalFilesPrefix(folder string, device protocol.DeviceID, prefix string) iter.Seq2[protocol.FileInfo, error] {

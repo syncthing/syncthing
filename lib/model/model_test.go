@@ -3230,10 +3230,8 @@ func TestRenameSequenceOrder(t *testing.T) {
 	var firstExpectedSequence int64
 	var secondExpectedSequence int64
 	failed := false
-	for i, err := range m.LocalFilesSequenced("default", protocol.LocalDeviceID, 0) {
-		if err != nil {
-			t.Fatal(err)
-		}
+	it, errFn := m.LocalFilesSequenced("default", protocol.LocalDeviceID, 0)
+	for i := range it {
 		t.Log(i)
 		if i.FileName() == "17" {
 			firstExpectedSequence = i.SequenceNo() + 1
@@ -3247,6 +3245,9 @@ func TestRenameSequenceOrder(t *testing.T) {
 		if i.FileName() == "16" {
 			failed = i.SequenceNo() != secondExpectedSequence || failed
 		}
+	}
+	if err := errFn(); err != nil {
+		t.Fatal(err)
 	}
 	if failed {
 		t.Fail()
@@ -3286,10 +3287,8 @@ func TestRenameSameFile(t *testing.T) {
 
 	prevSeq := int64(0)
 	seen := false
-	for i, err := range m.LocalFilesSequenced("default", protocol.LocalDeviceID, 0) {
-		if err != nil {
-			t.Fatal(err)
-		}
+	it, errFn := m.LocalFilesSequenced("default", protocol.LocalDeviceID, 0)
+	for i := range it {
 		if i.SequenceNo() <= prevSeq {
 			t.Fatalf("non-increasing sequences: %d <= %d", i.SequenceNo(), prevSeq)
 		}
@@ -3300,6 +3299,9 @@ func TestRenameSameFile(t *testing.T) {
 			seen = true
 		}
 		prevSeq = i.SequenceNo()
+	}
+	if err := errFn(); err != nil {
+		t.Fatal(err)
 	}
 }
 

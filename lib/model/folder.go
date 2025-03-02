@@ -706,9 +706,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 	changes := 0
 
 	for _, sub := range subDirs {
-		l.Debugf("consider local prefixed %q %q", f.folderID, sub)
 		for fi, err := range f.db.AllLocalFilesPrefix(f.folderID, protocol.LocalDeviceID, sub) {
-			l.Debugf("considering %v (%v)", fi, err)
 			if err != nil {
 				return 0, err
 			}

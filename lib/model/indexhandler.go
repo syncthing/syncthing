@@ -8,6 +8,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -292,15 +293,14 @@ func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 
 	var f protocol.FileInfo
 	previousWasDelete := false
-	for fi, err := range s.sdb.AllLocalFilesBySequence(s.folder, protocol.LocalDeviceID, s.localPrevSequence+1) {
-		if err != nil {
-			return err
-		}
+
+	it, errFn := s.sdb.AllLocalFilesBySequence(s.folder, protocol.LocalDeviceID, s.localPrevSequence+1, 0)
+	for fi := range it {
 		// This is to make sure that renames (which is an add followed by a delete) land in the same batch.
 		// Even if the batch is full, we allow a last delete to slip in, we do this by making sure that
 		// the batch ends with a non-delete, or that the last item in the batch is already a delete
 		if batch.Full() && (!fi.IsDeleted() || previousWasDelete) {
-			if err = batch.Flush(); err != nil {
+			if err := batch.Flush(); err != nil {
 				return err
 			}
 		}
@@ -310,6 +310,7 @@ func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 				"sequence": fi.SequenceNo(),
 				"start":    s.localPrevSequence + 1,
 			})
+			return errors.New("database misbehaved")
 		}
 
 		if f.Sequence > 0 && fi.SequenceNo() <= f.Sequence {
@@ -318,7 +319,7 @@ func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 				"start":    s.localPrevSequence + 1,
 				"previous": f.Sequence,
 			})
-			return err
+			return errors.New("database misbehaved")
 		}
 
 		f = fi
@@ -337,7 +338,9 @@ func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 
 		batch.Append(f)
 	}
-
+	if err := errFn(); err != nil {
+		return err
+	}
 	if err := batch.Flush(); err != nil {
 		return err
 	}
