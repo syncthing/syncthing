@@ -463,16 +463,10 @@ func unmarshalToRawMessages(body io.ReadCloser) ([]json.RawMessage, error) {
 	return data, err
 }
 
-func awaitSaveConfig(w http.ResponseWriter, wrapper config.Wrapper, waiter config.Waiter) bool {
+func (c *configMuxBuilder) finish(w http.ResponseWriter, waiter config.Waiter) {
 	waiter.Wait()
-	if err := wrapper.Save(); err != nil {
-		l.Warnln("Failed to save config:", err)
+	if err := c.cfg.Save(); err != nil {
+		l.Warnln("Saving config:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return false
 	}
-	return true
-}
-
-func (c *configMuxBuilder) finish(w http.ResponseWriter, waiter config.Waiter) bool {
-	return awaitSaveConfig(w, c.cfg, waiter)
 }
