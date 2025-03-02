@@ -696,6 +696,8 @@ func syncthingMain(options serveOptions) {
 }
 
 func migrateDatabase(be backend.Backend, evLogger events.Logger, sdb newdb.DB, oldDBDir string) {
+	l.Infoln("Migrating database from LevelDB to SQLite; this can take quite a while...")
+
 	ll, err := db.NewLowlevel(be, evLogger)
 	if err != nil {
 		l.Warnln("Failed to migrate:", err)
@@ -703,7 +705,7 @@ func migrateDatabase(be backend.Backend, evLogger events.Logger, sdb newdb.DB, o
 	}
 
 	for _, folder := range ll.ListFolders() {
-		l.Infoln("Migrating folder", folder, "to SQLite...")
+		l.Infoln("Migrating folder", folder, "...")
 		var batch []protocol.FileInfo
 		fs, err := db.NewFileSet(folder, ll)
 		if err != nil {
@@ -735,7 +737,7 @@ func migrateDatabase(be backend.Backend, evLogger events.Logger, sdb newdb.DB, o
 		snap.Release()
 	}
 
-	l.Infoln("Migrating virtual mtimes to SQLite...")
+	l.Infoln("Migrating virtual mtimes...")
 	if err := ll.IterateMtimes(sdb.MtimePut); err != nil {
 		l.Warnln("Failed to migrate mtimes:", err)
 	}
