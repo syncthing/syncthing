@@ -1985,18 +1985,22 @@ func createWebauthnAssertionResponse(
 	}
 }
 
+// This needs to match the anonymous `resp` struct in api.startWebauthnRegistration
+type startWebauthnRegistrationResponse struct {
+	RequestID string                              `json:"requestId"`
+	Options   webauthnProtocol.CredentialCreation `json:"options"`
+}
+
+// This needs to match the anonymous `req` struct in api.finishWebauthnRegistration
+type finishWebauthnRegistrationRequest struct {
+	RequestID  string                                      `json:"requestId"`
+	Credential webauthnProtocol.CredentialCreationResponse `json:"credential"`
+}
+
 func (req *startWebauthnRegistrationResponse) finish(cred *webauthnProtocol.CredentialCreationResponse) finishWebauthnRegistrationRequest {
 	return finishWebauthnRegistrationRequest{
 		RequestID:  req.RequestID,
 		Credential: *cred,
-	}
-}
-
-func (req *startWebauthnAuthenticationResponse) finish(cred *webauthnProtocol.CredentialAssertionResponse, stayLoggedIn bool) finishWebauthnAuthenticationRequest {
-	return finishWebauthnAuthenticationRequest{
-		StayLoggedIn: stayLoggedIn,
-		RequestID:    req.RequestID,
-		Credential:   *cred,
 	}
 }
 
@@ -2322,6 +2326,27 @@ func TestWebauthnRegistration(t *testing.T) {
 			t.Errorf("Expected WebAuthn credential registration to fail with reused challenge; status: %d", finishResp2.StatusCode)
 		}
 	})
+}
+
+// This needs to match the anonymous `resp` struct in api.startWebauthnAuthentication
+type startWebauthnAuthenticationResponse struct {
+	RequestID string                               `json:"requestId"`
+	Options   webauthnProtocol.CredentialAssertion `json:"options"`
+}
+
+// This needs to match the anonymous `req` struct in api.finishWebauthnAuthentication
+type finishWebauthnAuthenticationRequest struct {
+	StayLoggedIn bool                                         `json:"stayLoggedIn"`
+	RequestID    string                                       `json:"requestId"`
+	Credential   webauthnProtocol.CredentialAssertionResponse `json:"credential"`
+}
+
+func (req *startWebauthnAuthenticationResponse) finish(cred *webauthnProtocol.CredentialAssertionResponse, stayLoggedIn bool) finishWebauthnAuthenticationRequest {
+	return finishWebauthnAuthenticationRequest{
+		StayLoggedIn: stayLoggedIn,
+		RequestID:    req.RequestID,
+		Credential:   *cred,
+	}
 }
 
 func TestWebauthnAuthentication(t *testing.T) {

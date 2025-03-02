@@ -174,39 +174,6 @@ func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 	return result
 }
 
-// Registration step 1a: POST to startWebauthnRegistration with no body
-// Registration step 1b: startWebauthnRegistration returns startWebauthnRegistrationResponse as body
-// Registration step 1c: Client invokes WebAuthn with webauthnProtocol.CredentialCreation as input
-type startWebauthnRegistrationResponse struct {
-	RequestID string                              `json:"requestId"`
-	Options   webauthnProtocol.CredentialCreation `json:"options"`
-}
-
-// Registration step 2a: WebAuthn returns webauthnProtocol.CredentialCreationResponse to Client
-// Registration step 2b: POST to finishWebauthnRegistration with finishWebauthnRegistrationRequest as body
-// Registration step 2c: finishWebauthnRegistration returns config.WebauthnCredential
-type finishWebauthnRegistrationRequest struct {
-	RequestID  string                                      `json:"requestId"`
-	Credential webauthnProtocol.CredentialCreationResponse `json:"credential"`
-}
-
-// Authentication step 1a: POST to startWebauthnAuthentication with no body
-// Authentication step 1b: startWebauthnAuthentication returns startWebauthnAuthenticationResponse as body
-// Authentication step 1c: Client invokes WebAuthn with webauthnProtocol.CredentialAssertion as input
-type startWebauthnAuthenticationResponse struct {
-	RequestID string                               `json:"requestId"`
-	Options   webauthnProtocol.CredentialAssertion `json:"options"`
-}
-
-// Authentication step 2a: WebAuthn returns webauthnProtocol.CredentialAssertionResponse to Client
-// Authentication step 2a: POST to finishWebauthnAuthentication with finishWebauthnAuthenticationRequest as body
-// Authentication step 2b: finishWebauthnAuthentication returns 204 No Content
-type finishWebauthnAuthenticationRequest struct {
-	StayLoggedIn bool                                         `json:"stayLoggedIn"`
-	RequestID    string                                       `json:"requestId"`
-	Credential   webauthnProtocol.CredentialAssertionResponse `json:"credential"`
-}
-
 func (s *webauthnService) startWebauthnRegistration(guiCfg config.GUIConfiguration) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		options, sessionData, err := s.engine.BeginRegistration(s.user(guiCfg))
@@ -216,12 +183,15 @@ func (s *webauthnService) startWebauthnRegistration(guiCfg config.GUIConfigurati
 			return
 		}
 
-		var req startWebauthnRegistrationResponse
-		req.Options = *options
-		req.RequestID = uuid.New().String()
-		s.registrationStates[req.RequestID] = s.startTimedSessionData(sessionData)
+		var resp struct {
+			RequestID string                              `json:"requestId"`
+			Options   webauthnProtocol.CredentialCreation `json:"options"`
+		}
+		resp.Options = *options
+		resp.RequestID = uuid.New().String()
+		s.registrationStates[resp.RequestID] = s.startTimedSessionData(sessionData)
 
-		sendJSON(w, req)
+		sendJSON(w, resp)
 	}
 }
 
@@ -229,7 +199,10 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer s.deleteOldStates()
 
-		var req finishWebauthnRegistrationRequest
+		var req struct {
+			RequestID  string                                      `json:"requestId"`
+			Credential webauthnProtocol.CredentialCreationResponse `json:"credential"`
+		}
 		if err := unmarshalTo(r.Body, &req); err != nil {
 			l.Infof("Failed to parse WebAuthn response: %v", err)
 			http.Error(w, "Failed to parse WebAuthn response.", http.StatusBadRequest)
@@ -331,12 +304,15 @@ func (s *webauthnService) startWebauthnAuthentication(guiCfg config.GUIConfigura
 			return
 		}
 
-		var req startWebauthnAuthenticationResponse
-		req.Options = *options
-		req.RequestID = uuid.New().String()
-		s.authenticationStates[req.RequestID] = s.startTimedSessionData(sessionData)
+		var resp struct {
+			RequestID string                               `json:"requestId"`
+			Options   webauthnProtocol.CredentialAssertion `json:"options"`
+		}
+		resp.Options = *options
+		resp.RequestID = uuid.New().String()
+		s.authenticationStates[resp.RequestID] = s.startTimedSessionData(sessionData)
 
-		sendJSON(w, req)
+		sendJSON(w, resp)
 	}
 }
 
@@ -344,8 +320,11 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer s.deleteOldStates()
 
-		var req finishWebauthnAuthenticationRequest
-
+		var req struct {
+			StayLoggedIn bool                                         `json:"stayLoggedIn"`
+			RequestID    string                                       `json:"requestId"`
+			Credential   webauthnProtocol.CredentialAssertionResponse `json:"credential"`
+		}
 		if err := unmarshalTo(r.Body, &req); err != nil {
 			l.Infof("Failed to parse WebAuthn response: %v", err)
 			http.Error(w, "Failed to parse WebAuthn response.", http.StatusBadRequest)
