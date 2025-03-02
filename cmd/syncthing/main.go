@@ -583,22 +583,17 @@ func syncthingMain(options serveOptions) {
 		})
 	}
 
-	dbFile := locations.Get(locations.Database)
-	sql, err := sqlite.Open(dbFile + "-sqlite")
+	sql, err := sqlite.Open(locations.Get(locations.Database))
 	if err != nil {
 		l.Warnln("Error opening database:", err)
 		os.Exit(1)
 	}
 	sdb := newdb.MetricsWrap(sql)
-
 	miscDB := dbext.NewMiscDB(sdb)
-	if _, ok, _ := miscDB.Time("migrated-from-leveldb"); !ok {
+
+	oldDbDir := locations.Get(locations.LegacyDatabase)
+	if be, err := backend.OpenLevelDBRO(oldDbDir); err == nil {
 		// We have not migrated. We should do that.
-		be, err := backend.OpenLevelDBRO(dbFile)
-		if err != nil {
-			l.Warnln("Failed to migrate:", err)
-			os.Exit(1)
-		}
 		ll, err := db.NewLowlevel(be, evLogger)
 		if err != nil {
 			l.Warnln("Failed to migrate:", err)
@@ -635,6 +630,7 @@ func syncthingMain(options serveOptions) {
 					os.Exit(1)
 				}
 			}
+			snap.Release()
 		}
 
 		l.Infoln("Migrating virtual mtimes to SQLite...")
@@ -645,6 +641,11 @@ func syncthingMain(options serveOptions) {
 		_ = miscDB.PutTime("migrated-from-leveldb", time.Now())
 		l.Infoln("Migration complete")
 		be.Close()
+
+		if err := os.Rename(oldDbDir, oldDbDir+"-migrated"); err != nil {
+			l.Warnln("Failed to rename old, migrated database; please manually move or remove", oldDbDir)
+			os.Exit(0) // prevent automatic restart by the monitor
+		}
 	}
 
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial
