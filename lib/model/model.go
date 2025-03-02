@@ -488,10 +488,10 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 		return nil
 	})
 
-	m.mut.Unlock()
-
 	// Remove it from the database
 	m.sdb.DropFolder(cfg.ID)
+
+	m.mut.Unlock()
 }
 
 // Need to hold lock on m.mut when calling this.
@@ -2894,8 +2894,8 @@ func (m *model) BringToFront(folder, file string) {
 }
 
 func (m *model) ResetFolder(folder string) error {
-	m.mut.RLock()
-	defer m.mut.RUnlock()
+	m.mut.Lock()
+	defer m.mut.Unlock()
 	_, ok := m.folderRunners.Get(folder)
 	if ok {
 		return errors.New("folder must be paused when resetting")
