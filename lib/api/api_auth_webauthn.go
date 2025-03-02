@@ -462,7 +462,7 @@ func (s *webauthnService) updateVolatileState(update func(state *apiproto.Webaut
 }
 
 func (s *webauthnService) updateCredentialVolatileState(credId string, updatedCred *webauthnLib.Credential) {
-	var signCountBefore uint32 = 0
+	var signCountBefore uint32
 	err := s.updateVolatileState(func(volState *apiproto.WebauthnVolatileState) {
 		dynCredState, ok := volState.Credentials[credId]
 		if !ok {
