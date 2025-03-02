@@ -706,11 +706,8 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 	changes := 0
 
 	for _, sub := range subDirs {
-		for fi, err := range f.db.AllLocalFilesPrefix(f.folderID, protocol.LocalDeviceID, sub) {
-			if err != nil {
-				return 0, err
-			}
-
+		it, errFn := f.db.AllLocalFilesPrefix(f.folderID, protocol.LocalDeviceID, sub)
+		for fi := range it {
 			select {
 			case <-f.ctx.Done():
 				break
@@ -831,6 +828,9 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 				}
 			}
 		}
+		if err := errFn(); err != nil {
+			return changes, err
+		}
 
 		select {
 		case <-f.ctx.Done():
@@ -867,11 +867,8 @@ func (f *folder) findRename(file protocol.FileInfo, alreadyUsedOrExisting map[st
 	found := false
 	nf := protocol.FileInfo{}
 
-	for fi, err := range f.db.AllLocalFilesWithBlocksHash(f.folderID, file.BlocksHash) {
-		if err != nil {
-			return protocol.FileInfo{}, false
-		}
-
+	it, errFn := f.db.AllLocalFilesWithBlocksHash(f.folderID, file.BlocksHash)
+	for fi := range it {
 		select {
 		case <-f.ctx.Done():
 			break
@@ -913,6 +910,9 @@ func (f *folder) findRename(file protocol.FileInfo, alreadyUsedOrExisting map[st
 		nf.LocalFlags = f.localFlags
 		found = true
 		break
+	}
+	if err := errFn(); err != nil {
+		return nf, false
 	}
 
 	return nf, found

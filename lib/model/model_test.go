@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	mrand "math/rand"
 	"os"
 	"path/filepath"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/dbext"
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -3200,14 +3202,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 
 	m.ScanFolders()
 
-	count := 0
-	for _, err := range m.LocalFiles("default", protocol.LocalDeviceID) {
-		if err != nil {
-			t.Fatal(err)
-		}
-		count++
-	}
-
+	count := countIterator[protocol.FileInfo](t)(m.LocalFiles("default", protocol.LocalDeviceID))
 	if count != numFiles {
 		t.Errorf("Unexpected count: %d != %d", count, numFiles)
 	}
@@ -3265,14 +3260,7 @@ func TestRenameSameFile(t *testing.T) {
 
 	m.ScanFolders()
 
-	count := 0
-	for _, err := range m.LocalFiles("default", protocol.LocalDeviceID) {
-		if err != nil {
-			t.Fatal(err)
-		}
-		count++
-	}
-
+	count := countIterator[protocol.FileInfo](t)(m.LocalFiles("default", protocol.LocalDeviceID))
 	if count != 1 {
 		t.Errorf("Unexpected count: %d != %d", count, 1)
 	}
@@ -3335,26 +3323,12 @@ func TestRenameEmptyFile(t *testing.T) {
 		t.Fatal("failed to find non-empty file")
 	}
 
-	count := 0
-	for _, err := range m.model.AllForBlocksHash(fcfg.ID, empty.BlocksHash) {
-		if err != nil {
-			t.Fatal(err)
-		}
-		count++
-	}
-
+	count := countIterator[protocol.FileInfo](t)(m.model.AllForBlocksHash(fcfg.ID, empty.BlocksHash))
 	if count != 0 {
 		t.Fatalf("Found %d entries for empty file, expected 0", count)
 	}
 
-	count = 0
-	for _, err := range m.model.AllForBlocksHash(fcfg.ID, file.BlocksHash) {
-		if err != nil {
-			t.Fatal(err)
-		}
-		count++
-	}
-
+	count = countIterator[protocol.FileInfo](t)(m.model.AllForBlocksHash(fcfg.ID, file.BlocksHash))
 	if count != 1 {
 		t.Fatalf("Found %d entries for non-empty file, expected 1", count)
 	}
@@ -3365,20 +3339,13 @@ func TestRenameEmptyFile(t *testing.T) {
 	// Scan
 	m.ScanFolders()
 
-	count = 0
-	for _, err := range m.model.AllForBlocksHash(fcfg.ID, empty.BlocksHash) {
-		if err != nil {
-			t.Fatal(err)
-		}
-		count++
-	}
-
+	count = countIterator[protocol.FileInfo](t)(m.model.AllForBlocksHash(fcfg.ID, empty.BlocksHash))
 	if count != 0 {
 		t.Fatalf("Found %d entries for empty file, expected 0", count)
 	}
 
 	count = 0
-	for i, err := range m.model.AllForBlocksHash(fcfg.ID, file.BlocksHash) {
+	for i, err := range itererr.Zip(m.model.AllForBlocksHash(fcfg.ID, file.BlocksHash)) {
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -3417,7 +3384,7 @@ func TestBlockListMap(t *testing.T) {
 	}
 	var paths []string
 
-	for fi, err := range m.model.AllForBlocksHash(fcfg.ID, fi.BlocksHash) {
+	for fi, err := range itererr.Zip(m.model.AllForBlocksHash(fcfg.ID, fi.BlocksHash)) {
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -3449,7 +3416,7 @@ func TestBlockListMap(t *testing.T) {
 	// Check we're left with 2 of the 5
 
 	paths = paths[:0]
-	for fi, err := range m.model.AllForBlocksHash(fcfg.ID, fi.BlocksHash) {
+	for fi, err := range itererr.Zip(m.model.AllForBlocksHash(fcfg.ID, fi.BlocksHash)) {
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -3475,7 +3442,7 @@ func TestScanRenameCaseOnly(t *testing.T) {
 	m.ScanFolders()
 
 	found := false
-	for i, err := range m.LocalFiles(fcfg.ID, protocol.LocalDeviceID) {
+	for i, err := range itererr.Zip(m.LocalFiles(fcfg.ID, protocol.LocalDeviceID)) {
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -3493,7 +3460,7 @@ func TestScanRenameCaseOnly(t *testing.T) {
 	m.ScanFolders()
 
 	found = false
-	for i, err := range m.LocalFiles(fcfg.ID, protocol.LocalDeviceID) {
+	for i, err := range itererr.Zip(m.LocalFiles(fcfg.ID, protocol.LocalDeviceID)) {
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -4141,4 +4108,18 @@ type modtimeTruncatingFileInfo struct {
 
 func (fi modtimeTruncatingFileInfo) ModTime() time.Time {
 	return fi.FileInfo.ModTime().Truncate(fi.trunc)
+}
+
+func countIterator[T any](t *testing.T) func(it iter.Seq[T], errFn func() error) int {
+	return func(it iter.Seq[T], errFn func() error) int {
+		t.Helper()
+		count := 0
+		for range it {
+			count++
+		}
+		if err := errFn(); err != nil {
+			t.Fatal(err)
+		}
+		return count
+	}
 }

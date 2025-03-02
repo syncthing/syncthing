@@ -30,7 +30,7 @@ func (s *DB) KVPrefix(prefix string) (iter.Seq2[string, []byte], func() error) {
 	prefix += "%"
 	rows, err := s.sql.Queryx(`SELECT key, value FROM kv WHERE key LIKE ?`, prefix)
 	if err != nil {
-		return func(yield func(string, []byte) bool) {}, func() error { return err }
+		return func(_ func(string, []byte) bool) {}, func() error { return err }
 	}
 
 	return func(yield func(string, []byte) bool) {

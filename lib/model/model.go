@@ -96,7 +96,7 @@ type Model interface {
 	GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error)
 	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]error, error)
 
-	LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[protocol.FileInfo, error]
+	LocalFiles(folder string, device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error)
 	LocalFilesSequenced(folder string, device protocol.DeviceID, startSet int64) (iter.Seq[protocol.FileInfo], func() error)
 	LocalSize(folder string, device protocol.DeviceID) (db.Counts, error)
 	GlobalSize(folder string) (db.Counts, error)
@@ -945,7 +945,7 @@ func (m *model) folderCompletion(device protocol.DeviceID, folder string) (Folde
 	return comp, nil
 }
 
-func (m *model) LocalFiles(folder string, device protocol.DeviceID) iter.Seq2[protocol.FileInfo, error] {
+func (m *model) LocalFiles(folder string, device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error) {
 	return m.sdb.AllLocalFiles(folder, device)
 }
 
@@ -953,7 +953,7 @@ func (m *model) LocalFilesSequenced(folder string, device protocol.DeviceID, sta
 	return m.sdb.AllLocalFilesBySequence(folder, device, startSeq, 0)
 }
 
-func (m *model) AllForBlocksHash(folder string, h []byte) iter.Seq2[protocol.FileInfo, error] {
+func (m *model) AllForBlocksHash(folder string, h []byte) (iter.Seq[protocol.FileInfo], func() error) {
 	return m.sdb.AllLocalFilesWithBlocksHash(folder, h)
 }
 
@@ -1089,10 +1089,8 @@ func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]pro
 	p := newPager(page, perpage)
 	files := make([]protocol.FileInfo, 0, perpage)
 
-	for f, err := range m.sdb.AllLocalFiles(folder, protocol.LocalDeviceID) { // XXX: can be more efficient by checking flags in select
-		if err != nil {
-			return nil, err
-		}
+	it, errFn := m.sdb.AllLocalFiles(folder, protocol.LocalDeviceID) // XXX: can be more efficient by checking flags in select
+	for f := range it {
 		if !f.IsReceiveOnlyChanged() {
 			continue
 		}
@@ -1103,6 +1101,9 @@ func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]pro
 		if p.done() {
 			break
 		}
+	}
+	if err := errFn(); err != nil {
+		return nil, err
 	}
 
 	return files, nil

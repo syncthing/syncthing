@@ -48,13 +48,10 @@ func (f *receiveEncryptedFolder) revert() error {
 		return nil
 	})
 
-	var iterErr error
 	var dirs []string
-	for fi, err := range f.db.AllLocalFiles(f.folderID, protocol.LocalDeviceID) {
-		if err != nil {
-			return err
-		}
-		if iterErr = batch.FlushIfFull(); iterErr != nil {
+	it, errFn := f.db.AllLocalFiles(f.folderID, protocol.LocalDeviceID)
+	for fi := range it {
+		if err := batch.FlushIfFull(); err != nil {
 			return err
 		}
 
@@ -82,12 +79,12 @@ func (f *receiveEncryptedFolder) revert() error {
 		// anymore.
 		batch.Append(fi)
 	}
+	if err := errFn(); err != nil {
+		return err
+	}
 
 	f.revertHandleDirs(dirs)
 
-	if iterErr != nil {
-		return iterErr
-	}
 	if err := batch.Flush(); err != nil {
 		return err
 	}

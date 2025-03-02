@@ -330,17 +330,19 @@ type Model struct {
 		result1 []protocol.FileInfo
 		result2 error
 	}
-	LocalFilesStub        func(string, protocol.DeviceID) iter.Seq2[protocol.FileInfo, error]
+	LocalFilesStub        func(string, protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error)
 	localFilesMutex       sync.RWMutex
 	localFilesArgsForCall []struct {
 		arg1 string
 		arg2 protocol.DeviceID
 	}
 	localFilesReturns struct {
-		result1 iter.Seq2[protocol.FileInfo, error]
+		result1 iter.Seq[protocol.FileInfo]
+		result2 func() error
 	}
 	localFilesReturnsOnCall map[int]struct {
-		result1 iter.Seq2[protocol.FileInfo, error]
+		result1 iter.Seq[protocol.FileInfo]
+		result2 func() error
 	}
 	LocalFilesSequencedStub        func(string, protocol.DeviceID, int64) (iter.Seq[protocol.FileInfo], func() error)
 	localFilesSequencedMutex       sync.RWMutex
@@ -2165,7 +2167,7 @@ func (fake *Model) LocalChangedFolderFilesReturnsOnCall(i int, result1 []protoco
 	}{result1, result2}
 }
 
-func (fake *Model) LocalFiles(arg1 string, arg2 protocol.DeviceID) iter.Seq2[protocol.FileInfo, error] {
+func (fake *Model) LocalFiles(arg1 string, arg2 protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error) {
 	fake.localFilesMutex.Lock()
 	ret, specificReturn := fake.localFilesReturnsOnCall[len(fake.localFilesArgsForCall)]
 	fake.localFilesArgsForCall = append(fake.localFilesArgsForCall, struct {
@@ -2180,9 +2182,9 @@ func (fake *Model) LocalFiles(arg1 string, arg2 protocol.DeviceID) iter.Seq2[pro
 		return stub(arg1, arg2)
 	}
 	if specificReturn {
-		return ret.result1
+		return ret.result1, ret.result2
 	}
-	return fakeReturns.result1
+	return fakeReturns.result1, fakeReturns.result2
 }
 
 func (fake *Model) LocalFilesCallCount() int {
@@ -2191,7 +2193,7 @@ func (fake *Model) LocalFilesCallCount() int {
 	return len(fake.localFilesArgsForCall)
 }
 
-func (fake *Model) LocalFilesCalls(stub func(string, protocol.DeviceID) iter.Seq2[protocol.FileInfo, error]) {
+func (fake *Model) LocalFilesCalls(stub func(string, protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error)) {
 	fake.localFilesMutex.Lock()
 	defer fake.localFilesMutex.Unlock()
 	fake.LocalFilesStub = stub
@@ -2204,27 +2206,30 @@ func (fake *Model) LocalFilesArgsForCall(i int) (string, protocol.DeviceID) {
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *Model) LocalFilesReturns(result1 iter.Seq2[protocol.FileInfo, error]) {
+func (fake *Model) LocalFilesReturns(result1 iter.Seq[protocol.FileInfo], result2 func() error) {
 	fake.localFilesMutex.Lock()
 	defer fake.localFilesMutex.Unlock()
 	fake.LocalFilesStub = nil
 	fake.localFilesReturns = struct {
-		result1 iter.Seq2[protocol.FileInfo, error]
-	}{result1}
+		result1 iter.Seq[protocol.FileInfo]
+		result2 func() error
+	}{result1, result2}
 }
 
-func (fake *Model) LocalFilesReturnsOnCall(i int, result1 iter.Seq2[protocol.FileInfo, error]) {
+func (fake *Model) LocalFilesReturnsOnCall(i int, result1 iter.Seq[protocol.FileInfo], result2 func() error) {
 	fake.localFilesMutex.Lock()
 	defer fake.localFilesMutex.Unlock()
 	fake.LocalFilesStub = nil
 	if fake.localFilesReturnsOnCall == nil {
 		fake.localFilesReturnsOnCall = make(map[int]struct {
-			result1 iter.Seq2[protocol.FileInfo, error]
+			result1 iter.Seq[protocol.FileInfo]
+			result2 func() error
 		})
 	}
 	fake.localFilesReturnsOnCall[i] = struct {
-		result1 iter.Seq2[protocol.FileInfo, error]
-	}{result1}
+		result1 iter.Seq[protocol.FileInfo]
+		result2 func() error
+	}{result1, result2}
 }
 
 func (fake *Model) LocalFilesSequenced(arg1 string, arg2 protocol.DeviceID, arg3 int64) (iter.Seq[protocol.FileInfo], func() error) {

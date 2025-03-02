@@ -1091,15 +1091,16 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 
 	var cur protocol.FileInfo
 	hasCur := false
-	for i, err := range m.LocalFiles(f.ID, protocol.LocalDeviceID) {
-		if err != nil {
-			t.Fatal(err)
-		}
+	it, errFn := m.LocalFiles(f.ID, protocol.LocalDeviceID)
+	for i := range it {
 		if hasCur {
 			t.Fatal("got more than one file")
 		}
 		cur = i
 		hasCur = true
+	}
+	if err := errFn(); err != nil {
+		t.Fatal(err)
 	}
 	if !hasCur {
 		t.Fatal("file is missing")
@@ -1156,15 +1157,16 @@ func testPullCaseOnlyDirOrSymlink(t *testing.T, dir bool) {
 	must(t, f.scanSubdirs(nil))
 	var cur protocol.FileInfo
 	hasCur := false
-	for i, err := range m.LocalFiles(f.ID, protocol.LocalDeviceID) {
-		if err != nil {
-			t.Fatal(err)
-		}
+	it, errFn := m.LocalFiles(f.ID, protocol.LocalDeviceID)
+	for i := range it {
 		if hasCur {
 			t.Fatal("got more than one file")
 		}
 		cur = i
 		hasCur = true
+	}
+	if err := errFn(); err != nil {
+		t.Fatal(err)
 	}
 	if !hasCur {
 		t.Fatal("file is missing")

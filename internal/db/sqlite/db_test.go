@@ -112,12 +112,14 @@ func TestBasics(t *testing.T) {
 	t.Run("AllLocal", func(t *testing.T) {
 		t.Parallel()
 
-		have := iterCollectTest(t, db.AllLocalFiles(folderID, protocol.LocalDeviceID))
+		it, errFn := db.AllLocalFiles(folderID, protocol.LocalDeviceID)
+		have := iterCollectTestErrFn(t, it, errFn)
 		if len(have) != 4 {
 			t.Log(have)
 			t.Error("expected four files")
 		}
-		have = iterCollectTest(t, db.AllLocalFiles(folderID, protocol.DeviceID{42}))
+		it, errFn = db.AllLocalFiles(folderID, protocol.DeviceID{42})
+		have = iterCollectTestErrFn(t, it, errFn)
 		if len(have) != 3 {
 			t.Log(have)
 			t.Error("expected three files")
@@ -369,7 +371,8 @@ func TestBasics(t *testing.T) {
 	t.Run("AllLocalPrefix", func(t *testing.T) {
 		t.Parallel()
 
-		vals := iterCollectTest(t, db.AllLocalFilesPrefix(folderID, protocol.LocalDeviceID, "test2"))
+		it, errFn := db.AllLocalFilesPrefix(folderID, protocol.LocalDeviceID, "test2")
+		vals := iterCollectTestErrFn(t, it, errFn)
 
 		// Vals should be test2, test2/a, test2/b
 		if len(vals) != 3 {
@@ -380,7 +383,8 @@ func TestBasics(t *testing.T) {
 		}
 
 		// Empty prefix should be all the files
-		vals = iterCollectTest(t, db.AllLocalFilesPrefix(folderID, protocol.LocalDeviceID, ""))
+		it, errFn = db.AllLocalFilesPrefix(folderID, protocol.LocalDeviceID, "")
+		vals = iterCollectTestErrFn(t, it, errFn)
 
 		if len(vals) != 4 {
 			t.Log(vals)
@@ -833,7 +837,8 @@ func TestAllForBlocksHash(t *testing.T) {
 		t.Fatal("expected to exist")
 	}
 
-	vals := iterCollectTest(t, db.AllLocalFilesWithBlocksHash(folderID, test1.BlocksHash))
+	it, errFn := db.AllLocalFilesWithBlocksHash(folderID, test1.BlocksHash)
+	vals := iterCollectTestErrFn(t, it, errFn)
 	if len(vals) != 1 {
 		t.Log(vals)
 		t.Fatal("expected one file to match")
@@ -846,7 +851,8 @@ func TestAllForBlocksHash(t *testing.T) {
 		t.Fatal("expected to exist")
 	}
 
-	vals = iterCollectTest(t, db.AllLocalFilesWithBlocksHash(folderID, test2.BlocksHash))
+	it, errFn = db.AllLocalFilesWithBlocksHash(folderID, test2.BlocksHash)
+	vals = iterCollectTestErrFn(t, it, errFn)
 	if len(vals) != 2 {
 		t.Log(vals)
 		t.Fatal("expected two files to match")

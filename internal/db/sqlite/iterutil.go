@@ -32,7 +32,7 @@ func iterStructs[T any](rows *sqlx.Rows, err error) iter.Seq2[T, error] {
 
 func iterStructsErrFn[T any](rows *sqlx.Rows, err error) (iter.Seq[T], func() error) {
 	if err != nil {
-		return func(yield func(T) bool) {}, func() error { return err }
+		return func(_ func(T) bool) {}, func() error { return err }
 	}
 
 	var retErr error
@@ -73,27 +73,4 @@ func iterMapErrFn[A, B any](i iter.Seq[A], errFn func() error, mapFn func(A) (B,
 			}
 			return retErr
 		}
-}
-
-func iterStructsErr[T any](errptr *error, rows *sqlx.Rows, err error) iter.Seq[T] {
-	return func(yield func(T) bool) {
-		if err != nil {
-			*errptr = err
-			return
-		}
-		defer rows.Close()
-		for rows.Next() {
-			v := new(T)
-			if err := rows.StructScan(v); err != nil {
-				*errptr = err
-				return
-			}
-			if !yield(*v) {
-				break
-			}
-		}
-		if err := rows.Err(); err != nil {
-			*errptr = err
-		}
-	}
 }

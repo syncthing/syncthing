@@ -176,12 +176,6 @@ func (m *testModel) ServeBackground() {
 	<-m.started
 }
 
-func (m *testModel) testAvailability(folder string, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
-	av, err := m.model.Availability(folder, file, block)
-	must(m.t, err)
-	return av
-}
-
 func (m *testModel) testCurrentFolderFile(folder string, file string) (protocol.FileInfo, bool) {
 	f, ok, err := m.model.CurrentFolderFile(folder, file)
 	must(m.t, err)

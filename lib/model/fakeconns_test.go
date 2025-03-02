@@ -108,15 +108,6 @@ func (f *fakeConnection) addFileLocked(name string, flags uint32, ftype protocol
 	f.fileData[name] = data
 }
 
-func (f *fakeConnection) addFileWithLocalFlags(name string, ftype protocol.FileInfoType, localFlags uint32) {
-	f.mut.Lock()
-	defer f.mut.Unlock()
-
-	var version protocol.Vector
-	version = version.Update(f.id.Short())
-	f.addFileLocked(name, 0, ftype, nil, version, localFlags)
-}
-
 func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
 	f.mut.Lock()
 	defer f.mut.Unlock()

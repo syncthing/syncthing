@@ -87,10 +87,8 @@ func (f *receiveOnlyFolder) revert() error {
 		return nil
 	})
 
-	for fi, err := range f.db.AllLocalFiles(f.folderID, protocol.LocalDeviceID) {
-		if err != nil {
-			return err
-		}
+	it, errFn := f.db.AllLocalFiles(f.folderID, protocol.LocalDeviceID)
+	for fi := range it {
 		if !fi.IsReceiveOnlyChanged() {
 			// We're only interested in files that have changed locally in
 			// receive only mode.
@@ -145,7 +143,12 @@ func (f *receiveOnlyFolder) revert() error {
 		batch.Append(fi)
 		_ = batch.FlushIfFull()
 	}
-	_ = batch.Flush()
+	if err := errFn(); err != nil {
+		return err
+	}
+	if err := batch.Flush(); err != nil {
+		return err
+	}
 
 	// Handle any queued directories
 	deleted, err := delQueue.flush()

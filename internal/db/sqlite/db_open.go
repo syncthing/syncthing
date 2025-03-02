@@ -28,7 +28,7 @@ func OpenMemory() (*DB, error) {
 		return nil, err
 	}
 	path := filepath.Join(dir, "db")
-	fmt.Println("Test DB in", path)
+	l.Debugln("Test DB in", path)
 	return Open(path)
 }
 

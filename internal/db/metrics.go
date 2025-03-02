@@ -62,7 +62,7 @@ func (m metricsDB) account(folder, op string) func() {
 	}
 }
 
-func (m metricsDB) AllLocalFilesWithBlocksHash(folder string, h []byte) iter.Seq2[protocol.FileInfo, error] {
+func (m metricsDB) AllLocalFilesWithBlocksHash(folder string, h []byte) (iter.Seq[protocol.FileInfo], func() error) {
 	defer m.account(folder, "AllLocalFilesWithBlocksHash")()
 	return m.DB.AllLocalFilesWithBlocksHash(folder, h)
 }
@@ -82,12 +82,12 @@ func (m metricsDB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[
 	return m.DB.AllGlobalFilesPrefix(folder, prefix)
 }
 
-func (m metricsDB) AllLocalFiles(folder string, device protocol.DeviceID) iter.Seq2[protocol.FileInfo, error] {
+func (m metricsDB) AllLocalFiles(folder string, device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error) {
 	defer m.account(folder, "AllLocalFiles")()
 	return m.DB.AllLocalFiles(folder, device)
 }
 
-func (m metricsDB) AllLocalFilesPrefix(folder string, device protocol.DeviceID, prefix string) iter.Seq2[protocol.FileInfo, error] {
+func (m metricsDB) AllLocalFilesPrefix(folder string, device protocol.DeviceID, prefix string) (iter.Seq[protocol.FileInfo], func() error) {
 	defer m.account(folder, "AllLocalFilesPrefix")()
 	return m.DB.AllLocalFilesPrefix(folder, device, prefix)
 }
