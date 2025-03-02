@@ -134,14 +134,18 @@ func (s *DB) GetGlobalAvailability(folder, file string) ([]protocol.DeviceID, er
 }
 
 func (s *DB) recalcGlobalForFolder(txp *txPreparedStmts, folderIdx int64) error {
+	// Select files where there is no global, those are the ones we need to
+	// recalculate.
 	namesStmt, err := txp.Preparex(`
-	SELECT name FROM files
-	WHERE folder_idx = ?
+	SELECT f.name FROM files f
+	WHERE f.folder_idx = ? AND NOT EXISTS (
+		SELECT 1 FROM files g
+		WHERE g.folder_idx = ? AND g.name = f.name AND g.local_flags & ? != 0 )
 	GROUP BY name`)
 	if err != nil {
 		return wrap("recalc global for folder", err)
 	}
-	rows, err := namesStmt.Queryx(folderIdx)
+	rows, err := namesStmt.Queryx(folderIdx, folderIdx, protocol.FlagLocalGlobal)
 	if err != nil {
 		return wrap("recalc global for folder", err)
 	}

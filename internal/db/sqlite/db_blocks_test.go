@@ -1,7 +1,6 @@
 package sqlite
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/syncthing/syncthing/internal/itererr"
@@ -66,7 +65,6 @@ func TestBlocks(t *testing.T) {
 	found := 0
 	it, errFn := db.AllLocalFilesWithBlocksHashAnyFolder(vals[0].BlocklistHash)
 	for folder, fileInfo := range it {
-		fmt.Println(folder, fileInfo)
 		if folder != folderID {
 			t.Fatal("should be same folder")
 		}
