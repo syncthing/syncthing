@@ -31,6 +31,7 @@ import (
 	"unicode"
 
 	"github.com/calmh/incontainer"
+	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rcrowley/go-metrics"
@@ -433,6 +434,14 @@ func (s *service) Serve(ctx context.Context) error {
 		case <-ctx.Done():
 		}
 	}()
+
+	if os.Getenv("NOTIFY_SOCKET") != "" {
+		if sent, err := daemon.SdNotify(false, daemon.SdNotifyReady); err != nil {
+			l.Warnln("Failed to notify systemd:", err)
+		} else if !sent {
+			l.Warnln("Systemd notification not sent (returned false)")
+		}
+	}
 
 	// Wait for stop, restart or error signals
 
