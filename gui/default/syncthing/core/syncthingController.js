@@ -1822,7 +1822,7 @@ angular.module('syncthing.core')
 
         $scope.registerWebauthnCredential = function () {
             $scope.webauthn.errors = {};
-            $http.post(urlbase + '/config/webauthn/register-start')
+            $http.post(urlbase + '/config/gui/webauthn/register-start')
                 .then(function (resp) {
                     // Set excludeCredentials in frontend instead of backend so we can be consistent with UI state
                     resp.data.options.publicKey.excludeCredentials = $scope.tmpGUI.webauthnCredentials.map(function (cred) {
@@ -1830,11 +1830,7 @@ angular.module('syncthing.core')
                     });
                     return webauthnJSON.create(resp.data.options)
                         .then(function (pkc) {
-                            var body = {
-                                requestId: resp.data.requestId,
-                                credential: pkc,
-                            };
-                            return $http.post(urlbase + '/config/webauthn/register-finish', body);
+                            return $http.post(urlbase + '/config/gui/webauthn/register-finish?requestId=' + encodeURIComponent(resp.data.requestId), pkc);
                         })
                         .then(function (resp) {
                             $scope.tmpGUI.webauthnCredentials.push(resp.data);
@@ -1868,7 +1864,7 @@ angular.module('syncthing.core')
             $scope.webauthn.errors = {};
             return $http.post(authUrlbase + '/webauthn-start')
                 .then(function (resp) {
-                    if (resp && resp.data && resp.data.options.publicKey) {
+                    if ((((resp || {}).data || {}).options || {}).publicKey) {
                         $scope.webauthn.request = resp.data;
                         return resp.data;
                     } else {
@@ -1893,13 +1889,11 @@ angular.module('syncthing.core')
                 $scope.login.inProgress = true;
                 return webauthnJSON.get(request.options)
                     .then(function (pkc) {
+                        var stayLoggedIn = ($scope.login.stayLoggedIn ? 'true' : 'false');
                         return $http.post(
-                            authUrlbase + '/webauthn-finish',
-                            {
-                                requestId: request.requestId,
-                                credential: pkc,
-                                stayLoggedIn: $scope.login.stayLoggedIn,
-                            },
+                            authUrlbase + '/webauthn-finish?requestId=' + encodeURIComponent(request.requestId)
+                            + '&stayLoggedIn=' + encodeURIComponent(stayLoggedIn),
+                            pkc,
                         );
                     })
                     .then(function () {
