@@ -45,11 +45,11 @@ func main() {
 	}
 	log.Println(curValidLangs)
 
-	resp := req("https://hosted.weblate.org/exports/stats/syncthing/gui/?format=json", token)
-
-	var stats []stat
-	err := json.NewDecoder(resp.Body).Decode(&stats)
-	if err != nil {
+	resp := req("https://hosted.weblate.org/api/components/syncthing/gui/statistics/", token)
+	var statRes struct {
+		Results []stat
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&statRes); err != nil {
 		log.Fatal(err)
 	}
 	resp.Body.Close()
@@ -57,7 +57,7 @@ func main() {
 	names := make(map[string]string)
 
 	var langs []string
-	for _, stat := range stats {
+	for _, stat := range statRes.Results {
 		code := reformatLanguageCode(stat.Code)
 		pct := 100 * stat.Translated / stat.Total
 		if _, valid := curValidLangs[code]; pct < 75 || !valid && pct < 95 {
