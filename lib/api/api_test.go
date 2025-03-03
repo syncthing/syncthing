@@ -1998,7 +1998,8 @@ type finishWebauthnRegistrationRequest struct {
 }
 
 func (req *startWebauthnRegistrationResponse) finishURL(baseURL string) string {
-	return baseURL + "/rest/config/gui/webauthn/register-finish/" + req.RequestID
+	// Plain string concat is fine because requestId is a UUID
+	return baseURL + "/rest/config/gui/webauthn/register-finish?requestId=" + req.RequestID
 }
 
 func TestWebauthnRegistration(t *testing.T) {
@@ -2342,7 +2343,8 @@ func (req *startWebauthnAuthenticationResponse) finishURL() string {
 	return req.finishURLStayLoggedIn(false)
 }
 func (req *startWebauthnAuthenticationResponse) finishURLStayLoggedIn(stayLoggedIn bool) string {
-	return "/rest/noauth/auth/webauthn-finish/" + req.RequestID + "/" + strconv.FormatBool(stayLoggedIn)
+	// Plain string concat is fine because requestId is a UUID
+	return "/rest/noauth/auth/webauthn-finish?requestId=" + req.RequestID + "&stayLoggedIn=" + strconv.FormatBool(stayLoggedIn)
 }
 
 func TestWebauthnAuthentication(t *testing.T) {

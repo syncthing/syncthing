@@ -1830,7 +1830,7 @@ angular.module('syncthing.core')
                     });
                     return webauthnJSON.create(resp.data.options)
                         .then(function (pkc) {
-                            return $http.post(urlbase + '/config/gui/webauthn/register-finish/' + resp.data.requestId, pkc);
+                            return $http.post(urlbase + '/config/gui/webauthn/register-finish?requestId=' + encodeURIComponent(resp.data.requestId), pkc);
                         })
                         .then(function (resp) {
                             $scope.tmpGUI.webauthnCredentials.push(resp.data);
@@ -1891,7 +1891,8 @@ angular.module('syncthing.core')
                     .then(function (pkc) {
                         var stayLoggedIn = ($scope.login.stayLoggedIn ? 'true' : 'false');
                         return $http.post(
-                            authUrlbase + '/webauthn-finish/' + request.requestId + '/' + stayLoggedIn,
+                            authUrlbase + '/webauthn-finish?requestId=' + encodeURIComponent(request.requestId)
+                            + '&stayLoggedIn=' + encodeURIComponent(stayLoggedIn),
                             pkc,
                         );
                     })

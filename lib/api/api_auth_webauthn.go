@@ -18,7 +18,6 @@ import (
 	webauthnProtocol "github.com/go-webauthn/webauthn/protocol"
 	webauthnLib "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
-	"github.com/julienschmidt/httprouter"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -190,10 +189,10 @@ func (s *webauthnService) startWebauthnRegistration(guiCfg config.GUIConfigurati
 	}
 }
 
-func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfiguration) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfiguration) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		defer s.deleteOldStates()
-		requestID := p.ByName("requestId")
+		requestID := r.URL.Query().Get("requestId")
 		var credResp webauthnProtocol.CredentialCreationResponse
 		if err := unmarshalTo(r.Body, &credResp); err != nil {
 			l.Infof("Failed to parse WebAuthn response: %v", err)
@@ -302,11 +301,11 @@ func (s *webauthnService) startWebauthnAuthentication(guiCfg config.GUIConfigura
 	}
 }
 
-func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *tokenCookieManager, guiCfg config.GUIConfiguration) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *tokenCookieManager, guiCfg config.GUIConfiguration) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		defer s.deleteOldStates()
-		requestID := p.ByName("requestId")
-		stayLoggedIn := p.ByName("stayLoggedIn") == "true"
+		requestID := r.URL.Query().Get("requestId")
+		stayLoggedIn := r.URL.Query().Get("stayLoggedIn") == "true"
 
 		var credResp webauthnProtocol.CredentialAssertionResponse
 		if err := unmarshalTo(r.Body, &credResp); err != nil {
