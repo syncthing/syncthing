@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -19,7 +20,7 @@ func repeatedDeviceID(v byte) (d protocol.DeviceID) {
 	return
 }
 
-func TestTunnelManager_ServeListener(t *testing.T) {
+func TestTunnelManager_ServeLocalListener(t *testing.T) {
 	// Activate debug logging
 	l.SetDebug("module", true)
 
@@ -105,7 +106,7 @@ func TestTunnelManager_ServeListener(t *testing.T) {
 	}
 }
 
-func TestTunnelManager_HandleOpenCommand(t *testing.T) {
+func TestTunnelManager_HandleOpenRemoteCommand(t *testing.T) {
 	// Activate debug logging
 	l.SetDebug("module", true)
 
@@ -194,4 +195,144 @@ func TestTunnelManager_HandleOpenCommand(t *testing.T) {
 	case <-time.After(1 * time.Second):
 		t.Fatal("Timed out waiting for TunnelData")
 	}
+}
+
+func TestTunnelManager_HandleOpenRemoteCommand_NamedService(t *testing.T) {
+	// Activate debug logging
+	l.SetDebug("module", true)
+
+	clientDeviceID := repeatedDeviceID(0x33)
+	// Mock device ID and addresses
+	localDestinationAddress := "127.0.0.1:64780"
+	localServiceName := "http"
+
+	// Create a new TunnelManager
+	tm := NewTunnelManagerFromConfig(
+		&bep.TunnelConfig{
+			TunnelsIn: []*bep.TunnelInbound{
+				{
+					LocalServiceName: localServiceName,
+					LocalDialAddress: localDestinationAddress,
+					AllowedRemoteDeviceIds: []string{
+						clientDeviceID.String(),
+					},
+				},
+			},
+		},
+	)
+
+	// Create a channel to capture the TunnelData sent to the device
+	tunnelDataChanIn := make(chan *protocol.TunnelData, 1)
+	tunnelDataChanOut := make(chan *protocol.TunnelData, 1)
+	tm.RegisterDeviceConnection(clientDeviceID, tunnelDataChanIn, tunnelDataChanOut)
+
+	// Start a listener on the destination address
+	listener, err := net.Listen("tcp", localDestinationAddress)
+	assert.NoError(t, err)
+	defer listener.Close()
+
+	// Send an open command to the TunnelManager
+	tunnelID := tm.generateTunnelID()
+	tunnelDataChanIn <- &protocol.TunnelData{
+		D: &bep.TunnelData{
+			TunnelId:          tunnelID,
+			Command:           bep.TunnelCommand_TUNNEL_COMMAND_OPEN,
+			RemoteServiceName: &localServiceName,
+		},
+	}
+
+	// Wait for the TunnelManager to connect to the listener
+	conn, err := listener.Accept()
+	assert.NoError(t, err)
+
+	// Verify the connection
+	msg_from_server := []byte("hello from server")
+	_, err = conn.Write(msg_from_server)
+	assert.NoError(t, err)
+
+	// Wait for the TunnelData to be sent
+	select {
+	case data := <-tunnelDataChanOut:
+		assert.Equal(t, bep.TunnelCommand_TUNNEL_COMMAND_DATA, data.D.Command)
+		assert.Equal(t, msg_from_server, data.D.Data)
+		assert.Equal(t, tunnelID, data.D.TunnelId)
+	case <-time.After(1 * time.Second):
+		t.Fatal("Timed out waiting for TunnelData")
+	}
+
+	msg_from_client := []byte("hello from client")
+	tunnelDataChanIn <- &protocol.TunnelData{
+		D: &bep.TunnelData{
+			TunnelId: tunnelID,
+			Command:  bep.TunnelCommand_TUNNEL_COMMAND_DATA,
+			Data:     msg_from_client,
+		},
+	}
+
+	buf := make([]byte, 1024)
+	n, err := conn.Read(buf)
+	assert.NoError(t, err)
+	assert.Equal(t, msg_from_client, buf[:n])
+
+	conn.Close()
+
+	// Wait for the TunnelData to be sent
+	select {
+	case data := <-tunnelDataChanOut:
+		assert.Equal(t, bep.TunnelCommand_TUNNEL_COMMAND_CLOSE, data.D.Command)
+		assert.Equal(t, tunnelID, data.D.TunnelId)
+	case <-time.After(1 * time.Second):
+		t.Fatal("Timed out waiting for TunnelData")
+	}
+}
+
+func TestTunnelManager_HandleOpenRemoteCommand_DisallowedClient(t *testing.T) {
+	// Activate debug logging
+	l.SetDebug("module", true)
+
+	clientDeviceID := repeatedDeviceID(0x33)
+	disallowedClientDeviceID := repeatedDeviceID(0x44)
+	// Mock device ID and addresses
+	localDestinationAddress := "127.0.0.1:64780"
+	localServiceName := "http"
+
+	// Create a new TunnelManager
+	tm := NewTunnelManagerFromConfig(
+		&bep.TunnelConfig{
+			TunnelsIn: []*bep.TunnelInbound{
+				{
+					LocalServiceName: localServiceName,
+					LocalDialAddress: localDestinationAddress,
+					AllowedRemoteDeviceIds: []string{
+						clientDeviceID.String(),
+					},
+				},
+			},
+		},
+	)
+
+	// Create a channel to capture the TunnelData sent to the device
+	tunnelDataChanIn := make(chan *protocol.TunnelData, 1)
+	tunnelDataChanOut := make(chan *protocol.TunnelData, 1)
+	tm.RegisterDeviceConnection(disallowedClientDeviceID, tunnelDataChanIn, tunnelDataChanOut)
+
+	// Start a listener on the destination address
+	listener, err := net.Listen("tcp", localDestinationAddress)
+	assert.NoError(t, err)
+	defer listener.Close()
+
+	// Send an open command to the TunnelManager
+	tunnelID := tm.generateTunnelID()
+	tunnelDataChanIn <- &protocol.TunnelData{
+		D: &bep.TunnelData{
+			TunnelId:          tunnelID,
+			Command:           bep.TunnelCommand_TUNNEL_COMMAND_OPEN,
+			RemoteServiceName: &localServiceName,
+		},
+	}
+
+	// Wait for the TunnelManager to connect to the listener
+	listener.(*net.TCPListener).SetDeadline(time.Now().Add(300 * time.Millisecond))
+	_, err = listener.Accept()
+	assert.ErrorIs(t, err, os.ErrDeadlineExceeded)
 }
