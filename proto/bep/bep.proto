@@ -270,7 +270,7 @@ message TunnelConfig {
 message TunnelOutbound {
   string local_listen_address = 1;
   string remote_device_id = 2;
-  optional string remote_service_name = 3;
+  string remote_service_name = 3;
   optional string remote_address = 4;
 }
 

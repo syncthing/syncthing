@@ -88,7 +88,7 @@ func (tm *TunnelManager) Serve(ctx context.Context) error {
 			if err != nil {
 				return fmt.Errorf("failed to parse device ID: %w", err)
 			}
-			go tm.ServeListener(ctx, tunnel.LocalListenAddress, device, "proxy", tunnel.RemoteAddress)
+			go tm.ServeListener(ctx, tunnel.LocalListenAddress, device, tunnel.RemoteServiceName, tunnel.RemoteAddress)
 		}
 	}
 
