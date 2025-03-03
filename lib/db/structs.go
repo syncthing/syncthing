@@ -17,12 +17,12 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-type CountsSet struct {
-	Counts  []Counts
+type deprecatedCountsSet struct {
+	Counts  []deprecatedCounts
 	Created int64 // unix nanos
 }
 
-type Counts struct {
+type deprecatedCounts struct {
 	Files       int
 	Directories int
 	Symlinks    int
@@ -33,7 +33,7 @@ type Counts struct {
 	LocalFlags  uint32            // the local flag for this count bucket
 }
 
-func (c Counts) toWire() *dbproto.Counts {
+func (c deprecatedCounts) toWire() *dbproto.Counts {
 	return &dbproto.Counts{
 		Files:       int32(c.Files),
 		Directories: int32(c.Directories),
@@ -46,8 +46,8 @@ func (c Counts) toWire() *dbproto.Counts {
 	}
 }
 
-func countsFromWire(w *dbproto.Counts) Counts {
-	return Counts{
+func countsFromWire(w *dbproto.Counts) deprecatedCounts {
+	return deprecatedCounts{
 		Files:       int(w.Files),
 		Directories: int(w.Directories),
 		Symlinks:    int(w.Symlinks),
@@ -59,8 +59,8 @@ func countsFromWire(w *dbproto.Counts) Counts {
 	}
 }
 
-func (c Counts) Add(other Counts) Counts {
-	return Counts{
+func (c deprecatedCounts) Add(other deprecatedCounts) deprecatedCounts {
+	return deprecatedCounts{
 		Files:       c.Files + other.Files,
 		Directories: c.Directories + other.Directories,
 		Symlinks:    c.Symlinks + other.Symlinks,
@@ -72,11 +72,23 @@ func (c Counts) Add(other Counts) Counts {
 	}
 }
 
-func (c Counts) TotalItems() int {
+func (c deprecatedCounts) Subtract(other deprecatedCounts) deprecatedCounts {
+	return deprecatedCounts{
+		Files:       c.Files - other.Files,
+		Directories: c.Directories - other.Directories,
+		Symlinks:    c.Symlinks - other.Symlinks,
+		Deleted:     c.Deleted - other.Deleted,
+		Bytes:       c.Bytes - other.Bytes,
+		Sequence:    c.Sequence - other.Sequence,
+		DeviceID:    protocol.EmptyDeviceID,
+	}
+}
+
+func (c deprecatedCounts) TotalItems() int {
 	return c.Files + c.Directories + c.Symlinks + c.Deleted
 }
 
-func (c Counts) String() string {
+func (c deprecatedCounts) String() string {
 	var flags strings.Builder
 	if c.LocalFlags&needFlag != 0 {
 		flags.WriteString("Need")
@@ -103,7 +115,7 @@ func (c Counts) String() string {
 }
 
 // Equal compares the numbers only, not sequence/dev/flags.
-func (c Counts) Equal(o Counts) bool {
+func (c deprecatedCounts) Equal(o deprecatedCounts) bool {
 	return c.Files == o.Files && c.Directories == o.Directories && c.Symlinks == o.Symlinks && c.Deleted == o.Deleted && c.Bytes == o.Bytes
 }
 

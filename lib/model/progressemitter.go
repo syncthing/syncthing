@@ -76,7 +76,6 @@ func (t *ProgressEmitter) Serve(ctx context.Context) error {
 			return nil
 		case <-t.timer.C:
 			t.mut.Lock()
-			l.Debugln("progress emitter: timer - looking after", len(t.registry))
 
 			newLastUpdated := lastUpdate
 			newCount = t.lenRegistryLocked()
@@ -94,8 +93,6 @@ func (t *ProgressEmitter) Serve(ctx context.Context) error {
 				lastCount = newCount
 				t.sendDownloadProgressEventLocked()
 				progressUpdates = t.computeProgressUpdates()
-			} else {
-				l.Debugln("progress emitter: nothing new")
 			}
 
 			if newCount != 0 {
@@ -247,7 +244,6 @@ func (t *ProgressEmitter) Register(s *sharedPullerState) {
 	t.mut.Lock()
 	defer t.mut.Unlock()
 	if t.disabled {
-		l.Debugln("progress emitter: disabled, skip registering")
 		return
 	}
 	l.Debugln("progress emitter: registering", s.folder, s.file.Name)
@@ -266,7 +262,6 @@ func (t *ProgressEmitter) Deregister(s *sharedPullerState) {
 	defer t.mut.Unlock()
 
 	if t.disabled {
-		l.Debugln("progress emitter: disabled, skip deregistering")
 		return
 	}
 
