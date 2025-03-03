@@ -2339,11 +2339,7 @@ type finishWebauthnAuthenticationRequest struct {
 }
 
 func (req *startWebauthnAuthenticationResponse) finishURL(stayLoggedIn bool) string {
-	sli := "false"
-	if stayLoggedIn {
-		sli = "true"
-	}
-	return "/rest/noauth/auth/webauthn-finish/" + req.RequestID + "/" + sli
+	return "/rest/noauth/auth/webauthn-finish/" + req.RequestID + "/" + strconv.FormatBool(stayLoggedIn)
 }
 
 func TestWebauthnAuthentication(t *testing.T) {
