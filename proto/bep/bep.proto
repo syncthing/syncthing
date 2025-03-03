@@ -251,7 +251,8 @@ enum FileDownloadProgressUpdateType {
 message TunnelData {
   TunnelCommand command = 1;
   uint64 tunnel_id = 2;
-  optional string tunnel_destination = 4;
+  optional string remote_service_name = 5;
+  optional string tunnel_destination_address = 4;
   optional bytes data = 3;
 }
 
@@ -262,14 +263,23 @@ enum TunnelCommand {
 }
 
 message TunnelConfig {
-  repeated Tunnel tunnels = 1;
+  repeated TunnelOutbound tunnels_out = 1;
+  repeated TunnelInbound tunnels_in = 2;
 }
 
-message Tunnel {
-  string localListenAddress = 1;
-  string DeviceID = 2;
-  string remoteAddress = 3;
+message TunnelOutbound {
+  string local_listen_address = 1;
+  string remote_device_id = 2;
+  optional string remote_service_name = 3;
+  optional string remote_address = 4;
 }
+
+message TunnelInbound {
+  string local_service_name = 1;
+  string local_dial_address = 2;
+  repeated string allowed_remote_device_ids = 3;
+}
+
 
 // Ping
 

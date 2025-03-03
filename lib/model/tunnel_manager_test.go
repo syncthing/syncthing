@@ -12,30 +12,46 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
+func repeatedDeviceID(v byte) (d protocol.DeviceID) {
+	for i := range d {
+		d[i] = v
+	}
+	return
+}
+
 func TestTunnelManager_ServeListener(t *testing.T) {
 	// Activate debug logging
 	l.SetDebug("module", true)
 
-	// Create a new TunnelManager
-	tm := NewTunnelManagerFromConfig(nil)
-
 	// Mock device ID and addresses
-	deviceID := protocol.DeviceID{}
+	serverDeviceID := repeatedDeviceID(0x11)
 	listenAddress := "127.0.0.1:64777"
 	destinationAddress := "127.0.0.1:8080"
 
-	// Create a channel to capture the TunnelData sent to the device
-	tunnelDataChan := make(chan *protocol.TunnelData, 1)
-	tm.RegisterDeviceConnection(deviceID, nil, tunnelDataChan)
+	// Create a new TunnelManager
+	proxyServiceName := "proxy"
+	tm := NewTunnelManagerFromConfig(
+		&bep.TunnelConfig{
+			TunnelsOut: []*bep.TunnelOutbound{
+				{
+					LocalListenAddress: listenAddress,
+					RemoteDeviceId:     serverDeviceID.String(),
+					RemoteServiceName:  &proxyServiceName,
+					RemoteAddress:      &destinationAddress,
+				},
+			},
+		},
+	)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Start the listener
-	go func() {
-		err := tm.ServeListener(ctx, listenAddress, deviceID, destinationAddress)
-		assert.NoError(t, err)
-	}()
+	go tm.Serve(ctx)
+
+	// Create a channel to capture the TunnelData sent to the device
+	tunnelDataChan := make(chan *protocol.TunnelData, 1)
+	tm.RegisterDeviceConnection(serverDeviceID, nil, tunnelDataChan)
 
 	var conn net.Conn
 	var err error
@@ -56,8 +72,10 @@ func TestTunnelManager_ServeListener(t *testing.T) {
 	select {
 	case data := <-tunnelDataChan:
 		assert.Equal(t, bep.TunnelCommand_TUNNEL_COMMAND_OPEN, data.D.Command)
-		assert.Equal(t, destinationAddress, *data.D.TunnelDestination)
+		assert.Equal(t, proxyServiceName, *data.D.RemoteServiceName)
+		assert.Equal(t, destinationAddress, *data.D.TunnelDestinationAddress)
 		tunnelID = data.D.TunnelId
+		assert.NotEqual(t, 0, tunnelID)
 	case <-time.After(1 * time.Second):
 		t.Fatal("Timed out waiting for TunnelData")
 	}
@@ -91,17 +109,30 @@ func TestTunnelManager_HandleOpenCommand(t *testing.T) {
 	// Activate debug logging
 	l.SetDebug("module", true)
 
+	clientDeviceID := repeatedDeviceID(0x22)
+
 	// Create a new TunnelManager
-	tm := NewTunnelManagerFromConfig(nil)
+	tm := NewTunnelManagerFromConfig(
+		&bep.TunnelConfig{
+			TunnelsIn: []*bep.TunnelInbound{
+				{
+					LocalServiceName: "proxy",
+					LocalDialAddress: "any",
+					AllowedRemoteDeviceIds: []string{
+						clientDeviceID.String(),
+					},
+				},
+			},
+		},
+	)
 
 	// Mock device ID and addresses
-	deviceID := protocol.DeviceID{}
-	destinationAddress := "127.0.0.1:8081"
+	destinationAddress := "127.0.0.1:64780"
 
 	// Create a channel to capture the TunnelData sent to the device
 	tunnelDataChanIn := make(chan *protocol.TunnelData, 1)
 	tunnelDataChanOut := make(chan *protocol.TunnelData, 1)
-	tm.RegisterDeviceConnection(deviceID, tunnelDataChanIn, tunnelDataChanOut)
+	tm.RegisterDeviceConnection(clientDeviceID, tunnelDataChanIn, tunnelDataChanOut)
 
 	// Start a listener on the destination address
 	listener, err := net.Listen("tcp", destinationAddress)
@@ -110,11 +141,13 @@ func TestTunnelManager_HandleOpenCommand(t *testing.T) {
 
 	// Send an open command to the TunnelManager
 	tunnelID := tm.generateTunnelID()
+	proxyServiceName := "proxy"
 	tunnelDataChanIn <- &protocol.TunnelData{
 		D: &bep.TunnelData{
-			TunnelId:          tunnelID,
-			Command:           bep.TunnelCommand_TUNNEL_COMMAND_OPEN,
-			TunnelDestination: &destinationAddress,
+			TunnelId:                 tunnelID,
+			Command:                  bep.TunnelCommand_TUNNEL_COMMAND_OPEN,
+			RemoteServiceName:        &proxyServiceName,
+			TunnelDestinationAddress: &destinationAddress,
 		},
 	}
 
