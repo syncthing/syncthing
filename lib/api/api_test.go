@@ -1998,7 +1998,7 @@ type finishWebauthnRegistrationRequest struct {
 }
 
 func (req *startWebauthnRegistrationResponse) finishURL(baseURL string) string {
-	return baseURL + "/rest/config/webauthn/register-finish/" + req.RequestID
+	return baseURL + "/rest/config/gui/webauthn/register-finish/" + req.RequestID
 }
 
 func TestWebauthnRegistration(t *testing.T) {
@@ -2051,7 +2051,7 @@ func TestWebauthnRegistration(t *testing.T) {
 		}
 
 		getCreateOptions := func(t *testing.T) startWebauthnRegistrationResponse {
-			startResp := httpPostCsrfAuth(baseURL+"/rest/config/webauthn/register-start", nil, testAPIKey, csrfTokenName, csrfTokenValue, t)
+			startResp := httpPostCsrfAuth(baseURL+"/rest/config/gui/webauthn/register-start", nil, testAPIKey, csrfTokenName, csrfTokenValue, t)
 			if startResp.StatusCode != http.StatusOK {
 				t.Fatalf("Failed to start WebAuthn registration: status %d", startResp.StatusCode)
 			}

@@ -343,8 +343,8 @@ func (s *service) Serve(ctx context.Context) error {
 	configBuilder.registerDefaultIgnores("/rest/config/defaults/ignores")
 	configBuilder.registerOptions("/rest/config/options")
 	configBuilder.registerLDAP("/rest/config/ldap")
-	configBuilder.registerWebauthnConfig("/rest/config/webauthn")
 	configBuilder.registerGUI("/rest/config/gui")
+	configBuilder.registerWebauthnConfig("/rest/config/gui/webauthn")
 
 	// Deprecated config endpoints
 	configBuilder.registerConfigDeprecated("/rest/system/config") // POST instead of PUT
