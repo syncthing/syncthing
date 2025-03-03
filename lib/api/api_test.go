@@ -2467,6 +2467,14 @@ func TestWebauthnAuthentication(t *testing.T) {
 				t.Fatalf("Failed WebAuthn authentication: status %d", finishResp.StatusCode)
 			}
 
+			sessionCookie, ok := getSessionCookie(finishResp.Cookies())
+			if !ok {
+				t.Errorf("Expected session cookie on authentication success")
+			}
+			if sessionCookie.MaxAge != 0 {
+				t.Errorf("Expected session cookie with unspecified Max-Age when stayLoggedIn=false")
+			}
+
 			var csrfTokenName, csrfTokenValue string
 			for _, cookie := range finishResp.Cookies() {
 				if strings.HasPrefix(cookie.Name, "CSRF-Token") {
@@ -2491,6 +2499,27 @@ func TestWebauthnAuthentication(t *testing.T) {
 			}
 			if credVolState.SignCount != 42 {
 				t.Errorf("Wrong SignCount after authentication success")
+			}
+		})
+
+		t.Run("gets a long-lived session cookie when stayLoggedIn=true", func(t *testing.T) {
+			t.Parallel()
+			_, httpPost, getAssertionOptions, _ := startServer(t, "", nil, credentials)
+			startResp := getAssertionOptions()
+
+			cred := createWebauthnAssertionResponse(startResp.Options, []byte{1, 2, 3, 4}, privateKey, "https://localhost:8384", false, 1, t)
+
+			finishResp := httpPost(startResp.finishURL(true), cred)
+			if finishResp.StatusCode != http.StatusNoContent {
+				t.Errorf("Failed WebAuthn authentication: status %d", finishResp.StatusCode)
+			}
+
+			sessionCookie, ok := getSessionCookie(finishResp.Cookies())
+			if !ok {
+				t.Errorf("Expected session cookie on authentication success")
+			}
+			if sessionCookie.MaxAge <= 0 {
+				t.Errorf("Expected session cookie with positive Max-Age when stayLoggedIn=true")
 			}
 		})
 
