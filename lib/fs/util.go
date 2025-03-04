@@ -37,9 +37,15 @@ func ExpandTilde(path string) (string, error) {
 
 func getHomeDir() (string, error) {
 	if build.IsWindows {
+		// to fancy a random dude on the internet, we prioritize HOME:
+		home, ok := os.LookupEnv("HOME")
+		if ok && home != "" {
+			return home, nil
+		}
+
 		// Legacy -- we prioritize this for historical reasons, whereas
 		// os.UserHomeDir uses %USERPROFILE% always.
-		home := filepath.Join(os.Getenv("HomeDrive"), os.Getenv("HomePath"))
+		home = filepath.Join(os.Getenv("HomeDrive"), os.Getenv("HomePath"))
 		if home != "" {
 			return home, nil
 		}
