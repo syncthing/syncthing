@@ -37,7 +37,7 @@ func TestTunnelManager_ServeLocalListener(t *testing.T) {
 				{
 					LocalListenAddress: listenAddress,
 					RemoteDeviceId:     serverDeviceID.String(),
-					RemoteServiceName:  &proxyServiceName,
+					RemoteServiceName:  proxyServiceName,
 					RemoteAddress:      &destinationAddress,
 				},
 			},
