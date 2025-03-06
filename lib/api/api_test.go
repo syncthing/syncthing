@@ -46,6 +46,7 @@ import (
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/testutil"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/ur"
 )
@@ -755,6 +756,10 @@ func TestHTTPLogin(t *testing.T) {
 	t.Run("Password change invalidates old and enables new password", func(t *testing.T) {
 		t.Parallel()
 
+		// This test needs a longer-than-default shutdown timeout to finish saving
+		// config changes when running on GitHub Actions
+		shutdownTimeout := testutil.IfExpr(os.Getenv("CI") == "true", 1000*time.Millisecond, 0)
+
 		initConfig := func(password string, t *testing.T) config.Wrapper {
 			gui := config.GUIConfiguration{
 				RawAddress: "127.0.0.1:0",
@@ -791,7 +796,7 @@ func TestHTTPLogin(t *testing.T) {
 
 			w := initConfig(initialPassword, t)
 			{
-				baseURL, cancel, err := startHTTP(w)
+				baseURL, cancel, err := startHTTPWithShutdownTimeout(w, shutdownTimeout)
 				cfgPath := baseURL + "/rest/config"
 				path := baseURL + "/meta.js"
 				t.Cleanup(cancel)
@@ -833,7 +838,7 @@ func TestHTTPLogin(t *testing.T) {
 
 			w := initConfig(initialPassword, t)
 			{
-				baseURL, cancel, err := startHTTP(w)
+				baseURL, cancel, err := startHTTPWithShutdownTimeout(w, shutdownTimeout)
 				cfgPath := baseURL + "/rest/config/gui"
 				path := baseURL + "/meta.js"
 				t.Cleanup(cancel)
