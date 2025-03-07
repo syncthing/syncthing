@@ -271,8 +271,6 @@ func (m *model) serve(ctx context.Context) error {
 		return svcutil.AsFatalErr(err, svcutil.ExitError)
 	}
 
-	go m.tunnelManager.Serve(ctx)
-
 	close(m.started)
 
 	for {
@@ -588,7 +586,7 @@ func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool
 	// index senders here.
 	m.indexHandlers.Each(func(_ protocol.DeviceID, r *indexHandlerRegistry) error {
 		runner, _ := m.folderRunners.Get(cfg.ID)
-		r.RegisterFolderState(cfg, m.folderFiles[cfg.ID], runner)
+		r.RegisterFolderState(cfg, fset, runner)
 		return nil
 	})
 
