@@ -59,11 +59,3 @@ type NoopCloser struct{}
 func (NoopCloser) Close() error {
 	return nil
 }
-
-// Conditional expression: returns the `then` argument iff `expr` is `true`, otherwise returns the `els` argument.
-func IfExpr[T any](expr bool, then T, els T) T {
-	if expr {
-		return then
-	}
-	return els
-}

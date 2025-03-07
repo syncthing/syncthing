@@ -46,7 +46,6 @@ import (
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/testutil"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/ur"
 )
@@ -758,7 +757,7 @@ func TestHTTPLogin(t *testing.T) {
 
 		// This test needs a longer-than-default shutdown timeout to finish saving
 		// config changes when running on GitHub Actions
-		shutdownTimeout := testutil.IfExpr(os.Getenv("CI") == "true", 1000*time.Millisecond, 0)
+		shutdownTimeout := time.Second
 
 		initConfig := func(password string, t *testing.T) config.Wrapper {
 			gui := config.GUIConfiguration{
