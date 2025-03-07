@@ -316,8 +316,7 @@ func (a *App) startup() error {
 	}
 
 	if os.Getenv("NOTIFY_SOCKET") != "" {
-		sub := a.evLogger.Subscribe(events.StateChanged)
-		defer sub.Unsubscribe()
+		stateChangeSub := a.evLogger.Subscribe(events.StateChanged)
 
 		scanningFolderIds := make(map[string]struct{})
 		for _, folder := range a.ll.ListFolders() {
@@ -326,7 +325,7 @@ func (a *App) startup() error {
 
 		for len(scanningFolderIds) > 0 {
 			select {
-			case event := <-sub.C():
+			case event := <-stateChangeSub.C():
 				data := event.Data.(map[string]interface{})
 				if data["to"] == "idle" {
 					delete(scanningFolderIds, data["folder"].(string))
@@ -336,6 +335,7 @@ func (a *App) startup() error {
 				}
 			}
 		}
+		stateChangeSub.Unsubscribe()
 
 		if sent, err := daemon.SdNotify(false, daemon.SdNotifyReady); err != nil {
 			l.Warnln("Failed to notify systemd:", err)
