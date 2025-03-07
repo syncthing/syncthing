@@ -315,10 +315,6 @@ func (a *App) startup() error {
 		l.Warnln("Syncthing should not run as a privileged or system user. Please consider using a normal user account.")
 	}
 
-	a.evLogger.Log(events.StartupComplete, map[string]string{
-		"myID": a.myID.String(),
-	})
-
 	if os.Getenv("NOTIFY_SOCKET") != "" {
 		sub := a.evLogger.Subscribe(events.StateChanged)
 		defer sub.Unsubscribe()
@@ -349,6 +345,10 @@ func (a *App) startup() error {
 			l.Infoln("Successfully sent systemd ready notification")
 		}
 	}
+
+	a.evLogger.Log(events.StartupComplete, map[string]string{
+		"myID": a.myID.String(),
+	})
 
 	if a.cfg.Options().SetLowPriority {
 		if err := osutil.SetLowPriority(); err != nil {
