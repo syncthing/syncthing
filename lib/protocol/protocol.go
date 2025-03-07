@@ -127,8 +127,8 @@ type Connection interface {
 	Request(ctx context.Context, req *Request) ([]byte, error)
 
 	// Send a Cluster Configuration message to the peer device. The message
-	// in the parameter may be altered by the connection and should not be used
-	// further by the caller.
+	// in the parameter may be altered by the connection and should not be
+	// used further by the caller.
 	ClusterConfig(config *ClusterConfig)
 
 	// Send a Download Progress message to the peer device. The message in
