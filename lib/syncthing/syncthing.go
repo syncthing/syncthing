@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/lib/api"
@@ -317,6 +318,37 @@ func (a *App) startup() error {
 	a.evLogger.Log(events.StartupComplete, map[string]string{
 		"myID": a.myID.String(),
 	})
+
+	if os.Getenv("NOTIFY_SOCKET") != "" {
+		sub := a.evLogger.Subscribe(events.StateChanged)
+		defer sub.Unsubscribe()
+
+		scanningFolderIds := make(map[string]struct{})
+		for _, folder := range a.ll.ListFolders() {
+			scanningFolderIds[folder] = struct{}{}
+		}
+
+		for len(scanningFolderIds) > 0 {
+			select {
+			case event := <-sub.C():
+				data := event.Data.(map[string]interface{})
+				if data["to"] == "idle" {
+					delete(scanningFolderIds, data["folder"].(string))
+					if len(scanningFolderIds) == 0 {
+						break
+					}
+				}
+			}
+		}
+
+		if sent, err := daemon.SdNotify(false, daemon.SdNotifyReady); err != nil {
+			l.Warnln("Failed to notify systemd:", err)
+		} else if !sent {
+			l.Warnln("Systemd notification not sent (returned false)")
+		} else {
+			l.Infoln("Successfully sent systemd ready notification")
+		}
+	}
 
 	if a.cfg.Options().SetLowPriority {
 		if err := osutil.SetLowPriority(); err != nil {
