@@ -29,7 +29,6 @@ enum MessageType {
   MESSAGE_TYPE_RESPONSE = 4;
   MESSAGE_TYPE_DOWNLOAD_PROGRESS = 5;
   MESSAGE_TYPE_TUNNEL_DATA = 64;
-  MESSAGE_TYPE_TUNNEL_MANAGE = 65;
   MESSAGE_TYPE_PING = 6;
   MESSAGE_TYPE_CLOSE = 7;
 }
@@ -262,6 +261,8 @@ enum TunnelCommand {
   TUNNEL_COMMAND_DATA = 2;
 }
 
+// ---- tunnels.json ---- TODO: move out of here  ----
+
 message TunnelConfig {
   repeated TunnelOutbound tunnels_out = 1;
   repeated TunnelInbound tunnels_in = 2;
@@ -279,6 +280,8 @@ message TunnelInbound {
   string local_dial_address = 2;
   repeated string allowed_remote_device_ids = 3;
 }
+
+// ---- tunnels.json ---- TODO: move out of here  ----
 
 
 // Ping
