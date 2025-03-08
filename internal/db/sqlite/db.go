@@ -311,7 +311,7 @@ func (s *DB) GetDeviceFile(folder string, device protocol.DeviceID, file string)
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN devices d ON f.device_idx = d.idx
 		INNER JOIN folders o ON f.folder_idx = o.idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND f.name = ? AND f.version != ''`,
+		WHERE o.folder_id = ? AND d.device_id = ? AND f.name = ?`,
 		folder, device.String(), file)
 	if errors.Is(err, sql.ErrNoRows) {
 		return protocol.FileInfo{}, false, nil
