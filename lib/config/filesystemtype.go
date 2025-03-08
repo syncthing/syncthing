@@ -11,8 +11,9 @@ import "github.com/syncthing/syncthing/lib/fs"
 type FilesystemType int32
 
 const (
-	FilesystemTypeBasic FilesystemType = 0
-	FilesystemTypeFake  FilesystemType = 1
+	FilesystemTypeBasic  FilesystemType = 0
+	FilesystemTypeFake   FilesystemType = 1
+	FilesystemTypeCustom FilesystemType = 2
 )
 
 func (t FilesystemType) String() string {
@@ -21,6 +22,8 @@ func (t FilesystemType) String() string {
 		return "basic"
 	case FilesystemTypeFake:
 		return "fake"
+	case FilesystemTypeCustom:
+		return "custom"
 	default:
 		return "unknown"
 	}
@@ -32,6 +35,8 @@ func (t FilesystemType) ToFS() fs.FilesystemType {
 		return fs.FilesystemTypeBasic
 	case FilesystemTypeFake:
 		return fs.FilesystemTypeFake
+	case FilesystemTypeCustom:
+		return fs.FilesystemTypeCustom
 	default:
 		return fs.FilesystemTypeBasic
 	}
@@ -47,6 +52,8 @@ func (t *FilesystemType) UnmarshalText(bs []byte) error {
 		*t = FilesystemTypeBasic
 	case "fake":
 		*t = FilesystemTypeFake
+	case "custom":
+		*t = FilesystemTypeCustom
 	default:
 		*t = FilesystemTypeBasic
 	}

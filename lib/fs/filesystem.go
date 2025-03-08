@@ -226,6 +226,15 @@ type Option interface {
 	apply(Filesystem) Filesystem
 }
 
+var customFilesystemFactory (func(string, ...Option) (error, Filesystem))
+
+// Register a function to be called when a filesystem is to be constructed with
+// fsType 'custom'. The function will receive the URI for the file system as well
+// as all options.
+func SetCustomFilesystemFactory(fn func(string, ...Option) (error, Filesystem)) {
+	customFilesystemFactory = fn
+}
+
 func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem {
 	var caseOpt Option
 	var mtimeOpt Option
@@ -252,6 +261,24 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 		fs = newBasicFilesystem(uri, opts...)
 	case FilesystemTypeFake:
 		fs = newFakeFilesystem(uri, opts...)
+	case FilesystemTypeCustom:
+		if customFilesystemFactory != nil {
+			var err error
+			err, fs = customFilesystemFactory(uri, opts...)
+			if err != nil {
+				fs = &errorFilesystem{
+					fsType: fsType,
+					uri:    uri,
+					err:    err,
+				}
+			}
+		} else {
+			fs = &errorFilesystem{
+				fsType: fsType,
+				uri:    uri,
+				err:    errors.New("cannot construct a custom file system: a factory function needs to be registered"),
+			}
+		}
 	default:
 		l.Debugln("Unknown filesystem", fsType, uri)
 		fs = &errorFilesystem{
