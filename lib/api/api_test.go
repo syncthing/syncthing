@@ -3331,7 +3331,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		return w
 	}
 
-	startHttpServer := func(t *testing.T, w config.Wrapper) (func(string) *http.Response, func(string, string, any)) {
+	startServer := func(t *testing.T, w config.Wrapper) (func(string) *http.Response, func(string, string, any)) {
 		baseURL, cancel, _, err := startHTTPWithShutdownTimeout(w, shutdownTimeout)
 		t.Cleanup(cancel)
 		if err != nil {
@@ -3379,7 +3379,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 	t.Run("Cannot add WebAuthn credential through just config", func(t *testing.T) {
 		t.Parallel()
 		w := initConfig(t)
-		get, mod := startHttpServer(t, w)
+		get, mod := startServer(t, w)
 		{
 			cfg := w.RawCopy()
 			cfg.GUI.WebauthnCredentials = append(
@@ -3410,13 +3410,13 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		t.Parallel()
 		w := initConfig(t)
 		{
-			_, mod := startHttpServer(t, w)
+			_, mod := startServer(t, w)
 			cfg := w.RawCopy()
 			cfg.GUI.WebauthnCredentials[0].ID = "ZZZZ"
 			mod(http.MethodPut, cfgPath, cfg)
 		}
 		{
-			get, _ := startHttpServer(t, w)
+			get, _ := startServer(t, w)
 			resp := get(cfgPath)
 			var cfg config.Configuration
 			err := unmarshalTo(resp.Body, &cfg)
@@ -3433,7 +3433,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 		t.Run(fmt.Sprintf("Cannot edit WebAuthnCredential.%s", propName), func(t *testing.T) {
 			t.Parallel()
 			w := initConfig(t)
-			get, mod := startHttpServer(t, w)
+			get, mod := startServer(t, w)
 			{
 				cfg := w.RawCopy()
 				modify(cfg.GUI.WebauthnCredentials)
@@ -3471,13 +3471,13 @@ func TestWebauthnConfigChanges(t *testing.T) {
 			t.Parallel()
 			w := initConfig(t)
 			{
-				_, mod := startHttpServer(t, w)
+				_, mod := startServer(t, w)
 				cfg := w.RawCopy()
 				modify(cfg.GUI.WebauthnCredentials)
 				mod(http.MethodPut, cfgPath, cfg)
 			}
 			{
-				get, _ := startHttpServer(t, w)
+				get, _ := startServer(t, w)
 				resp := get(cfgPath)
 				var cfg config.Configuration
 				err := unmarshalTo(resp.Body, &cfg)
