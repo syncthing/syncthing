@@ -382,7 +382,8 @@ func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file str
 	}
 	upStmt, err := txp.Prepare(`
 		UPDATE files SET local_flags = ?
-		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?`)
+		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?
+	`)
 	if err != nil {
 		return wrap("processNeed (insert global)", err)
 	}
@@ -392,8 +393,9 @@ func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file str
 
 	// Clear the need and global flags on all other entries
 	upStmt, err = txp.Prepare(`
-			UPDATE files SET local_flags = local_flags & ?
-			WHERE folder_idx = ? AND name = ? AND sequence != ? AND local_flags & ? != 0`)
+		UPDATE files SET local_flags = local_flags & ?
+		WHERE folder_idx = ? AND name = ? AND sequence != ? AND local_flags & ? != 0
+	`)
 	if err != nil {
 		return wrap("processNeed (clear need)", err)
 	}

@@ -81,7 +81,7 @@ func (s *DB) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context) error 
 		DELETE FROM blocklists
 		WHERE blocklist_hash NOT IN (
 			SELECT blocklist_hash FROM files
-		);`); err != nil {
+		)`); err != nil {
 		return wrap("garbage collect blocklists", err)
 	}
 
@@ -89,7 +89,7 @@ func (s *DB) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context) error 
 		DELETE FROM blocks
 		WHERE blocklist_hash NOT IN (
 			SELECT blocklist_hash FROM blocklists
-		);`); err != nil {
+		)`); err != nil {
 		return wrap("garbage collect blocklists", err)
 	}
 

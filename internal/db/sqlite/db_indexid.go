@@ -45,9 +45,9 @@ func (s *DB) IndexIDGet(folder string, device protocol.DeviceID) (protocol.Index
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	if err := tx.Get(&indexID, `
-		SELECT index_id FROM indexids WHERE folder_idx = ? AND device_idx = ?`,
-		folderIdx, s.localDeviceIdx,
+	if err := tx.Get(&indexID, s.tpl(`
+		SELECT index_id FROM indexids WHERE folder_idx = ? AND device_idx = {{.LocalDeviceIdx}}
+	`), folderIdx,
 	); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return 0, fmt.Errorf("indexID (get): %w", err)
 	}
@@ -55,8 +55,9 @@ func (s *DB) IndexIDGet(folder string, device protocol.DeviceID) (protocol.Index
 	if indexID == "" {
 		// Generate a new index ID
 		id := protocol.NewIndexID()
-		if _, err := tx.Exec(`INSERT INTO indexids (folder_idx, device_idx, index_id) values (?, ?, ?)`,
-			folderIdx, s.localDeviceIdx, indexIDToHex(id),
+		if _, err := tx.Exec(s.tpl(`
+			INSERT INTO indexids (folder_idx, device_idx, index_id) values (?, {{.LocalDeviceIdx}}, ?)
+		`), folderIdx, indexIDToHex(id),
 		); err != nil {
 			return 0, fmt.Errorf("indexID (insert): %w", err)
 		}
@@ -82,8 +83,9 @@ func (s *DB) IndexIDSet(folder string, device protocol.DeviceID, id protocol.Ind
 		return fmt.Errorf("indexID (deviceIdx): %w", err)
 	}
 
-	if _, err := s.sql.Exec(`INSERT OR REPLACE INTO indexids (folder_idx, device_idx, index_id) values (?, ?, ?)`,
-		folderIdx, deviceIdx, indexIDToHex(id),
+	if _, err := s.sql.Exec(`
+		INSERT OR REPLACE INTO indexids (folder_idx, device_idx, index_id) values (?, ?, ?)
+	`, folderIdx, deviceIdx, indexIDToHex(id),
 	); err != nil {
 		return fmt.Errorf("indexID (insert): %w", err)
 	}

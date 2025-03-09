@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"text/template"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -39,13 +41,60 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 	}
 
 	db := &DB{
-		sql:      sqlDB,
-		prepared: make(map[string]*sqlx.Stmt),
+		sql:        sqlDB,
+		prepared:   make(map[string]*sqlx.Stmt),
+		statements: make(map[string]string),
 	}
 
 	// Touch device IDs that should always exist and have a low index
 	// numbers, and will never change
 	db.localDeviceIdx, _ = db.deviceIdxLocked(protocol.LocalDeviceID)
 
+	db.tplInput = map[string]any{
+		"FlagLocalUnsupported": protocol.FlagLocalUnsupported,
+		"FlagLocalIgnored":     protocol.FlagLocalIgnored,
+		"FlagLocalMustRescan":  protocol.FlagLocalMustRescan,
+		"FlagLocalReceiveOnly": protocol.FlagLocalReceiveOnly,
+		"FlagLocalGlobal":      protocol.FlagLocalGlobal,
+		"FlagLocalNeeded":      protocol.FlagLocalNeeded,
+		"FlagLocalDeleted":     protocol.FlagLocalDeleted,
+		"LocalDeviceIdx":       db.localDeviceIdx,
+	}
+
 	return db, nil
+}
+
+var tplFuncs = template.FuncMap{
+	"or": func(vs ...int) int {
+		v := vs[0]
+		for _, ov := range vs[1:] {
+			v |= ov
+		}
+		return v
+	},
+}
+
+func (s *DB) tpl(tpl string) string {
+	s.statementsMut.RLock()
+	stmt, ok := s.statements[tpl]
+	s.statementsMut.RUnlock()
+	if ok {
+		return stmt
+	}
+
+	s.statementsMut.Lock()
+	defer s.statementsMut.Unlock()
+	stmt, ok = s.statements[tpl]
+	if ok {
+		return stmt
+	}
+
+	var sb strings.Builder
+	compTpl := template.Must(template.New("tpl").Funcs(tplFuncs).Parse(tpl))
+	if err := compTpl.Execute(&sb, s.tplInput); err != nil {
+		panic("bug: bad template: " + err.Error())
+	}
+	stmt = sb.String()
+	s.statements[tpl] = stmt
+	return stmt
 }

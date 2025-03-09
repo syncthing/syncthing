@@ -22,8 +22,8 @@ func (s *DB) GetDeviceFile(folder string, device protocol.DeviceID, file string)
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN devices d ON f.device_idx = d.idx
 		INNER JOIN folders o ON f.folder_idx = o.idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND f.name = ?`,
-		folder, device.String(), file)
+		WHERE o.folder_id = ? AND d.device_id = ? AND f.name = ?
+	`, folder, device.String(), file)
 	if errors.Is(err, sql.ErrNoRows) {
 		return protocol.FileInfo{}, false, nil
 	}
@@ -48,8 +48,8 @@ func (s *DB) GetDeviceSequence(folder string, device protocol.DeviceID) (int64, 
 		SELECT MAX(f.%s) FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ?`, field),
-		folder, device.String())
+		WHERE o.folder_id = ? AND d.device_id = ?
+	`, field), folder, device.String())
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, nil
 	}
@@ -69,8 +69,8 @@ func (s *DB) AllLocalFiles(folder string, device protocol.DeviceID) (iter.Seq[pr
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ?`,
-		folder, device.String()))
+		WHERE o.folder_id = ? AND d.device_id = ?
+	`, folder, device.String()))
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 
@@ -105,19 +105,19 @@ func (s *DB) AllLocalFilesWithPrefix(folder string, device protocol.DeviceID, pr
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND (f.name = ? OR f.name LIKE ?)`,
-		folder, device.String(), prefix, pattern))
+		WHERE o.folder_id = ? AND d.device_id = ? AND (f.name = ? OR f.name LIKE ?)
+	`, folder, device.String(), prefix, pattern))
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 
 func (s *DB) AllLocalFilesWithBlocksHash(folder string, h []byte) (iter.Seq[protocol.FileInfo], func() error) {
-	it, errFn := iterStructs[indirectFI](s.sql.Queryx(`
+	it, errFn := iterStructs[indirectFI](s.sql.Queryx(s.tpl(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
-		WHERE o.folder_id = ? AND f.device_idx = ? AND f.blocklist_hash = ?`,
-		folder, s.localDeviceIdx, h))
+		WHERE o.folder_id = ? AND f.device_idx = {{.LocalDeviceIdx}} AND f.blocklist_hash = ?
+	`), folder, h))
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 
@@ -127,13 +127,13 @@ func (s *DB) AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, p
 		FiProtobuf []byte
 		BlProtobuf []byte
 	}
-	rows, err := s.sql.Queryx(`
+	rows, err := s.sql.Queryx(s.tpl(`
 		SELECT o.folder_id, fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
 		INNER JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
-		WHERE f.device_idx = ? AND f.blocklist_hash = ?`,
-		s.localDeviceIdx, h)
+		WHERE f.device_idx = {{.LocalDeviceIdx}} AND f.blocklist_hash = ?
+	`), h)
 	items, errFn := iterStructs[row](rows, err)
 	var retErr error
 	errFn2 := func() error {
@@ -160,9 +160,9 @@ func (s *DB) AllLocalBlocksWithHash(hash []byte) (iter.Seq[db.BlockMapEntry], fu
 	// We involve the files table in this select because deletion of blocks
 	// & blocklists is deferred (gabrage collected) while the files list is
 	// not. This filters out blocks that are in fact deleted.
-	return iterStructs[db.BlockMapEntry](s.sql.Queryx(`
+	return iterStructs[db.BlockMapEntry](s.sql.Queryx(s.tpl(`
 		SELECT f.blocklist_hash as blocklisthash, b.idx as blockindex, b.offset, b.size FROM files f
 		LEFT JOIN blocks b ON f.blocklist_hash = b.blocklist_hash
-		WHERE f.device_idx = ? AND b.hash = ?`,
-		s.localDeviceIdx, hash))
+		WHERE f.device_idx = {{.LocalDeviceIdx}} AND b.hash = ?
+	`), hash))
 }
