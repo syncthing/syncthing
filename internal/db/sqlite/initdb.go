@@ -38,8 +38,12 @@ func initDB(db *sqlx.DB) error {
 	}
 
 	// XXX temporary calmh migration
-	db.Exec(`INSERT INTO counts (SELECT * FROM sizes)`)
-	db.Exec(`DROP TABLE sizes`)
+	_, _ = db.Exec(`DROP TRIGGER sizes_insert`)
+	_, _ = db.Exec(`DROP TRIGGER sizes_delete`)
+	_, _ = db.Exec(`DROP TRIGGER sizes_update_add`)
+	_, _ = db.Exec(`DROP TRIGGER sizes_update_del`)
+	_, _ = db.Exec(`INSERT INTO counts (folder_idx, device_idx, type, local_flags, count, size) SELECT folder_idx, device_idx, type, local_flags, count, size FROM sizes`)
+	_, _ = db.Exec(`DROP TABLE sizes`)
 
 	return nil
 }
