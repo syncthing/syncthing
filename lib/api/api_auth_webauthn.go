@@ -190,7 +190,7 @@ func (s *webauthnService) startWebauthnRegistration(guiCfg config.GUIConfigurati
 
 func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfiguration) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		defer s.deleteOldStates()
+		defer s.cleanupExpiredRequests()
 		requestID := r.URL.Query().Get("requestId")
 		var credResp webauthnProtocol.CredentialCreationResponse
 		if err := unmarshalTo(r.Body, &credResp); err != nil {
@@ -293,7 +293,7 @@ func (s *webauthnService) startWebauthnAuthentication(guiCfg config.GUIConfigura
 
 func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *tokenCookieManager, guiCfg config.GUIConfiguration) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		defer s.deleteOldStates()
+		defer s.cleanupExpiredRequests()
 		requestID := r.URL.Query().Get("requestId")
 		stayLoggedIn := r.URL.Query().Get("stayLoggedIn") == "true"
 
@@ -358,7 +358,7 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 	}
 }
 
-func (s *webauthnService) deleteOldStates() {
+func (s *webauthnService) cleanupExpiredRequests() {
 	for requestId, state := range s.registrationStates {
 		if s.expired(&state) {
 			l.Debugf("WebAuthn registration expired: %v", state)
