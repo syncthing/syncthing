@@ -1,5 +1,5 @@
--- Sizes
-CREATE TABLE IF NOT EXISTS sizes (
+-- Counts
+CREATE TABLE IF NOT EXISTS counts (
     folder_idx INTEGER NOT NULL,
     device_idx INTEGER NOT NULL,
     type INTEGER NOT NULL,
@@ -12,33 +12,33 @@ CREATE TABLE IF NOT EXISTS sizes (
 ) STRICT
 ;
 
---- Maintain size counts when files are added and removed using triggers
+--- Maintain counts when files are added and removed using triggers
 
-CREATE TRIGGER IF NOT EXISTS sizes_insert AFTER INSERT ON files
+CREATE TRIGGER IF NOT EXISTS counts_insert AFTER INSERT ON files
 BEGIN
-    INSERT INTO sizes (folder_idx, device_idx, type, local_flags, count, size)
+    INSERT INTO counts (folder_idx, device_idx, type, local_flags, count, size)
         VALUES (NEW.folder_idx, NEW.device_idx, NEW.type, NEW.local_flags, 1, NEW.size)
         ON CONFLICT DO UPDATE SET count = count + 1, size = size + NEW.size;
 END
 ;
-CREATE TRIGGER IF NOT EXISTS sizes_delete AFTER DELETE ON files
+CREATE TRIGGER IF NOT EXISTS counts_delete AFTER DELETE ON files
 BEGIN
-    UPDATE sizes SET count = count - 1, size = size - OLD.size
+    UPDATE counts SET count = count - 1, size = size - OLD.size
         WHERE folder_idx = OLD.folder_idx AND device_idx = OLD.device_idx AND type = OLD.type AND local_flags = OLD.local_flags;
 END
 ;
-CREATE TRIGGER IF NOT EXISTS sizes_update_add AFTER UPDATE ON files
+CREATE TRIGGER IF NOT EXISTS counts_update_add AFTER UPDATE ON files
 WHEN NEW.local_flags != OLD.local_flags
 BEGIN
-    INSERT INTO sizes (folder_idx, device_idx, type, local_flags, count, size)
+    INSERT INTO counts (folder_idx, device_idx, type, local_flags, count, size)
         VALUES (NEW.folder_idx, NEW.device_idx, NEW.type, NEW.local_flags, 1, NEW.size)
         ON CONFLICT DO UPDATE SET count = count + 1, size = size + NEW.size;
 END
 ;
-CREATE TRIGGER IF NOT EXISTS sizes_update_del AFTER UPDATE ON files
+CREATE TRIGGER IF NOT EXISTS counts_update_del AFTER UPDATE ON files
 WHEN NEW.local_flags != OLD.local_flags
 BEGIN
-    UPDATE sizes SET count = count - 1, size = size - OLD.size
+    UPDATE counts SET count = count - 1, size = size - OLD.size
         WHERE folder_idx = OLD.folder_idx AND device_idx = OLD.device_idx AND type = OLD.type AND local_flags = OLD.local_flags;
 END
 ;

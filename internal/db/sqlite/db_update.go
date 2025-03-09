@@ -170,7 +170,7 @@ func (s *DB) DropDevice(device protocol.DeviceID) error {
 	var folderIdxs []int64
 	if err := tx.Select(&folderIdxs, `
 		SELECT folder_idx
-		FROM sizes
+		FROM counts
 		WHERE device_idx = ? AND count > 0
 		GROUP BY folder_idx`, deviceIdx); err != nil {
 		return wrap("drop device", err)
