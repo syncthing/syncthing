@@ -21,12 +21,14 @@ RUN if [ ! -f syncthing-linux-$TARGETARCH ] ; then \
     mv syncthing syncthing-linux-$TARGETARCH ; \
   fi
 
+RUN chmod 755 /src/script/docker-entrypoint.sh
+
 #
 # The rest of the Dockerfile uses the binary from the builder, prebuilt or
 # not.
 #
 
-FROM alpine
+FROM cgr.dev/chainguard/glibc-dynamic
 ARG TARGETARCH
 
 LABEL org.opencontainers.image.authors="The Syncthing Project" \
@@ -41,17 +43,15 @@ EXPOSE 8384 22000/tcp 22000/udp 21027/udp
 
 VOLUME ["/var/syncthing"]
 
-RUN apk add --no-cache ca-certificates curl libcap su-exec tzdata
-
 COPY --from=builder /src/syncthing-linux-$TARGETARCH /bin/syncthing
 COPY --from=builder /src/script/docker-entrypoint.sh /bin/entrypoint.sh
 
-ENV PUID=1000 PGID=1000 HOME=/var/syncthing
+ENV HOME=/var/syncthing
 
-HEALTHCHECK --interval=1m --timeout=10s \
-  CMD curl -fkLsS -m 2 127.0.0.1:8384/rest/noauth/health | grep -o --color=never OK || exit 1
+# xxx use syncthing cli
+# HEALTHCHECK --interval=1m --timeout=10s \
+# CMD curl -fkLsS -m 2 127.0.0.1:8384/rest/noauth/health | grep -o --color=never OK || exit 1
 
 ENV STGUIADDRESS=0.0.0.0:8384
 ENV STHOMEDIR=/var/syncthing/config
-RUN chmod 755 /bin/entrypoint.sh
-ENTRYPOINT ["/bin/entrypoint.sh", "/bin/syncthing"]
+ENTRYPOINT ["/bin/syncthing"]

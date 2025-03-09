@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-const Codename = "Gold Grasshopper"
+const Codename = "Hafnium Hornet"
 
 var (
 	// Injected by build script
@@ -27,6 +27,9 @@ var (
 	User    = "unknown"
 	Stamp   = "0"
 	Tags    = ""
+
+	// Added to by other packages
+	extraTags []string
 
 	// Set by init()
 	Date        time.Time
@@ -108,6 +111,7 @@ func TagsList() []string {
 	if Extra != "" {
 		tags = append(tags, Extra)
 	}
+	tags = append(tags, extraTags...)
 
 	sort.Strings(tags)
 	return tags
@@ -123,4 +127,9 @@ func filterString(s, allowedChars string) string {
 		}
 	}
 	return res.String()
+}
+
+func AddTag(tag string) {
+	extraTags = append(extraTags, tag)
+	LongVersion = LongVersionFor("syncthing")
 }
