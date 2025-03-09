@@ -23,7 +23,7 @@ const (
 func TestBasics(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -387,7 +387,7 @@ func TestBasics(t *testing.T) {
 }
 
 func TestAvailability(t *testing.T) {
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -454,7 +454,7 @@ func TestAvailability(t *testing.T) {
 }
 
 func TestDropFilesNamed(t *testing.T) {
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -498,7 +498,7 @@ func TestDropFilesNamed(t *testing.T) {
 }
 
 func TestDropFolder(t *testing.T) {
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -558,7 +558,7 @@ func TestDropFolder(t *testing.T) {
 }
 
 func TestDropDevice(t *testing.T) {
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -622,7 +622,7 @@ func TestDropDevice(t *testing.T) {
 }
 
 func TestDropAllFiles(t *testing.T) {
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -784,7 +784,7 @@ func TestConcurrentUpdateSelect(t *testing.T) {
 func TestAllForBlocksHash(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -18,7 +18,7 @@ import (
 )
 
 func TestDeviceStat(t *testing.T) {
-	db, err := sqlite.OpenMemory()
+	db, err := sqlite.OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}

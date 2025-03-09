@@ -11,7 +11,7 @@ import (
 func TestBlocks(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal()
 	}
@@ -101,7 +101,7 @@ func TestBlocks(t *testing.T) {
 func TestBlocksDeleted(t *testing.T) {
 	t.Parallel()
 
-	sdb, err := OpenMemory()
+	sdb, err := OpenTemp()
 	if err != nil {
 		t.Fatal()
 	}

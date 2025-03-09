@@ -148,7 +148,7 @@ type testModel struct {
 func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, protectedFiles []string) *testModel {
 	t.Helper()
 	evLogger := events.NewLogger()
-	mdb, err := sqlite.OpenMemory()
+	mdb, err := sqlite.OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}

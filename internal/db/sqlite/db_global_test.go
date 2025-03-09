@@ -11,7 +11,7 @@ import (
 func TestNeed(t *testing.T) {
 	t.Helper()
 
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestDropRecalcsGlobal(t *testing.T) {
 func testDropWithDropper(t *testing.T, dropper func(t *testing.T, db *DB)) {
 	t.Helper()
 
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func testDropWithDropper(t *testing.T, dropper func(t *testing.T, db *DB)) {
 func TestNeedDeleted(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func TestNeedDeleted(t *testing.T) {
 func TestDontNeedIgnored(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +265,7 @@ func TestDontNeedIgnored(t *testing.T) {
 func TestRemoveDontNeedLocalIgnored(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,7 +307,7 @@ func TestRemoveDontNeedLocalIgnored(t *testing.T) {
 func TestLocalDontNeedDeletedMissing(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -349,7 +349,7 @@ func TestLocalDontNeedDeletedMissing(t *testing.T) {
 func TestRemoteDontNeedDeletedMissing(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -391,7 +391,7 @@ func TestRemoteDontNeedDeletedMissing(t *testing.T) {
 func TestNeedRemoteSymlinkAndDir(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -434,7 +434,7 @@ func TestNeedRemoteSymlinkAndDir(t *testing.T) {
 func TestNeedPagination(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}

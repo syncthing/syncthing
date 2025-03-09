@@ -72,7 +72,7 @@ func TestStartupFail(t *testing.T) {
 	}, protocol.LocalDeviceID, events.NoopLogger)
 	defer os.Remove(cfg.ConfigPath())
 
-	sdb, err := sqlite.OpenMemory()
+	sdb, err := sqlite.OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}

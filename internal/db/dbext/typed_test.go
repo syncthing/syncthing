@@ -17,7 +17,7 @@ import (
 func TestNamespacedInt(t *testing.T) {
 	t.Parallel()
 
-	ldb, err := sqlite.OpenMemory()
+	ldb, err := sqlite.OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}

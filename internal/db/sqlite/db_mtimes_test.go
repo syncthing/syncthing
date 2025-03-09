@@ -8,7 +8,7 @@ import (
 func TestMtimePairs(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenMemory()
+	db, err := OpenTemp()
 	if err != nil {
 		t.Fatal()
 	}

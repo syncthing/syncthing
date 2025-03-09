@@ -19,7 +19,7 @@ func Open(path string) (*DB, error) {
 	return openCommon(sqlDB)
 }
 
-func OpenMemory() (*DB, error) {
+func OpenTemp() (*DB, error) {
 	// SQLite has a memory mode, but it works differently with concurrency
 	// compared to what we need with the WAL mode. So, no memory databases
 	// for now.
