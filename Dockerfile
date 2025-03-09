@@ -21,6 +21,8 @@ RUN if [ ! -f syncthing-linux-$TARGETARCH ] ; then \
     mv syncthing syncthing-linux-$TARGETARCH ; \
   fi
 
+RUN chmod 755 /src/script/docker-entrypoint.sh
+
 #
 # The rest of the Dockerfile uses the binary from the builder, prebuilt or
 # not.
@@ -51,5 +53,4 @@ HEALTHCHECK --interval=1m --timeout=10s \
 
 ENV STGUIADDRESS=0.0.0.0:8384
 ENV STHOMEDIR=/var/syncthing/config
-RUN chmod 755 /bin/entrypoint.sh
 ENTRYPOINT ["/bin/entrypoint.sh", "/bin/syncthing"]
