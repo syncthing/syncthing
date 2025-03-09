@@ -1094,7 +1094,7 @@ jobs:
 
       - name: Build binaries (CGO)
         run: |
-          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
+          sudo apt-get install -y gcc-aarch64-linux-gnu # gcc-arm-linux-gnueabi
 
           # amd64
           go run build.go -goos linux -goarch amd64 -no-upgrade build ${{ matrix.pkg }}
@@ -1105,8 +1105,8 @@ jobs:
           mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm64
 
           # arm
-          go run build.go -goos linux -goarch arm -cc arm-linux-gnueabi-gcc -no-upgrade build ${{ matrix.pkg }}
-          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm
+          # go run build.go -goos linux -goarch arm -cc arm-linux-gnueabi-gcc -no-upgrade build ${{ matrix.pkg }}
+          # mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm
         env:
           CGO_ENABLED: "1"
           BUILD_USER: docker
@@ -1134,7 +1134,7 @@ jobs:
         with:
           context: .
           file: ${{ matrix.dockerfile }}
-          platforms: linux/amd64,linux/arm64,linux/arm/7
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.DOCKER_TAGS }}
           labels: |
