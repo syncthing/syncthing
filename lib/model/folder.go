@@ -707,7 +707,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 	changes := 0
 
 	for _, sub := range subDirs {
-		for fi, err := range itererr.Zip(f.db.AllLocalFilesPrefix(f.folderID, protocol.LocalDeviceID, sub)) {
+		for fi, err := range itererr.Zip(f.db.AllLocalFilesWithPrefix(f.folderID, protocol.LocalDeviceID, sub)) {
 			if err != nil {
 				return changes, err
 			}

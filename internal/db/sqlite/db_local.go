@@ -12,6 +12,56 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
+func (s *DB) GetDeviceFile(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {
+	file = osutil.NormalizedFilename(file)
+
+	var ind indirectFI
+	err := s.sql.Get(&ind, `
+		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
+		INNER JOIN files f on fi.sequence = f.sequence
+		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
+		INNER JOIN devices d ON f.device_idx = d.idx
+		INNER JOIN folders o ON f.folder_idx = o.idx
+		WHERE o.folder_id = ? AND d.device_id = ? AND f.name = ?`,
+		folder, device.String(), file)
+	if errors.Is(err, sql.ErrNoRows) {
+		return protocol.FileInfo{}, false, nil
+	}
+	if err != nil {
+		return protocol.FileInfo{}, false, wrap("local", err)
+	}
+	fi, err := ind.FileInfo()
+	if err != nil {
+		return protocol.FileInfo{}, false, wrap("local", err)
+	}
+	return fi, true, nil
+}
+
+func (s *DB) GetDeviceSequence(folder string, device protocol.DeviceID) (int64, error) {
+	field := "sequence"
+	if device != protocol.LocalDeviceID {
+		field = "remote_sequence"
+	}
+
+	var res sql.NullInt64
+	err := s.sql.Get(&res, fmt.Sprintf(`
+		SELECT MAX(f.%s) FROM files f
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		INNER JOIN devices d ON d.idx = f.device_idx
+		WHERE o.folder_id = ? AND d.device_id = ?`, field),
+		folder, device.String())
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, wrap("sequence", err)
+	}
+	if !res.Valid {
+		return 0, nil
+	}
+	return res.Int64, nil
+}
+
 func (s *DB) AllLocalFiles(folder string, device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error) {
 	it, errFn := iterStructs[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
@@ -41,7 +91,7 @@ func (s *DB) AllLocalFilesBySequence(folder string, device protocol.DeviceID, st
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 
-func (s *DB) AllLocalFilesPrefix(folder string, device protocol.DeviceID, prefix string) (iter.Seq[protocol.FileInfo], func() error) {
+func (s *DB) AllLocalFilesWithPrefix(folder string, device protocol.DeviceID, prefix string) (iter.Seq[protocol.FileInfo], func() error) {
 	if prefix == "" {
 		return s.AllLocalFiles(folder, device)
 	}
@@ -115,54 +165,4 @@ func (s *DB) AllLocalBlocksWithHash(hash []byte) (iter.Seq[db.BlockMapEntry], fu
 		LEFT JOIN blocks b ON f.blocklist_hash = b.blocklist_hash
 		WHERE f.device_idx = ? AND b.hash = ?`,
 		s.localDeviceIdx, hash))
-}
-
-func (s *DB) GetDeviceFile(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {
-	file = osutil.NormalizedFilename(file)
-
-	var ind indirectFI
-	err := s.sql.Get(&ind, `
-		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
-		INNER JOIN files f on fi.sequence = f.sequence
-		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
-		INNER JOIN devices d ON f.device_idx = d.idx
-		INNER JOIN folders o ON f.folder_idx = o.idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND f.name = ?`,
-		folder, device.String(), file)
-	if errors.Is(err, sql.ErrNoRows) {
-		return protocol.FileInfo{}, false, nil
-	}
-	if err != nil {
-		return protocol.FileInfo{}, false, wrap("local", err)
-	}
-	fi, err := ind.FileInfo()
-	if err != nil {
-		return protocol.FileInfo{}, false, wrap("local", err)
-	}
-	return fi, true, nil
-}
-
-func (s *DB) GetDeviceSequence(folder string, device protocol.DeviceID) (int64, error) {
-	field := "sequence"
-	if device != protocol.LocalDeviceID {
-		field = "remote_sequence"
-	}
-
-	var res sql.NullInt64
-	err := s.sql.Get(&res, fmt.Sprintf(`
-		SELECT MAX(f.%s) FROM files f
-		INNER JOIN folders o ON o.idx = f.folder_idx
-		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ?`, field),
-		folder, device.String())
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, wrap("sequence", err)
-	}
-	if !res.Valid {
-		return 0, nil
-	}
-	return res.Int64, nil
 }

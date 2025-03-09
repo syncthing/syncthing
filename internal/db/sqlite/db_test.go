@@ -352,7 +352,7 @@ func TestBasics(t *testing.T) {
 	t.Run("AllLocalPrefix", func(t *testing.T) {
 		t.Parallel()
 
-		vals := mustCollect[protocol.FileInfo](t)(db.AllLocalFilesPrefix(folderID, protocol.LocalDeviceID, "test2"))
+		vals := mustCollect[protocol.FileInfo](t)(db.AllLocalFilesWithPrefix(folderID, protocol.LocalDeviceID, "test2"))
 
 		// Vals should be test2, test2/a, test2/b
 		if len(vals) != 3 {
@@ -363,7 +363,7 @@ func TestBasics(t *testing.T) {
 		}
 
 		// Empty prefix should be all the files
-		vals = mustCollect[protocol.FileInfo](t)(db.AllLocalFilesPrefix(folderID, protocol.LocalDeviceID, ""))
+		vals = mustCollect[protocol.FileInfo](t)(db.AllLocalFilesWithPrefix(folderID, protocol.LocalDeviceID, ""))
 
 		if len(vals) != 4 {
 			t.Log(vals)

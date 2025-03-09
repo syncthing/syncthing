@@ -12,6 +12,89 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
+func (s *DB) GetGlobalFile(folder string, file string) (protocol.FileInfo, bool, error) {
+	file = osutil.NormalizedFilename(file)
+
+	var ind indirectFI
+	err := s.sql.Get(&ind, `
+		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
+		INNER JOIN files f on fi.sequence = f.sequence
+		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		WHERE o.folder_id = ? AND f.name = ? AND f.local_flags & ? != 0`, folder, file, protocol.FlagLocalGlobal)
+	if errors.Is(err, sql.ErrNoRows) {
+		return protocol.FileInfo{}, false, nil
+	}
+	if err != nil {
+		return protocol.FileInfo{}, false, wrap("global", err)
+	}
+	fi, err := ind.FileInfo()
+	if err != nil {
+		return protocol.FileInfo{}, false, wrap("local", err)
+	}
+	return fi, true, nil
+}
+
+func (s *DB) GetGlobalAvailability(folder, file string) ([]protocol.DeviceID, error) {
+	file = osutil.NormalizedFilename(file)
+
+	var devStrs []string
+	err := s.sql.Select(&devStrs, `
+		SELECT d.device_id FROM files f
+		INNER JOIN devices d ON d.idx = f.device_idx
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		INNER JOIN files g ON f.folder_idx = g.folder_idx AND g.version = f.version AND g.name = f.name
+		WHERE o.folder_id = ? AND g.name = ? AND g.local_flags & ? != 0 AND f.device_idx != ?
+		ORDER BY d.device_id`,
+		folder, file, protocol.FlagLocalGlobal, s.localDeviceIdx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, wrap("availability", err)
+	}
+
+	devs := make([]protocol.DeviceID, 0, len(devStrs))
+	for _, s := range devStrs {
+		d, err := protocol.DeviceIDFromString(s)
+		if err != nil {
+			return nil, err
+		}
+		devs = append(devs, d)
+	}
+
+	return devs, nil
+}
+
+func (s *DB) AllGlobalFiles(folder string) (iter.Seq[protocol.FileInfo], func() error) {
+	beps, errFn := iterStructs[indirectFI](s.sql.Queryx(`
+		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
+		INNER JOIN files f on fi.sequence = f.sequence
+		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		WHERE o.folder_id = ? AND f.local_flags & ? != 0`,
+		folder, protocol.FlagLocalGlobal))
+	return itererr.Map(beps, errFn, indirectFI.FileInfo)
+}
+
+func (s *DB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[protocol.FileInfo], func() error) {
+	if prefix == "" {
+		return s.AllGlobalFiles(folder)
+	}
+
+	prefix = osutil.NormalizedFilename(prefix)
+	pattern := prefix + "%"
+
+	beps, errFn := iterStructs[indirectFI](s.sql.Queryx(`
+		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
+		INNER JOIN files f on fi.sequence = f.sequence
+		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		WHERE o.folder_id = ? AND (f.name = ? OR f.name LIKE ?) AND f.local_flags & ? != 0`,
+		folder, prefix, pattern, protocol.FlagLocalGlobal))
+	return itererr.Map(beps, errFn, indirectFI.FileInfo)
+}
+
 func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit, offset int) (iter.Seq[protocol.FileInfo], func() error) {
 	var selectOpts string
 	switch order {
@@ -84,87 +167,4 @@ func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order
 		folder, protocol.FlagLocalGlobal, device.String(),
 	))
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
-}
-
-func (s *DB) GetGlobalAvailability(folder, file string) ([]protocol.DeviceID, error) {
-	file = osutil.NormalizedFilename(file)
-
-	var devStrs []string
-	err := s.sql.Select(&devStrs, `
-		SELECT d.device_id FROM files f
-		INNER JOIN devices d ON d.idx = f.device_idx
-		INNER JOIN folders o ON o.idx = f.folder_idx
-		INNER JOIN files g ON f.folder_idx = g.folder_idx AND g.version = f.version AND g.name = f.name
-		WHERE o.folder_id = ? AND g.name = ? AND g.local_flags & ? != 0 AND f.device_idx != ?
-		ORDER BY d.device_id`,
-		folder, file, protocol.FlagLocalGlobal, s.localDeviceIdx)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, wrap("availability", err)
-	}
-
-	devs := make([]protocol.DeviceID, 0, len(devStrs))
-	for _, s := range devStrs {
-		d, err := protocol.DeviceIDFromString(s)
-		if err != nil {
-			return nil, err
-		}
-		devs = append(devs, d)
-	}
-
-	return devs, nil
-}
-
-func (s *DB) GetGlobalFile(folder string, file string) (protocol.FileInfo, bool, error) {
-	file = osutil.NormalizedFilename(file)
-
-	var ind indirectFI
-	err := s.sql.Get(&ind, `
-		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
-		INNER JOIN files f on fi.sequence = f.sequence
-		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
-		INNER JOIN folders o ON o.idx = f.folder_idx
-		WHERE o.folder_id = ? AND f.name = ? AND f.local_flags & ? != 0`, folder, file, protocol.FlagLocalGlobal)
-	if errors.Is(err, sql.ErrNoRows) {
-		return protocol.FileInfo{}, false, nil
-	}
-	if err != nil {
-		return protocol.FileInfo{}, false, wrap("global", err)
-	}
-	fi, err := ind.FileInfo()
-	if err != nil {
-		return protocol.FileInfo{}, false, wrap("local", err)
-	}
-	return fi, true, nil
-}
-
-func (s *DB) AllGlobalFiles(folder string) (iter.Seq[protocol.FileInfo], func() error) {
-	beps, errFn := iterStructs[indirectFI](s.sql.Queryx(`
-		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
-		INNER JOIN files f on fi.sequence = f.sequence
-		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
-		INNER JOIN folders o ON o.idx = f.folder_idx
-		WHERE o.folder_id = ? AND f.local_flags & ? != 0`,
-		folder, protocol.FlagLocalGlobal))
-	return itererr.Map(beps, errFn, indirectFI.FileInfo)
-}
-
-func (s *DB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[protocol.FileInfo], func() error) {
-	if prefix == "" {
-		return s.AllGlobalFiles(folder)
-	}
-
-	prefix = osutil.NormalizedFilename(prefix)
-	pattern := prefix + "%"
-
-	beps, errFn := iterStructs[indirectFI](s.sql.Queryx(`
-		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
-		INNER JOIN files f on fi.sequence = f.sequence
-		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
-		INNER JOIN folders o ON o.idx = f.folder_idx
-		WHERE o.folder_id = ? AND (f.name = ? OR f.name LIKE ?) AND f.local_flags & ? != 0`,
-		folder, prefix, pattern, protocol.FlagLocalGlobal))
-	return itererr.Map(beps, errFn, indirectFI.FileInfo)
 }
