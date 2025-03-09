@@ -803,11 +803,11 @@ func TestHTTPLogin(t *testing.T) {
 		shutdownTimeout := time.Second
 
 		initConfig := func(password string, t *testing.T) config.Wrapper {
-			gui := config.GUIConfiguration{
+			gui := withTestDefaults(config.GUIConfiguration{
 				RawAddress: "127.0.0.1:0",
 				APIKey:     testAPIKey,
 				User:       "user",
-			}
+			})
 			if err := gui.SetPassword(password); err != nil {
 				t.Fatal(err, "Failed to set initial password")
 			}
@@ -838,7 +838,7 @@ func TestHTTPLogin(t *testing.T) {
 
 			w := initConfig(initialPassword, t)
 			{
-				baseURL, cancel, err := startHTTPWithShutdownTimeout(w, shutdownTimeout)
+				baseURL, cancel, _, err := startHTTPWithShutdownTimeout(w, shutdownTimeout)
 				cfgPath := baseURL + "/rest/config"
 				path := baseURL + "/meta.js"
 				t.Cleanup(cancel)
@@ -856,7 +856,7 @@ func TestHTTPLogin(t *testing.T) {
 				httpRequest(http.MethodPut, cfgPath, cfg, "", "", testAPIKey, "", "", "", nil, t)
 			}
 			{
-				baseURL, cancel, err := startHTTP(w)
+				baseURL, cancel, _, err := startHTTP(w)
 				path := baseURL + "/meta.js"
 				t.Cleanup(cancel)
 				if err != nil {
@@ -880,7 +880,7 @@ func TestHTTPLogin(t *testing.T) {
 
 			w := initConfig(initialPassword, t)
 			{
-				baseURL, cancel, err := startHTTPWithShutdownTimeout(w, shutdownTimeout)
+				baseURL, cancel, _, err := startHTTPWithShutdownTimeout(w, shutdownTimeout)
 				cfgPath := baseURL + "/rest/config/gui"
 				path := baseURL + "/meta.js"
 				t.Cleanup(cancel)
@@ -898,7 +898,7 @@ func TestHTTPLogin(t *testing.T) {
 				httpRequest(http.MethodPut, cfgPath, cfg.GUI, "", "", testAPIKey, "", "", "", nil, t)
 			}
 			{
-				baseURL, cancel, err := startHTTP(w)
+				baseURL, cancel, _, err := startHTTP(w)
 				path := baseURL + "/meta.js"
 				t.Cleanup(cancel)
 				if err != nil {
