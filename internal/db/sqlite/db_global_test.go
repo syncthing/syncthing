@@ -139,12 +139,12 @@ func testDropWithDropper(t *testing.T, dropper func(t *testing.T, db *DB)) {
 	}
 
 	// Remote test1 wins as the global, verify.
-	size, err := db.CountGlobal(folderID)
+	count, err := db.CountGlobal(folderID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if size.Bytes != (2+3)*128<<10 {
-		t.Log(size)
+	if count.Bytes != (2+3)*128<<10 {
+		t.Log(count)
 		t.Fatal("bad global size to begin with")
 	}
 	if g, ok, err := db.GetGlobalFile(folderID, "test1"); err != nil || !ok {
@@ -157,12 +157,12 @@ func testDropWithDropper(t *testing.T, dropper func(t *testing.T, db *DB)) {
 	dropper(t, db)
 
 	// Our test1 should now be the global
-	size, err = db.CountGlobal(folderID)
+	count, err = db.CountGlobal(folderID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if size.Bytes != (1+2)*128<<10 {
-		t.Log(size)
+	if count.Bytes != (1+2)*128<<10 {
+		t.Log(count)
 		t.Fatal("bad global size after drop")
 	}
 	if g, ok, err := db.GetGlobalFile(folderID, "test1"); err != nil || !ok {
