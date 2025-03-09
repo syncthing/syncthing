@@ -26,7 +26,7 @@ RUN if [ ! -f syncthing-linux-$TARGETARCH ] ; then \
 # not.
 #
 
-FROM alpine
+FROM cgr.dev/chainguard/glibc-dynamic
 ARG TARGETARCH
 
 LABEL org.opencontainers.image.authors="The Syncthing Project" \
