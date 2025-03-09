@@ -2,6 +2,8 @@ package itererr
 
 import "iter"
 
+// Collect returns a slice of the items from the iterator, plus the error if
+// any.
 func Collect[T any](it iter.Seq[T], errFn func() error) ([]T, error) {
 	var s []T
 	for v := range it {
@@ -10,6 +12,8 @@ func Collect[T any](it iter.Seq[T], errFn func() error) ([]T, error) {
 	return s, errFn()
 }
 
+// Zip interleaves the iterator value with the error. The iteration ends
+// after a non-nil error.
 func Zip[T any](it iter.Seq[T], errFn func() error) iter.Seq2[T, error] {
 	return func(yield func(T, error) bool) {
 		for v := range it {
@@ -24,6 +28,9 @@ func Zip[T any](it iter.Seq[T], errFn func() error) iter.Seq2[T, error] {
 	}
 }
 
+// Map returns a new iterator by applying the map function, while respecting
+// the error function. Additionally, the map function can return an error if
+// its own.
 func Map[A, B any](i iter.Seq[A], errFn func() error, mapFn func(A) (B, error)) (iter.Seq[B], func() error) {
 	var retErr error
 	return func(yield func(B) bool) {
