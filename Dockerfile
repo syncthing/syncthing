@@ -28,7 +28,7 @@ RUN chmod 755 /src/script/docker-entrypoint.sh
 # not.
 #
 
-FROM debian:bookworm-slim
+FROM cgr.dev/chainguard/glibc-dynamic
 ARG TARGETARCH
 
 LABEL org.opencontainers.image.authors="The Syncthing Project" \
@@ -53,4 +53,4 @@ HEALTHCHECK --interval=1m --timeout=10s \
 
 ENV STGUIADDRESS=0.0.0.0:8384
 ENV STHOMEDIR=/var/syncthing/config
-ENTRYPOINT ["/bin/entrypoint.sh", "/bin/syncthing"]
+ENTRYPOINT ["/bin/syncthing"]
