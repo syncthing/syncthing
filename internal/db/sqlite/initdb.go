@@ -36,5 +36,10 @@ func initDB(db *sqlx.DB) error {
 			}
 		}
 	}
+
+	// XXX temporary calmh migration
+	db.Exec(`INSERT INTO counts (SELECT * FROM sizes)`)
+	db.Exec(`DROP TABLE sizes`)
+
 	return nil
 }
