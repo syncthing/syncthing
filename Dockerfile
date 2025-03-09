@@ -46,10 +46,11 @@ VOLUME ["/var/syncthing"]
 COPY --from=builder /src/syncthing-linux-$TARGETARCH /bin/syncthing
 COPY --from=builder /src/script/docker-entrypoint.sh /bin/entrypoint.sh
 
-ENV PUID=1000 PGID=1000 HOME=/var/syncthing
+ENV HOME=/var/syncthing
 
-HEALTHCHECK --interval=1m --timeout=10s \
-  CMD curl -fkLsS -m 2 127.0.0.1:8384/rest/noauth/health | grep -o --color=never OK || exit 1
+# xxx use syncthing cli
+# HEALTHCHECK --interval=1m --timeout=10s \
+# CMD curl -fkLsS -m 2 127.0.0.1:8384/rest/noauth/health | grep -o --color=never OK || exit 1
 
 ENV STGUIADDRESS=0.0.0.0:8384
 ENV STHOMEDIR=/var/syncthing/config
