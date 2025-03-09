@@ -41,8 +41,6 @@ EXPOSE 8384 22000/tcp 22000/udp 21027/udp
 
 VOLUME ["/var/syncthing"]
 
-RUN apk add --no-cache ca-certificates curl libcap su-exec tzdata
-
 COPY --from=builder /src/syncthing-linux-$TARGETARCH /bin/syncthing
 COPY --from=builder /src/script/docker-entrypoint.sh /bin/entrypoint.sh
 
