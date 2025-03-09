@@ -59,7 +59,6 @@ import (
 	"github.com/syncthing/syncthing/lib/structutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/testutil"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/ur"
 )
@@ -2067,11 +2066,12 @@ func createWebauthnAssertionResponse(
 	rpIdHash := sha256.Sum256([]byte(options.Response.RelyingPartyID))
 	signCountBytes := []byte{0, 0, 0, signCount}
 
-	authData := append(append(
-		rpIdHash[:],
-		byte(webauthnProtocol.FlagUserPresent|testutil.IfExpr(userVerified, webauthnProtocol.FlagUserVerified, 0)),
-	),
-		signCountBytes...)
+	flags := webauthnProtocol.FlagUserPresent
+	if userVerified {
+		flags |= webauthnProtocol.FlagUserVerified
+	}
+
+	authData := append(append(rpIdHash[:], byte(flags)), signCountBytes...)
 
 	clientData := webauthnProtocol.CollectedClientData{
 		Type:      webauthnProtocol.AssertCeremony,
@@ -3289,8 +3289,9 @@ func TestPasswordOrWebauthnAuthentication(t *testing.T) {
 func TestWebauthnConfigChanges(t *testing.T) {
 	t.Parallel()
 
-	// This test needs a longer-than-default shutdown timeout when running on GitHub Actions
-	shutdownTimeout := testutil.IfExpr(os.Getenv("CI") == "true", 1000*time.Millisecond, 0)
+	// This test needs a longer-than-default shutdown timeout to finish saving
+	// config changes when running on GitHub Actions
+	shutdownTimeout := time.Second
 
 	initialWebauthnCredentials := []config.WebauthnCredential{
 		{
