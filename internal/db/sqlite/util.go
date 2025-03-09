@@ -3,7 +3,9 @@ package sqlite
 import (
 	"database/sql/driver"
 	"errors"
+	"iter"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/gen/bep"
 	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -11,6 +13,34 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// iterStructs returns an iterator over the given struct type by scanning
+// the SQL rows. `rows` is closed when the iterator exits.
+func iterStructs[T any](rows *sqlx.Rows, err error) (iter.Seq[T], func() error) {
+	if err != nil {
+		return func(_ func(T) bool) {}, func() error { return err }
+	}
+
+	var retErr error
+	return func(yield func(T) bool) {
+		defer rows.Close()
+		for rows.Next() {
+			v := new(T)
+			if err := rows.StructScan(v); err != nil {
+				retErr = err
+				break
+			}
+			if !yield(*v) {
+				return
+			}
+		}
+		if err := rows.Err(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}, func() error { return retErr }
+}
+
+// dbVector is a wrapper that allows protocol.Vector values to be serialized
+// to and from the database.
 type dbVector struct { //nolint:recvcheck
 	protocol.Vector
 }
@@ -37,6 +67,8 @@ func (v *dbVector) Scan(value any) error {
 	return nil
 }
 
+// indirectFI constructs a FileInfo from separate marshalled FileInfo and
+// BlockList bytes.
 type indirectFI struct {
 	FiProtobuf []byte
 	BlProtobuf []byte
