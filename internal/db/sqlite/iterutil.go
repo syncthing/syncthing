@@ -6,6 +6,8 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// iterStructs returns an iterator over the given struct type by scanning
+// the SQL rows. `rows` is closed when the iterator exits.
 func iterStructs[T any](rows *sqlx.Rows, err error) (iter.Seq[T], func() error) {
 	if err != nil {
 		return func(_ func(T) bool) {}, func() error { return err }

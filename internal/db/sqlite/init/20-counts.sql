@@ -1,4 +1,7 @@
 -- Counts
+--
+-- Counts and sizes are maintained for each device, folder, type, flag bits
+-- combination.
 CREATE TABLE IF NOT EXISTS counts (
     folder_idx INTEGER NOT NULL,
     device_idx INTEGER NOT NULL,

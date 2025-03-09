@@ -1,8 +1,6 @@
 package sqlite
 
 import (
-	"fmt"
-
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -16,19 +14,11 @@ type countsRow struct {
 
 func (s *DB) CountLocal(folder string, device protocol.DeviceID) (db.Counts, error) {
 	var res []countsRow
-	extra := ""
-	if device == protocol.LocalDeviceID {
-		// The size counters for the local device are special, in that we
-		// synthetise entries with both the Global and Need flag for files
-		// that we don't currently have. We need to exlude those from the
-		// local size sum.
-		extra = fmt.Sprintf(" AND local_flags & %[1]d != %[1]d", protocol.FlagLocalGlobal|protocol.FlagLocalNeeded)
-	}
 	if err := s.sql.Select(&res, `
 		SELECT s.type, s.count, s.size, s.local_flags FROM counts s
 		INNER JOIN folders o ON o.idx = s.folder_idx
 		INNER JOIN devices d ON d.idx = s.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND s.local_flags & ? = 0`+extra,
+		WHERE o.folder_id = ? AND d.device_id = ? AND s.local_flags & ? = 0`,
 		folder, device.String(), protocol.FlagLocalIgnored); err != nil {
 		return db.Counts{}, err
 	}
@@ -72,14 +62,14 @@ func (s *DB) CountReceiveOnlyChanged(folder string) (db.Counts, error) {
 }
 
 func (s *DB) needSizeLocal(folder string) (db.Counts, error) {
-	// The need size for the local device is the sum of entries with both
-	// the global and need bit set.
+	// The need size for the local device is the sum of entries with the
+	// need bit set.
 	var res []countsRow
 	err := s.sql.Select(&res, `
 		SELECT s.type, s.count, s.size, s.local_flags FROM counts s
 		INNER JOIN folders o ON o.idx = s.folder_idx
-		WHERE o.folder_id = ? AND s.local_flags & ? = ?
-	`, folder, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal)
+		WHERE o.folder_id = ? AND s.local_flags & ? != 0
+	`, folder, protocol.FlagLocalNeeded)
 	if err != nil {
 		return db.Counts{}, err
 	}

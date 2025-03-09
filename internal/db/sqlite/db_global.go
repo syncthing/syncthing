@@ -120,15 +120,15 @@ func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order
 	}
 
 	if device == protocol.LocalDeviceID {
-		// Select all the non-ignored files with the global and need bits set.
+		// Select all the non-ignored files with the need bit set.
 		it, errFn := iterStructs[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf, g.name, g.size, g.modified FROM fileinfos fi
 		INNER JOIN files g on fi.sequence = g.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = g.blocklist_hash
 		INNER JOIN folders o ON o.idx = g.folder_idx
-		WHERE o.folder_id = ? AND g.local_flags & ? = 0 AND g.local_flags & ? = ?
+		WHERE o.folder_id = ? AND g.local_flags & ? = 0 AND g.local_flags & ? != 0
 		`+selectOpts,
-			folder, protocol.FlagLocalIgnored, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal))
+			folder, protocol.FlagLocalIgnored, protocol.FlagLocalNeeded))
 		return itererr.Map(it, errFn, indirectFI.FileInfo)
 	}
 

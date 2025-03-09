@@ -26,6 +26,10 @@ func initDB(db *sqlx.DB) error {
 		if err != nil {
 			return wrap("init", err)
 		}
+		// SQLite requires one statement per exec, so we split the init
+		// files on lines containing only a semicolon and execute them
+		// separately. We require it on a separate line because there are
+		// also statement-internal semicolons in the triggers.
 		for _, stmt := range strings.Split(string(bs), "\n;") {
 			if _, err := db.Exec(stmt); err != nil {
 				return fmt.Errorf("init statement: %s: %w", stmt, err)

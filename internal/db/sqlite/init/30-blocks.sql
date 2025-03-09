@@ -1,4 +1,8 @@
---- Blocks
+-- Blocks
+--
+-- For all local files we store the blocks individually for quick lookup. A
+-- given block can exist in multiple blocklists and at multiple offsets in a
+-- blocklist.
 CREATE TABLE IF NOT EXISTS blocks (
     hash 			BLOB NOT NULL,
     blocklist_hash 	BLOB NOT NULL,
