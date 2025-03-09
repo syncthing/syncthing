@@ -28,7 +28,7 @@ RUN chmod 755 /src/script/docker-entrypoint.sh
 # not.
 #
 
-FROM cgr.dev/chainguard/glibc-dynamic:latest-dev
+FROM debian:bookworm-slim
 ARG TARGETARCH
 
 LABEL org.opencontainers.image.authors="The Syncthing Project" \
