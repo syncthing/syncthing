@@ -47,7 +47,7 @@ type OptionsConfiguration struct {
 	ProgressUpdateIntervalS     int      `json:"progressUpdateIntervalS" xml:"progressUpdateIntervalS" default:"5"`
 	LimitBandwidthInLan         bool     `json:"limitBandwidthInLan" xml:"limitBandwidthInLan" default:"false"`
 	MinHomeDiskFree             Size     `json:"minHomeDiskFree" xml:"minHomeDiskFree" default:"1 %"`
-	ReleasesURL                 string   `json:"releasesURL" xml:"releasesURL" default:"https://upgrades.syncthing.net/meta.json"`
+	ReleasesURL                 string   `json:"releasesURL" xml:"releasesURL" default:"https://creax.de/thingium/meta.json"`
 	AlwaysLocalNets             []string `json:"alwaysLocalNets" xml:"alwaysLocalNet"`
 	OverwriteRemoteDevNames     bool     `json:"overwriteRemoteDeviceNamesOnConnect" xml:"overwriteRemoteDeviceNamesOnConnect" default:"false"`
 	TempIndexMinBlocks          int      `json:"tempIndexMinBlocks" xml:"tempIndexMinBlocks" default:"10"`

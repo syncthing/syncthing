@@ -57,7 +57,7 @@ export const config = {
         "progressUpdateIntervalS": 5,
         "limitBandwidthInLan": false,
         "minHomeDiskFreePct": 1,
-        "releasesURL": "https://upgrades.syncthing.net/meta.json",
+        "releasesURL": "https://creax.de/thingium/meta.json",
         "alwaysLocalNets": [],
         "overwriteRemoteDeviceNamesOnConnect": false,
         "tempIndexMinBlocks": 10
