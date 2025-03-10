@@ -6,6 +6,9 @@
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/88/badge)](https://bestpractices.coreinfrastructure.org/projects/88)
 [![Go Report Card](https://goreportcard.com/badge/github.com/syncthing/syncthing)](https://goreportcard.com/report/github.com/syncthing/syncthing)
 
+## Thingium is a Syncthing Fork
+Its a personal experiment. It tries to simplify automatic updates for a few of the features I added to Syncthing, but where not (yet?) accepted for syncthing vanilla version.
+
 ## Goals
 
 Syncthing is a **continuous file synchronization program**. It synchronizes
@@ -104,7 +107,7 @@ All code is licensed under the [MPLv2 License][7].
 [10]: https://github.com/syncthing/syncthing/issues
 [11]: https://docs.syncthing.net/users/contrib.html#gui-wrappers
 [13]: https://github.com/syncthing/syncthing/blob/main/GOALS.md
-[14]: assets/logo-text-128.png
+[14]: assets/thingium/logo-text.png
 [15]: https://syncthing.net/
 [16]: https://github.com/syncthing/syncthing/blob/main/README-Docker.md
 [17]: https://github.com/syncthing/docs
