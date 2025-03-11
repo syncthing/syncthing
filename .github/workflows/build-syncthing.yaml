@@ -529,6 +529,8 @@ jobs:
 
           cd ..
 
+          ls -lah
+
           tar c -z -f "syncthing-source-$version.tar.gz" \
             --exclude .git \
             syncthing
