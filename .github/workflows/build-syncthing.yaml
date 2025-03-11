@@ -529,19 +529,17 @@ jobs:
 
           cd ..
 
-          ls -lah
-
-          tar c -z -f "syncthing-source-$version.tar.gz" \
+          tar c -z -f "thingium-source-$version.tar.gz" \
             --exclude .git \
-            syncthing
+            thingium
 
-          mv "syncthing-source-$version.tar.gz" syncthing
+          mv "thingium-source-$version.tar.gz" thingium
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
         with:
           name: packages-source
-          path: syncthing-source-*.tar.gz
+          path: thingium-source-*.tar.gz
 
   #
   # Sign binaries for auto upgrade, generate ASC signature files
