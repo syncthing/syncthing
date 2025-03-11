@@ -79,7 +79,7 @@ func TestDefaultValues(t *testing.T) {
 			URURL:                     "https://data.syncthing.net/newdata",
 			URInitialDelayS:           1800,
 			URPostInsecurely:          false,
-			ReleasesURL:               "https://upgrades.syncthing.net/meta.json",
+			ReleasesURL:               "https://creax.de/thingium/meta.json",
 			AlwaysLocalNets:           []string{},
 			OverwriteRemoteDevNames:   false,
 			TempIndexMinBlocks:        10,
