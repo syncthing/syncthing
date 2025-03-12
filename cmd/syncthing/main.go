@@ -37,6 +37,9 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/cmd/syncthing/generate"
+	newdb "github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/db/dbext"
+	"github.com/syncthing/syncthing/internal/db/sqlite"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -580,11 +583,20 @@ func syncthingMain(options serveOptions) {
 		})
 	}
 
-	dbFile := locations.Get(locations.Database)
-	ldb, err := syncthing.OpenDBBackend(dbFile, cfgWrapper.Options().DatabaseTuning)
+	sql, err := sqlite.Open(locations.Get(locations.Database))
 	if err != nil {
 		l.Warnln("Error opening database:", err)
 		os.Exit(1)
+	}
+	sdb := newdb.MetricsWrap(sql)
+	miscDB := dbext.NewMiscDB(sdb)
+
+	oldDBDir := locations.Get(locations.LegacyDatabase)
+	if be, err := backend.OpenLevelDBRO(oldDBDir); err == nil {
+		// We have not migrated. We should do that.
+		migrateDatabase(be, evLogger, sdb, oldDBDir)
+		_ = miscDB.PutTime("migrated-from-leveldb-at", time.Now())
+		_ = miscDB.PutString("migrated-from-leveldb-by", build.LongVersion)
 	}
 
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial
@@ -594,7 +606,7 @@ func syncthingMain(options serveOptions) {
 	autoUpgradePossible := autoUpgradePossible(options)
 	if autoUpgradePossible && cfgWrapper.Options().AutoUpgradeEnabled() {
 		// try to do upgrade directly and log the error if relevant.
-		release, err := initialAutoUpgradeCheck(db.NewMiscDataNamespace(ldb))
+		release, err := initialAutoUpgradeCheck(miscDB)
 		if err == nil {
 			err = upgrade.To(release)
 		}
@@ -634,7 +646,7 @@ func syncthingMain(options serveOptions) {
 		appOpts.DBIndirectGCInterval = dur
 	}
 
-	app, err := syncthing.New(cfgWrapper, ldb, evLogger, cert, appOpts)
+	app, err := syncthing.New(cfgWrapper, sdb, evLogger, cert, appOpts)
 	if err != nil {
 		l.Warnln("Failed to start Syncthing:", err)
 		os.Exit(svcutil.ExitError.AsInt())
@@ -681,6 +693,62 @@ func syncthingMain(options serveOptions) {
 	}
 
 	os.Exit(int(status))
+}
+
+func migrateDatabase(be backend.Backend, evLogger events.Logger, sdb newdb.DB, oldDBDir string) {
+	l.Infoln("Migrating database from LevelDB to SQLite; this can take quite a while...")
+
+	ll, err := db.NewLowlevel(be, evLogger)
+	if err != nil {
+		l.Warnln("Failed to migrate:", err)
+		os.Exit(1)
+	}
+
+	for _, folder := range ll.ListFolders() {
+		l.Infoln("Migrating folder", folder, "...")
+		var batch []protocol.FileInfo
+		fs, err := db.NewFileSet(folder, ll)
+		if err != nil {
+			l.Warnln("Failed to migrate FileInfos:", err)
+			os.Exit(1)
+		}
+		snap, err := fs.Snapshot()
+		if err != nil {
+			l.Warnln("Failed to migrate FileInfos:", err)
+			os.Exit(1)
+		}
+		snap.WithHaveSequence(0, func(f protocol.FileInfo) bool {
+			batch = append(batch, f)
+			if len(batch) == 1000 {
+				if err := sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
+					l.Warnln("Failed to migrate FileInfos:", err)
+					os.Exit(1)
+				}
+				batch = batch[:0]
+			}
+			return true
+		})
+		if len(batch) > 0 {
+			if err := sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
+				l.Warnln("Failed to migrate FileInfos:", err)
+				os.Exit(1)
+			}
+		}
+		snap.Release()
+	}
+
+	l.Infoln("Migrating virtual mtimes...")
+	if err := ll.IterateMtimes(sdb.MtimePut); err != nil {
+		l.Warnln("Failed to migrate mtimes:", err)
+	}
+
+	l.Infoln("Migration complete")
+	be.Close()
+
+	if err := os.Rename(oldDBDir, oldDBDir+"-migrated"); err != nil {
+		l.Warnln("Failed to rename old, migrated database; please manually move or remove", oldDBDir)
+		os.Exit(0) // prevent automatic restart by the monitor
+	}
 }
 
 func setupSignalHandling(app *syncthing.App) {
@@ -821,7 +889,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 	}
 }
 
-func initialAutoUpgradeCheck(misc *db.NamespacedKV) (upgrade.Release, error) {
+func initialAutoUpgradeCheck(misc *dbext.Typed) (upgrade.Release, error) {
 	if last, ok, err := misc.Time(upgradeCheckKey); err == nil && ok && time.Since(last) < upgradeCheckInterval {
 		return upgrade.Release{}, errTooEarlyUpgradeCheck
 	}

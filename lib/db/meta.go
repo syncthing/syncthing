@@ -24,7 +24,7 @@ import (
 var errMetaInconsistent = errors.New("inconsistent counts detected")
 
 type countsMap struct {
-	counts  CountsSet
+	counts  deprecatedCountsSet
 	indexes map[metaKey]int // device ID + local flags -> index in counts
 }
 
@@ -63,7 +63,7 @@ func (m *metadataTracker) Unmarshal(bs []byte) error {
 		return err
 	}
 	m.counts.Created = dbc.Created
-	m.counts.Counts = make([]Counts, len(dbc.Counts))
+	m.counts.Counts = make([]deprecatedCounts, len(dbc.Counts))
 	for i, c := range dbc.Counts {
 		m.counts.Counts[i] = countsFromWire(c)
 	}
@@ -124,7 +124,7 @@ func (m *metadataTracker) toDB(t backend.WriteTransaction, folder []byte) error 
 
 // fromDB initializes the metadataTracker from the marshalled data found in
 // the database under the key corresponding to the given folder
-func (m *metadataTracker) fromDB(db *Lowlevel, folder []byte) error {
+func (m *metadataTracker) fromDB(db *deprecatedLowlevel, folder []byte) error {
 	key, err := db.keyer.GenerateFolderMetaKey(nil, folder)
 	if err != nil {
 		return err
@@ -144,7 +144,7 @@ func (m *metadataTracker) fromDB(db *Lowlevel, folder []byte) error {
 
 // countsPtr returns a pointer to the corresponding Counts struct, if
 // necessary allocating one in the process
-func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flag uint32) *Counts {
+func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flag uint32) *deprecatedCounts {
 	// must be called with the mutex held
 
 	if bits.OnesCount32(flag) > 1 {
@@ -155,7 +155,7 @@ func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flag uint32) *Counts 
 	idx, ok := m.indexes[key]
 	if !ok {
 		idx = len(m.counts.Counts)
-		m.counts.Counts = append(m.counts.Counts, Counts{DeviceID: dev, LocalFlags: flag})
+		m.counts.Counts = append(m.counts.Counts, deprecatedCounts{DeviceID: dev, LocalFlags: flag})
 		m.indexes[key] = idx
 		// Need bucket must be initialized when a device first occurs in
 		// the metadatatracker, even if there's no change to the need
@@ -172,8 +172,8 @@ func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flag uint32) *Counts 
 }
 
 // allNeeded makes sure there is a counts in case the device needs everything.
-func (m *countsMap) allNeededCounts(dev protocol.DeviceID) Counts {
-	var counts Counts
+func (m *countsMap) allNeededCounts(dev protocol.DeviceID) deprecatedCounts {
+	var counts deprecatedCounts
 	if idx, ok := m.indexes[metaKey{protocol.GlobalDeviceID, 0}]; ok {
 		counts = m.counts.Counts[idx]
 		counts.Deleted = 0 // Don't need deletes if having nothing
@@ -221,7 +221,7 @@ func (m *metadataTracker) emptyNeeded(dev protocol.DeviceID) {
 
 	m.dirty = true
 
-	empty := Counts{
+	empty := deprecatedCounts{
 		DeviceID:   dev,
 		LocalFlags: needFlag,
 	}
@@ -340,7 +340,7 @@ func (m *metadataTracker) resetAll(dev protocol.DeviceID) {
 	for i, c := range m.counts.Counts {
 		if c.DeviceID == dev {
 			if c.LocalFlags != needFlag {
-				m.counts.Counts[i] = Counts{
+				m.counts.Counts[i] = deprecatedCounts{
 					DeviceID:   c.DeviceID,
 					LocalFlags: c.LocalFlags,
 				}
@@ -360,7 +360,7 @@ func (m *metadataTracker) resetCounts(dev protocol.DeviceID) {
 
 	for i, c := range m.counts.Counts {
 		if c.DeviceID == dev {
-			m.counts.Counts[i] = Counts{
+			m.counts.Counts[i] = deprecatedCounts{
 				DeviceID:   c.DeviceID,
 				Sequence:   c.Sequence,
 				LocalFlags: c.LocalFlags,
@@ -371,7 +371,7 @@ func (m *metadataTracker) resetCounts(dev protocol.DeviceID) {
 	m.mut.Unlock()
 }
 
-func (m *countsMap) Counts(dev protocol.DeviceID, flag uint32) Counts {
+func (m *countsMap) Counts(dev protocol.DeviceID, flag uint32) deprecatedCounts {
 	if bits.OnesCount32(flag) > 1 {
 		panic("incorrect usage: set at most one bit in flag")
 	}
@@ -383,7 +383,7 @@ func (m *countsMap) Counts(dev protocol.DeviceID, flag uint32) Counts {
 			// it needs everything.
 			return m.allNeededCounts(dev)
 		}
-		return Counts{}
+		return deprecatedCounts{}
 	}
 
 	return m.counts.Counts[idx]
@@ -395,8 +395,8 @@ func (m *metadataTracker) Snapshot() *countsMap {
 	defer m.mut.RUnlock()
 
 	c := &countsMap{
-		counts: CountsSet{
-			Counts:  make([]Counts, len(m.counts.Counts)),
+		counts: deprecatedCountsSet{
+			Counts:  make([]deprecatedCounts, len(m.counts.Counts)),
 			Created: m.counts.Created,
 		},
 		indexes: make(map[metaKey]int, len(m.indexes)),

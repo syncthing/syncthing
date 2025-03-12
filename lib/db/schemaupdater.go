@@ -43,13 +43,13 @@ func (e *databaseDowngradeError) Error() string {
 
 // UpdateSchema updates a possibly outdated database to the current schema and
 // also does repairs where necessary.
-func UpdateSchema(db *Lowlevel) error {
+func UpdateSchema(db *deprecatedLowlevel) error {
 	updater := &schemaUpdater{db}
 	return updater.updateSchema()
 }
 
 type schemaUpdater struct {
-	*Lowlevel
+	*deprecatedLowlevel
 }
 
 func (db *schemaUpdater) updateSchema() error {
@@ -58,7 +58,7 @@ func (db *schemaUpdater) updateSchema() error {
 	db.gcMut.Lock()
 	defer db.gcMut.Unlock()
 
-	miscDB := NewMiscDataNamespace(db.Lowlevel)
+	miscDB := NewMiscDataNamespace(db.deprecatedLowlevel)
 	prevVersion, _, err := miscDB.Int64("dbVersion")
 	if err != nil {
 		return err
@@ -125,7 +125,7 @@ func (db *schemaUpdater) updateSchema() error {
 	return db.Compact()
 }
 
-func (*schemaUpdater) writeVersions(m migration, miscDB *NamespacedKV) error {
+func (*schemaUpdater) writeVersions(m migration, miscDB *deprecatedNamespacedKV) error {
 	if err := miscDB.PutInt64("dbVersion", m.schemaVersion); err != nil {
 		return err
 	}

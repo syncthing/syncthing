@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/internal/db/dbext"
 )
 
 const (
@@ -34,7 +34,7 @@ type apiKeyValidator interface {
 // Check for CSRF token on /rest/ URLs. If a correct one is not given, reject
 // the request with 403. For / and /index.html, set a new CSRF cookie if none
 // is currently set.
-func newCsrfManager(unique string, prefix string, apiKeyValidator apiKeyValidator, next http.Handler, miscDB *db.NamespacedKV) *csrfManager {
+func newCsrfManager(unique string, prefix string, apiKeyValidator apiKeyValidator, next http.Handler, miscDB *dbext.Typed) *csrfManager {
 	m := &csrfManager{
 		unique:          unique,
 		prefix:          prefix,

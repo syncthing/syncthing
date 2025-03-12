@@ -35,7 +35,7 @@ type readOnlyTransaction struct {
 	evLogger events.Logger
 }
 
-func (db *Lowlevel) newReadOnlyTransaction() (readOnlyTransaction, error) {
+func (db *deprecatedLowlevel) newReadOnlyTransaction() (readOnlyTransaction, error) {
 	tran, err := db.NewReadTransaction()
 	if err != nil {
 		return readOnlyTransaction{}, err
@@ -43,7 +43,7 @@ func (db *Lowlevel) newReadOnlyTransaction() (readOnlyTransaction, error) {
 	return db.readOnlyTransactionFromBackendTransaction(tran), nil
 }
 
-func (db *Lowlevel) readOnlyTransactionFromBackendTransaction(tran backend.ReadTransaction) readOnlyTransaction {
+func (db *deprecatedLowlevel) readOnlyTransactionFromBackendTransaction(tran backend.ReadTransaction) readOnlyTransaction {
 	return readOnlyTransaction{
 		ReadTransaction: tran,
 		keyer:           db.keyer,
@@ -554,7 +554,7 @@ type indirectionTracker interface {
 	recordIndirectionHashesForFile(f *protocol.FileInfo)
 }
 
-func (db *Lowlevel) newReadWriteTransaction(hooks ...backend.CommitHook) (readWriteTransaction, error) {
+func (db *deprecatedLowlevel) newReadWriteTransaction(hooks ...backend.CommitHook) (readWriteTransaction, error) {
 	tran, err := db.NewWriteTransaction(hooks...)
 	if err != nil {
 		return readWriteTransaction{}, err

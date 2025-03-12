@@ -26,7 +26,7 @@ RUN if [ ! -f syncthing-linux-$TARGETARCH ] ; then \
 # not.
 #
 
-FROM alpine
+FROM debian:bookworm-slim
 ARG TARGETARCH
 
 LABEL org.opencontainers.image.authors="The Syncthing Project" \
@@ -41,7 +41,10 @@ EXPOSE 8384 22000/tcp 22000/udp 21027/udp
 
 VOLUME ["/var/syncthing"]
 
-RUN apk add --no-cache ca-certificates curl libcap su-exec tzdata
+RUN apt-get update && \
+  apt-get install -y curl libcap2-bin runit tzdata && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists
 
 COPY --from=builder /src/syncthing-linux-$TARGETARCH /bin/syncthing
 COPY --from=builder /src/script/docker-entrypoint.sh /bin/entrypoint.sh

@@ -70,7 +70,7 @@ func openJSONS(file string) (backend.Backend, error) {
 	return db, nil
 }
 
-func newLowlevel(t testing.TB, backend backend.Backend) *Lowlevel {
+func newLowlevel(t testing.TB, backend backend.Backend) *deprecatedLowlevel {
 	t.Helper()
 	ll, err := NewLowlevel(backend, events.NoopLogger)
 	if err != nil {
@@ -79,11 +79,11 @@ func newLowlevel(t testing.TB, backend backend.Backend) *Lowlevel {
 	return ll
 }
 
-func newLowlevelMemory(t testing.TB) *Lowlevel {
+func newLowlevelMemory(t testing.TB) *deprecatedLowlevel {
 	return newLowlevel(t, backend.OpenMemory())
 }
 
-func newFileSet(t testing.TB, folder string, db *Lowlevel) *FileSet {
+func newFileSet(t testing.TB, folder string, db *deprecatedLowlevel) *deprecatedFileSet {
 	t.Helper()
 	fset, err := NewFileSet(folder, db)
 	if err != nil {
@@ -92,7 +92,7 @@ func newFileSet(t testing.TB, folder string, db *Lowlevel) *FileSet {
 	return fset
 }
 
-func snapshot(t testing.TB, fset *FileSet) *Snapshot {
+func snapshot(t testing.TB, fset *deprecatedFileSet) *Snapshot {
 	t.Helper()
 	snap, err := fset.Snapshot()
 	if err != nil {

@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -28,8 +28,8 @@ type receiveEncryptedFolder struct {
 	*sendReceiveFolder
 }
 
-func newReceiveEncryptedFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
-	f := &receiveEncryptedFolder{newSendReceiveFolder(model, fset, ignores, cfg, ver, evLogger, ioLimiter).(*sendReceiveFolder)}
+func newReceiveEncryptedFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
+	f := &receiveEncryptedFolder{newSendReceiveFolder(model, ignores, cfg, ver, evLogger, ioLimiter).(*sendReceiveFolder)}
 	f.localFlags = protocol.FlagLocalReceiveOnly // gets propagated to the scanner, and set on locally changed files
 	return f
 }
@@ -44,30 +44,27 @@ func (f *receiveEncryptedFolder) revert() error {
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)
 
-	batch := db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
+	batch := NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		f.updateLocalsFromScanning(fs)
 		return nil
 	})
 
-	snap, err := f.dbSnapshot()
-	if err != nil {
-		return err
-	}
-	defer snap.Release()
-	var iterErr error
 	var dirs []string
-	snap.WithHaveTruncated(protocol.LocalDeviceID, func(fi protocol.FileInfo) bool {
-		if iterErr = batch.FlushIfFull(); iterErr != nil {
-			return false
+	for fi, err := range itererr.Zip(f.db.AllLocalFiles(f.folderID, protocol.LocalDeviceID)) {
+		if err != nil {
+			return err
+		}
+		if err := batch.FlushIfFull(); err != nil {
+			return err
 		}
 
 		if !fi.IsReceiveOnlyChanged() || fi.IsDeleted() {
-			return true
+			continue
 		}
 
 		if fi.IsDirectory() {
 			dirs = append(dirs, fi.Name)
-			return true
+			continue
 		}
 
 		if err := f.inWritableDir(f.mtimefs.Remove, fi.Name); err != nil && !fs.IsNotExist(err) {
@@ -84,15 +81,10 @@ func (f *receiveEncryptedFolder) revert() error {
 		// deleted, it will not show up as an unexpected file in the UI
 		// anymore.
 		batch.Append(fi)
-
-		return true
-	})
-
-	f.revertHandleDirs(dirs, snap)
-
-	if iterErr != nil {
-		return iterErr
 	}
+
+	f.revertHandleDirs(dirs)
+
 	if err := batch.Flush(); err != nil {
 		return err
 	}
@@ -103,7 +95,7 @@ func (f *receiveEncryptedFolder) revert() error {
 	return nil
 }
 
-func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string, snap *db.Snapshot) {
+func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string) {
 	if len(dirs) == 0 {
 		return
 	}
@@ -114,7 +106,7 @@ func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string, snap *db.Snapsh
 
 	sort.Sort(sort.Reverse(sort.StringSlice(dirs)))
 	for _, dir := range dirs {
-		if err := f.deleteDirOnDisk(dir, snap, scanChan); err != nil {
+		if err := f.deleteDirOnDisk(dir, scanChan); err != nil {
 			f.newScanError(dir, fmt.Errorf("deleting unexpected dir: %w", err))
 		}
 		scanChan <- dir

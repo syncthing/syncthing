@@ -15,9 +15,9 @@ env:
   GO_VERSION: "~1.24.0"
 
   # Optimize compatibility on the slow archictures.
-  GO386: softfloat
-  GOARM: "5"
-  GOMIPS: softfloat
+  # GO386: softfloat
+  # GOARM: "5"
+  # GOMIPS: softfloat
 
   # Avoid hilarious amounts of obscuring log output when running tests.
   LOGGER_DISCARD: "1"
@@ -87,6 +87,7 @@ jobs:
           LOKI_USER: ${{ secrets.LOKI_USER }}
           LOKI_PASSWORD: ${{ secrets.LOKI_PASSWORD }}
           LOKI_LABELS: "go=${{ matrix.go }},runner=${{ matrix.runner }},repo=${{ github.repository }},ref=${{ github.ref }}"
+          CGO_ENABLED: "1"
 
   #
   # Meta checks for formatting, copyright, etc
@@ -139,6 +140,9 @@ jobs:
   package-windows:
     name: Package for Windows
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Set git to use LF
         # Without this, the checkout will happen with CRLF line endings,
@@ -160,11 +164,6 @@ jobs:
           cache: false
           check-latest: true
 
-      - name: Get actual Go version
-        run: |
-          go version
-          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
-
       - uses: actions/cache@v4
         with:
           path: |
@@ -176,15 +175,28 @@ jobs:
         run: |
           go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.4.0
 
-      - name: Create packages
+      - name: Create packages (CGO)
         run: |
-          $targets = 'syncthing', 'stdiscosrv', 'strelaysrv'
-          $archs = 'amd64', 'arm', 'arm64', '386'
-          foreach ($arch in $archs) {
-            foreach ($tgt in $targets) {
-              go run build.go -goarch $arch zip $tgt
-            }
-          }
+          for tgt in syncthing stdiscosrv strelaysrv ; do
+            go run build.go -goarch amd64 zip $tgt
+          done
+        env:
+          CGO_ENABLED: "1"
+
+      - name: Create packages (without CGO)
+        run: |
+          for arch in arm64 arm 386 ; do
+            for tgt in syncthing stdiscosrv strelaysrv ; do
+              if ! go run build.go -goarch $arch zip $tgt ; then
+                plat="windows/$arch"
+                if go run build.go -tags wazero -goarch $arch zip $tgt ; then
+                  echo "::notice ::Used wazero to build $tgt for $plat"
+                else
+                  echo "::notice ::Failed to build $tgt for $plat"
+                fi
+              fi
+            done
+          done
         env:
           CGO_ENABLED: "0"
 
@@ -278,9 +290,34 @@ jobs:
             ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
 
-      - name: Create packages
+      - name: Create packages (CGO)
         run: |
-          archs=$(go tool dist list | grep linux | sed 's#linux/##')
+          sudo apt-get install -y \
+            gcc-i686-linux-gnu \
+            gcc-arm-linux-gnueabi gcc-aarch64-linux-gnu \
+            gcc-mips-linux-gnu gcc-mips64-linux-gnuabi64 \
+            gcc-mipsel-linux-gnu gcc-mips64el-linux-gnuabi64 \
+            gcc-riscv64-linux-gnu \
+            gcc-s390x-linux-gnu
+
+          for tgt in syncthing stdiscosrv strelaysrv ; do
+            go run build.go -goos linux -goarch amd64 tar "$tgt"
+            go run build.go -goos linux -goarch 386 -cc i686-linux-gnu-gcc tar "$tgt"
+            go run build.go -goos linux -goarch arm -cc arm-linux-gnueabi-gcc tar "$tgt"
+            go run build.go -goos linux -goarch arm64 -cc aarch64-linux-gnu-gcc tar "$tgt"
+            go run build.go -goos linux -goarch mips -cc mips-linux-gnu-gcc tar "$tgt"
+            go run build.go -goos linux -goarch mips64 -cc mips64-linux-gnuabi64-gcc tar "$tgt"
+            go run build.go -goos linux -goarch mipsle -cc mipsel-linux-gnu-gcc tar "$tgt"
+            go run build.go -goos linux -goarch mips64le -cc mips64el-linux-gnuabi64-gcc tar "$tgt"
+            go run build.go -goos linux -goarch riscv64 -cc riscv64-linux-gnu-gcc tar "$tgt"
+            go run build.go -goos linux -goarch s390x -cc s390x-linux-gnu-gcc tar "$tgt"
+          done
+        env:
+          CGO_ENABLED: "1"
+
+      - name: Create packages (without CGO)
+        run: |
+          archs=(loong64 ppc64 ppc64le)
           for goarch in $archs ; do
             for tgt in syncthing stdiscosrv strelaysrv ; do
               go run build.go -goarch "$goarch" tar "$tgt"
@@ -485,8 +522,12 @@ jobs:
             goarch="${plat#*/}"
             echo "::group ::$plat"
             for tgt in syncthing stdiscosrv strelaysrv ; do
-              if ! go run build.go -goos "$goos" -goarch "$goarch" tar "$tgt" 2>/dev/null; then
-                echo "::warning ::Failed to build $tgt for $plat"
+              if ! go run build.go -goos "$goos" -goarch "$goarch" tar "$tgt" ; then
+                if go run build.go -tags wazero -goos "$goos" -goarch "$goarch" tar "$tgt" ; then
+                  echo "::notice ::Used wazero to build $tgt for $plat"
+                else
+                  echo "::warning ::Failed to build $tgt for $plat"
+                fi
               fi
             done
             echo "::endgroup::"
@@ -672,15 +713,17 @@ jobs:
             ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-debian-${{ hashFiles('**/go.sum') }}
 
-      - name: Package for Debian
+      - name: Package for Debian (CGO)
         run: |
-          for arch in amd64 i386 armhf armel arm64 ; do
-            for tgt in syncthing stdiscosrv strelaysrv ; do
-              go run build.go -no-upgrade -installsuffix=no-upgrade -goarch "$arch" deb "$tgt"
-            done
+          sudo apt-get install -y gcc-arm-linux-gnueabi gcc-aarch64-linux-gnu
+          for tgt in syncthing stdiscosrv strelaysrv ; do
+            go run build.go -no-upgrade -installsuffix=no-upgrade -goos linux -goarch amd64 deb "$tgt"
+            go run build.go -no-upgrade -installsuffix=no-upgrade -goos linux -goarch arm64 -cc aarch64-linux-gnu-gcc deb "$tgt"
+            go run build.go -no-upgrade -installsuffix=no-upgrade -goos linux -goarch arm -cc arm-linux-gnueabi-gcc deb "$tgt"
           done
         env:
           BUILD_USER: debian
+          CGO_ENABLED: "1"
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
@@ -890,8 +933,10 @@ jobs:
   docker-syncthing:
     name: Build and push Docker images
     runs-on: ubuntu-latest
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release' || github.ref == 'refs/heads/infrastructure' || startsWith(github.ref, 'refs/heads/release-') || startsWith(github.ref, 'refs/tags/v'))
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     environment: docker
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
     permissions:
       contents: read
       packages: write
@@ -904,13 +949,13 @@ jobs:
         include:
           - pkg: syncthing
             dockerfile: Dockerfile
-            image: syncthing/syncthing
+            image: syncthing
           - pkg: strelaysrv
             dockerfile: Dockerfile.strelaysrv
-            image: syncthing/relaysrv
+            image: relaysrv
           - pkg: stdiscosrv
             dockerfile: Dockerfile.stdiscosrv
-            image: syncthing/discosrv
+            image: discosrv
     steps:
       - uses: actions/checkout@v4
         with:
@@ -935,33 +980,35 @@ jobs:
             ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-docker-${{ matrix.pkg }}-${{ hashFiles('**/go.sum') }}
 
-      - name: Build binaries
+      - name: Build binaries (CGO)
         run: |
-          for arch in amd64 arm64 arm; do
-            go run build.go -goos linux -goarch "$arch" -no-upgrade build ${{ matrix.pkg }}
-            mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-"$arch"
-          done
-        env:
-          CGO_ENABLED: "0"
-          BUILD_USER: docker
+          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
 
-      - name: Check if we will be able to push images
-        run: |
-          if [[ "${{ secrets.DOCKERHUB_TOKEN }}" != "" ]]; then
-            echo "DOCKER_PUSH=true" >> $GITHUB_ENV;
-          fi
+          # amd64
+          go run build.go -goos linux -goarch amd64 -no-upgrade build ${{ matrix.pkg }}
+          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-amd64
+
+          # arm64
+          go run build.go -goos linux -goarch arm64 -cc aarch64-linux-gnu-gcc -no-upgrade build ${{ matrix.pkg }}
+          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm64
+
+          # arm
+          go run build.go -goos linux -goarch arm -cc arm-linux-gnueabi-gcc -no-upgrade build ${{ matrix.pkg }}
+          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm
+        env:
+          CGO_ENABLED: "1"
+          BUILD_USER: docker
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
-        if: env.DOCKER_PUSH == 'true'
+        if: env.DOCKERHUB_USERNAME != ''
         with:
           registry: docker.io
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Login to GHCR
         uses: docker/login-action@v3
-        if: env.DOCKER_PUSH == 'true'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -974,18 +1021,31 @@ jobs:
         run: |
           version=$(go run build.go version)
           version=${version#v}
+          repo=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          ref="${{github.ref_name}}"
+          ref=${ref//\//-} # slashes to dashes
+
+          # List of tags for ghcr.io
           if [[ $version == @([0-9]|[0-9][0-9]).@([0-9]|[0-9][0-9]).@([0-9]|[0-9][0-9]) ]] ; then
-            echo Release version, pushing to :latest and version tags
             major=${version%.*.*}
             minor=${version%.*}
-            tags=docker.io/${{ matrix.image }}:$version,ghcr.io/${{ matrix.image }}:$version,docker.io/${{ matrix.image }}:$major,ghcr.io/${{ matrix.image }}:$major,docker.io/${{ matrix.image }}:$minor,ghcr.io/${{ matrix.image }}:$minor,docker.io/${{ matrix.image }}:latest,ghcr.io/${{ matrix.image }}:latest
+            tags=$repo:$version,$repo:$major,$repo:$minor,$repo:latest
           elif [[ $version == *-rc.@([0-9]|[0-9][0-9]) ]] ; then
-            echo Release candidate, pushing to :rc and version tags
-            tags=docker.io/${{ matrix.image }}:$version,ghcr.io/${{ matrix.image }}:$version,docker.io/${{ matrix.image }}:rc,ghcr.io/${{ matrix.image }}:rc
+            tags=$repo:$version,$repo:rc
+          elif [[ $ref == "main" ]] ; then
+            tags=$repo:edge
           else
-            echo Development version, pushing to :edge
-            tags=docker.io/${{ matrix.image }}:edge,ghcr.io/${{ matrix.image }}:edge
+            tags=$repo:$ref
           fi
+
+          # If we have a Docker Hub secret, also push to there.
+          if [[ $DOCKERHUB_USERNAME != "" ]] ; then
+            dockerhubtags="${tags//ghcr.io\/syncthing/docker.io\/syncthing}"
+            tags="$tags,$dockerhubtags"
+          fi
+
+          echo Pushing to $tags
+
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
           echo "VERSION=$version" >> $GITHUB_ENV
 
@@ -995,8 +1055,8 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64,linux/arm/7
-          push: ${{ env.DOCKER_PUSH == 'true' }}
           tags: ${{ env.DOCKER_TAGS }}
+          push: true
           labels: |
             org.opencontainers.image.version=${{ env.VERSION }}
             org.opencontainers.image.revision=${{ github.sha }}

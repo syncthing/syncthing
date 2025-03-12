@@ -226,20 +226,20 @@ func TestMtimeFSInsensitive(t *testing.T) {
 
 // The mapStore is a simple database
 
-type mapStore map[string][]byte
+type mapStore map[string][2]time.Time
 
-func (s mapStore) PutBytes(key string, data []byte) error {
-	s[key] = data
+func (s mapStore) MtimePut(_, name string, real, virtual time.Time) error {
+	s[name] = [2]time.Time{real, virtual}
 	return nil
 }
 
-func (s mapStore) Bytes(key string) (data []byte, ok bool, err error) {
-	data, ok = s[key]
-	return
+func (s mapStore) MtimeGet(_, name string) (real, virtual time.Time) {
+	v := s[name]
+	return v[0], v[1]
 }
 
-func (s mapStore) Delete(key string) error {
-	delete(s, key)
+func (s mapStore) MtimeDelete(_, name string) error {
+	delete(s, name)
 	return nil
 }
 
@@ -260,7 +260,7 @@ func newMtimeFS(path string, db database, options ...MtimeFSOption) *mtimeFS {
 }
 
 func newMtimeFSWithWalk(path string, db database, options ...MtimeFSOption) (*mtimeFS, *walkFilesystem) {
-	fs := NewFilesystem(FilesystemTypeBasic, path, NewMtimeOption(db, options...))
+	fs := NewFilesystem(FilesystemTypeBasic, path, NewMtimeOption(db, "", options...))
 	wfs, _ := unwrapFilesystem(fs, filesystemWrapperTypeWalk)
 	mfs, _ := unwrapFilesystem(fs, filesystemWrapperTypeMtime)
 	return mfs.(*mtimeFS), wfs.(*walkFilesystem)

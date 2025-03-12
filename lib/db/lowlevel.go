@@ -49,17 +49,17 @@ const (
 	// Use indirection for the version vector when it exceeds this many entries
 	versionIndirectionCutoff = 10
 
-	recheckDefaultInterval = 30 * 24 * time.Hour
+	recheckDefaultInterval = 300 * 24 * time.Hour
 
 	needsRepairSuffix = ".needsrepair"
 )
 
-// Lowlevel is the lowest level database interface. It has a very simple
+// deprecatedLowlevel is the lowest level database interface. It has a very simple
 // purpose: hold the actual backend database, and the in-memory state
 // that belong to that database. In the same way that a single on disk
-// database can only be opened once, there should be only one Lowlevel for
+// database can only be opened once, there should be only one deprecatedLowlevel for
 // any given backend.
-type Lowlevel struct {
+type deprecatedLowlevel struct {
 	*suture.Supervisor
 	backend.Backend
 	folderIdx          *smallIndex
@@ -76,10 +76,10 @@ type Lowlevel struct {
 	versionFilter *bloomFilter
 }
 
-func NewLowlevel(backend backend.Backend, evLogger events.Logger, opts ...Option) (*Lowlevel, error) {
+func NewLowlevel(backend backend.Backend, evLogger events.Logger, opts ...Option) (*deprecatedLowlevel, error) {
 	// Only log restarts in debug mode.
 	spec := svcutil.SpecWithDebugLogger(l)
-	db := &Lowlevel{
+	db := &deprecatedLowlevel{
 		Supervisor:         suture.New("db.Lowlevel", spec),
 		Backend:            backend,
 		folderIdx:          newSmallIndex(backend, []byte{KeyTypeFolderIdx}),
@@ -108,12 +108,12 @@ func NewLowlevel(backend backend.Backend, evLogger events.Logger, opts ...Option
 	return db, nil
 }
 
-type Option func(*Lowlevel)
+type Option func(*deprecatedLowlevel)
 
 // WithRecheckInterval sets the time interval in between metadata recalculations
 // and consistency checks.
 func WithRecheckInterval(dur time.Duration) Option {
-	return func(db *Lowlevel) {
+	return func(db *deprecatedLowlevel) {
 		if dur > 0 {
 			db.recheckInterval = dur
 		}
@@ -122,7 +122,7 @@ func WithRecheckInterval(dur time.Duration) Option {
 
 // WithIndirectGCInterval sets the time interval in between GC runs.
 func WithIndirectGCInterval(dur time.Duration) Option {
-	return func(db *Lowlevel) {
+	return func(db *deprecatedLowlevel) {
 		if dur > 0 {
 			db.indirectGCInterval = dur
 		}
@@ -130,13 +130,13 @@ func WithIndirectGCInterval(dur time.Duration) Option {
 }
 
 // ListFolders returns the list of folders currently in the database
-func (db *Lowlevel) ListFolders() []string {
+func (db *deprecatedLowlevel) ListFolders() []string {
 	return db.folderIdx.Values()
 }
 
 // updateRemoteFiles adds a list of fileinfos to the database and updates the
 // global versionlist and metadata.
-func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileInfo, meta *metadataTracker) error {
+func (db *deprecatedLowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileInfo, meta *metadataTracker) error {
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
@@ -192,7 +192,7 @@ func (db *Lowlevel) updateRemoteFiles(folder, device []byte, fs []protocol.FileI
 
 // updateLocalFiles adds fileinfos to the db, and updates the global versionlist,
 // metadata, sequence and blockmap buckets.
-func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta *metadataTracker) error {
+func (db *deprecatedLowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta *metadataTracker) error {
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
@@ -284,7 +284,7 @@ func (db *Lowlevel) updateLocalFiles(folder []byte, fs []protocol.FileInfo, meta
 	return t.Commit()
 }
 
-func (db *Lowlevel) removeLocalFiles(folder []byte, nameStrs []string, meta *metadataTracker) error {
+func (db *deprecatedLowlevel) removeLocalFiles(folder []byte, nameStrs []string, meta *metadataTracker) error {
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
@@ -340,7 +340,7 @@ func (db *Lowlevel) removeLocalFiles(folder []byte, nameStrs []string, meta *met
 	return t.Commit()
 }
 
-func (db *Lowlevel) removeLocalBlockAndSequenceInfo(keyBuf, folder, name []byte, ef protocol.FileInfo, removeFromBlockListMap bool, t *readWriteTransaction) ([]byte, error) {
+func (db *deprecatedLowlevel) removeLocalBlockAndSequenceInfo(keyBuf, folder, name []byte, ef protocol.FileInfo, removeFromBlockListMap bool, t *readWriteTransaction) ([]byte, error) {
 	var err error
 	if len(ef.Blocks) != 0 && !ef.IsInvalid() && ef.Size > 0 {
 		for _, block := range ef.Blocks {
@@ -374,7 +374,7 @@ func (db *Lowlevel) removeLocalBlockAndSequenceInfo(keyBuf, folder, name []byte,
 	return keyBuf, nil
 }
 
-func (db *Lowlevel) dropFolder(folder []byte) error {
+func (db *deprecatedLowlevel) dropFolder(folder []byte) error {
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
@@ -440,7 +440,7 @@ func (db *Lowlevel) dropFolder(folder []byte) error {
 	return t.Commit()
 }
 
-func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracker) error {
+func (db *deprecatedLowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracker) error {
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
@@ -502,7 +502,7 @@ func (db *Lowlevel) dropDeviceFolder(device, folder []byte, meta *metadataTracke
 	return t.Commit()
 }
 
-func (db *Lowlevel) checkGlobals(folderStr string) (int, error) {
+func (db *deprecatedLowlevel) checkGlobals(folderStr string) (int, error) {
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return 0, err
@@ -599,7 +599,7 @@ func checkGlobalsFilterDevices(dk, folder, name []byte, devices [][]byte, vl *db
 	return changed, nil
 }
 
-func (db *Lowlevel) getIndexID(device, folder []byte) (protocol.IndexID, error) {
+func (db *deprecatedLowlevel) getIndexID(device, folder []byte) (protocol.IndexID, error) {
 	key, err := db.keyer.GenerateIndexIDKey(nil, device, folder)
 	if err != nil {
 		return 0, err
@@ -619,7 +619,7 @@ func (db *Lowlevel) getIndexID(device, folder []byte) (protocol.IndexID, error) 
 	return id, nil
 }
 
-func (db *Lowlevel) setIndexID(device, folder []byte, id protocol.IndexID) error {
+func (db *deprecatedLowlevel) setIndexID(device, folder []byte, id protocol.IndexID) error {
 	bs, _ := id.Marshal() // marshalling can't fail
 	key, err := db.keyer.GenerateIndexIDKey(nil, device, folder)
 	if err != nil {
@@ -628,7 +628,7 @@ func (db *Lowlevel) setIndexID(device, folder []byte, id protocol.IndexID) error
 	return db.Put(key, bs)
 }
 
-func (db *Lowlevel) dropFolderIndexIDs(folder []byte) error {
+func (db *deprecatedLowlevel) dropFolderIndexIDs(folder []byte) error {
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return err
@@ -648,7 +648,7 @@ func (db *Lowlevel) dropFolderIndexIDs(folder []byte) error {
 	return t.Commit()
 }
 
-func (db *Lowlevel) dropIndexIDs() error {
+func (db *deprecatedLowlevel) dropIndexIDs() error {
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return err
@@ -663,7 +663,7 @@ func (db *Lowlevel) dropIndexIDs() error {
 // dropOtherDeviceIndexIDs drops all index IDs for devices other than the
 // local device. This means we will resend our indexes to all other devices,
 // but they don't have to resend to us.
-func (db *Lowlevel) dropOtherDeviceIndexIDs() error {
+func (db *deprecatedLowlevel) dropOtherDeviceIndexIDs() error {
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return err
@@ -678,7 +678,7 @@ func (db *Lowlevel) dropOtherDeviceIndexIDs() error {
 	return t.Commit()
 }
 
-func (db *Lowlevel) dropMtimes(folder []byte) error {
+func (db *deprecatedLowlevel) dropMtimes(folder []byte) error {
 	key, err := db.keyer.GenerateMtimesKey(nil, folder)
 	if err != nil {
 		return err
@@ -686,7 +686,35 @@ func (db *Lowlevel) dropMtimes(folder []byte) error {
 	return db.dropPrefix(key)
 }
 
-func (db *Lowlevel) dropFolderMeta(folder []byte) error {
+func (db *deprecatedLowlevel) IterateMtimes(fn func(folder, name string, ondisk, virtual time.Time) error) error {
+	it, err := db.NewPrefixIterator([]byte{KeyTypeVirtualMtime})
+	if err != nil {
+		return err
+	}
+	defer it.Release()
+	for it.Next() {
+		key := it.Key()[1:]
+		folderId, ok := db.folderIdx.Val(binary.BigEndian.Uint32(key))
+		if !ok {
+			continue
+		}
+		name := key[4:]
+		val := it.Value()
+		var ondisk, virtual time.Time
+		if err := ondisk.UnmarshalBinary(val[:len(val)/2]); err != nil {
+			continue
+		}
+		if err := virtual.UnmarshalBinary(val[len(val)/2:]); err != nil {
+			continue
+		}
+		if err := fn(string(folderId), string(name), ondisk, virtual); err != nil {
+			return err
+		}
+	}
+	return it.Error()
+}
+
+func (db *deprecatedLowlevel) dropFolderMeta(folder []byte) error {
 	key, err := db.keyer.GenerateFolderMetaKey(nil, folder)
 	if err != nil {
 		return err
@@ -694,7 +722,7 @@ func (db *Lowlevel) dropFolderMeta(folder []byte) error {
 	return db.dropPrefix(key)
 }
 
-func (db *Lowlevel) dropPrefix(prefix []byte) error {
+func (db *deprecatedLowlevel) dropPrefix(prefix []byte) error {
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return err
@@ -707,7 +735,7 @@ func (db *Lowlevel) dropPrefix(prefix []byte) error {
 	return t.Commit()
 }
 
-func (db *Lowlevel) gcRunner(ctx context.Context) error {
+func (db *deprecatedLowlevel) gcRunner(ctx context.Context) error {
 	// Calculate the time for the next GC run. Even if we should run GC
 	// directly, give the system a while to get up and running and do other
 	// stuff first. (We might have migrations and stuff which would be
@@ -736,14 +764,14 @@ func (db *Lowlevel) gcRunner(ctx context.Context) error {
 
 // recordTime records the current time under the given key, affecting the
 // next call to timeUntil with the same key.
-func (db *Lowlevel) recordTime(key string) {
+func (db *deprecatedLowlevel) recordTime(key string) {
 	miscDB := NewMiscDataNamespace(db)
 	_ = miscDB.PutInt64(key, time.Now().Unix()) // error wilfully ignored
 }
 
 // timeUntil returns how long we should wait until the next interval, or
 // zero if it should happen directly.
-func (db *Lowlevel) timeUntil(key string, every time.Duration) time.Duration {
+func (db *deprecatedLowlevel) timeUntil(key string, every time.Duration) time.Duration {
 	miscDB := NewMiscDataNamespace(db)
 	lastTime, _, _ := miscDB.Int64(key) // error wilfully ignored
 	nextTime := time.Unix(lastTime, 0).Add(every)
@@ -754,7 +782,7 @@ func (db *Lowlevel) timeUntil(key string, every time.Duration) time.Duration {
 	return sleepTime
 }
 
-func (db *Lowlevel) gcIndirect(ctx context.Context) (err error) {
+func (db *deprecatedLowlevel) gcIndirect(ctx context.Context) (err error) {
 	// The indirection GC uses bloom filters to track used block lists and
 	// versions. This means iterating over all items, adding their hashes to
 	// the filter, then iterating over the indirected items and removing
@@ -926,11 +954,11 @@ func (db *Lowlevel) gcIndirect(ctx context.Context) (err error) {
 	return nil
 }
 
-func (db *Lowlevel) recordIndirectionHashesForFile(f *protocol.FileInfo) {
+func (db *deprecatedLowlevel) recordIndirectionHashesForFile(f *protocol.FileInfo) {
 	db.recordIndirectionHashes(&dbproto.IndirectionHashesOnly{BlocksHash: f.BlocksHash, VersionHash: f.VersionHash})
 }
 
-func (db *Lowlevel) recordIndirectionHashes(hs *dbproto.IndirectionHashesOnly) {
+func (db *deprecatedLowlevel) recordIndirectionHashes(hs *dbproto.IndirectionHashesOnly) {
 	// must be called with gcMut held (at least read-held)
 	if db.blockFilter != nil && len(hs.BlocksHash) > 0 {
 		db.blockFilter.add(hs.BlocksHash)
@@ -974,7 +1002,7 @@ func (b *bloomFilter) hash(id []byte) uint64 {
 }
 
 // checkRepair checks folder metadata and sequences for miscellaneous errors.
-func (db *Lowlevel) checkRepair() error {
+func (db *deprecatedLowlevel) checkRepair() error {
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 	for _, folder := range db.ListFolders() {
@@ -985,14 +1013,14 @@ func (db *Lowlevel) checkRepair() error {
 	return nil
 }
 
-func (db *Lowlevel) getMetaAndCheck(folder string) (*metadataTracker, error) {
+func (db *deprecatedLowlevel) getMetaAndCheck(folder string) (*metadataTracker, error) {
 	db.gcMut.RLock()
 	defer db.gcMut.RUnlock()
 
 	return db.getMetaAndCheckGCLocked(folder)
 }
 
-func (db *Lowlevel) getMetaAndCheckGCLocked(folder string) (*metadataTracker, error) {
+func (db *deprecatedLowlevel) getMetaAndCheckGCLocked(folder string) (*metadataTracker, error) {
 	fixed, err := db.checkLocalNeed([]byte(folder))
 	if err != nil {
 		return nil, fmt.Errorf("checking local need: %w", err)
@@ -1035,7 +1063,7 @@ func (db *Lowlevel) getMetaAndCheckGCLocked(folder string) (*metadataTracker, er
 	return meta, nil
 }
 
-func (db *Lowlevel) loadMetadataTracker(folder string) (*metadataTracker, error) {
+func (db *deprecatedLowlevel) loadMetadataTracker(folder string) (*metadataTracker, error) {
 	meta := newMetadataTracker(db.keyer, db.evLogger)
 	if err := meta.fromDB(db, []byte(folder)); err != nil {
 		if errors.Is(err, errMetaInconsistent) {
@@ -1062,7 +1090,7 @@ func (db *Lowlevel) loadMetadataTracker(folder string) (*metadataTracker, error)
 	return meta, nil
 }
 
-func (db *Lowlevel) recalcMeta(folderStr string) (*metadataTracker, error) {
+func (db *deprecatedLowlevel) recalcMeta(folderStr string) (*metadataTracker, error) {
 	folder := []byte(folderStr)
 
 	meta := newMetadataTracker(db.keyer, db.evLogger)
@@ -1119,7 +1147,7 @@ func (db *Lowlevel) recalcMeta(folderStr string) (*metadataTracker, error) {
 
 // Verify the local sequence number from actual sequence entries. Returns
 // true if it was all good, or false if a fixup was necessary.
-func (db *Lowlevel) verifyLocalSequence(curSeq int64, folder string) (bool, error) {
+func (db *deprecatedLowlevel) verifyLocalSequence(curSeq int64, folder string) (bool, error) {
 	// Walk the sequence index from the current (supposedly) highest
 	// sequence number and raise the alarm if we get anything. This recovers
 	// from the occasion where we have written sequence entries to disk but
@@ -1149,7 +1177,7 @@ func (db *Lowlevel) verifyLocalSequence(curSeq int64, folder string) (bool, erro
 // repairSequenceGCLocked makes sure the sequence numbers in the sequence keys
 // match those in the corresponding file entries. It returns the amount of fixed
 // entries.
-func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTracker) (int, error) {
+func (db *deprecatedLowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTracker) (int, error) {
 	t, err := db.newReadWriteTransaction(meta.CommitHook([]byte(folderStr)))
 	if err != nil {
 		return 0, err
@@ -1281,7 +1309,7 @@ func (db *Lowlevel) repairSequenceGCLocked(folderStr string, meta *metadataTrack
 
 // Does not take care of metadata - if anything is repaired, the need count
 // needs to be recalculated.
-func (db *Lowlevel) checkLocalNeed(folder []byte) (int, error) {
+func (db *deprecatedLowlevel) checkLocalNeed(folder []byte) (int, error) {
 	repaired := 0
 
 	t, err := db.newReadWriteTransaction()
@@ -1363,7 +1391,7 @@ func (db *Lowlevel) checkLocalNeed(folder []byte) (int, error) {
 
 // checkSequencesUnchanged resets delta indexes for any device where the
 // sequence changed.
-func (db *Lowlevel) checkSequencesUnchanged(folder string, oldMeta, meta *metadataTracker) error {
+func (db *deprecatedLowlevel) checkSequencesUnchanged(folder string, oldMeta, meta *metadataTracker) error {
 	t, err := db.newReadWriteTransaction()
 	if err != nil {
 		return err
@@ -1417,7 +1445,7 @@ func (db *Lowlevel) checkSequencesUnchanged(folder string, oldMeta, meta *metada
 	return t.Commit()
 }
 
-func (db *Lowlevel) needsRepairPath() string {
+func (db *deprecatedLowlevel) needsRepairPath() string {
 	path := db.Location()
 	if path == "" {
 		return ""
@@ -1428,7 +1456,7 @@ func (db *Lowlevel) needsRepairPath() string {
 	return path + needsRepairSuffix
 }
 
-func (db *Lowlevel) checkErrorForRepair(err error) {
+func (db *deprecatedLowlevel) checkErrorForRepair(err error) {
 	if errors.Is(err, errEntryFromGlobalMissing) || errors.Is(err, errEmptyGlobal) {
 		// Inconsistency error, mark db for repair on next start.
 		if path := db.needsRepairPath(); path != "" {
@@ -1439,7 +1467,7 @@ func (db *Lowlevel) checkErrorForRepair(err error) {
 	}
 }
 
-func (db *Lowlevel) handleFailure(err error) {
+func (db *deprecatedLowlevel) handleFailure(err error) {
 	db.checkErrorForRepair(err)
 	if shouldReportFailure(err) {
 		db.evLogger.Log(events.Failure, err.Error())
