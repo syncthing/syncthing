@@ -340,8 +340,10 @@ jobs:
 
   package-macos:
     name: Package for macOS
-    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-') || startsWith(github.ref, 'refs/tags/v'))
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-') || startsWith(github.ref, 'refs/tags/v'))
     environment: release
+    env:
+      CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -368,6 +370,7 @@ jobs:
           key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
 
       - name: Import signing certificate
+        if: env.CODESIGN_IDENTITY != ''
         run: |
           # Set up a run-specific keychain, making it available for the
           # `codesign` tool.
