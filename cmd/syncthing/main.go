@@ -830,6 +830,10 @@ func initialAutoUpgradeCheck(misc *db.NamespacedKV) (upgrade.Release, error) {
 	if err != nil {
 		return upgrade.Release{}, err
 	}
+	if upgrade.CompareVersions(release.Tag, build.Version) == upgrade.MajorNewer {
+		return upgrade.Release{}, errors.New("higher major version")
+	}
+
 	if lastVersion, ok, err := misc.String(upgradeVersionKey); err == nil && ok && lastVersion == release.Tag {
 		// Only check time if we try to upgrade to the same release.
 		if lastTime, ok, err := misc.Time(upgradeTimeKey); err == nil && ok && time.Since(lastTime) < upgradeRetryInterval {
