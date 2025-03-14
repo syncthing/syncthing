@@ -9,8 +9,9 @@ package fs
 type FilesystemType int32
 
 const (
-	FilesystemTypeBasic FilesystemType = 0
-	FilesystemTypeFake  FilesystemType = 1
+	FilesystemTypeBasic  FilesystemType = 0
+	FilesystemTypeFake   FilesystemType = 1
+	FilesystemTypeCustom FilesystemType = 2
 )
 
 func (t FilesystemType) String() string {
@@ -19,6 +20,8 @@ func (t FilesystemType) String() string {
 		return "basic"
 	case FilesystemTypeFake:
 		return "fake"
+	case FilesystemTypeCustom:
+		return "custom"
 	default:
 		return "unknown"
 	}
