@@ -195,7 +195,7 @@ jobs:
           path: "*.zip"
 
   codesign-windows:
-    name: Codesign for Windows
+    name: Codesign for Windows (skipped)
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-') || startsWith(github.ref, 'refs/tags/v'))
     environment: release
     runs-on: windows-latest
@@ -217,6 +217,7 @@ jobs:
           }
 
       - name: Sign files with Trusted Signing
+        if: false
         uses: azure/trusted-signing-action@v0.5.1
         with:
           azure-tenant-id: ${{ secrets.AZURE_TRUSTED_SIGNING_TENANT_ID }}
