@@ -22,6 +22,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"runtime/pprof"
 	"sort"
 	"strconv"
@@ -30,6 +31,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/gofrs/flock"
 	"github.com/thejerf/suture/v4"
 	"github.com/willabides/kongplete"
 
@@ -379,13 +381,15 @@ func (options serveOptions) Run() error {
 	if options.Upgrade {
 		release, err := checkUpgrade()
 		if err == nil {
-			// Use leveldb database locks to protect against concurrent upgrades
-			var ldb backend.Backend
-			ldb, err = syncthing.OpenDBBackend(locations.Get(locations.Database), config.TuningAuto)
+			lf := flock.New(locations.Get(locations.LockFile))
+			locked, err := lf.TryLock()
 			if err != nil {
+				l.Warnln("Upgrade:", err)
+				os.Exit(1)
+			}
+			if locked {
 				err = upgradeViaRest()
 			} else {
-				_ = ldb.Close()
 				err = upgrade.To(release)
 			}
 		}
@@ -536,6 +540,17 @@ func syncthingMain(options serveOptions) {
 	// Print our version information up front, so any crash that happens
 	// early etc. will have it available.
 	l.Infoln(build.LongVersion)
+
+	// Ensure we are the only running instance
+	lf := flock.New(locations.Get(locations.LockFile))
+	locked, err := lf.TryLock()
+	if err != nil {
+		l.Warnln("Failed to acquire lock:", err)
+		os.Exit(1)
+	} else if !locked {
+		l.Warnln("Failed to acquire lock: is another Syncthing instance already running?")
+		os.Exit(1)
+	}
 
 	// Ensure that we have a certificate and key.
 	cert, err := syncthing.LoadOrGenerateCertificate(
@@ -692,6 +707,7 @@ func syncthingMain(options serveOptions) {
 		pprof.StopCPUProfile()
 	}
 
+	runtime.KeepAlive(lf) // ensure lock is still held to this point
 	os.Exit(int(status))
 }
 
