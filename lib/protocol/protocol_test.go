@@ -10,10 +10,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"io"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -278,28 +276,6 @@ func TestUnmarshalFDPUv16v17(t *testing.T) {
 	if err := proto.Unmarshal(m1, &fdpu); err != nil {
 		t.Fatal("Unmarshalling message from v0.14.16:", err)
 	}
-}
-
-func testMarshal(t *testing.T, prefix string, m1, m2 proto.Message) bool {
-	buf, err := proto.Marshal(m1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = proto.Unmarshal(buf, m2)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	bs1, _ := json.MarshalIndent(m1, "", "  ")
-	bs2, _ := json.MarshalIndent(m2, "", "  ")
-	if !bytes.Equal(bs1, bs2) {
-		os.WriteFile(prefix+"-1.txt", bs1, 0o644)
-		os.WriteFile(prefix+"-2.txt", bs2, 0o644)
-		return false
-	}
-
-	return true
 }
 
 func TestWriteCompressed(t *testing.T) {

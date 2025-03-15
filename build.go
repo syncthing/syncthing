@@ -480,7 +480,7 @@ func install(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	args := []string{"install", "-v"}
+	args := []string{"install"}
 	args = appendParameters(args, tags, target.buildPkgs...)
 	runPrint(goCmd, args...)
 }
@@ -512,7 +512,7 @@ func build(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	args := []string{"build", "-v"}
+	args := []string{"build"}
 	if buildOut != "" {
 		args = append(args, "-o", buildOut)
 	}
@@ -524,13 +524,6 @@ func setBuildEnvVars() {
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
 	os.Setenv("CC", cc)
-	if os.Getenv("CGO_ENABLED") == "" {
-		switch goos {
-		case "darwin", "solaris":
-		default:
-			os.Setenv("CGO_ENABLED", "0")
-		}
-	}
 }
 
 func appendParameters(args []string, tags []string, pkgs ...string) []string {
@@ -746,12 +739,15 @@ func shouldBuildSyso(dir string) (string, error) {
 	sysoPath := filepath.Join(dir, "cmd", "syncthing", "resource.syso")
 
 	// See https://github.com/josephspurrier/goversioninfo#command-line-flags
-	armOption := ""
-	if strings.Contains(goarch, "arm") {
-		armOption = "-arm=true"
+	archOption := ""
+	switch goarch {
+	case "arm", "arm64":
+		archOption = "-arm=true"
+	case "amd64":
+		archOption = "-64=true"
 	}
 
-	if _, err := runError("goversioninfo", "-o", sysoPath, armOption); err != nil {
+	if _, err := runError("goversioninfo", "-o", sysoPath, archOption); err != nil {
 		return "", errors.New("failed to create " + sysoPath + ": " + err.Error())
 	}
 

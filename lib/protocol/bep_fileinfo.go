@@ -19,10 +19,13 @@ import (
 
 // FileInfo.LocalFlags flags
 const (
-	FlagLocalUnsupported = 1 << 0 // The kind is unsupported, e.g. symlinks on Windows
-	FlagLocalIgnored     = 1 << 1 // Matches local ignore patterns
-	FlagLocalMustRescan  = 1 << 2 // Doesn't match content on disk, must be rechecked fully
-	FlagLocalReceiveOnly = 1 << 3 // Change detected on receive only folder
+	FlagLocalUnsupported = 1 << 0 // 1: The kind is unsupported, e.g. symlinks on Windows
+	FlagLocalIgnored     = 1 << 1 // 2: Matches local ignore patterns
+	FlagLocalMustRescan  = 1 << 2 // 4: Doesn't match content on disk, must be rechecked fully
+	FlagLocalReceiveOnly = 1 << 3 // 8: Change detected on receive only folder
+	FlagLocalGlobal      = 1 << 4 // 16: This is the global file version
+	FlagLocalNeeded      = 1 << 5 // 32: We need this file
+	FlagLocalDeleted     = 1 << 6 // 64: File is deleted
 
 	// Flags that should result in the Invalid bit on outgoing updates
 	LocalInvalidFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan | FlagLocalReceiveOnly
@@ -32,7 +35,7 @@ const (
 	// disk.
 	LocalConflictFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalReceiveOnly
 
-	LocalAllFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan | FlagLocalReceiveOnly
+	LocalAllFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan | FlagLocalReceiveOnly | FlagLocalGlobal | FlagLocalNeeded | FlagLocalDeleted
 )
 
 // BlockSizes is the list of valid block sizes, from min to max
