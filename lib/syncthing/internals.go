@@ -25,16 +25,7 @@ type Internals struct {
 	model model.Model
 }
 
-// Exposed version of db.Counts, which is now internal
-type Counts struct {
-	Files       int
-	Directories int
-	Symlinks    int
-	Deleted     int
-	Bytes       int64
-	Sequence    int64             // zero for the global state
-	DeviceID    protocol.DeviceID // device ID for remote devices, or special values for local/global
-}
+type Counts = db.Counts
 
 func newInternals(model model.Model) *Internals {
 	return &Internals{
@@ -99,7 +90,7 @@ func (m *Internals) GlobalSize(folder string) (Counts, error) {
 	if err != nil {
 		return Counts{}, err
 	}
-	return newCounts(counts), nil
+	return counts, nil
 }
 
 func (m *Internals) LocalSize(folder string) (Counts, error) {
@@ -107,7 +98,7 @@ func (m *Internals) LocalSize(folder string) (Counts, error) {
 	if err != nil {
 		return Counts{}, err
 	}
-	return newCounts(counts), nil
+	return counts, nil
 }
 
 func (m *Internals) NeedSize(folder string, device protocol.DeviceID) (Counts, error) {
@@ -115,21 +106,9 @@ func (m *Internals) NeedSize(folder string, device protocol.DeviceID) (Counts, e
 	if err != nil {
 		return Counts{}, err
 	}
-	return newCounts(counts), nil
+	return counts, nil
 }
 
 func (m *Internals) AllGlobalFiles(folder string) (iter.Seq[db.FileMetadata], func() error) {
 	return m.model.AllGlobalFiles(folder)
-}
-
-func newCounts(counts db.Counts) Counts {
-	return Counts{
-		Files:       counts.Files,
-		Directories: counts.Directories,
-		Symlinks:    counts.Symlinks,
-		Deleted:     counts.Deleted,
-		Bytes:       counts.Bytes,
-		Sequence:    counts.Sequence,
-		DeviceID:    counts.DeviceID,
-	}
 }
