@@ -171,7 +171,12 @@ func OpenDatabase(path string, oldDBDir string, evLogger events.Logger) (newdb.D
 
 	if be, err := backend.OpenLevelDBRO(oldDBDir); err == nil {
 		// We have not migrated. We should do that.
-		migrateDatabase(be, evLogger, sdb, oldDBDir)
+		err := migrateDatabase(be, evLogger, sdb, oldDBDir)
+		if err != nil {
+			l.Warnln(err.Error())
+			os.Exit(0) // prevent automatic restart by the monitor
+		}
+
 		miscDB := dbext.NewMiscDB(sdb)
 		_ = miscDB.PutTime("migrated-from-leveldb-at", time.Now())
 		_ = miscDB.PutString("migrated-from-leveldb-by", build.LongVersion)
@@ -180,13 +185,12 @@ func OpenDatabase(path string, oldDBDir string, evLogger events.Logger) (newdb.D
 	return sdb, nil
 }
 
-func migrateDatabase(be backend.Backend, evLogger events.Logger, sdb newdb.DB, oldDBDir string) {
+func migrateDatabase(be backend.Backend, evLogger events.Logger, sdb newdb.DB, oldDBDir string) error {
 	l.Infoln("Migrating database from LevelDB to SQLite; this can take quite a while...")
 
 	ll, err := db.NewLowlevel(be, evLogger)
 	if err != nil {
-		l.Warnln("Failed to migrate:", err)
-		os.Exit(1)
+		return errors.New("Failed to migrate: " + err.Error())
 	}
 
 	for _, folder := range ll.ListFolders() {
@@ -194,29 +198,33 @@ func migrateDatabase(be backend.Backend, evLogger events.Logger, sdb newdb.DB, o
 		var batch []protocol.FileInfo
 		fs, err := db.NewFileSet(folder, ll)
 		if err != nil {
-			l.Warnln("Failed to migrate FileInfos:", err)
-			os.Exit(1)
+			return errors.New("Failed to migrate FileInfos: " + err.Error())
 		}
+
 		snap, err := fs.Snapshot()
 		if err != nil {
-			l.Warnln("Failed to migrate FileInfos:", err)
-			os.Exit(1)
+			return errors.New("Failed to migrate FileInfos: " + err.Error())
 		}
+
+		err = nil
 		snap.WithHaveSequence(0, func(f protocol.FileInfo) bool {
 			batch = append(batch, f)
 			if len(batch) == 1000 {
-				if err := sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
-					l.Warnln("Failed to migrate FileInfos:", err)
-					os.Exit(1)
+				if err = sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
+					return false
 				}
 				batch = batch[:0]
 			}
 			return true
 		})
+
+		if err != nil {
+			return errors.New("Failed to migrate FileInfos: " + err.Error())
+		}
+
 		if len(batch) > 0 {
 			if err := sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
-				l.Warnln("Failed to migrate FileInfos:", err)
-				os.Exit(1)
+				return errors.New("Failed to migrate FileInfos: " + err.Error())
 			}
 		}
 		snap.Release()
@@ -231,7 +239,8 @@ func migrateDatabase(be backend.Backend, evLogger events.Logger, sdb newdb.DB, o
 	be.Close()
 
 	if err := os.Rename(oldDBDir, oldDBDir+"-migrated"); err != nil {
-		l.Warnln("Failed to rename old, migrated database; please manually move or remove", oldDBDir)
-		os.Exit(0) // prevent automatic restart by the monitor
+		return errors.New("Failed to rename old, migrated database: " + err.Error() + ". Please manually move or remove " + oldDBDir)
 	}
+
+	return nil
 }
