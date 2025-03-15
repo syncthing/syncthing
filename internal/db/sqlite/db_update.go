@@ -433,6 +433,8 @@ func (s *DB) deviceIdxLocked(deviceID protocol.DeviceID) (int64, error) {
 	return idx, nil
 }
 
+// wrap returns the error wrapped with the calling function name and
+// optional extra context strings as prefix. A nil error wraps to nil.
 func wrap(err error, context ...string) error {
 	if err == nil {
 		return nil
