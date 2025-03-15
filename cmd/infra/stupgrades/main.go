@@ -30,11 +30,28 @@ import (
 )
 
 type cli struct {
+	Output        string        `short:"o" help:"Output file"`
 	Listen        string        `default:":8080" help:"Listen address"`
 	MetricsListen string        `default:":8082" help:"Listen address for metrics"`
 	URL           string        `short:"u" default:"https://api.github.com/repos/cre4ture/thingium/releases?per_page=25" help:"GitHub releases url"`
 	Forward       []string      `short:"f" help:"Forwarded pages, format: /path->https://example/com/url"`
 	CacheTime     time.Duration `default:"15m" help:"Cache time"`
+}
+
+type HttpToFile struct { // implements http.ResponseWriter
+	*os.File
+}
+
+func (h *HttpToFile) Write(p []byte) (n int, err error) {
+	return h.File.Write(p)
+}
+
+func (h *HttpToFile) Header() http.Header {
+	return http.Header{}
+}
+
+func (h *HttpToFile) WriteHeader(statusCode int) {
+	// ignore
 }
 
 func main() {
@@ -81,6 +98,20 @@ func server(params *cli) error {
 			}
 		}
 	}()
+
+	println("Output:", params.Output)
+	if params.Output != "" {
+		f, err := os.Create(params.Output)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		defer f.Close()
+
+		ghRels := &githubReleases{cache: cache}
+		ghRels.serveReleases(&HttpToFile{File: f}, &http.Request{})
+		return nil
+	}
 
 	ghRels := &githubReleases{cache: cache}
 	mux := http.NewServeMux()
