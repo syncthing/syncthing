@@ -8,8 +8,10 @@ package syncthing
 
 import (
 	"context"
+	"iter"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/dbext"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -21,6 +23,17 @@ import (
 // volatile Model interface and upstream users (one of which is an iOS app).
 type Internals struct {
 	model model.Model
+}
+
+// Exposed version of db.Counts, which is now internal
+type Counts struct {
+	Files       int
+	Directories int
+	Symlinks    int
+	Deleted     int
+	Bytes       int64
+	Sequence    int64             // zero for the global state
+	DeviceID    protocol.DeviceID // device ID for remote devices, or special values for local/global
 }
 
 func newInternals(model model.Model) *Internals {
@@ -79,4 +92,44 @@ func (m *Internals) PendingFolders(deviceID protocol.DeviceID) (map[string]dbext
 
 func (m *Internals) ScanFolderSubdirs(folderID string, paths []string) error {
 	return m.model.ScanFolderSubdirs(folderID, paths)
+}
+
+func (m *Internals) GlobalSize(folder string) (Counts, error) {
+	counts, err := m.model.GlobalSize(folder)
+	if err != nil {
+		return Counts{}, err
+	}
+	return newCounts(counts), nil
+}
+
+func (m *Internals) LocalSize(folder string) (Counts, error) {
+	counts, err := m.model.LocalSize(folder, protocol.LocalDeviceID)
+	if err != nil {
+		return Counts{}, err
+	}
+	return newCounts(counts), nil
+}
+
+func (m *Internals) NeedSize(folder string, device protocol.DeviceID) (Counts, error) {
+	counts, err := m.model.NeedSize(folder, device)
+	if err != nil {
+		return Counts{}, err
+	}
+	return newCounts(counts), nil
+}
+
+func (m *Internals) AllGlobalFiles(folder string) (iter.Seq[db.FileMetadata], func() error) {
+	return m.model.AllGlobalFiles(folder)
+}
+
+func newCounts(counts db.Counts) Counts {
+	return Counts{
+		Files:       counts.Files,
+		Directories: counts.Directories,
+		Symlinks:    counts.Symlinks,
+		Deleted:     counts.Deleted,
+		Bytes:       counts.Bytes,
+		Sequence:    counts.Sequence,
+		DeviceID:    counts.DeviceID,
+	}
 }
