@@ -7,6 +7,7 @@
 package dbext
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -84,7 +85,7 @@ func (db *ObservedDB) PendingDevices() (map[protocol.DeviceID]ObservedDevice, er
 		_, keyDev, ok := strings.Cut(kv.Key, "/")
 		if !ok {
 			if err := db.kv.KVDelete(kv.Key); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("delete invalid pending device: %w", err)
 			}
 			continue
 		}
@@ -106,7 +107,7 @@ func (db *ObservedDB) PendingDevices() (map[protocol.DeviceID]ObservedDevice, er
 		// appropriate for the importance of pending entries.  They will come back
 		// soon if still relevant.
 		if err := db.kv.KVDelete(kv.Key); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("delete invalid pending device: %w", err)
 		}
 	}
 	return res, errFn()
@@ -132,7 +133,7 @@ func (db *ObservedDB) RemovePendingFolder(id string) error {
 			continue
 		}
 		if err := db.kv.KVDelete(kv.Key); err != nil {
-			return err
+			return fmt.Errorf("delete pending folder: %w", err)
 		}
 	}
 	return errFn()
@@ -189,7 +190,7 @@ func (db *ObservedDB) PendingFoldersForDevice(device protocol.DeviceID) (map[str
 		// appropriate for the importance of pending entries.  They will come back
 		// soon if still relevant.
 		if err := db.kv.KVDelete(kv.Key); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("delete invalid pending folder: %w", err)
 		}
 	}
 	return res, errFn()

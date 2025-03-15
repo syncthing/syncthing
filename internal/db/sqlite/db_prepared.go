@@ -17,7 +17,7 @@ func (p *txPreparedStmts) Preparex(query string) (*sqlx.Stmt, error) {
 	}
 	stmt, err := p.Tx.Preparex(query)
 	if err != nil {
-		return nil, err
+		return nil, wrap(err)
 	}
 	p.stmts[query] = stmt
 	return stmt, nil

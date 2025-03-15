@@ -18,7 +18,7 @@ func (s *DB) Serve(ctx context.Context) error {
 		}
 
 		if err := s.periodic(ctx); err != nil {
-			return err
+			return wrap(err)
 		}
 
 		timer.Reset(dbMaintenanceInterval)
@@ -36,7 +36,7 @@ func (s *DB) periodic(ctx context.Context) error {
 	defer func() { l.Debugln("Periodic done in", time.Since(t1), "+", t1.Sub(t0)) }()
 
 	if err := s.garbageCollectBlocklistsAndBlocksLocked(ctx); err != nil {
-		return err
+		return wrap(err)
 	}
 
 	_, _ = s.sql.ExecContext(ctx, `ANALYZE`)
@@ -73,7 +73,7 @@ func (s *DB) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context) error 
 
 	tx, err := conn.BeginTxx(ctx, nil)
 	if err != nil {
-		return err
+		return wrap(err)
 	}
 	defer tx.Rollback()
 

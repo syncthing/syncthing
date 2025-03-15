@@ -63,7 +63,7 @@ func (v *dbVector) Scan(value any) error {
 	}
 	vec, err := protocol.VectorFromString(str)
 	if err != nil {
-		return err
+		return wrap(err)
 	}
 	v.Vector = vec
 

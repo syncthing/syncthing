@@ -27,7 +27,7 @@ func OpenTemp() (*DB, error) {
 	// for now.
 	dir, err := os.MkdirTemp("", "syncthing-db")
 	if err != nil {
-		return nil, err
+		return nil, wrap(err)
 	}
 	path := filepath.Join(dir, "db")
 	l.Debugln("Test DB in", path)

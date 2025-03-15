@@ -51,7 +51,7 @@ func (s *DB) ListDevicesForFolder(folder string) ([]protocol.DeviceID, error) {
 	for i, s := range res {
 		devs[i], err = protocol.DeviceIDFromString(s)
 		if err != nil {
-			return nil, err
+			return nil, wrap(err)
 		}
 	}
 	return devs, nil
