@@ -597,6 +597,7 @@ jobs:
       - name: Create shasum files
         run: |
           pushd packages
+          shopt -s nullglob  # Enable nullglob so that empty matches result in an empty array
           files=(*.tar.gz *.zip)
           sha1sum "${files[@]}" > sha1sum.txt
           sha256sum "${files[@]}" > sha256sum.txt
