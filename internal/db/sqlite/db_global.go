@@ -70,7 +70,7 @@ func (s *DB) GetGlobalAvailability(folder, file string) ([]protocol.DeviceID, er
 
 func (s *DB) AllGlobalFiles(folder string) (iter.Seq[db.FileMetadata], func() error) {
 	it, errFn := iterStructs[db.FileMetadata](s.sql.Queryx(s.tpl(`
-		SELECT f.sequence, f.name, f.type, f.modified as modifiednanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
+		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.local_flags & {{.FlagLocalGlobal}} != 0
 		ORDER BY f.name
@@ -90,7 +90,7 @@ func (s *DB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[db.Fil
 	pattern := prefix + "%"
 
 	it, errFn := iterStructs[db.FileMetadata](s.sql.Queryx(s.tpl(`
-		SELECT f.sequence, f.name, f.type, f.modified as modifiednanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
+		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND (f.name = ? OR f.name LIKE ?) AND f.local_flags & {{.FlagLocalGlobal}} != 0
 		ORDER BY f.name

@@ -74,8 +74,8 @@ type DB interface {
 
 type BlockMapEntry struct {
 	BlocklistHash []byte
-	BlockIndex    int
 	Offset        int64
+	BlockIndex    int
 	Size          int
 }
 
@@ -85,28 +85,28 @@ type KeyValue struct {
 }
 
 type FileMetadata struct {
-	Sequence      int64
-	Name          string
-	Type          protocol.FileInfoType
-	ModifiedNanos int64
-	Size          int64
-	Deleted       bool
-	Invalid       bool
-	LocalFlags    int
+	Name       string
+	Sequence   int64
+	ModNanos   int64
+	Size       int64
+	LocalFlags int64
+	Type       protocol.FileInfoType
+	Deleted    bool
+	Invalid    bool
 }
 
-func (f *FileMetadata) Modified() time.Time {
-	return time.Unix(0, f.ModifiedNanos)
+func (f *FileMetadata) ModTime() time.Time {
+	return time.Unix(0, f.ModNanos)
 }
 
-func (f FileMetadata) IsReceiveOnlyChanged() bool {
+func (f *FileMetadata) IsReceiveOnlyChanged() bool {
 	return f.LocalFlags&protocol.FlagLocalReceiveOnly != 0
 }
 
-func (f FileMetadata) IsDirectory() bool {
+func (f *FileMetadata) IsDirectory() bool {
 	return f.Type == protocol.FileInfoTypeDirectory
 }
 
-func (f FileMetadata) ShouldConflict() bool {
+func (f *FileMetadata) ShouldConflict() bool {
 	return f.LocalFlags&protocol.LocalConflictFlags != 0
 }

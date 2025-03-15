@@ -2768,7 +2768,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 		parent.Children = append(parent.Children, &TreeEntry{
 			Name:    base,
 			Type:    f.Type.String(),
-			ModTime: f.Modified(),
+			ModTime: f.ModTime(),
 			Size:    f.Size,
 		})
 	}
