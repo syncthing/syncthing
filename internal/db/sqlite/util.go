@@ -95,3 +95,17 @@ func (i indirectFI) FileInfo() (protocol.FileInfo, error) {
 	fi.Name = osutil.NativeFilename(fi.Name)
 	return protocol.FileInfoFromDB(&fi), nil
 }
+
+func prefixEnd(s string) string {
+	if s == "" {
+		panic("bug: cannot represent end prefix for empty string")
+	}
+	bs := []byte(s)
+	for i := len(bs) - 1; i >= 0; i-- {
+		if bs[i] < 0xff {
+			bs[i]++
+			break
+		}
+	}
+	return string(bs)
+}
