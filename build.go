@@ -996,7 +996,7 @@ func getGitVersion() (string, error) {
 	// To be more semantic-versionish and ensure proper ordering in our
 	// upgrade process, we make sure there's only one hyphen in the version.
 
-	versionRe := regexp.MustCompile(`-([0-9]{1,3}-g[0-9a-f]{5,10}(-dirty)?)`)
+	versionRe := regexp.MustCompile(`-([0-9]{1,3}-g[0-9a-f]{5,10}(-dirty)?)`) // HEÖÖP
 	if m := versionRe.FindStringSubmatch(vcur); len(m) > 0 {
 		suffix := strings.ReplaceAll(m[1], "-", ".")
 
