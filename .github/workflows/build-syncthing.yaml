@@ -620,7 +620,7 @@ jobs:
         with:
           args:
             sign --detach --ascii
-            packages/syncthing-source-${{ env.VERSION }}.tar.gz
+            packages/thingium-source-${{ env.VERSION }}.tar.gz
         env:
           EZAPT_KEYRING_BASE64: ${{ secrets.APT_GPG_KEYRING_BASE64 }}
 
