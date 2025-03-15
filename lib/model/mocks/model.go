@@ -24,6 +24,19 @@ type Model struct {
 		arg1 protocol.Connection
 		arg2 protocol.Hello
 	}
+	AllGlobalFilesStub        func(string) (iter.Seq[db.FileMetadata], func() error)
+	allGlobalFilesMutex       sync.RWMutex
+	allGlobalFilesArgsForCall []struct {
+		arg1 string
+	}
+	allGlobalFilesReturns struct {
+		result1 iter.Seq[db.FileMetadata]
+		result2 func() error
+	}
+	allGlobalFilesReturnsOnCall map[int]struct {
+		result1 iter.Seq[db.FileMetadata]
+		result2 func() error
+	}
 	AvailabilityStub        func(string, protocol.FileInfo, protocol.BlockInfo) ([]model.Availability, error)
 	availabilityMutex       sync.RWMutex
 	availabilityArgsForCall []struct {
@@ -682,6 +695,70 @@ func (fake *Model) AddConnectionArgsForCall(i int) (protocol.Connection, protoco
 	defer fake.addConnectionMutex.RUnlock()
 	argsForCall := fake.addConnectionArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *Model) AllGlobalFiles(arg1 string) (iter.Seq[db.FileMetadata], func() error) {
+	fake.allGlobalFilesMutex.Lock()
+	ret, specificReturn := fake.allGlobalFilesReturnsOnCall[len(fake.allGlobalFilesArgsForCall)]
+	fake.allGlobalFilesArgsForCall = append(fake.allGlobalFilesArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.AllGlobalFilesStub
+	fakeReturns := fake.allGlobalFilesReturns
+	fake.recordInvocation("AllGlobalFiles", []interface{}{arg1})
+	fake.allGlobalFilesMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Model) AllGlobalFilesCallCount() int {
+	fake.allGlobalFilesMutex.RLock()
+	defer fake.allGlobalFilesMutex.RUnlock()
+	return len(fake.allGlobalFilesArgsForCall)
+}
+
+func (fake *Model) AllGlobalFilesCalls(stub func(string) (iter.Seq[db.FileMetadata], func() error)) {
+	fake.allGlobalFilesMutex.Lock()
+	defer fake.allGlobalFilesMutex.Unlock()
+	fake.AllGlobalFilesStub = stub
+}
+
+func (fake *Model) AllGlobalFilesArgsForCall(i int) string {
+	fake.allGlobalFilesMutex.RLock()
+	defer fake.allGlobalFilesMutex.RUnlock()
+	argsForCall := fake.allGlobalFilesArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Model) AllGlobalFilesReturns(result1 iter.Seq[db.FileMetadata], result2 func() error) {
+	fake.allGlobalFilesMutex.Lock()
+	defer fake.allGlobalFilesMutex.Unlock()
+	fake.AllGlobalFilesStub = nil
+	fake.allGlobalFilesReturns = struct {
+		result1 iter.Seq[db.FileMetadata]
+		result2 func() error
+	}{result1, result2}
+}
+
+func (fake *Model) AllGlobalFilesReturnsOnCall(i int, result1 iter.Seq[db.FileMetadata], result2 func() error) {
+	fake.allGlobalFilesMutex.Lock()
+	defer fake.allGlobalFilesMutex.Unlock()
+	fake.AllGlobalFilesStub = nil
+	if fake.allGlobalFilesReturnsOnCall == nil {
+		fake.allGlobalFilesReturnsOnCall = make(map[int]struct {
+			result1 iter.Seq[db.FileMetadata]
+			result2 func() error
+		})
+	}
+	fake.allGlobalFilesReturnsOnCall[i] = struct {
+		result1 iter.Seq[db.FileMetadata]
+		result2 func() error
+	}{result1, result2}
 }
 
 func (fake *Model) Availability(arg1 string, arg2 protocol.FileInfo, arg3 protocol.BlockInfo) ([]model.Availability, error) {
@@ -3688,6 +3765,8 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.invocationsMutex.RUnlock()
 	fake.addConnectionMutex.RLock()
 	defer fake.addConnectionMutex.RUnlock()
+	fake.allGlobalFilesMutex.RLock()
+	defer fake.allGlobalFilesMutex.RUnlock()
 	fake.availabilityMutex.RLock()
 	defer fake.availabilityMutex.RUnlock()
 	fake.bringToFrontMutex.RLock()
