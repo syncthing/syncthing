@@ -69,11 +69,12 @@ func (s *DB) GetGlobalAvailability(folder, file string) ([]protocol.DeviceID, er
 
 func (s *DB) AllGlobalFiles(folder string) (iter.Seq[protocol.FileInfo], func() error) {
 	beps, errFn := iterStructs[indirectFI](s.sql.Queryx(s.tpl(`
-		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
+		SELECT fi.fiprotobuf, bl.blprotobuf, f.name FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.local_flags & {{.FlagLocalGlobal}} != 0
+		ORDER BY f.name
 	`), folder))
 	return itererr.Map(beps, errFn, indirectFI.FileInfo)
 }
@@ -87,11 +88,12 @@ func (s *DB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[protoc
 	pattern := prefix + "%"
 
 	beps, errFn := iterStructs[indirectFI](s.sql.Queryx(s.tpl(`
-		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
+		SELECT fi.fiprotobuf, bl.blprotobuf, f.name FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND (f.name = ? OR f.name LIKE ?) AND f.local_flags & {{.FlagLocalGlobal}} != 0
+		ORDER BY f.name
 	`), folder, prefix, pattern))
 	return itererr.Map(beps, errFn, indirectFI.FileInfo)
 }
