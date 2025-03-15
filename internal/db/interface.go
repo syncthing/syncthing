@@ -22,14 +22,20 @@ type DB interface {
 	GetGlobalFile(folder string, file string) (protocol.FileInfo, bool, error)
 
 	// File iterators
+	//
+	// n.b. there is a slight inconsistency in the return types where some
+	// return a FileInfo iterator and some a FileMetadata iterator. The
+	// latter is more lightweight, and the discrepancy depends on how the
+	// functions tend to be used. We can introduce more variations as
+	// required.
 	AllGlobalFiles(folder string) (iter.Seq[FileMetadata], func() error)
 	AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[FileMetadata], func() error)
 	AllLocalBlocksWithHash(hash []byte) (iter.Seq[BlockMapEntry], func() error)
 	AllLocalFiles(folder string, device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocalFilesBySequence(folder string, device protocol.DeviceID, startSeq int64, limit int) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocalFilesWithPrefix(folder string, device protocol.DeviceID, prefix string) (iter.Seq[protocol.FileInfo], func() error)
-	AllLocalFilesWithBlocksHash(folder string, h []byte) (iter.Seq[protocol.FileInfo], func() error)
-	AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, protocol.FileInfo], func() error)
+	AllLocalFilesWithBlocksHash(folder string, h []byte) (iter.Seq[FileMetadata], func() error)
+	AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, FileMetadata], func() error)
 	AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit, offset int) (iter.Seq[protocol.FileInfo], func() error)
 
 	// Cleanup
@@ -89,6 +95,18 @@ type FileMetadata struct {
 	LocalFlags    int
 }
 
-func (m *FileMetadata) Modified() time.Time {
-	return time.Unix(0, m.ModifiedNanos)
+func (f *FileMetadata) Modified() time.Time {
+	return time.Unix(0, f.ModifiedNanos)
+}
+
+func (f FileMetadata) IsReceiveOnlyChanged() bool {
+	return f.LocalFlags&protocol.FlagLocalReceiveOnly != 0
+}
+
+func (f FileMetadata) IsDirectory() bool {
+	return f.Type == protocol.FileInfoTypeDirectory
+}
+
+func (f FileMetadata) ShouldConflict() bool {
+	return f.LocalFlags&protocol.LocalConflictFlags != 0
 }

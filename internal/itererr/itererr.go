@@ -51,3 +51,27 @@ func Map[A, B any](i iter.Seq[A], errFn func() error, mapFn func(A) (B, error)) 
 			return retErr
 		}
 }
+
+// Map returns a new iterator by applying the map function, while respecting
+// the error function. Additionally, the map function can return an error if
+// its own.
+func Map2[A, B, C any](i iter.Seq[A], errFn func() error, mapFn func(A) (B, C, error)) (iter.Seq2[B, C], func() error) {
+	var retErr error
+	return func(yield func(B, C) bool) {
+			for v := range i {
+				ma, mb, err := mapFn(v)
+				if err != nil {
+					retErr = err
+					return
+				}
+				if !yield(ma, mb) {
+					return
+				}
+			}
+		}, func() error {
+			if prevErr := errFn(); prevErr != nil {
+				return prevErr
+			}
+			return retErr
+		}
+}

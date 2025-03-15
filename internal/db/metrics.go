@@ -62,12 +62,12 @@ func (m metricsDB) account(folder, op string) func() {
 	}
 }
 
-func (m metricsDB) AllLocalFilesWithBlocksHash(folder string, h []byte) (iter.Seq[protocol.FileInfo], func() error) {
+func (m metricsDB) AllLocalFilesWithBlocksHash(folder string, h []byte) (iter.Seq[FileMetadata], func() error) {
 	defer m.account(folder, "AllLocalFilesWithBlocksHash")()
 	return m.DB.AllLocalFilesWithBlocksHash(folder, h)
 }
 
-func (m metricsDB) AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, protocol.FileInfo], func() error) {
+func (m metricsDB) AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, FileMetadata], func() error) {
 	defer m.account("-", "AllLocalFilesWithBlocksHashAnyFolder")()
 	return m.DB.AllLocalFilesWithBlocksHashAnyFolder(h)
 }

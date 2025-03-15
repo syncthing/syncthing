@@ -3323,12 +3323,12 @@ func TestRenameEmptyFile(t *testing.T) {
 		t.Fatal("failed to find non-empty file")
 	}
 
-	count := countIterator[protocol.FileInfo](t)(m.model.AllForBlocksHash(fcfg.ID, empty.BlocksHash))
+	count := countIterator[db.FileMetadata](t)(m.model.AllForBlocksHash(fcfg.ID, empty.BlocksHash))
 	if count != 0 {
 		t.Fatalf("Found %d entries for empty file, expected 0", count)
 	}
 
-	count = countIterator[protocol.FileInfo](t)(m.model.AllForBlocksHash(fcfg.ID, file.BlocksHash))
+	count = countIterator[db.FileMetadata](t)(m.model.AllForBlocksHash(fcfg.ID, file.BlocksHash))
 	if count != 1 {
 		t.Fatalf("Found %d entries for non-empty file, expected 1", count)
 	}
@@ -3339,7 +3339,7 @@ func TestRenameEmptyFile(t *testing.T) {
 	// Scan
 	m.ScanFolders()
 
-	count = countIterator[protocol.FileInfo](t)(m.model.AllForBlocksHash(fcfg.ID, empty.BlocksHash))
+	count = countIterator[db.FileMetadata](t)(m.model.AllForBlocksHash(fcfg.ID, empty.BlocksHash))
 	if count != 0 {
 		t.Fatalf("Found %d entries for empty file, expected 0", count)
 	}
@@ -3350,8 +3350,8 @@ func TestRenameEmptyFile(t *testing.T) {
 			t.Fatal(err)
 		}
 		count++
-		if i.FileName() != "new-file" {
-			t.Fatalf("unexpected file name %s, expected new-file", i.FileName())
+		if i.Name != "new-file" {
+			t.Fatalf("unexpected file name %s, expected new-file", i.Name)
 		}
 	}
 
@@ -3388,7 +3388,7 @@ func TestBlockListMap(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		paths = append(paths, fi.FileName())
+		paths = append(paths, fi.Name)
 	}
 
 	expected := []string{"one", "two", "three", "four", "five"}
@@ -3420,7 +3420,7 @@ func TestBlockListMap(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		paths = append(paths, fi.FileName())
+		paths = append(paths, fi.Name)
 	}
 
 	expected = []string{"new-three", "five"}

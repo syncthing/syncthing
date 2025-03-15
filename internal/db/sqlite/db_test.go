@@ -786,12 +786,12 @@ func TestConcurrentUpdateSelect(t *testing.T) {
 func TestAllForBlocksHash(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenTemp()
+	sdb, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		if err := db.Close(); err != nil {
+		if err := sdb.Close(); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -806,18 +806,18 @@ func TestAllForBlocksHash(t *testing.T) {
 	}
 	files[2].Blocks = files[1].Blocks
 
-	if err := db.Update(folderID, protocol.LocalDeviceID, files); err != nil {
+	if err := sdb.Update(folderID, protocol.LocalDeviceID, files); err != nil {
 		t.Fatal(err)
 	}
 
 	// Check test1
 
-	test1, ok, err := db.GetDeviceFile(folderID, protocol.LocalDeviceID, "test1")
+	test1, ok, err := sdb.GetDeviceFile(folderID, protocol.LocalDeviceID, "test1")
 	if err != nil || !ok {
 		t.Fatal("expected to exist")
 	}
 
-	vals := mustCollect[protocol.FileInfo](t)(db.AllLocalFilesWithBlocksHash(folderID, test1.BlocksHash))
+	vals := mustCollect[db.FileMetadata](t)(sdb.AllLocalFilesWithBlocksHash(folderID, test1.BlocksHash))
 	if len(vals) != 1 {
 		t.Log(vals)
 		t.Fatal("expected one file to match")
@@ -825,12 +825,12 @@ func TestAllForBlocksHash(t *testing.T) {
 
 	// Check test2 which also matches test3
 
-	test2, ok, err := db.GetDeviceFile(folderID, protocol.LocalDeviceID, "test2")
+	test2, ok, err := sdb.GetDeviceFile(folderID, protocol.LocalDeviceID, "test2")
 	if err != nil || !ok {
 		t.Fatal("expected to exist")
 	}
 
-	vals = mustCollect[protocol.FileInfo](t)(db.AllLocalFilesWithBlocksHash(folderID, test2.BlocksHash))
+	vals = mustCollect[db.FileMetadata](t)(sdb.AllLocalFilesWithBlocksHash(folderID, test2.BlocksHash))
 	if len(vals) != 2 {
 		t.Log(vals)
 		t.Fatal("expected two files to match")

@@ -909,7 +909,11 @@ func (f *folder) findRename(file protocol.FileInfo, alreadyUsedOrExisting map[st
 			continue
 		}
 
-		nf = fi
+		var ok bool
+		nf, ok, err = f.db.GetDeviceFile(f.folderID, protocol.LocalDeviceID, fi.Name)
+		if err != nil || !ok || nf.Sequence != fi.Sequence {
+			continue
+		}
 		nf.SetDeleted(f.shortID)
 		nf.LocalFlags = f.localFlags
 		found = true

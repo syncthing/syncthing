@@ -110,50 +110,29 @@ func (s *DB) AllLocalFilesWithPrefix(folder string, device protocol.DeviceID, pr
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 
-func (s *DB) AllLocalFilesWithBlocksHash(folder string, h []byte) (iter.Seq[protocol.FileInfo], func() error) {
-	it, errFn := iterStructs[indirectFI](s.sql.Queryx(s.tpl(`
-		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
-		INNER JOIN files f on fi.sequence = f.sequence
+func (s *DB) AllLocalFilesWithBlocksHash(folder string, h []byte) (iter.Seq[db.FileMetadata], func() error) {
+	return iterStructs[db.FileMetadata](s.sql.Queryx(s.tpl(`
+		SELECT f.sequence, f.name, f.type, f.modified as modifiednanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.device_idx = {{.LocalDeviceIdx}} AND f.blocklist_hash = ?
 	`), folder, h))
-	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 
-func (s *DB) AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, protocol.FileInfo], func() error) {
+func (s *DB) AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, db.FileMetadata], func() error) {
 	type row struct {
-		FolderID   string `db:"folder_id"`
-		FiProtobuf []byte
-		BlProtobuf []byte
+		FolderID string `db:"folder_id"`
+		db.FileMetadata
 	}
-	rows, err := s.sql.Queryx(s.tpl(`
-		SELECT o.folder_id, fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
-		INNER JOIN files f on fi.sequence = f.sequence
+	it, errFn := iterStructs[row](s.sql.Queryx(s.tpl(`
+		SELECT o.folder_id, f.sequence, f.name, f.type, f.modified as modifiednanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
 		INNER JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE f.device_idx = {{.LocalDeviceIdx}} AND f.blocklist_hash = ?
-	`), h)
-	items, errFn := iterStructs[row](rows, err)
-	var retErr error
-	errFn2 := func() error {
-		if err := errFn(); err != nil {
-			return err
-		}
-		return retErr
-	}
-	return func(yield func(string, protocol.FileInfo) bool) {
-		for r := range items {
-			fi, err := indirectFI{FiProtobuf: r.FiProtobuf, BlProtobuf: r.BlProtobuf}.FileInfo()
-			if err != nil {
-				retErr = err
-				return
-			}
-			if !yield(r.FolderID, fi) {
-				return
-			}
-		}
-	}, errFn2
+	`), h))
+	return itererr.Map2(it, errFn, func(r row) (string, db.FileMetadata, error) {
+		return r.FolderID, r.FileMetadata, nil
+	})
 }
 
 func (s *DB) AllLocalBlocksWithHash(hash []byte) (iter.Seq[db.BlockMapEntry], func() error) {

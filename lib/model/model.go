@@ -954,7 +954,7 @@ func (m *model) LocalFilesSequenced(folder string, device protocol.DeviceID, sta
 	return m.sdb.AllLocalFilesBySequence(folder, device, startSeq, 0)
 }
 
-func (m *model) AllForBlocksHash(folder string, h []byte) (iter.Seq[protocol.FileInfo], func() error) {
+func (m *model) AllForBlocksHash(folder string, h []byte) (iter.Seq[db.FileMetadata], func() error) {
 	return m.sdb.AllLocalFilesWithBlocksHash(folder, h)
 }
 
@@ -2761,7 +2761,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 			}
 		}
 
-		if dirsOnly && f.Type != protocol.FileInfoTypeDirectory {
+		if dirsOnly && !f.IsDirectory() {
 			continue
 		}
 
