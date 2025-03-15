@@ -28,11 +28,11 @@ func (s *DB) GetDeviceFile(folder string, device protocol.DeviceID, file string)
 		return protocol.FileInfo{}, false, nil
 	}
 	if err != nil {
-		return protocol.FileInfo{}, false, wrap("local", err)
+		return protocol.FileInfo{}, false, wrap(err)
 	}
 	fi, err := ind.FileInfo()
 	if err != nil {
-		return protocol.FileInfo{}, false, wrap("local", err)
+		return protocol.FileInfo{}, false, wrap(err, "indirect")
 	}
 	return fi, true, nil
 }
@@ -54,7 +54,7 @@ func (s *DB) GetDeviceSequence(folder string, device protocol.DeviceID) (int64, 
 		return 0, nil
 	}
 	if err != nil {
-		return 0, wrap("sequence", err)
+		return 0, wrap(err)
 	}
 	if !res.Valid {
 		return 0, nil

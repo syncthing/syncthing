@@ -24,13 +24,13 @@ var _ db.DB = (*DB)(nil)
 func (s *DB) Close() error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
-	return wrap("close", s.sql.Close())
+	return wrap(s.sql.Close())
 }
 
 func (s *DB) ListFolders() ([]string, error) {
 	var res []string
 	err := s.sql.Select(&res, `SELECT folder_id FROM folders ORDER BY folder_id`)
-	return res, wrap("folders", err)
+	return res, wrap(err)
 }
 
 func (s *DB) ListDevicesForFolder(folder string) ([]protocol.DeviceID, error) {
@@ -44,7 +44,7 @@ func (s *DB) ListDevicesForFolder(folder string) ([]protocol.DeviceID, error) {
 		ORDER BY d.device_id
 	`), folder)
 	if err != nil {
-		return nil, wrap("devices for folder", err)
+		return nil, wrap(err)
 	}
 
 	devs := make([]protocol.DeviceID, len(res))

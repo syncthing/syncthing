@@ -86,12 +86,12 @@ type indirectFI struct {
 func (i indirectFI) FileInfo() (protocol.FileInfo, error) {
 	var fi bep.FileInfo
 	if err := proto.Unmarshal(i.FiProtobuf, &fi); err != nil {
-		return protocol.FileInfo{}, wrap("indirect FI unmarshal", err)
+		return protocol.FileInfo{}, wrap(err, "unmarshal fileinfo")
 	}
 	if len(i.BlProtobuf) > 0 {
 		var bl dbproto.BlockList
 		if err := proto.Unmarshal(i.BlProtobuf, &bl); err != nil {
-			return protocol.FileInfo{}, wrap("indirect BL unmarshal", err)
+			return protocol.FileInfo{}, wrap(err, "unmarshal blocklist")
 		}
 		fi.Blocks = bl.Blocks
 	}

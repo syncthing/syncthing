@@ -24,13 +24,13 @@ func (s *DB) MtimePut(folder, name string, ondisk, virtual time.Time) error {
 	defer s.updateLock.Unlock()
 	folderIdx, err := s.folderIdxLocked(folder)
 	if err != nil {
-		return err
+		return wrap(err)
 	}
 	_, err = s.sql.Exec(`
 		INSERT OR REPLACE INTO mtimes (folder_idx, name, ondisk, virtual)
 		VALUES (?, ?, ?, ?)
 	`, folderIdx, name, ondisk.UnixNano(), virtual.UnixNano())
-	return err
+	return wrap(err)
 }
 
 func (s *DB) MtimeDelete(folder, name string) error {
@@ -38,8 +38,8 @@ func (s *DB) MtimeDelete(folder, name string) error {
 	defer s.updateLock.Unlock()
 	folderIdx, err := s.folderIdxLocked(folder)
 	if err != nil {
-		return err
+		return wrap(err)
 	}
 	_, err = s.sql.Exec(`DELETE FROM mtimes WHERE folder_idx = ? AND name = ? `, folderIdx, name)
-	return err
+	return wrap(err)
 }

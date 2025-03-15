@@ -9,7 +9,7 @@ import (
 func (s *DB) KVGet(key string) ([]byte, error) {
 	var val []byte
 	if err := s.sql.Get(&val, `SELECT value FROM kv WHERE key = ?`, key); err != nil {
-		return nil, err
+		return nil, wrap(err)
 	}
 	return val, nil
 }
@@ -18,14 +18,14 @@ func (s *DB) KVPut(key string, val []byte) error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
 	_, err := s.sql.Exec(`INSERT OR REPLACE INTO kv (key, value) values (?, ?)`, key, val)
-	return err
+	return wrap(err)
 }
 
 func (s *DB) KVDelete(key string) error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
 	_, err := s.sql.Exec(`DELETE FROM kv WHERE key = ?`, key)
-	return err
+	return wrap(err)
 }
 
 func (s *DB) KVPrefix(prefix string) (iter.Seq[db.KeyValue], func() error) {

@@ -20,7 +20,7 @@ func (s *DB) CountLocal(folder string, device protocol.DeviceID) (db.Counts, err
 		INNER JOIN devices d ON d.idx = s.device_idx
 		WHERE o.folder_id = ? AND d.device_id = ? AND s.local_flags & {{.FlagLocalIgnored}} = 0
 	`), folder, device.String()); err != nil {
-		return db.Counts{}, err
+		return db.Counts{}, wrap(err)
 	}
 	return summarizeCounts(res), nil
 }
@@ -43,7 +43,7 @@ func (s *DB) CountGlobal(folder string) (db.Counts, error) {
 		WHERE o.folder_id = ? AND s.local_flags & {{.FlagLocalGlobal}} != 0 AND s.local_flags & {{or .FlagLocalReceiveOnly .FlagLocalIgnored}} = 0
 	`), folder)
 	if err != nil {
-		return db.Counts{}, err
+		return db.Counts{}, wrap(err)
 	}
 	return summarizeCounts(res), nil
 }
@@ -56,7 +56,7 @@ func (s *DB) CountReceiveOnlyChanged(folder string) (db.Counts, error) {
 		WHERE o.folder_id = ? AND local_flags & {{.FlagLocalReceiveOnly}} != 0
 	`), folder)
 	if err != nil {
-		return db.Counts{}, err
+		return db.Counts{}, wrap(err)
 	}
 	return summarizeCounts(res), nil
 }
@@ -71,7 +71,7 @@ func (s *DB) needSizeLocal(folder string) (db.Counts, error) {
 		WHERE o.folder_id = ? AND s.local_flags & {{.FlagLocalNeeded}} != 0
 	`), folder)
 	if err != nil {
-		return db.Counts{}, err
+		return db.Counts{}, wrap(err)
 	}
 	return summarizeCounts(res), nil
 }
@@ -101,7 +101,7 @@ func (s *DB) needSizeRemote(folder string, device protocol.DeviceID) (db.Counts,
 		GROUP BY g.type, g.local_flags
 	`), folder, device.String(),
 		folder, device.String()); err != nil {
-		return db.Counts{}, err
+		return db.Counts{}, wrap(err)
 	}
 
 	return summarizeCounts(res), nil

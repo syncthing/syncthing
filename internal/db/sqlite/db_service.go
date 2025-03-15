@@ -60,12 +60,12 @@ func (s *DB) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context) error 
 
 	conn, err := s.sql.Connx(ctx)
 	if err != nil {
-		return wrap("garbage collect blocklists", err)
+		return wrap(err)
 	}
 	defer conn.Close()
 
 	if _, err := conn.ExecContext(ctx, `PRAGMA foreign_keys = 0`); err != nil {
-		return wrap("garbage collect blocklists", err)
+		return wrap(err)
 	}
 	defer func() {
 		_, _ = conn.ExecContext(context.Background(), `PRAGMA foreign_keys = 1`)
@@ -82,7 +82,7 @@ func (s *DB) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context) error 
 		WHERE blocklist_hash NOT IN (
 			SELECT blocklist_hash FROM files
 		)`); err != nil {
-		return wrap("garbage collect blocklists", err)
+		return wrap(err, "delete blocklists")
 	}
 
 	if _, err := tx.ExecContext(ctx, `
@@ -90,8 +90,8 @@ func (s *DB) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context) error 
 		WHERE blocklist_hash NOT IN (
 			SELECT blocklist_hash FROM blocklists
 		)`); err != nil {
-		return wrap("garbage collect blocklists", err)
+		return wrap(err, "delete blocks")
 	}
 
-	return wrap("garbage collect blocklists", tx.Commit())
+	return wrap(tx.Commit())
 }

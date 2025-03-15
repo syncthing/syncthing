@@ -21,7 +21,8 @@ func (s *DB) IndexIDGet(folder string, device protocol.DeviceID) (protocol.Index
 		WHERE o.folder_id = ? AND d.device_id = ?`,
 		folder, device.String(),
 	); err == nil && indexID != "" {
-		return indexIDFromHex(indexID)
+		idx, err := indexIDFromHex(indexID)
+		return idx, wrap(err)
 	}
 	if device != protocol.LocalDeviceID {
 		// For non-local devices we do not create the index ID, so return
@@ -36,12 +37,12 @@ func (s *DB) IndexIDGet(folder string, device protocol.DeviceID) (protocol.Index
 
 	folderIdx, err := s.folderIdxLocked(folder)
 	if err != nil {
-		return 0, fmt.Errorf("indexID (folderIdx): %w", err)
+		return 0, wrap(err)
 	}
 
 	tx, err := s.sql.BeginTxx(context.Background(), nil)
 	if err != nil {
-		return 0, fmt.Errorf("indexID (begin): %w", err)
+		return 0, wrap(err)
 	}
 	defer tx.Rollback() //nolint:errcheck
 
@@ -49,7 +50,7 @@ func (s *DB) IndexIDGet(folder string, device protocol.DeviceID) (protocol.Index
 		SELECT index_id FROM indexids WHERE folder_idx = ? AND device_idx = {{.LocalDeviceIdx}}
 	`), folderIdx,
 	); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return 0, fmt.Errorf("indexID (get): %w", err)
+		return 0, wrap(err)
 	}
 
 	if indexID == "" {
@@ -59,10 +60,10 @@ func (s *DB) IndexIDGet(folder string, device protocol.DeviceID) (protocol.Index
 			INSERT INTO indexids (folder_idx, device_idx, index_id) values (?, {{.LocalDeviceIdx}}, ?)
 		`), folderIdx, indexIDToHex(id),
 		); err != nil {
-			return 0, fmt.Errorf("indexID (insert): %w", err)
+			return 0, wrap(err)
 		}
 		if err := tx.Commit(); err != nil {
-			return 0, fmt.Errorf("indexID (commit): %w", err)
+			return 0, wrap(err)
 		}
 		return id, nil
 	}
@@ -76,18 +77,18 @@ func (s *DB) IndexIDSet(folder string, device protocol.DeviceID, id protocol.Ind
 
 	folderIdx, err := s.folderIdxLocked(folder)
 	if err != nil {
-		return fmt.Errorf("indexID (folderIdx): %w", err)
+		return wrap(err, "folder idx")
 	}
 	deviceIdx, err := s.deviceIdxLocked(device)
 	if err != nil {
-		return fmt.Errorf("indexID (deviceIdx): %w", err)
+		return wrap(err, "device idx")
 	}
 
 	if _, err := s.sql.Exec(`
 		INSERT OR REPLACE INTO indexids (folder_idx, device_idx, index_id) values (?, ?, ?)
 	`, folderIdx, deviceIdx, indexIDToHex(id),
 	); err != nil {
-		return fmt.Errorf("indexID (insert): %w", err)
+		return wrap(err, "insert")
 	}
 	return nil
 }
@@ -96,17 +97,17 @@ func (s *DB) IndexIDDropAll() error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
 	_, err := s.sql.Exec(`DELETE FROM indexids`)
-	return wrap("drop index IDs", err)
+	return wrap(err)
 }
 
 func indexIDFromHex(s string) (protocol.IndexID, error) {
 	bs, err := hex.DecodeString(s)
 	if err != nil {
-		return 0, fmt.Errorf("%q: %w", s, err)
+		return 0, fmt.Errorf("indexIDFromHex: %q: %w", s, err)
 	}
 	var id protocol.IndexID
 	if err := id.Unmarshal(bs); err != nil {
-		return 0, fmt.Errorf("%q: %w", s, err)
+		return 0, fmt.Errorf("indexIDFromHex: %q: %w", s, err)
 	}
 	return id, nil
 }

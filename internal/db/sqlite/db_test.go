@@ -3,6 +3,7 @@ package sqlite
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"iter"
 	"path/filepath"
 	"sync"
@@ -841,6 +842,21 @@ func TestAllForBlocksHash(t *testing.T) {
 	if vals[1].Name != "test3" {
 		t.Log(vals[1])
 		t.Error("expected test3")
+	}
+}
+
+func TestErrorWrap(t *testing.T) {
+	if wrap(nil, "foo") != nil {
+		t.Fatal("nil should wrap to nil")
+	}
+
+	fooErr := errors.New("foo")
+	if err := wrap(fooErr); err.Error() != "testerrorwrap: foo" {
+		t.Fatalf("%q", err)
+	}
+
+	if err := wrap(fooErr, "bar", "baz"); err.Error() != "testerrorwrap (bar, baz): foo" {
+		t.Fatalf("%q", err)
 	}
 }
 

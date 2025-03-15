@@ -28,11 +28,11 @@ func (s *DB) GetGlobalFile(folder string, file string) (protocol.FileInfo, bool,
 		return protocol.FileInfo{}, false, nil
 	}
 	if err != nil {
-		return protocol.FileInfo{}, false, wrap("global", err)
+		return protocol.FileInfo{}, false, wrap(err)
 	}
 	fi, err := ind.FileInfo()
 	if err != nil {
-		return protocol.FileInfo{}, false, wrap("local", err)
+		return protocol.FileInfo{}, false, wrap(err)
 	}
 	return fi, true, nil
 }
@@ -53,14 +53,14 @@ func (s *DB) GetGlobalAvailability(folder, file string) ([]protocol.DeviceID, er
 		return nil, nil
 	}
 	if err != nil {
-		return nil, wrap("availability", err)
+		return nil, wrap(err)
 	}
 
 	devs := make([]protocol.DeviceID, 0, len(devStrs))
 	for _, s := range devStrs {
 		d, err := protocol.DeviceIDFromString(s)
 		if err != nil {
-			return nil, err
+			return nil, wrap(err)
 		}
 		devs = append(devs, d)
 	}

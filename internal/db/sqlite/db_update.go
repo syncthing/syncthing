@@ -4,7 +4,9 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"runtime"
 	"slices"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/gen/dbproto"
@@ -21,18 +23,18 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 
 	tx, err := s.sql.BeginTxx(context.Background(), nil)
 	if err != nil {
-		return wrap("update", err)
+		return wrap(err)
 	}
 	defer tx.Rollback() //nolint:errcheck
 	txp := &txPreparedStmts{Tx: tx}
 
 	folderIdx, err := s.folderIdxLocked(folder)
 	if err != nil {
-		return wrap("update", err)
+		return wrap(err)
 	}
 	deviceIdx, err := s.deviceIdxLocked(device)
 	if err != nil {
-		return wrap("update", err)
+		return wrap(err)
 	}
 
 	insertFileStmt, err := txp.Preparex(`
@@ -40,21 +42,21 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING sequence`)
 	if err != nil {
-		return wrap("update (prepare insert file)", err)
+		return wrap(err, "prepare insert file")
 	}
 
 	insertFileInfoStmt, err := txp.Preparex(`
 		INSERT INTO fileinfos (sequence, fiprotobuf)
 		VALUES (?, ?)`)
 	if err != nil {
-		return wrap("update (prepare insert fileinfo)", err)
+		return wrap(err, "prepare insert fileinfo")
 	}
 
 	insertBlockListStmt, err := txp.Preparex(`
 		INSERT OR IGNORE INTO blocklists (blocklist_hash, blprotobuf)
 		VALUES (?, ?)`)
 	if err != nil {
-		return wrap("update (prepare insert blocklist)", err)
+		return wrap(err, "prepare insert blocklist")
 	}
 
 	var prevRemoteSeq int64
@@ -91,7 +93,7 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 		}
 		var localSeq int64
 		if err := insertFileStmt.Get(&localSeq, folderIdx, deviceIdx, remoteSeq, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.IsInvalid(), f.LocalFlags, blockshash); err != nil {
-			return wrap("update (insert file)", err)
+			return wrap(err, "insert file")
 		}
 
 		if len(f.Blocks) > 0 {
@@ -99,11 +101,11 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 			blocks := sliceutil.Map(f.Blocks, protocol.BlockInfo.ToWire)
 			bs, err := proto.Marshal(&dbproto.BlockList{Blocks: blocks})
 			if err != nil {
-				return wrap("update (marshal blocklist)", err)
+				return wrap(err, "marshal blocklist")
 			}
 			res, err := insertBlockListStmt.Exec(f.BlocksHash, bs)
 			if err != nil {
-				return wrap("update (insert blocklist)", err)
+				return wrap(err, "insert blocklist")
 			}
 			affected, _ := res.RowsAffected()
 
@@ -111,7 +113,7 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 				// Update block lists, unless we didn't have to insert the
 				// blocklist (all blocks already in place.)
 				if err := s.insertBlocksLocked(txp, f.BlocksHash, f.Blocks); err != nil {
-					return wrap("update (insert blocks)", err)
+					return wrap(err, "insert blocks")
 				}
 			}
 
@@ -124,26 +126,26 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 		}
 		bs, err := proto.Marshal(f.ToWire(true))
 		if err != nil {
-			return wrap("update (marshal fileinfo)", err)
+			return wrap(err, "marshal fileinfo")
 		}
 		if _, err := insertFileInfoStmt.Exec(localSeq, bs); err != nil {
-			return wrap("update (insert fileinfo)", err)
+			return wrap(err, "insert fileinfo")
 		}
 
 		// Update global and need
 		if err := s.recalcGlobalForFile(txp, folderIdx, f.Name); err != nil {
-			return wrap("update (recalc global)", err)
+			return wrap(err)
 		}
 	}
 
-	return wrap("update", tx.Commit())
+	return wrap(tx.Commit())
 }
 
 func (s *DB) DropFolder(folder string) error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
 	_, err := s.sql.Exec(`DELETE FROM folders WHERE folder_id = ?`, folder)
-	return err
+	return wrap(err)
 }
 
 func (s *DB) DropDevice(device protocol.DeviceID) error {
@@ -156,12 +158,12 @@ func (s *DB) DropDevice(device protocol.DeviceID) error {
 
 	deviceIdx, err := s.deviceIdxLocked(device)
 	if err != nil {
-		return wrap("drop device", err)
+		return wrap(err)
 	}
 
 	tx, err := s.sql.BeginTxx(context.Background(), nil)
 	if err != nil {
-		return wrap("drop device", err)
+		return wrap(err)
 	}
 	defer tx.Rollback() //nolint:errcheck
 	txp := &txPreparedStmts{Tx: tx}
@@ -173,22 +175,22 @@ func (s *DB) DropDevice(device protocol.DeviceID) error {
 		FROM counts
 		WHERE device_idx = ? AND count > 0
 		GROUP BY folder_idx`, deviceIdx); err != nil {
-		return wrap("drop device", err)
+		return wrap(err)
 	}
 
 	// Drop the device, which cascades to delete all files etc for it
 	if _, err := tx.Exec(`DELETE FROM devices WHERE device_id = ?`, device.String()); err != nil {
-		return wrap("drop device", err)
+		return wrap(err)
 	}
 
 	// Recalc the globals for all affected folders
 	for _, idx := range folderIdxs {
 		if err := s.recalcGlobalForFolder(txp, idx); err != nil {
-			return wrap("drop device", err)
+			return wrap(err)
 		}
 	}
 
-	return wrap("drop device", tx.Commit())
+	return wrap(tx.Commit())
 }
 
 func (s *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
@@ -200,12 +202,12 @@ func (s *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
 
 	folderIdx, err := s.folderIdxLocked(folder)
 	if err != nil {
-		return wrap("drop all files", err)
+		return wrap(err)
 	}
 
 	tx, err := s.sql.BeginTxx(context.Background(), nil)
 	if err != nil {
-		return wrap("drop all files", err)
+		return wrap(err)
 	}
 	defer tx.Rollback() //nolint:errcheck
 	txp := &txPreparedStmts{Tx: tx}
@@ -220,20 +222,20 @@ func (s *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
 		)
 	`, folderIdx, device.String())
 	if err != nil {
-		return wrap("drop all files", err)
+		return wrap(err)
 	}
 	if n, err := result.RowsAffected(); err == nil && n == 0 {
 		// The delete affected no rows, so we don't need to redo the entire
 		// global/need calculation.
-		return wrap("drop all files", tx.Commit())
+		return wrap(tx.Commit())
 	}
 
 	// Recalc global for the entire folder
 
 	if err := s.recalcGlobalForFolder(txp, folderIdx); err != nil {
-		return wrap("drop all files", err)
+		return wrap(err)
 	}
-	return wrap("drop all files", tx.Commit())
+	return wrap(tx.Commit())
 }
 
 func (s *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []string) error {
@@ -246,12 +248,12 @@ func (s *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []str
 
 	folderIdx, err := s.folderIdxLocked(folder)
 	if err != nil {
-		return wrap("drop all files", err)
+		return wrap(err)
 	}
 
 	tx, err := s.sql.BeginTxx(context.Background(), nil)
 	if err != nil {
-		return wrap("drop all files", err)
+		return wrap(err)
 	}
 	defer tx.Rollback() //nolint:errcheck
 	txp := &txPreparedStmts{Tx: tx}
@@ -266,21 +268,21 @@ func (s *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []str
 		)
 	`, folderIdx, device.String(), names)
 	if err != nil {
-		return wrap("drop files named", err)
+		return wrap(err)
 	}
 	if _, err := tx.Exec(query, args...); err != nil {
-		return wrap("drop files named", err)
+		return wrap(err)
 	}
 
 	// Recalc globals for the named files
 
 	for _, name := range names {
 		if err := s.recalcGlobalForFile(txp, folderIdx, name); err != nil {
-			return wrap("drop files named", err)
+			return wrap(err)
 		}
 	}
 
-	return wrap("drop files named", tx.Commit())
+	return wrap(tx.Commit())
 }
 
 func (*DB) insertBlocksLocked(tx *txPreparedStmts, blocklistHash []byte, blocks []protocol.BlockInfo) error {
@@ -300,7 +302,7 @@ func (*DB) insertBlocksLocked(tx *txPreparedStmts, blocklistHash []byte, blocks 
 	if _, err := tx.NamedExec(`
 		INSERT OR IGNORE INTO blocks (hash, blocklist_hash, idx, offset, size)
 		VALUES (:hash, :blocklist_hash, :idx, :offset, :size)`, bs); err != nil {
-		return wrap("insert block", err)
+		return wrap(err)
 	}
 	return nil
 }
@@ -316,23 +318,23 @@ func (s *DB) recalcGlobalForFolder(txp *txPreparedStmts, folderIdx int64) error 
 	)
 	GROUP BY name`)
 	if err != nil {
-		return wrap("recalc global for folder", err)
+		return wrap(err)
 	}
 	rows, err := namesStmt.Queryx(folderIdx, folderIdx, protocol.FlagLocalGlobal)
 	if err != nil {
-		return wrap("recalc global for folder", err)
+		return wrap(err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var name string
 		if err := rows.Scan(&name); err != nil {
-			return wrap("recalc global for folder", err)
+			return wrap(err)
 		}
 		if err := s.recalcGlobalForFile(txp, folderIdx, name); err != nil {
-			return wrap("recalc global for folder", err)
+			return wrap(err)
 		}
 	}
-	return wrap("recalc global for folder", rows.Err())
+	return wrap(rows.Err())
 }
 
 func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file string) error {
@@ -340,11 +342,11 @@ func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file str
 		SELECT name, folder_idx, device_idx, sequence, modified, version, deleted, invalid, local_flags FROM files
 		WHERE folder_idx = ? AND name = ?`)
 	if err != nil {
-		return wrap("processNeed (select)", err)
+		return wrap(err)
 	}
 	es, err := itererr.Collect(iterStructs[fileRow](selStmt.Queryx(folderIdx, file)))
 	if err != nil {
-		return wrap("processNeed (select)", err)
+		return wrap(err)
 	}
 	if len(es) == 0 {
 		// shouldn't happen
@@ -385,10 +387,10 @@ func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file str
 		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?
 	`)
 	if err != nil {
-		return wrap("processNeed (insert global)", err)
+		return wrap(err)
 	}
 	if _, err := upStmt.Exec(global.LocalFlags, global.FolderIdx, global.DeviceIdx, global.Sequence); err != nil {
-		return wrap("processNeed (insert global)", err)
+		return wrap(err)
 	}
 
 	// Clear the need and global flags on all other entries
@@ -397,10 +399,10 @@ func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file str
 		WHERE folder_idx = ? AND name = ? AND sequence != ? AND local_flags & ? != 0
 	`)
 	if err != nil {
-		return wrap("processNeed (clear need)", err)
+		return wrap(err)
 	}
 	if _, err := upStmt.Exec(^(protocol.FlagLocalNeeded | protocol.FlagLocalGlobal), folderIdx, global.Name, global.Sequence, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal); err != nil {
-		return wrap("processNeed (clear need)", err)
+		return wrap(err)
 	}
 
 	return nil
@@ -408,11 +410,11 @@ func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file str
 
 func (s *DB) folderIdxLocked(folderID string) (int64, error) {
 	if _, err := s.sql.Exec(`INSERT OR IGNORE INTO folders(folder_id) VALUES(?)`, folderID); err != nil {
-		return 0, wrap("folderIdx", err)
+		return 0, wrap(err)
 	}
 	var idx int64
 	if err := s.sql.Get(&idx, `SELECT idx FROM folders WHERE folder_id = ?`, folderID); err != nil {
-		return 0, wrap("folderIdx", err)
+		return 0, wrap(err)
 	}
 
 	return idx, nil
@@ -421,20 +423,36 @@ func (s *DB) folderIdxLocked(folderID string) (int64, error) {
 func (s *DB) deviceIdxLocked(deviceID protocol.DeviceID) (int64, error) {
 	devStr := deviceID.String()
 	if _, err := s.sql.Exec(`INSERT OR IGNORE INTO devices(device_id) VALUES(?)`, devStr); err != nil {
-		return 0, wrap("deviceIdx", err)
+		return 0, wrap(err)
 	}
 	var idx int64
 	if err := s.sql.Get(&idx, `SELECT idx FROM devices WHERE device_id = ?`, devStr); err != nil {
-		return 0, wrap("deviceIdx", err)
+		return 0, wrap(err)
 	}
 
 	return idx, nil
 }
 
-func wrap(prefix string, err error) error {
+func wrap(err error, context ...string) error {
 	if err == nil {
 		return nil
 	}
+
+	prefix := "error"
+	pc, _, _, ok := runtime.Caller(1)
+	details := runtime.FuncForPC(pc)
+	if ok && details != nil {
+		prefix = strings.ToLower(details.Name())
+		if dotIdx := strings.LastIndex(prefix, "."); dotIdx > 0 {
+			prefix = prefix[dotIdx+1:]
+		}
+	}
+
+	if len(context) > 0 {
+		extra := strings.Join(context, ", ")
+		return fmt.Errorf("%s (%s): %w", prefix, extra, err)
+	}
+
 	return fmt.Errorf("%s: %w", prefix, err)
 }
 
