@@ -113,7 +113,6 @@ func (s *DB) AllLocalFilesWithPrefix(folder string, device protocol.DeviceID, pr
 func (s *DB) AllLocalFilesWithBlocksHash(folder string, h []byte) (iter.Seq[db.FileMetadata], func() error) {
 	return iterStructs[db.FileMetadata](s.sql.Queryx(s.tpl(`
 		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
-		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.device_idx = {{.LocalDeviceIdx}} AND f.blocklist_hash = ?
 	`), folder, h))
@@ -126,7 +125,6 @@ func (s *DB) AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, d
 	}
 	it, errFn := iterStructs[row](s.sql.Queryx(s.tpl(`
 		SELECT o.folder_id, f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
-		INNER JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE f.device_idx = {{.LocalDeviceIdx}} AND f.blocklist_hash = ?
 	`), h))
