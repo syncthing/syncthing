@@ -551,7 +551,7 @@ jobs:
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-')  || startsWith(github.ref, 'refs/tags/v'))
     environment: release
     needs:
-      #- codesign-windows
+      - codesign-windows
       - package-linux
       #- package-macos
       - package-cross
