@@ -68,17 +68,6 @@ func (s *DB) GetGlobalAvailability(folder, file string) ([]protocol.DeviceID, er
 	return devs, nil
 }
 
-// type FileMetadata struct {
-// 	Sequence      int64
-// 	Name          string
-// 	Type          protocol.FileInfoType
-// 	ModifiedNanos int64
-// 	Size          int64
-// 	Deleted       bool
-// 	Invalid       bool
-// 	LocalFlags    int
-// }
-
 func (s *DB) AllGlobalFiles(folder string) (iter.Seq[db.FileMetadata], func() error) {
 	it, errFn := iterStructs[db.FileMetadata](s.sql.Queryx(s.tpl(`
 		SELECT f.sequence, f.name, f.type, f.modified as modifiednanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
