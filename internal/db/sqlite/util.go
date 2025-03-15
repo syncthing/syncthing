@@ -73,14 +73,11 @@ func (v *dbVector) Scan(value any) error {
 // indirectFI constructs a FileInfo from separate marshalled FileInfo and
 // BlockList bytes.
 type indirectFI struct {
+	Name       string // not used, must be present as dest for Need iterator
 	FiProtobuf []byte
 	BlProtobuf []byte
-
-	// not used, but must be present as a destination for the ordering
-	// columns in the Need iterator
-	Name     string
-	Size     int64
-	Modified int64
+	Size       int64 // not used
+	Modified   int64 // not used
 }
 
 func (i indirectFI) FileInfo() (protocol.FileInfo, error) {
