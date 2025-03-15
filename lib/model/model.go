@@ -2737,7 +2737,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 		}
 
 		// Don't include the prefix itself.
-		if f.IsInvalid() || f.IsDeleted() || strings.HasPrefix(prefix, f.Name) {
+		if f.Invalid || f.Deleted || strings.HasPrefix(prefix, f.Name) {
 			continue
 		}
 
@@ -2761,15 +2761,15 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 			}
 		}
 
-		if dirsOnly && !f.IsDirectory() {
+		if dirsOnly && f.Type != protocol.FileInfoTypeDirectory {
 			continue
 		}
 
 		parent.Children = append(parent.Children, &TreeEntry{
 			Name:    base,
 			Type:    f.Type.String(),
-			ModTime: f.ModTime(),
-			Size:    f.FileSize(),
+			ModTime: f.Modified(),
+			Size:    f.Size,
 		})
 	}
 

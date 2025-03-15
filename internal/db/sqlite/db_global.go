@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"iter"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -67,19 +68,31 @@ func (s *DB) GetGlobalAvailability(folder, file string) ([]protocol.DeviceID, er
 	return devs, nil
 }
 
-func (s *DB) AllGlobalFiles(folder string) (iter.Seq[protocol.FileInfo], func() error) {
-	beps, errFn := iterStructs[indirectFI](s.sql.Queryx(s.tpl(`
-		SELECT fi.fiprotobuf, bl.blprotobuf, f.name FROM fileinfos fi
-		INNER JOIN files f on fi.sequence = f.sequence
-		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
+// type FileMetadata struct {
+// 	Sequence      int64
+// 	Name          string
+// 	Type          protocol.FileInfoType
+// 	ModifiedNanos int64
+// 	Size          int64
+// 	Deleted       bool
+// 	Invalid       bool
+// 	LocalFlags    int
+// }
+
+func (s *DB) AllGlobalFiles(folder string) (iter.Seq[db.FileMetadata], func() error) {
+	it, errFn := iterStructs[db.FileMetadata](s.sql.Queryx(s.tpl(`
+		SELECT f.sequence, f.name, f.type, f.modified as modifiednanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.local_flags & {{.FlagLocalGlobal}} != 0
 		ORDER BY f.name
 	`), folder))
-	return itererr.Map(beps, errFn, indirectFI.FileInfo)
+	return itererr.Map(it, errFn, func(m db.FileMetadata) (db.FileMetadata, error) {
+		m.Name = osutil.NativeFilename(m.Name)
+		return m, nil
+	})
 }
 
-func (s *DB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[protocol.FileInfo], func() error) {
+func (s *DB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[db.FileMetadata], func() error) {
 	if prefix == "" {
 		return s.AllGlobalFiles(folder)
 	}
@@ -87,15 +100,16 @@ func (s *DB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[protoc
 	prefix = osutil.NormalizedFilename(prefix)
 	pattern := prefix + "%"
 
-	beps, errFn := iterStructs[indirectFI](s.sql.Queryx(s.tpl(`
-		SELECT fi.fiprotobuf, bl.blprotobuf, f.name FROM fileinfos fi
-		INNER JOIN files f on fi.sequence = f.sequence
-		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
+	it, errFn := iterStructs[db.FileMetadata](s.sql.Queryx(s.tpl(`
+		SELECT f.sequence, f.name, f.type, f.modified as modifiednanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND (f.name = ? OR f.name LIKE ?) AND f.local_flags & {{.FlagLocalGlobal}} != 0
 		ORDER BY f.name
 	`), folder, prefix, pattern))
-	return itererr.Map(beps, errFn, indirectFI.FileInfo)
+	return itererr.Map(it, errFn, func(m db.FileMetadata) (db.FileMetadata, error) {
+		m.Name = osutil.NativeFilename(m.Name)
+		return m, nil
+	})
 }
 
 func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit, offset int) (iter.Seq[protocol.FileInfo], func() error) {

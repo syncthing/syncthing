@@ -72,12 +72,12 @@ func (m metricsDB) AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[str
 	return m.DB.AllLocalFilesWithBlocksHashAnyFolder(h)
 }
 
-func (m metricsDB) AllGlobalFiles(folder string) (iter.Seq[protocol.FileInfo], func() error) {
+func (m metricsDB) AllGlobalFiles(folder string) (iter.Seq[FileMetadata], func() error) {
 	defer m.account(folder, "AllGlobalFiles")()
 	return m.DB.AllGlobalFiles(folder)
 }
 
-func (m metricsDB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[protocol.FileInfo], func() error) {
+func (m metricsDB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[FileMetadata], func() error) {
 	defer m.account(folder, "AllGlobalFilesPrefix")()
 	return m.DB.AllGlobalFilesPrefix(folder, prefix)
 }

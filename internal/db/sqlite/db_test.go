@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -23,12 +24,12 @@ const (
 func TestBasics(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenTemp()
+	sdb, err := OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		if err := db.Close(); err != nil {
+		if err := sdb.Close(); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -40,7 +41,7 @@ func TestBasics(t *testing.T) {
 		genFile("test2/a", 2, 0),
 		genFile("test2/b", 3, 0),
 	}
-	err = db.Update(folderID, protocol.LocalDeviceID, local)
+	err = sdb.Update(folderID, protocol.LocalDeviceID, local)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +56,7 @@ func TestBasics(t *testing.T) {
 	for i := range remote {
 		remote[i].Version = remote[i].Version.Update(42)
 	}
-	err = db.Update(folderID, protocol.DeviceID{42}, remote)
+	err = sdb.Update(folderID, protocol.DeviceID{42}, remote)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +71,7 @@ func TestBasics(t *testing.T) {
 	t.Run("Local", func(t *testing.T) {
 		t.Parallel()
 
-		fi, ok, err := db.GetDeviceFile(folderID, protocol.LocalDeviceID, "test2/a") // exists
+		fi, ok, err := sdb.GetDeviceFile(folderID, protocol.LocalDeviceID, "test2/a") // exists
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -84,7 +85,7 @@ func TestBasics(t *testing.T) {
 			t.Fatal("expected two blocks")
 		}
 
-		_, ok, err = db.GetDeviceFile(folderID, protocol.LocalDeviceID, "test3") // does not exist
+		_, ok, err = sdb.GetDeviceFile(folderID, protocol.LocalDeviceID, "test3") // does not exist
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -96,7 +97,7 @@ func TestBasics(t *testing.T) {
 	t.Run("Global", func(t *testing.T) {
 		t.Parallel()
 
-		fi, ok, err := db.GetGlobalFile(folderID, "test1")
+		fi, ok, err := sdb.GetGlobalFile(folderID, "test1")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -111,12 +112,12 @@ func TestBasics(t *testing.T) {
 	t.Run("AllLocal", func(t *testing.T) {
 		t.Parallel()
 
-		have := mustCollect[protocol.FileInfo](t)(db.AllLocalFiles(folderID, protocol.LocalDeviceID))
+		have := mustCollect[protocol.FileInfo](t)(sdb.AllLocalFiles(folderID, protocol.LocalDeviceID))
 		if len(have) != 4 {
 			t.Log(have)
 			t.Error("expected four files")
 		}
-		have = mustCollect[protocol.FileInfo](t)(db.AllLocalFiles(folderID, protocol.DeviceID{42}))
+		have = mustCollect[protocol.FileInfo](t)(sdb.AllLocalFiles(folderID, protocol.DeviceID{42}))
 		if len(have) != 3 {
 			t.Log(have)
 			t.Error("expected three files")
@@ -126,34 +127,34 @@ func TestBasics(t *testing.T) {
 	t.Run("AllNeededNamesLocal", func(t *testing.T) {
 		t.Parallel()
 
-		need := fiNames(mustCollect[protocol.FileInfo](t)(db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0, 0)))
+		need := fiNames(mustCollect[protocol.FileInfo](t)(sdb.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0, 0)))
 		if len(need) != 3 || need[0] != "test1" {
 			t.Log(need)
 			t.Error("expected three files, ordered alphabetically")
 		}
 
-		need = fiNames(mustCollect[protocol.FileInfo](t)(db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 1, 0)))
+		need = fiNames(mustCollect[protocol.FileInfo](t)(sdb.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 1, 0)))
 		if len(need) != 1 || need[0] != "test1" {
 			t.Log(need)
 			t.Error("expected one file, limited, ordered alphabetically")
 		}
-		need = fiNames(mustCollect[protocol.FileInfo](t)(db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderLargestFirst, 0, 0)))
+		need = fiNames(mustCollect[protocol.FileInfo](t)(sdb.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderLargestFirst, 0, 0)))
 		if len(need) != 3 || need[0] != "test1" { // largest
 			t.Log(need)
 			t.Error("expected three files, ordered largest to smallest")
 		}
-		need = fiNames(mustCollect[protocol.FileInfo](t)(db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderSmallestFirst, 0, 0)))
+		need = fiNames(mustCollect[protocol.FileInfo](t)(sdb.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderSmallestFirst, 0, 0)))
 		if len(need) != 3 || need[0] != "test3" { // smallest
 			t.Log(need)
 			t.Error("expected three files, ordered smallest to largest")
 		}
 
-		need = fiNames(mustCollect[protocol.FileInfo](t)(db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderNewestFirst, 0, 0)))
+		need = fiNames(mustCollect[protocol.FileInfo](t)(sdb.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderNewestFirst, 0, 0)))
 		if len(need) != 3 || need[0] != "test1" { // newest
 			t.Log(need)
 			t.Error("expected three files, ordered newest to oldest")
 		}
-		need = fiNames(mustCollect[protocol.FileInfo](t)(db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderOldestFirst, 0, 0)))
+		need = fiNames(mustCollect[protocol.FileInfo](t)(sdb.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderOldestFirst, 0, 0)))
 		if len(need) != 3 || need[0] != "test3" { // oldest
 			t.Log(need)
 			t.Error("expected three files, ordered oldest to newest")
@@ -165,7 +166,7 @@ func TestBasics(t *testing.T) {
 
 		// Local device
 
-		c, err := db.CountLocal(folderID, protocol.LocalDeviceID)
+		c, err := sdb.CountLocal(folderID, protocol.LocalDeviceID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -184,7 +185,7 @@ func TestBasics(t *testing.T) {
 
 		// Other device
 
-		c, err = db.CountLocal(folderID, protocol.DeviceID{42})
+		c, err = sdb.CountLocal(folderID, protocol.DeviceID{42})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -205,7 +206,7 @@ func TestBasics(t *testing.T) {
 	t.Run("GlobalSize", func(t *testing.T) {
 		t.Parallel()
 
-		c, err := db.CountGlobal(folderID)
+		c, err := sdb.CountGlobal(folderID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -226,7 +227,7 @@ func TestBasics(t *testing.T) {
 	t.Run("NeedSizeLocal", func(t *testing.T) {
 		t.Parallel()
 
-		c, err := db.CountNeed(folderID, protocol.LocalDeviceID)
+		c, err := sdb.CountNeed(folderID, protocol.LocalDeviceID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -247,7 +248,7 @@ func TestBasics(t *testing.T) {
 	t.Run("NeedSizeRemote", func(t *testing.T) {
 		t.Parallel()
 
-		c, err := db.CountNeed(folderID, protocol.DeviceID{42})
+		c, err := sdb.CountNeed(folderID, protocol.DeviceID{42})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -268,7 +269,7 @@ func TestBasics(t *testing.T) {
 	t.Run("Folders", func(t *testing.T) {
 		t.Parallel()
 
-		folders, err := db.ListFolders()
+		folders, err := sdb.ListFolders()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -280,7 +281,7 @@ func TestBasics(t *testing.T) {
 	t.Run("DevicesForFolder", func(t *testing.T) {
 		t.Parallel()
 
-		devs, err := db.ListDevicesForFolder("test")
+		devs, err := sdb.ListDevicesForFolder("test")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -293,14 +294,14 @@ func TestBasics(t *testing.T) {
 	t.Run("Sequence", func(t *testing.T) {
 		t.Parallel()
 
-		if seq, err := db.GetDeviceSequence(folderID, protocol.LocalDeviceID); err != nil {
+		if seq, err := sdb.GetDeviceSequence(folderID, protocol.LocalDeviceID); err != nil {
 			t.Fatal(err)
 		} else if seq != 4 {
 			t.Log(seq)
 			t.Error("expected local sequence to match number of files inserted")
 		}
 
-		if seq, err := db.GetDeviceSequence(folderID, protocol.DeviceID{42}); err != nil {
+		if seq, err := sdb.GetDeviceSequence(folderID, protocol.DeviceID{42}); err != nil {
 			t.Fatal(err)
 		} else if seq != 103 {
 			t.Log(seq)
@@ -308,19 +309,19 @@ func TestBasics(t *testing.T) {
 		}
 
 		// Non-existent should be zero and no error
-		if seq, err := db.GetDeviceSequence("trolol", protocol.LocalDeviceID); err != nil {
+		if seq, err := sdb.GetDeviceSequence("trolol", protocol.LocalDeviceID); err != nil {
 			t.Fatal(err)
 		} else if seq != 0 {
 			t.Log(seq)
 			t.Error("expected zero sequence")
 		}
-		if seq, err := db.GetDeviceSequence("trolol", protocol.DeviceID{42}); err != nil {
+		if seq, err := sdb.GetDeviceSequence("trolol", protocol.DeviceID{42}); err != nil {
 			t.Fatal(err)
 		} else if seq != 0 {
 			t.Log(seq)
 			t.Error("expected zero sequence")
 		}
-		if seq, err := db.GetDeviceSequence(folderID, protocol.DeviceID{99}); err != nil {
+		if seq, err := sdb.GetDeviceSequence(folderID, protocol.DeviceID{99}); err != nil {
 			t.Fatal(err)
 		} else if seq != 0 {
 			t.Log(seq)
@@ -331,7 +332,7 @@ func TestBasics(t *testing.T) {
 	t.Run("AllGlobalPrefix", func(t *testing.T) {
 		t.Parallel()
 
-		vals := mustCollect[protocol.FileInfo](t)(db.AllGlobalFilesPrefix(folderID, "test2"))
+		vals := mustCollect[db.FileMetadata](t)(sdb.AllGlobalFilesPrefix(folderID, "test2"))
 
 		// Vals should be test2, test2/a, test2/b
 		if len(vals) != 3 {
@@ -342,7 +343,7 @@ func TestBasics(t *testing.T) {
 		}
 
 		// Empty prefix should be all the files
-		vals = mustCollect[protocol.FileInfo](t)(db.AllGlobalFilesPrefix(folderID, ""))
+		vals = mustCollect[db.FileMetadata](t)(sdb.AllGlobalFilesPrefix(folderID, ""))
 		if len(vals) != 6 {
 			t.Log(vals)
 			t.Error("expected six items")
@@ -352,7 +353,7 @@ func TestBasics(t *testing.T) {
 	t.Run("AllLocalPrefix", func(t *testing.T) {
 		t.Parallel()
 
-		vals := mustCollect[protocol.FileInfo](t)(db.AllLocalFilesWithPrefix(folderID, protocol.LocalDeviceID, "test2"))
+		vals := mustCollect[protocol.FileInfo](t)(sdb.AllLocalFilesWithPrefix(folderID, protocol.LocalDeviceID, "test2"))
 
 		// Vals should be test2, test2/a, test2/b
 		if len(vals) != 3 {
@@ -363,7 +364,7 @@ func TestBasics(t *testing.T) {
 		}
 
 		// Empty prefix should be all the files
-		vals = mustCollect[protocol.FileInfo](t)(db.AllLocalFilesWithPrefix(folderID, protocol.LocalDeviceID, ""))
+		vals = mustCollect[protocol.FileInfo](t)(sdb.AllLocalFilesWithPrefix(folderID, protocol.LocalDeviceID, ""))
 
 		if len(vals) != 4 {
 			t.Log(vals)
@@ -374,7 +375,7 @@ func TestBasics(t *testing.T) {
 	t.Run("AllLocalSequenced", func(t *testing.T) {
 		t.Parallel()
 
-		vals := mustCollect[protocol.FileInfo](t)(db.AllLocalFilesBySequence(folderID, protocol.LocalDeviceID, 3, 0))
+		vals := mustCollect[protocol.FileInfo](t)(sdb.AllLocalFilesBySequence(folderID, protocol.LocalDeviceID, 3, 0))
 
 		// Vals should be test2/a, test2/b
 		if len(vals) != 2 {

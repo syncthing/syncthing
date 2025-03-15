@@ -29,6 +29,9 @@ func iterStructs[T any](rows *sqlx.Rows, err error) (iter.Seq[T], func() error) 
 				retErr = err
 				break
 			}
+			if cleanuper, ok := any(v).(interface{ cleanup() }); ok {
+				cleanuper.cleanup()
+			}
 			if !yield(*v) {
 				return
 			}

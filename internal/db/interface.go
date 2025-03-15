@@ -22,8 +22,8 @@ type DB interface {
 	GetGlobalFile(folder string, file string) (protocol.FileInfo, bool, error)
 
 	// File iterators
-	AllGlobalFiles(folder string) (iter.Seq[protocol.FileInfo], func() error)
-	AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[protocol.FileInfo], func() error)
+	AllGlobalFiles(folder string) (iter.Seq[FileMetadata], func() error)
+	AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[FileMetadata], func() error)
 	AllLocalBlocksWithHash(hash []byte) (iter.Seq[BlockMapEntry], func() error)
 	AllLocalFiles(folder string, device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocalFilesBySequence(folder string, device protocol.DeviceID, startSeq int64, limit int) (iter.Seq[protocol.FileInfo], func() error)
@@ -76,4 +76,19 @@ type BlockMapEntry struct {
 type KeyValue struct {
 	Key   string
 	Value []byte
+}
+
+type FileMetadata struct {
+	Sequence      int64
+	Name          string
+	Type          protocol.FileInfoType
+	ModifiedNanos int64
+	Size          int64
+	Deleted       bool
+	Invalid       bool
+	LocalFlags    int
+}
+
+func (m *FileMetadata) Modified() time.Time {
+	return time.Unix(0, m.ModifiedNanos)
 }
