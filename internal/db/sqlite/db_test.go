@@ -388,6 +388,110 @@ func TestBasics(t *testing.T) {
 	})
 }
 
+func TestPrefixGlobbing(t *testing.T) {
+	t.Parallel()
+
+	sdb, err := OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := sdb.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// Some local files
+	local := []protocol.FileInfo{
+		genFile("test1", 1, 0),
+		genDir("test2", 0),
+		genFile("test2/a", 2, 0),
+		genDir("test2/b", 0),
+		genFile("test2/b/c", 3, 0),
+	}
+	err = sdb.Update(folderID, protocol.LocalDeviceID, local)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vals := mustCollect[protocol.FileInfo](t)(sdb.AllLocalFilesWithPrefix(folderID, protocol.LocalDeviceID, "test2"))
+
+	// Vals should be test2, test2/a, test2/b, test2/b/c
+	if len(vals) != 4 {
+		t.Log(vals)
+		t.Error("expected four items")
+	} else if vals[0].Name != "test2" || vals[3].Name != "test2/b/c" {
+		t.Error(vals)
+	}
+
+	// Empty prefix should be all the files
+	vals = mustCollect[protocol.FileInfo](t)(sdb.AllLocalFilesWithPrefix(folderID, protocol.LocalDeviceID, ""))
+
+	if len(vals) != 5 {
+		t.Log(vals)
+		t.Error("expected five items")
+	}
+
+	// Same as partial prefix
+	vals = mustCollect[protocol.FileInfo](t)(sdb.AllLocalFilesWithPrefix(folderID, protocol.LocalDeviceID, "tes"))
+
+	if len(vals) != 5 {
+		t.Log(vals)
+		t.Error("expected five items")
+	}
+
+	// Prefix should be case sensitive, so no match here
+	vals = mustCollect[protocol.FileInfo](t)(sdb.AllLocalFilesWithPrefix(folderID, protocol.LocalDeviceID, "tEsT2"))
+
+	if len(vals) != 0 {
+		t.Log(vals)
+		t.Error("expected no items")
+	}
+
+	// Subdir should match
+	vals = mustCollect[protocol.FileInfo](t)(sdb.AllLocalFilesWithPrefix(folderID, protocol.LocalDeviceID, "test2/b"))
+
+	if len(vals) != 2 {
+		t.Log(vals)
+		t.Error("expected two items")
+	}
+}
+
+func TestPrefixGlobbingStar(t *testing.T) {
+	t.Parallel()
+
+	sdb, err := OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := sdb.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// Some local files
+	local := []protocol.FileInfo{
+		genFile("test1a", 1, 0),
+		genFile("test*a", 2, 0),
+		genFile("test2a", 3, 0),
+	}
+	err = sdb.Update(folderID, protocol.LocalDeviceID, local)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vals := mustCollect[protocol.FileInfo](t)(sdb.AllLocalFilesWithPrefix(folderID, protocol.LocalDeviceID, "test*a"))
+
+	// Vals should be test*a
+	if len(vals) != 1 {
+		t.Log(vals)
+		t.Error("expected one item")
+	} else if vals[0].Name != "test*a" {
+		t.Error(vals)
+	}
+}
+
 func TestAvailability(t *testing.T) {
 	db, err := OpenTemp()
 	if err != nil {

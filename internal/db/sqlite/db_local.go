@@ -97,7 +97,7 @@ func (s *DB) AllLocalFilesWithPrefix(folder string, device protocol.DeviceID, pr
 	}
 
 	prefix = osutil.NormalizedFilename(prefix)
-	pattern := prefix + "%"
+	end := prefixEnd(prefix)
 
 	it, errFn := iterStructs[indirectFI](s.sql.Queryx(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
@@ -105,8 +105,8 @@ func (s *DB) AllLocalFilesWithPrefix(folder string, device protocol.DeviceID, pr
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND (f.name = ? OR f.name LIKE ?)
-	`, folder, device.String(), prefix, pattern))
+		WHERE o.folder_id = ? AND d.device_id = ? AND f.name >= ? AND f.name < ?
+	`, folder, device.String(), prefix, end))
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 

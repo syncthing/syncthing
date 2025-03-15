@@ -3,6 +3,7 @@ package sqlite
 import (
 	"iter"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/db"
 )
 
@@ -29,8 +30,14 @@ func (s *DB) KVDelete(key string) error {
 }
 
 func (s *DB) KVPrefix(prefix string) (iter.Seq[db.KeyValue], func() error) {
-	prefix += "%"
-	rows, err := s.sql.Queryx(`SELECT key, value FROM kv WHERE key LIKE ?`, prefix)
+	var rows *sqlx.Rows
+	var err error
+	if prefix == "" {
+		rows, err = s.sql.Queryx(`SELECT key, value FROM kv`)
+	} else {
+		end := prefixEnd(prefix)
+		rows, err = s.sql.Queryx(`SELECT key, value FROM kv WHERE key >= ? AND key < ?`, prefix, end)
+	}
 	if err != nil {
 		return func(_ func(db.KeyValue) bool) {}, func() error { return err }
 	}

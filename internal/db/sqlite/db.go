@@ -56,3 +56,12 @@ func (s *DB) ListDevicesForFolder(folder string) ([]protocol.DeviceID, error) {
 	}
 	return devs, nil
 }
+
+func prefixEnd(s string) string {
+	if s == "" {
+		panic("bug: cannot represent end prefix for empty string")
+	}
+	bs := []byte(s)
+	bs[len(bs)-1]++
+	return string(bs)
+}

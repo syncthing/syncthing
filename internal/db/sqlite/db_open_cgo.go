@@ -9,7 +9,7 @@ import (
 
 const (
 	dbDriver      = "sqlite3"
-	commonOptions = "_fk=true&_rt=true&_cslike=true&_cache_size=-65536&_sync=1"
+	commonOptions = "_fk=true&_rt=true&_cache_size=-65536&_sync=1"
 )
 
 func init() {

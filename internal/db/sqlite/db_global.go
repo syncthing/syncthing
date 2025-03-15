@@ -87,14 +87,14 @@ func (s *DB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[db.Fil
 	}
 
 	prefix = osutil.NormalizedFilename(prefix)
-	pattern := prefix + "%"
+	end := prefixEnd(prefix)
 
 	it, errFn := iterStructs[db.FileMetadata](s.sql.Queryx(s.tpl(`
 		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
-		WHERE o.folder_id = ? AND (f.name = ? OR f.name LIKE ?) AND f.local_flags & {{.FlagLocalGlobal}} != 0
+		WHERE o.folder_id = ? AND f.name >= ? AND f.name < ? AND f.local_flags & {{.FlagLocalGlobal}} != 0
 		ORDER BY f.name
-	`), folder, prefix, pattern))
+	`), folder, prefix, end))
 	return itererr.Map(it, errFn, func(m db.FileMetadata) (db.FileMetadata, error) {
 		m.Name = osutil.NativeFilename(m.Name)
 		return m, nil
