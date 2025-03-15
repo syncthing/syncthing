@@ -460,15 +460,15 @@ func wrap(err error, context ...string) error {
 
 type fileRow struct {
 	Name       string
+	Version    dbVector
 	FolderIdx  int64 `db:"folder_idx"`
 	DeviceIdx  int64 `db:"device_idx"`
 	Sequence   int64
 	Modified   int64
 	Size       int64
-	Version    dbVector
+	LocalFlags int64 `db:"local_flags"`
 	Deleted    bool
 	Invalid    bool
-	LocalFlags int64 `db:"local_flags"`
 }
 
 func (e fileRow) Compare(other fileRow) int {
