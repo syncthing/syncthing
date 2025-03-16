@@ -301,19 +301,20 @@ jobs:
             gcc-s390x-linux-gnu
 
           for tgt in syncthing stdiscosrv strelaysrv ; do
-            go run build.go -goos linux -goarch amd64 tar "$tgt"
-            go run build.go -goos linux -goarch 386 -cc i686-linux-gnu-gcc tar "$tgt"
-            go run build.go -goos linux -goarch arm -cc arm-linux-gnueabi-gcc tar "$tgt"
-            go run build.go -goos linux -goarch arm64 -cc aarch64-linux-gnu-gcc tar "$tgt"
-            go run build.go -goos linux -goarch mips -cc mips-linux-gnu-gcc tar "$tgt"
-            go run build.go -goos linux -goarch mips64 -cc mips64-linux-gnuabi64-gcc tar "$tgt"
-            go run build.go -goos linux -goarch mipsle -cc mipsel-linux-gnu-gcc tar "$tgt"
-            go run build.go -goos linux -goarch mips64le -cc mips64el-linux-gnuabi64-gcc tar "$tgt"
-            go run build.go -goos linux -goarch riscv64 -cc riscv64-linux-gnu-gcc tar "$tgt"
-            go run build.go -goos linux -goarch s390x -cc s390x-linux-gnu-gcc tar "$tgt"
+            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch amd64 tar "$tgt"
+            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch 386 -cc i686-linux-gnu-gcc tar "$tgt"
+            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch arm -cc arm-linux-gnueabi-gcc tar "$tgt"
+            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch arm64 -cc aarch64-linux-gnu-gcc tar "$tgt"
+            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch mips -cc mips-linux-gnu-gcc tar "$tgt"
+            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch mips64 -cc mips64-linux-gnuabi64-gcc tar "$tgt"
+            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch mipsle -cc mipsel-linux-gnu-gcc tar "$tgt"
+            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch mips64le -cc mips64el-linux-gnuabi64-gcc tar "$tgt"
+            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch riscv64 -cc riscv64-linux-gnu-gcc tar "$tgt"
+            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch s390x -cc s390x-linux-gnu-gcc tar "$tgt"
           done
         env:
           CGO_ENABLED: "1"
+          EXTRA_LDFLAGS: "-extldflags=-static"
 
       - name: Create packages (without CGO)
         run: |
