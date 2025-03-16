@@ -161,7 +161,7 @@ func OpenDBBackend(path string, tuning config.Tuning) (backend.Backend, error) {
 }
 
 // Opens a database and attempts migrating the legacy database to the new database format.
-func OpenDatabase(path string, oldDBDir string, evLogger events.Logger) (newdb.DB, error) {
+func OpenDatabase(path string) (newdb.DB, error) {
 	sql, err := sqlite.Open(path)
 	if err != nil {
 		return nil, err
@@ -169,28 +169,30 @@ func OpenDatabase(path string, oldDBDir string, evLogger events.Logger) (newdb.D
 
 	sdb := newdb.MetricsWrap(sql)
 
-	if be, err := backend.OpenLevelDBRO(oldDBDir); err == nil {
-		// We have not migrated. We should do that.
-		err := migrateDatabase(be, evLogger, sdb, oldDBDir)
-		if err != nil {
-			l.Warnln(err.Error())
-			os.Exit(0) // prevent automatic restart by the monitor
-		}
-
-		miscDB := dbext.NewMiscDB(sdb)
-		_ = miscDB.PutTime("migrated-from-leveldb-at", time.Now())
-		_ = miscDB.PutString("migrated-from-leveldb-by", build.LongVersion)
-	}
-
 	return sdb, nil
 }
 
-func migrateDatabase(be backend.Backend, evLogger events.Logger, sdb newdb.DB, oldDBDir string) error {
-	l.Infoln("Migrating database from LevelDB to SQLite; this can take quite a while...")
+func TryMigrateDatabase(sdb newdb.DB, miscDB *dbext.Typed, oldDBDir string, evLogger events.Logger) error {
+	if _, err := os.Lstat(oldDBDir); err != nil {
+		// No old database
+		return nil
+	}
+	be, err := backend.OpenLevelDBRO(oldDBDir)
+	if err != nil {
+		// Apparently, not a valid old database
+		return nil
+	}
+
+	if when, ok, err := miscDB.Time("migrated-from-leveldb-at"); err == nil && ok {
+		l.Warnf("Old-style database present but already migrated at %v; please manually move or remove %s.", when, oldDBDir)
+		return nil
+	}
+
+	l.Infoln("Migrating old-style database to SQLite; this may take a while...")
 
 	ll, err := db.NewLowlevel(be, evLogger)
 	if err != nil {
-		return errors.New("Failed to migrate: " + err.Error())
+		return err
 	}
 
 	for _, folder := range ll.ListFolders() {
@@ -198,12 +200,12 @@ func migrateDatabase(be backend.Backend, evLogger events.Logger, sdb newdb.DB, o
 		var batch []protocol.FileInfo
 		fs, err := db.NewFileSet(folder, ll)
 		if err != nil {
-			return errors.New("Failed to migrate FileInfos: " + err.Error())
+			return err
 		}
 
 		snap, err := fs.Snapshot()
 		if err != nil {
-			return errors.New("Failed to migrate FileInfos: " + err.Error())
+			return err
 		}
 
 		err = nil
@@ -217,14 +219,13 @@ func migrateDatabase(be backend.Backend, evLogger events.Logger, sdb newdb.DB, o
 			}
 			return true
 		})
-
 		if err != nil {
-			return errors.New("Failed to migrate FileInfos: " + err.Error())
+			return err
 		}
 
 		if len(batch) > 0 {
 			if err := sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
-				return errors.New("Failed to migrate FileInfos: " + err.Error())
+				return err
 			}
 		}
 		snap.Release()
@@ -235,12 +236,13 @@ func migrateDatabase(be backend.Backend, evLogger events.Logger, sdb newdb.DB, o
 		l.Warnln("Failed to migrate mtimes:", err)
 	}
 
+	_ = miscDB.PutTime("migrated-from-leveldb-at", time.Now())
+	_ = miscDB.PutString("migrated-from-leveldb-by", build.LongVersion)
+
 	l.Infoln("Migration complete")
 	be.Close()
 
-	if err := os.Rename(oldDBDir, oldDBDir+"-migrated"); err != nil {
-		return errors.New("Failed to rename old, migrated database: " + err.Error() + ". Please manually move or remove " + oldDBDir)
-	}
+	_ = os.Rename(oldDBDir, oldDBDir+"-migrated")
 
 	return nil
 }

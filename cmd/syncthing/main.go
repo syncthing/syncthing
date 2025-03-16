@@ -594,13 +594,17 @@ func syncthingMain(options serveOptions) {
 		})
 	}
 
-	sdb, err := syncthing.OpenDatabase(locations.Get(locations.Database), locations.Get(locations.LegacyDatabase), evLogger)
+	sdb, err := syncthing.OpenDatabase(locations.Get(locations.Database))
 	if err != nil {
 		l.Warnln("Error opening database:", err)
 		os.Exit(1)
 	}
 
 	miscDB := dbext.NewMiscDB(sdb)
+	if err := syncthing.TryMigrateDatabase(sdb, miscDB, locations.Get(locations.LegacyDatabase), evLogger); err != nil {
+		l.Warnln("Failed to migrate old-style database:", err)
+		os.Exit(1)
+	}
 
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial
 	// upgrade immediately. The auto-upgrade routine can only be started
