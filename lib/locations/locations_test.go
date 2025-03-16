@@ -28,27 +28,27 @@ func TestUnixConfigDir(t *testing.T) {
 		// First some "new installations", no files exist previously.
 
 		// No variables set, use our current default
-		{"/home/user", "", "", nil, "/home/user/.local/state/syncthing"},
+		{"/home/user", "", "", nil, "/home/user/.local/state/thingium"},
 		// Config home set, doesn't matter
-		{"/home/user", "/somewhere/else", "", nil, "/home/user/.local/state/syncthing"},
+		{"/home/user", "/somewhere/else", "", nil, "/home/user/.local/state/thingium"},
 		// State home set, use that
-		{"/home/user", "", "/var/state", nil, "/var/state/syncthing"},
+		{"/home/user", "", "/var/state", nil, "/var/state/thingium"},
 		// State home set, again config home doesn't matter
-		{"/home/user", "/somewhere/else", "/var/state", nil, "/var/state/syncthing"},
+		{"/home/user", "/somewhere/else", "/var/state", nil, "/var/state/thingium"},
 
 		// Now some "upgrades", where we have files in the old locations.
 
 		// Config home set, a file exists in the default location
-		{"/home/user", "/somewhere/else", "", []string{"/home/user/.config/syncthing/config.xml"}, "/home/user/.config/syncthing"},
+		{"/home/user", "/somewhere/else", "", []string{"/home/user/.config/thingium/config.xml"}, "/home/user/.config/thingium"},
 		// State home set, a file exists in the default location
-		{"/home/user", "", "/var/state", []string{"/home/user/.config/syncthing/config.xml"}, "/home/user/.config/syncthing"},
+		{"/home/user", "", "/var/state", []string{"/home/user/.config/thingium/config.xml"}, "/home/user/.config/thingium"},
 		// Both config home and state home set, a file exists in the default location
-		{"/home/user", "/somewhere/else", "/var/state", []string{"/home/user/.config/syncthing/config.xml"}, "/home/user/.config/syncthing"},
+		{"/home/user", "/somewhere/else", "/var/state", []string{"/home/user/.config/thingium/config.xml"}, "/home/user/.config/thingium"},
 
 		// Config home set, and a file exists at that place
-		{"/home/user", "/somewhere/else", "", []string{"/somewhere/else/syncthing/config.xml"}, "/somewhere/else/syncthing"},
+		{"/home/user", "/somewhere/else", "", []string{"/somewhere/else/thingium/config.xml"}, "/somewhere/else/thingium"},
 		// Config home and state home set, and a file exists in config home
-		{"/home/user", "/somewhere/else", "/var/state", []string{"/somewhere/else/syncthing/config.xml"}, "/somewhere/else/syncthing"},
+		{"/home/user", "/somewhere/else", "/var/state", []string{"/somewhere/else/thingium/config.xml"}, "/somewhere/else/thingium"},
 	}
 
 	for _, c := range cases {
@@ -74,23 +74,23 @@ func TestUnixDataDir(t *testing.T) {
 		// First some "new installations", no files exist previously.
 
 		// No variables set, use our current default
-		{"/home/user", "", "", "", nil, "/home/user/.local/state/syncthing"},
+		{"/home/user", "", "", "", nil, "/home/user/.local/state/thingium"},
 		// Data home set, doesn't matter
-		{"/home/user", "", "/somewhere/else", "", nil, "/home/user/.local/state/syncthing"},
+		{"/home/user", "", "/somewhere/else", "", nil, "/home/user/.local/state/thingium"},
 		// State home set, use that
-		{"/home/user", "", "", "/var/state", nil, "/var/state/syncthing"},
+		{"/home/user", "", "", "/var/state", nil, "/var/state/thingium"},
 
 		// Now some "upgrades", where we have files in the old locations.
 
 		// A database exists in the old default location, use that
-		{"/home/user", "", "", "", []string{"/home/user/.config/syncthing/index-v0.14.0.db"}, "/home/user/.config/syncthing"},
-		{"/home/user", "/config/dir", "/xdg/data/home", "/xdg/state/home", []string{"/home/user/.config/syncthing/index-v0.14.0.db"}, "/home/user/.config/syncthing"},
+		{"/home/user", "", "", "", []string{"/home/user/.config/thingium/index-v0.14.0.db"}, "/home/user/.config/thingium"},
+		{"/home/user", "/config/dir", "/xdg/data/home", "/xdg/state/home", []string{"/home/user/.config/thingium/index-v0.14.0.db"}, "/home/user/.config/thingium"},
 
 		// A database exists in the config dir, use that
 		{"/home/user", "/config/dir", "/xdg/data/home", "/xdg/state/home", []string{"/config/dir/index-v0.14.0.db"}, "/config/dir"},
 
 		// A database exists in the old xdg data home, use that
-		{"/home/user", "/config/dir", "/xdg/data/home", "/xdg/state/home", []string{"/xdg/data/home/syncthing/index-v0.14.0.db"}, "/xdg/data/home/syncthing"},
+		{"/home/user", "/config/dir", "/xdg/data/home", "/xdg/state/home", []string{"/xdg/data/home/thingium/index-v0.14.0.db"}, "/xdg/data/home/thingium"},
 	}
 
 	for _, c := range cases {

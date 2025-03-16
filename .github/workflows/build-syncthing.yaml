@@ -640,8 +640,9 @@ jobs:
   #
 
   package-debian:
-    name: Package for Debian
+    name: Package for Debian (disabled)
     runs-on: ubuntu-latest
+    if: false
     steps:
       - uses: actions/checkout@v4
         with:
