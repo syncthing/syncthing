@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -44,8 +45,7 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 
 	db := &DB{
 		sql:        sqlDB,
-		prepared:   make(map[string]*sqlx.Stmt),
-		statements: make(map[string]string),
+		statements: make(map[string]*sqlx.Stmt),
 	}
 
 	// Touch device IDs that should always exist and have a low index
@@ -76,7 +76,7 @@ var tplFuncs = template.FuncMap{
 	},
 }
 
-func (s *DB) tpl(tpl string) string {
+func (s *DB) tpl(tpl string) stmt {
 	s.statementsMut.RLock()
 	stmt, ok := s.statements[tpl]
 	s.statementsMut.RUnlock()
@@ -96,7 +96,26 @@ func (s *DB) tpl(tpl string) string {
 	if err := compTpl.Execute(&sb, s.tplInput); err != nil {
 		panic("bug: bad template: " + err.Error())
 	}
-	stmt = sb.String()
+	stmt, err := s.sql.Preparex(sb.String())
+	if err != nil {
+		return failedStmt{err}
+	}
 	s.statements[tpl] = stmt
 	return stmt
 }
+
+type stmt interface {
+	Exec(args ...any) (sql.Result, error)
+	Get(dest any, args ...any) error
+	Queryx(args ...any) (*sqlx.Rows, error)
+	Select(dest any, args ...any) error
+}
+
+type failedStmt struct {
+	err error
+}
+
+func (f failedStmt) Exec(_ ...any) (sql.Result, error)   { return nil, f.err }
+func (f failedStmt) Get(_ any, _ ...any) error           { return f.err }
+func (f failedStmt) Queryx(_ ...any) (*sqlx.Rows, error) { return nil, f.err }
+func (f failedStmt) Select(_ any, _ ...any) error        { return f.err }

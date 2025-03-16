@@ -46,20 +46,18 @@ func (s *DB) IndexIDGet(folder string, device protocol.DeviceID) (protocol.Index
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	if err := tx.Get(&indexID, s.tpl(`
+	if err := tx.Stmtx(s.tpl(`
 		SELECT index_id FROM indexids WHERE folder_idx = ? AND device_idx = {{.LocalDeviceIdx}}
-	`), folderIdx,
-	); err != nil && !errors.Is(err, sql.ErrNoRows) {
+	`)).Get(&indexID, folderIdx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return 0, wrap(err)
 	}
 
 	if indexID == "" {
 		// Generate a new index ID
 		id := protocol.NewIndexID()
-		if _, err := tx.Exec(s.tpl(`
+		if _, err := tx.Stmtx(s.tpl(`
 			INSERT INTO indexids (folder_idx, device_idx, index_id) values (?, {{.LocalDeviceIdx}}, ?)
-		`), folderIdx, indexIDToHex(id),
-		); err != nil {
+		`)).Exec(folderIdx, indexIDToHex(id)); err != nil {
 			return 0, wrap(err)
 		}
 		if err := tx.Commit(); err != nil {

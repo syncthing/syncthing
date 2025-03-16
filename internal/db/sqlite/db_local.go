@@ -111,11 +111,11 @@ func (s *DB) AllLocalFilesWithPrefix(folder string, device protocol.DeviceID, pr
 }
 
 func (s *DB) AllLocalFilesWithBlocksHash(folder string, h []byte) (iter.Seq[db.FileMetadata], func() error) {
-	return iterStructs[db.FileMetadata](s.sql.Queryx(s.tpl(`
+	return iterStructs[db.FileMetadata](s.tpl(`
 		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.device_idx = {{.LocalDeviceIdx}} AND f.blocklist_hash = ?
-	`), folder, h))
+	`).Queryx(folder, h))
 }
 
 func (s *DB) AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, db.FileMetadata], func() error) {
@@ -123,11 +123,11 @@ func (s *DB) AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, d
 		FolderID string `db:"folder_id"`
 		db.FileMetadata
 	}
-	it, errFn := iterStructs[row](s.sql.Queryx(s.tpl(`
+	it, errFn := iterStructs[row](s.tpl(`
 		SELECT o.folder_id, f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE f.device_idx = {{.LocalDeviceIdx}} AND f.blocklist_hash = ?
-	`), h))
+	`).Queryx(h))
 	return itererr.Map2(it, errFn, func(r row) (string, db.FileMetadata, error) {
 		return r.FolderID, r.FileMetadata, nil
 	})
@@ -137,9 +137,9 @@ func (s *DB) AllLocalBlocksWithHash(hash []byte) (iter.Seq[db.BlockMapEntry], fu
 	// We involve the files table in this select because deletion of blocks
 	// & blocklists is deferred (gabrage collected) while the files list is
 	// not. This filters out blocks that are in fact deleted.
-	return iterStructs[db.BlockMapEntry](s.sql.Queryx(s.tpl(`
+	return iterStructs[db.BlockMapEntry](s.tpl(`
 		SELECT f.blocklist_hash as blocklisthash, b.idx as blockindex, b.offset, b.size FROM files f
 		LEFT JOIN blocks b ON f.blocklist_hash = b.blocklist_hash
 		WHERE f.device_idx = {{.LocalDeviceIdx}} AND b.hash = ?
-	`), hash))
+	`).Queryx(hash))
 }
