@@ -14,13 +14,12 @@ func (s *DB) IndexIDGet(folder string, device protocol.DeviceID) (protocol.Index
 	// Try a fast read-only query to begin with. If it does not find the ID
 	// we'll do the full thing under a lock.
 	var indexID string
-	if err := s.sql.Get(&indexID, `
+	if err := s.stmt(`
 		SELECT i.index_id FROM indexids i
 		INNER JOIN folders o ON o.idx  = i.folder_idx
 		INNER JOIN devices d ON d.idx  = i.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ?`,
-		folder, device.String(),
-	); err == nil && indexID != "" {
+		WHERE o.folder_id = ? AND d.device_id = ?
+	`).Get(&indexID, folder, device.String()); err == nil && indexID != "" {
 		idx, err := indexIDFromHex(indexID)
 		return idx, wrap(err)
 	}
@@ -46,7 +45,7 @@ func (s *DB) IndexIDGet(folder string, device protocol.DeviceID) (protocol.Index
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	if err := tx.Stmtx(s.tpl(`
+	if err := tx.Stmtx(s.stmt(`
 		SELECT index_id FROM indexids WHERE folder_idx = ? AND device_idx = {{.LocalDeviceIdx}}
 	`)).Get(&indexID, folderIdx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return 0, wrap(err)
@@ -55,7 +54,7 @@ func (s *DB) IndexIDGet(folder string, device protocol.DeviceID) (protocol.Index
 	if indexID == "" {
 		// Generate a new index ID
 		id := protocol.NewIndexID()
-		if _, err := tx.Stmtx(s.tpl(`
+		if _, err := tx.Stmtx(s.stmt(`
 			INSERT INTO indexids (folder_idx, device_idx, index_id) values (?, {{.LocalDeviceIdx}}, ?)
 		`)).Exec(folderIdx, indexIDToHex(id)); err != nil {
 			return 0, wrap(err)
@@ -82,10 +81,9 @@ func (s *DB) IndexIDSet(folder string, device protocol.DeviceID, id protocol.Ind
 		return wrap(err, "device idx")
 	}
 
-	if _, err := s.sql.Exec(`
+	if _, err := s.stmt(`
 		INSERT OR REPLACE INTO indexids (folder_idx, device_idx, index_id) values (?, ?, ?)
-	`, folderIdx, deviceIdx, indexIDToHex(id),
-	); err != nil {
+	`).Exec(folderIdx, deviceIdx, indexIDToHex(id)); err != nil {
 		return wrap(err, "insert")
 	}
 	return nil
@@ -94,7 +92,7 @@ func (s *DB) IndexIDSet(folder string, device protocol.DeviceID, id protocol.Ind
 func (s *DB) IndexIDDropAll() error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
-	_, err := s.sql.Exec(`DELETE FROM indexids`)
+	_, err := s.stmt(`DELETE FROM indexids`).Exec()
 	return wrap(err)
 }
 

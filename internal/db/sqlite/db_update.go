@@ -144,7 +144,10 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 func (s *DB) DropFolder(folder string) error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
-	_, err := s.sql.Exec(`DELETE FROM folders WHERE folder_id = ?`, folder)
+	_, err := s.stmt(`
+		DELETE FROM folders
+		WHERE folder_id = ?
+	`).Exec(folder)
 	return wrap(err)
 }
 
@@ -409,11 +412,17 @@ func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file str
 }
 
 func (s *DB) folderIdxLocked(folderID string) (int64, error) {
-	if _, err := s.sql.Exec(`INSERT OR IGNORE INTO folders(folder_id) VALUES(?)`, folderID); err != nil {
+	if _, err := s.stmt(`
+		INSERT OR IGNORE INTO folders(folder_id)
+		VALUES (?)
+	`).Exec(folderID); err != nil {
 		return 0, wrap(err)
 	}
 	var idx int64
-	if err := s.sql.Get(&idx, `SELECT idx FROM folders WHERE folder_id = ?`, folderID); err != nil {
+	if err := s.stmt(`
+		SELECT idx FROM folders
+		WHERE folder_id = ?
+	`).Get(&idx, folderID); err != nil {
 		return 0, wrap(err)
 	}
 
@@ -422,11 +431,17 @@ func (s *DB) folderIdxLocked(folderID string) (int64, error) {
 
 func (s *DB) deviceIdxLocked(deviceID protocol.DeviceID) (int64, error) {
 	devStr := deviceID.String()
-	if _, err := s.sql.Exec(`INSERT OR IGNORE INTO devices(device_id) VALUES(?)`, devStr); err != nil {
+	if _, err := s.stmt(`
+		INSERT OR IGNORE INTO devices(device_id)
+		VALUES (?)
+	`).Exec(devStr); err != nil {
 		return 0, wrap(err)
 	}
 	var idx int64
-	if err := s.sql.Get(&idx, `SELECT idx FROM devices WHERE device_id = ?`, devStr); err != nil {
+	if err := s.stmt(`
+		SELECT idx FROM devices
+		WHERE device_id = ?
+	`).Get(&idx, devStr); err != nil {
 		return 0, wrap(err)
 	}
 

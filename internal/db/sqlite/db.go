@@ -33,13 +33,16 @@ func (s *DB) Close() error {
 
 func (s *DB) ListFolders() ([]string, error) {
 	var res []string
-	err := s.tpl(`SELECT folder_id FROM folders ORDER BY folder_id`).Select(&res)
+	err := s.stmt(`
+		SELECT folder_id FROM folders
+		ORDER BY folder_id
+	`).Select(&res)
 	return res, wrap(err)
 }
 
 func (s *DB) ListDevicesForFolder(folder string) ([]protocol.DeviceID, error) {
 	var res []string
-	err := s.tpl(`
+	err := s.stmt(`
 		SELECT d.device_id FROM counts s
 		INNER JOIN folders o ON o.idx = s.folder_idx
 		INNER JOIN devices d ON d.idx = s.device_idx

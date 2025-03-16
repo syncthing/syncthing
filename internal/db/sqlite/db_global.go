@@ -17,7 +17,7 @@ func (s *DB) GetGlobalFile(folder string, file string) (protocol.FileInfo, bool,
 	file = osutil.NormalizedFilename(file)
 
 	var ind indirectFI
-	err := s.tpl(`
+	err := s.stmt(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
@@ -41,7 +41,7 @@ func (s *DB) GetGlobalAvailability(folder, file string) ([]protocol.DeviceID, er
 	file = osutil.NormalizedFilename(file)
 
 	var devStrs []string
-	err := s.tpl(`
+	err := s.stmt(`
 		SELECT d.device_id FROM files f
 		INNER JOIN devices d ON d.idx = f.device_idx
 		INNER JOIN folders o ON o.idx = f.folder_idx
@@ -69,7 +69,7 @@ func (s *DB) GetGlobalAvailability(folder, file string) ([]protocol.DeviceID, er
 }
 
 func (s *DB) AllGlobalFiles(folder string) (iter.Seq[db.FileMetadata], func() error) {
-	it, errFn := iterStructs[db.FileMetadata](s.tpl(`
+	it, errFn := iterStructs[db.FileMetadata](s.stmt(`
 		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.local_flags & {{.FlagLocalGlobal}} != 0
@@ -89,7 +89,7 @@ func (s *DB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[db.Fil
 	prefix = osutil.NormalizedFilename(prefix)
 	end := prefixEnd(prefix)
 
-	it, errFn := iterStructs[db.FileMetadata](s.tpl(`
+	it, errFn := iterStructs[db.FileMetadata](s.stmt(`
 		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		WHERE o.folder_id = ? AND f.name >= ? AND f.name < ? AND f.local_flags & {{.FlagLocalGlobal}} != 0
@@ -127,7 +127,7 @@ func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order
 
 	if device == protocol.LocalDeviceID {
 		// Select all the non-ignored files with the need bit set.
-		it, errFn := iterStructs[indirectFI](s.tpl(`
+		it, errFn := iterStructs[indirectFI](s.stmt(`
 			SELECT fi.fiprotobuf, bl.blprotobuf, g.name, g.size, g.modified FROM fileinfos fi
 			INNER JOIN files g on fi.sequence = g.sequence
 			LEFT JOIN blocklists bl ON bl.blocklist_hash = g.blocklist_hash
@@ -145,7 +145,7 @@ func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order
 	// - all the valid, deleted global files that have a corresponding non-deleted
 	//   remote file (of any version)
 
-	it, errFn := iterStructs[indirectFI](s.tpl(`
+	it, errFn := iterStructs[indirectFI](s.stmt(`
 		SELECT fi.fiprotobuf, bl.blprotobuf, g.name, g.size, g.modified FROM fileinfos fi
 		INNER JOIN files g on fi.sequence = g.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = g.blocklist_hash

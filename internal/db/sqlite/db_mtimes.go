@@ -9,11 +9,11 @@ func (s *DB) MtimeGet(folder, name string) (ondisk, virtual time.Time) {
 		Ondisk  int64
 		Virtual int64
 	}
-	if err := s.sql.Get(&res, `
+	if err := s.stmt(`
 		SELECT m.ondisk, m.virtual FROM mtimes m
 		INNER JOIN folders o ON o.idx = m.folder_idx
 		WHERE o.folder_id = ? AND m.name = ?
-	`, folder, name); err != nil {
+	`).Get(&res, folder, name); err != nil {
 		return time.Time{}, time.Time{}
 	}
 	return time.Unix(0, res.Ondisk), time.Unix(0, res.Virtual)
@@ -26,10 +26,10 @@ func (s *DB) MtimePut(folder, name string, ondisk, virtual time.Time) error {
 	if err != nil {
 		return wrap(err)
 	}
-	_, err = s.sql.Exec(`
+	_, err = s.stmt(`
 		INSERT OR REPLACE INTO mtimes (folder_idx, name, ondisk, virtual)
 		VALUES (?, ?, ?, ?)
-	`, folderIdx, name, ondisk.UnixNano(), virtual.UnixNano())
+	`).Exec(folderIdx, name, ondisk.UnixNano(), virtual.UnixNano())
 	return wrap(err)
 }
 
@@ -40,6 +40,9 @@ func (s *DB) MtimeDelete(folder, name string) error {
 	if err != nil {
 		return wrap(err)
 	}
-	_, err = s.sql.Exec(`DELETE FROM mtimes WHERE folder_idx = ? AND name = ? `, folderIdx, name)
+	_, err = s.stmt(`
+		DELETE FROM mtimes
+		WHERE folder_idx = ? AND name = ?
+	`).Exec(folderIdx, name)
 	return wrap(err)
 }

@@ -76,7 +76,12 @@ var tplFuncs = template.FuncMap{
 	},
 }
 
-func (s *DB) tpl(tpl string) stmt {
+// stmt returns a prepared statement for the given SQL string, after
+// applying local template expansions. The statement is cached.
+func (s *DB) stmt(tpl string) stmt {
+	tpl = strings.TrimSpace(tpl)
+
+	// Fast concurrent lookup of cached statement
 	s.statementsMut.RLock()
 	stmt, ok := s.statements[tpl]
 	s.statementsMut.RUnlock()
@@ -84,6 +89,7 @@ func (s *DB) tpl(tpl string) stmt {
 		return stmt
 	}
 
+	// On miss, take the full lock, check again
 	s.statementsMut.Lock()
 	defer s.statementsMut.Unlock()
 	stmt, ok = s.statements[tpl]
@@ -91,11 +97,14 @@ func (s *DB) tpl(tpl string) stmt {
 		return stmt
 	}
 
+	// Apply template expansions
 	var sb strings.Builder
 	compTpl := template.Must(template.New("tpl").Funcs(tplFuncs).Parse(tpl))
 	if err := compTpl.Execute(&sb, s.tplInput); err != nil {
 		panic("bug: bad template: " + err.Error())
 	}
+
+	// Prepare and cache
 	stmt, err := s.sql.Preparex(sb.String())
 	if err != nil {
 		return failedStmt{err}
