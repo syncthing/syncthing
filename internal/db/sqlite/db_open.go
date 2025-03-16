@@ -52,6 +52,11 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 	// numbers, and will never change
 	db.localDeviceIdx, _ = db.deviceIdxLocked(protocol.LocalDeviceID)
 
+	// Set the initial schema version, if not already set
+	if err := db.setCurrentSchemaVersion(currentSchemaVersion); err != nil {
+		return nil, err
+	}
+
 	db.tplInput = map[string]any{
 		"FlagLocalUnsupported": protocol.FlagLocalUnsupported,
 		"FlagLocalIgnored":     protocol.FlagLocalIgnored,

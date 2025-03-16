@@ -69,6 +69,21 @@ func TestBasics(t *testing.T) {
 		needSizeRemote = (2+3)*blockSize + dirSize
 	)
 
+	t.Run("SchemaVersion", func(t *testing.T) {
+		ver, err := sdb.getCurrentSchemaVersion()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ver.SchemaVersion != currentSchemaVersion {
+			t.Log(ver)
+			t.Error("should be version 1")
+		}
+		if d := time.Since(ver.AppliedTime()); d > time.Minute || d < 0 {
+			t.Log(ver)
+			t.Error("suspicious applied tim")
+		}
+	})
+
 	t.Run("Local", func(t *testing.T) {
 		t.Parallel()
 
