@@ -18,7 +18,7 @@ func (s *schemaVersion) AppliedTime() time.Time {
 	return time.Unix(0, s.AppliedAt)
 }
 
-func (s *DB) setCurrentSchemaVersion(ver int) error {
+func (s *DB) setAppliedSchemaVersion(ver int) error {
 	_, err := s.stmt(`
 		INSERT OR IGNORE INTO schemamigrations (schema_version, applied_at, syncthing_version)
 		VALUES (?, ?, ?)
@@ -26,7 +26,7 @@ func (s *DB) setCurrentSchemaVersion(ver int) error {
 	return wrap(err)
 }
 
-func (s *DB) getCurrentSchemaVersion() (schemaVersion, error) {
+func (s *DB) getAppliedSchemaVersion() (schemaVersion, error) {
 	var v schemaVersion
 	err := s.stmt(`
 		SELECT schema_version as schemaversion, applied_at as appliedat, syncthing_version as syncthingversion FROM schemamigrations

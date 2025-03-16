@@ -53,7 +53,7 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 	db.localDeviceIdx, _ = db.deviceIdxLocked(protocol.LocalDeviceID)
 
 	// Set the initial schema version, if not already set
-	if err := db.setCurrentSchemaVersion(currentSchemaVersion); err != nil {
+	if err := db.setAppliedSchemaVersion(currentSchemaVersion); err != nil {
 		return nil, err
 	}
 

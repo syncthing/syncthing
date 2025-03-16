@@ -70,7 +70,7 @@ func TestBasics(t *testing.T) {
 	)
 
 	t.Run("SchemaVersion", func(t *testing.T) {
-		ver, err := sdb.getCurrentSchemaVersion()
+		ver, err := sdb.getAppliedSchemaVersion()
 		if err != nil {
 			t.Fatal(err)
 		}
