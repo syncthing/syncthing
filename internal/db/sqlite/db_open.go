@@ -12,6 +12,8 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
+const maxDBConns = 128
+
 func Open(path string) (*DB, error) {
 	// Open the database with options to enable foreign keys and recursive
 	// triggers (needed for the delete+insert triggers on row replace).
@@ -41,7 +43,7 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
-	sqlDB.SetMaxOpenConns(128)
+	sqlDB.SetMaxOpenConns(maxDBConns)
 
 	db := &DB{
 		sql:        sqlDB,
