@@ -1,7 +1,6 @@
 package sqlite
 
 import (
-	"context"
 	"database/sql"
 	"encoding/hex"
 	"errors"
@@ -39,27 +38,18 @@ func (s *DB) IndexIDGet(folder string, device protocol.DeviceID) (protocol.Index
 		return 0, wrap(err)
 	}
 
-	tx, err := s.sql.BeginTxx(context.Background(), nil)
-	if err != nil {
-		return 0, wrap(err)
-	}
-	defer tx.Rollback() //nolint:errcheck
-
-	if err := tx.Stmtx(s.stmt(`
+	if err := s.stmt(`
 		SELECT index_id FROM indexids WHERE folder_idx = ? AND device_idx = {{.LocalDeviceIdx}}
-	`)).Get(&indexID, folderIdx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+	`).Get(&indexID, folderIdx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return 0, wrap(err)
 	}
 
 	if indexID == "" {
 		// Generate a new index ID
 		id := protocol.NewIndexID()
-		if _, err := tx.Stmtx(s.stmt(`
+		if _, err := s.stmt(`
 			INSERT INTO indexids (folder_idx, device_idx, index_id) values (?, {{.LocalDeviceIdx}}, ?)
-		`)).Exec(folderIdx, indexIDToHex(id)); err != nil {
-			return 0, wrap(err)
-		}
-		if err := tx.Commit(); err != nil {
+		`).Exec(folderIdx, indexIDToHex(id)); err != nil {
 			return 0, wrap(err)
 		}
 		return id, nil

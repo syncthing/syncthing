@@ -37,6 +37,7 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 		return wrap(err)
 	}
 
+	//nolint:sqlclosecheck
 	insertFileStmt, err := txp.Preparex(`
 		INSERT OR REPLACE INTO files (folder_idx, device_idx, remote_sequence, name, type, modified, size, version, deleted, invalid, local_flags, blocklist_hash)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -45,6 +46,7 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 		return wrap(err, "prepare insert file")
 	}
 
+	//nolint:sqlclosecheck
 	insertFileInfoStmt, err := txp.Preparex(`
 		INSERT INTO fileinfos (sequence, fiprotobuf)
 		VALUES (?, ?)`)
@@ -52,6 +54,7 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 		return wrap(err, "prepare insert fileinfo")
 	}
 
+	//nolint:sqlclosecheck
 	insertBlockListStmt, err := txp.Preparex(`
 		INSERT OR IGNORE INTO blocklists (blocklist_hash, blprotobuf)
 		VALUES (?, ?)`)
@@ -313,6 +316,7 @@ func (*DB) insertBlocksLocked(tx *txPreparedStmts, blocklistHash []byte, blocks 
 func (s *DB) recalcGlobalForFolder(txp *txPreparedStmts, folderIdx int64) error {
 	// Select files where there is no global, those are the ones we need to
 	// recalculate.
+	//nolint:sqlclosecheck
 	namesStmt, err := txp.Preparex(`
 	SELECT f.name FROM files f
 	WHERE f.folder_idx = ? AND NOT EXISTS (
@@ -341,6 +345,7 @@ func (s *DB) recalcGlobalForFolder(txp *txPreparedStmts, folderIdx int64) error 
 }
 
 func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file string) error {
+	//nolint:sqlclosecheck
 	selStmt, err := txp.Preparex(`
 		SELECT name, folder_idx, device_idx, sequence, modified, version, deleted, invalid, local_flags FROM files
 		WHERE folder_idx = ? AND name = ?`)
@@ -385,6 +390,7 @@ func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file str
 	} else {
 		global.LocalFlags |= protocol.FlagLocalNeeded
 	}
+	//nolint:sqlclosecheck
 	upStmt, err := txp.Prepare(`
 		UPDATE files SET local_flags = ?
 		WHERE folder_idx = ? AND device_idx = ? AND sequence = ?
@@ -397,6 +403,7 @@ func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file str
 	}
 
 	// Clear the need and global flags on all other entries
+	//nolint:sqlclosecheck
 	upStmt, err = txp.Prepare(`
 		UPDATE files SET local_flags = local_flags & ?
 		WHERE folder_idx = ? AND name = ? AND sequence != ? AND local_flags & ? != 0

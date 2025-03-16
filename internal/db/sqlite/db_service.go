@@ -67,7 +67,7 @@ func (s *DB) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context) error 
 	if _, err := conn.ExecContext(ctx, `PRAGMA foreign_keys = 0`); err != nil {
 		return wrap(err)
 	}
-	defer func() {
+	defer func() { //nolint:contextcheck
 		_, _ = conn.ExecContext(context.Background(), `PRAGMA foreign_keys = 1`)
 	}()
 
@@ -75,7 +75,7 @@ func (s *DB) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context) error 
 	if err != nil {
 		return wrap(err)
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck
 
 	if _, err := tx.ExecContext(ctx, `
 		DELETE FROM blocklists
