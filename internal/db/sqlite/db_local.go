@@ -135,7 +135,7 @@ func (s *DB) AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, d
 
 func (s *DB) AllLocalBlocksWithHash(hash []byte) (iter.Seq[db.BlockMapEntry], func() error) {
 	// We involve the files table in this select because deletion of blocks
-	// & blocklists is deferred (gabrage collected) while the files list is
+	// & blocklists is deferred (garbage collected) while the files list is
 	// not. This filters out blocks that are in fact deleted.
 	return iterStructs[db.BlockMapEntry](s.stmt(`
 		SELECT f.blocklist_hash as blocklisthash, b.idx as blockindex, b.offset, b.size FROM files f
