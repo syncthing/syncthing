@@ -51,5 +51,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS files_device_name ON files (folder_idx, device
 CREATE INDEX IF NOT EXISTS files_name_only ON files (folder_idx, name)
 ;
 -- We want to be able to look up & iterate files based on blocks hash
-CREATE INDEX IF NOT EXISTS files_blocklist_hash_only ON files (blocklist_hash, device_idx, folder_idx)
+CREATE INDEX IF NOT EXISTS files_blocklist_hash_only ON files (blocklist_hash, device_idx, folder_idx) WHERE blocklist_hash IS NOT NULL
 ;
