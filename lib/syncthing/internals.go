@@ -8,8 +8,10 @@ package syncthing
 
 import (
 	"context"
+	"iter"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/dbext"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -22,6 +24,8 @@ import (
 type Internals struct {
 	model model.Model
 }
+
+type Counts = db.Counts
 
 func newInternals(model model.Model) *Internals {
 	return &Internals{
@@ -79,4 +83,32 @@ func (m *Internals) PendingFolders(deviceID protocol.DeviceID) (map[string]dbext
 
 func (m *Internals) ScanFolderSubdirs(folderID string, paths []string) error {
 	return m.model.ScanFolderSubdirs(folderID, paths)
+}
+
+func (m *Internals) GlobalSize(folder string) (Counts, error) {
+	counts, err := m.model.GlobalSize(folder)
+	if err != nil {
+		return Counts{}, err
+	}
+	return counts, nil
+}
+
+func (m *Internals) LocalSize(folder string) (Counts, error) {
+	counts, err := m.model.LocalSize(folder, protocol.LocalDeviceID)
+	if err != nil {
+		return Counts{}, err
+	}
+	return counts, nil
+}
+
+func (m *Internals) NeedSize(folder string, device protocol.DeviceID) (Counts, error) {
+	counts, err := m.model.NeedSize(folder, device)
+	if err != nil {
+		return Counts{}, err
+	}
+	return counts, nil
+}
+
+func (m *Internals) AllGlobalFiles(folder string) (iter.Seq[db.FileMetadata], func() error) {
+	return m.model.AllGlobalFiles(folder)
 }

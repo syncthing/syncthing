@@ -39,14 +39,10 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/cmd/syncthing/generate"
-	newdb "github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/dbext"
-	"github.com/syncthing/syncthing/internal/db/sqlite"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -598,26 +594,17 @@ func syncthingMain(options serveOptions) {
 		})
 	}
 
-	sql, err := sqlite.Open(locations.Get(locations.Database))
+	sdb, err := syncthing.OpenDatabase(locations.Get(locations.Database), locations.Get(locations.LegacyDatabase), evLogger)
 	if err != nil {
 		l.Warnln("Error opening database:", err)
 		os.Exit(1)
 	}
-	sdb := newdb.MetricsWrap(sql)
-	miscDB := dbext.NewMiscDB(sdb)
 
-	oldDBDir := locations.Get(locations.LegacyDatabase)
-	if be, err := backend.OpenLevelDBRO(oldDBDir); err == nil {
-		// We have not migrated. We should do that.
-		migrateDatabase(be, evLogger, sdb, oldDBDir)
-		_ = miscDB.PutTime("migrated-from-leveldb-at", time.Now())
-		_ = miscDB.PutString("migrated-from-leveldb-by", build.LongVersion)
-	}
+	miscDB := dbext.NewMiscDB(sdb)
 
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial
 	// upgrade immediately. The auto-upgrade routine can only be started
 	// later after App is initialised.
-
 	autoUpgradePossible := autoUpgradePossible(options)
 	if autoUpgradePossible && cfgWrapper.Options().AutoUpgradeEnabled() {
 		// try to do upgrade directly and log the error if relevant.
@@ -632,7 +619,7 @@ func syncthingMain(options serveOptions) {
 				l.Infoln("Initial automatic upgrade:", err)
 			}
 		} else {
-			l.Infof("Upgraded to %q, exiting now.", release.Tag)
+			l.Infof("Upgraded to %q, should exit now.", release.Tag)
 			os.Exit(svcutil.ExitUpgrade.AsInt())
 		}
 	}
@@ -709,62 +696,6 @@ func syncthingMain(options serveOptions) {
 
 	runtime.KeepAlive(lf) // ensure lock is still held to this point
 	os.Exit(int(status))
-}
-
-func migrateDatabase(be backend.Backend, evLogger events.Logger, sdb newdb.DB, oldDBDir string) {
-	l.Infoln("Migrating database from LevelDB to SQLite; this can take quite a while...")
-
-	ll, err := db.NewLowlevel(be, evLogger)
-	if err != nil {
-		l.Warnln("Failed to migrate:", err)
-		os.Exit(1)
-	}
-
-	for _, folder := range ll.ListFolders() {
-		l.Infoln("Migrating folder", folder, "...")
-		var batch []protocol.FileInfo
-		fs, err := db.NewFileSet(folder, ll)
-		if err != nil {
-			l.Warnln("Failed to migrate FileInfos:", err)
-			os.Exit(1)
-		}
-		snap, err := fs.Snapshot()
-		if err != nil {
-			l.Warnln("Failed to migrate FileInfos:", err)
-			os.Exit(1)
-		}
-		snap.WithHaveSequence(0, func(f protocol.FileInfo) bool {
-			batch = append(batch, f)
-			if len(batch) == 1000 {
-				if err := sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
-					l.Warnln("Failed to migrate FileInfos:", err)
-					os.Exit(1)
-				}
-				batch = batch[:0]
-			}
-			return true
-		})
-		if len(batch) > 0 {
-			if err := sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
-				l.Warnln("Failed to migrate FileInfos:", err)
-				os.Exit(1)
-			}
-		}
-		snap.Release()
-	}
-
-	l.Infoln("Migrating virtual mtimes...")
-	if err := ll.IterateMtimes(sdb.MtimePut); err != nil {
-		l.Warnln("Failed to migrate mtimes:", err)
-	}
-
-	l.Infoln("Migration complete")
-	be.Close()
-
-	if err := os.Rename(oldDBDir, oldDBDir+"-migrated"); err != nil {
-		l.Warnln("Failed to rename old, migrated database; please manually move or remove", oldDBDir)
-		os.Exit(0) // prevent automatic restart by the monitor
-	}
 }
 
 func setupSignalHandling(app *syncthing.App) {
