@@ -706,6 +706,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 	ignoredParent := ""
 	changes := 0
 
+outer:
 	for _, sub := range subDirs {
 		for fi, err := range itererr.Zip(f.db.AllLocalFilesWithPrefix(f.folderID, protocol.LocalDeviceID, sub)) {
 			if err != nil {
@@ -714,7 +715,7 @@ func (f *folder) scanSubdirsDeletedAndIgnored(subDirs []string, batch *scanBatch
 
 			select {
 			case <-f.ctx.Done():
-				break
+				break outer
 			default:
 			}
 
@@ -868,6 +869,7 @@ func (f *folder) findRename(file protocol.FileInfo, alreadyUsedOrExisting map[st
 	found := false
 	nf := protocol.FileInfo{}
 
+loop:
 	for fi, err := range itererr.Zip(f.db.AllLocalFilesWithBlocksHash(f.folderID, file.BlocksHash)) {
 		if err != nil {
 			return protocol.FileInfo{}, false
@@ -875,7 +877,7 @@ func (f *folder) findRename(file protocol.FileInfo, alreadyUsedOrExisting map[st
 
 		select {
 		case <-f.ctx.Done():
-			break
+			break loop
 		default:
 		}
 
