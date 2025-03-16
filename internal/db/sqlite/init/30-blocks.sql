@@ -22,8 +22,7 @@ CREATE TABLE IF NOT EXISTS blocks (
     idx             INTEGER NOT NULL,
     offset          INTEGER NOT NULL,
     size            INTEGER NOT NULL,
+    PRIMARY KEY (hash, blocklist_hash, idx),
     FOREIGN KEY(blocklist_hash) REFERENCES blocklists(blocklist_hash) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 ) STRICT
-;
-CREATE UNIQUE INDEX IF NOT EXISTS blocks_hash_position ON blocks (hash, blocklist_hash, idx)
 ;
