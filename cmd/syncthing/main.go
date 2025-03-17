@@ -377,7 +377,7 @@ func (options serveOptions) Run() error {
 	if options.Upgrade {
 		release, err := checkUpgrade()
 		if err == nil {
-			lf := flock.New(locations.Get(locations.LockFile))
+			lf := flock.New(locations.Get(locations.CertFile))
 			locked, err := lf.TryLock()
 			if err != nil {
 				l.Warnln("Upgrade:", err)
@@ -538,7 +538,7 @@ func syncthingMain(options serveOptions) {
 	l.Infoln(build.LongVersion)
 
 	// Ensure we are the only running instance
-	lf := flock.New(locations.Get(locations.LockFile))
+	lf := flock.New(locations.Get(locations.CertFile))
 	locked, err := lf.TryLock()
 	if err != nil {
 		l.Warnln("Failed to acquire lock:", err)
