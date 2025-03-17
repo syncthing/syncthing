@@ -168,7 +168,7 @@ func OpenDatabase(path string) (newdb.DB, error) {
 	return sdb, nil
 }
 
-func TryMigrateDatabase(sdb newdb.DB, miscDB *dbext.Typed, oldDBDir string, evLogger events.Logger) error {
+func TryMigrateDatabase(sdb newdb.DB, miscDB *dbext.Typed, oldDBDir string) error {
 	if _, err := os.Lstat(oldDBDir); err != nil {
 		// No old database
 		return nil
@@ -186,7 +186,7 @@ func TryMigrateDatabase(sdb newdb.DB, miscDB *dbext.Typed, oldDBDir string, evLo
 
 	l.Infoln("Migrating old-style database to SQLite; this may take a while...")
 
-	ll, err := db.NewLowlevel(be, evLogger)
+	ll, err := db.NewLowlevel(be)
 	if err != nil {
 		return err
 	}

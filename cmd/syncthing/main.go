@@ -601,7 +601,7 @@ func syncthingMain(options serveOptions) {
 	}
 
 	miscDB := dbext.NewMiscDB(sdb)
-	if err := syncthing.TryMigrateDatabase(sdb, miscDB, locations.Get(locations.LegacyDatabase), evLogger); err != nil {
+	if err := syncthing.TryMigrateDatabase(sdb, miscDB, locations.Get(locations.LegacyDatabase)); err != nil {
 		l.Warnln("Failed to migrate old-style database:", err)
 		os.Exit(1)
 	}
