@@ -74,10 +74,6 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 			f.BlocksHash = nil
 		}
 
-		if f.Deleted {
-			f.LocalFlags |= protocol.FlagLocalDeleted
-		}
-
 		if f.Type == protocol.FileInfoTypeDirectory {
 			f.Size = 128 // synthetic directory size
 		}
@@ -473,6 +469,9 @@ func wrap(err error, context ...string) error {
 	}
 
 	if len(context) > 0 {
+		for i := range context {
+			context[i] = strings.TrimSpace(context[i])
+		}
 		extra := strings.Join(context, ", ")
 		return fmt.Errorf("%s (%s): %w", prefix, extra, err)
 	}

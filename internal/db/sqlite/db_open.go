@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -38,9 +40,11 @@ func OpenTemp() (*DB, error) {
 }
 
 func openCommon(sqlDB *sqlx.DB) (*DB, error) {
-	// Set up initial tables, indexes, triggers.
-	if err := initDB(sqlDB); err != nil {
-		return nil, fmt.Errorf("open database: %w", err)
+	if _, err := sqlDB.Exec(`PRAGMA journal_mode = WAL`); err != nil {
+		return nil, wrap(err, "PRAGMA journal_mode")
+	}
+	if _, err := sqlDB.Exec(`PRAGMA auto_vacuum = INCREMENTAL`); err != nil {
+		return nil, wrap(err, "PRAGMA auto_vacuum")
 	}
 
 	sqlDB.SetMaxOpenConns(maxDBConns)
@@ -48,6 +52,27 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 	db := &DB{
 		sql:        sqlDB,
 		statements: make(map[string]*sqlx.Stmt),
+	}
+
+	if err := db.runScripts("schema/*"); err != nil {
+		return nil, fmt.Errorf("init database: %w", err)
+	}
+
+	ver, _ := db.getAppliedSchemaVersion()
+	filter := func(scr string) bool {
+		scr = filepath.Base(scr)
+		nstr, _, ok := strings.Cut(scr, "-")
+		if !ok {
+			return false
+		}
+		n, err := strconv.ParseInt(nstr, 10, 32)
+		if err != nil {
+			return false
+		}
+		return int(n) > ver.SchemaVersion
+	}
+	if err := db.runScripts("migrations/*", filter); err != nil {
+		return nil, fmt.Errorf("init database: %w", err)
 	}
 
 	// Touch device IDs that should always exist and have a low index
@@ -66,8 +91,8 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 		"FlagLocalReceiveOnly": protocol.FlagLocalReceiveOnly,
 		"FlagLocalGlobal":      protocol.FlagLocalGlobal,
 		"FlagLocalNeeded":      protocol.FlagLocalNeeded,
-		"FlagLocalDeleted":     protocol.FlagLocalDeleted,
 		"LocalDeviceIdx":       db.localDeviceIdx,
+		"SyncthingVersion":     build.LongVersion,
 	}
 
 	return db, nil

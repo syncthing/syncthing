@@ -1,8 +1,3 @@
-PRAGMA journal_mode = WAL
-;
-PRAGMA auto_vacuum = INCREMENTAL
-;
-
 -- folders map folder IDs as used by Syncthing to database folder indexes
 CREATE TABLE IF NOT EXISTS folders (
     idx INTEGER NOT NULL PRIMARY KEY,

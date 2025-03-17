@@ -1,12 +1,63 @@
 package sqlite
 
 import (
+	"embed"
+	"io/fs"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
 )
 
-const currentSchemaVersion = 1
+const currentSchemaVersion = 2
+
+//go:embed sql/**
+var embedded embed.FS
+
+var sqlScripts fs.FS
+
+func init() {
+	sqlScripts, _ = fs.Sub(embedded, "sql")
+}
+
+func (s *DB) runScripts(glob string, filter ...func(s string) bool) error {
+	scripts, err := fs.Glob(sqlScripts, glob)
+	if err != nil {
+		return wrap(err)
+	}
+
+	tx, err := s.sql.Begin()
+	if err != nil {
+		return wrap(err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+nextScript:
+	for _, scr := range scripts {
+		for _, fn := range filter {
+			if !fn(scr) {
+				l.Debugln("Skipping script", scr)
+				continue nextScript
+			}
+		}
+		l.Debugln("Executing script", scr)
+		bs, err := fs.ReadFile(sqlScripts, scr)
+		if err != nil {
+			return wrap(err)
+		}
+		// SQLite requires one statement per exec, so we split the init
+		// files on lines containing only a semicolon and execute them
+		// separately. We require it on a separate line because there are
+		// also statement-internal semicolons in the triggers.
+		for _, stmt := range strings.Split(string(bs), "\n;") {
+			if _, err := tx.Exec(stmt); err != nil {
+				return wrap(err, stmt)
+			}
+		}
+	}
+
+	return wrap(tx.Commit())
+}
 
 type schemaVersion struct {
 	SchemaVersion    int

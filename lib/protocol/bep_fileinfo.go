@@ -25,7 +25,6 @@ const (
 	FlagLocalReceiveOnly = 1 << 3 // 8: Change detected on receive only folder
 	FlagLocalGlobal      = 1 << 4 // 16: This is the global file version
 	FlagLocalNeeded      = 1 << 5 // 32: We need this file
-	FlagLocalDeleted     = 1 << 6 // 64: File is deleted
 
 	// Flags that should result in the Invalid bit on outgoing updates
 	LocalInvalidFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan | FlagLocalReceiveOnly
@@ -35,7 +34,7 @@ const (
 	// disk.
 	LocalConflictFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalReceiveOnly
 
-	LocalAllFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan | FlagLocalReceiveOnly | FlagLocalGlobal | FlagLocalNeeded | FlagLocalDeleted
+	LocalAllFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan | FlagLocalReceiveOnly | FlagLocalGlobal | FlagLocalNeeded
 )
 
 // BlockSizes is the list of valid block sizes, from min to max
