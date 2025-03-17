@@ -104,6 +104,7 @@ type Model interface {
 	NeedSize(folder string, device protocol.DeviceID) (db.Counts, error)
 	ReceiveOnlySize(folder string) (db.Counts, error)
 	Sequence(folder string, device protocol.DeviceID) (int64, error)
+	AllGlobalFiles(folder string) (iter.Seq[db.FileMetadata], func() error)
 
 	NeedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error)
 	RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]protocol.FileInfo, error)
@@ -126,7 +127,6 @@ type Model interface {
 	DismissPendingDevice(device protocol.DeviceID) error
 	DismissPendingFolder(device protocol.DeviceID, folder string) error
 
-	AllGlobalFiles(folder string) (iter.Seq[db.FileMetadata], func() error)
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*TreeEntry, error)
 
 	RequestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
@@ -977,6 +977,10 @@ func (m *model) ReceiveOnlySize(folder string) (db.Counts, error) {
 
 func (m *model) Sequence(folder string, device protocol.DeviceID) (int64, error) {
 	return m.sdb.GetDeviceSequence(folder, device)
+}
+
+func (m *model) AllGlobalFiles(folder string) (iter.Seq[db.FileMetadata], func() error) {
+	return m.sdb.AllGlobalFiles(folder)
 }
 
 func (m *model) FolderProgressBytesCompleted(folder string) int64 {
@@ -2775,10 +2779,6 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 	}
 
 	return root.Children, nil
-}
-
-func (m *model) AllGlobalFiles(folder string) (iter.Seq[db.FileMetadata], func() error) {
-	return m.sdb.AllGlobalFiles(folder)
 }
 
 func (m *model) GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error) {
