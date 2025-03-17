@@ -156,10 +156,6 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
-func OpenDBBackend(path string, tuning config.Tuning) (backend.Backend, error) {
-	return backend.Open(path, backend.Tuning(tuning))
-}
-
 // Opens a database and attempts migrating the legacy database to the new database format.
 func OpenDatabase(path string) (newdb.DB, error) {
 	sql, err := sqlite.Open(path)
