@@ -609,7 +609,7 @@ func (b *scanBatch) Update(fi protocol.FileInfo) (bool, error) {
 			// Our item is deleted and the global item is our own receive only
 			// file. No point in keeping track of that.
 			b.Remove(fi.Name)
-			l.Debugf("%v scanning: deleting deleted receive-only local-changed file (that's a mouthful!): %v", b.f, fi)
+			l.Debugf("%v scanning: deleting deleted receive-only local-changed file: %v", b.f, fi)
 			return true, nil
 		}
 	case (b.f.Type == config.FolderTypeReceiveOnly || b.f.Type == config.FolderTypeReceiveEncrypted) &&
