@@ -16,11 +16,11 @@ import (
 
 	newdb "github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/dbext"
+	"github.com/syncthing/syncthing/internal/db/olddb"
+	"github.com/syncthing/syncthing/internal/db/olddb/backend"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
@@ -186,7 +186,7 @@ func TryMigrateDatabase(sdb newdb.DB, miscDB *dbext.Typed, oldDBDir string) erro
 
 	l.Infoln("Migrating old-style database to SQLite; this may take a while...")
 
-	ll, err := db.NewLowlevel(be)
+	ll, err := olddb.NewLowlevel(be)
 	if err != nil {
 		return err
 	}
@@ -194,7 +194,7 @@ func TryMigrateDatabase(sdb newdb.DB, miscDB *dbext.Typed, oldDBDir string) erro
 	for _, folder := range ll.ListFolders() {
 		l.Infoln("Migrating folder", folder, "...")
 		var batch []protocol.FileInfo
-		fs, err := db.NewFileSet(folder, ll)
+		fs, err := olddb.NewFileSet(folder, ll)
 		if err != nil {
 			return err
 		}
@@ -205,7 +205,7 @@ func TryMigrateDatabase(sdb newdb.DB, miscDB *dbext.Typed, oldDBDir string) erro
 		}
 
 		err = nil
-		snap.WithHaveSequence(0, func(f protocol.FileInfo) bool {
+		_ = snap.WithHaveSequence(0, func(f protocol.FileInfo) bool {
 			batch = append(batch, f)
 			if len(batch) == 1000 {
 				if err = sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {

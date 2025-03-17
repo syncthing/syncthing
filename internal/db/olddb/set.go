@@ -10,7 +10,7 @@
 // depending on who calls us. We transform paths to wire-format (NFC and
 // slashes) on the way to the database, and transform to native format
 // (varying separator and encoding) on the way back out.
-package db
+package olddb
 
 import (
 	"github.com/syncthing/syncthing/lib/osutil"

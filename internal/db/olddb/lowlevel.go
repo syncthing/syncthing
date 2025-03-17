@@ -4,35 +4,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package db
+package olddb
 
 import (
 	"encoding/binary"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/db/backend"
-)
-
-const (
-	// We set the bloom filter capacity to handle 100k individual items with
-	// a false positive probability of 1% for the first pass. Once we know
-	// how many items we have we will use that number instead, if it's more
-	// than 100k. For fewer than 100k items we will just get better false
-	// positive rate instead.
-	indirectGCBloomCapacity          = 100000
-	indirectGCBloomFalsePositiveRate = 0.01     // 1%
-	indirectGCBloomMaxBytes          = 32 << 20 // Use at most 32MiB memory, which covers our desired FP rate at 27 M items
-	indirectGCDefaultInterval        = 13 * time.Hour
-	indirectGCTimeKey                = "lastIndirectGCTime"
-
-	// Use indirection for the block list when it exceeds this many entries
-	blocksIndirectionCutoff = 3
-	// Use indirection for the version vector when it exceeds this many entries
-	versionIndirectionCutoff = 10
-
-	recheckDefaultInterval = 300 * 24 * time.Hour
-
-	needsRepairSuffix = ".needsrepair"
+	"github.com/syncthing/syncthing/internal/db/olddb/backend"
 )
 
 // deprecatedLowlevel is the lowest level database interface. It has a very simple

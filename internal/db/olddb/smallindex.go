@@ -4,13 +4,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package db
+package olddb
 
 import (
 	"encoding/binary"
 	"sort"
 
-	"github.com/syncthing/syncthing/lib/db/backend"
+	"github.com/syncthing/syncthing/internal/db/olddb/backend"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -74,23 +74,7 @@ func (i *smallIndex) ID(val []byte) (uint32, error) {
 		return id, nil
 	}
 
-	id := i.nextID
-	i.nextID++
-
-	valStr := string(val)
-	i.val2id[valStr] = id
-	i.id2val[id] = valStr
-
-	key := make([]byte, len(i.prefix)+8) // prefix plus uint32 id
-	copy(key, i.prefix)
-	binary.BigEndian.PutUint32(key[len(i.prefix):], id)
-	if err := i.db.Put(key, val); err != nil {
-		i.mut.Unlock()
-		return 0, err
-	}
-
-	i.mut.Unlock()
-	return id, nil
+	panic("missing ID")
 }
 
 // Val returns the value for the given index number, or (nil, false) if there
@@ -104,33 +88,6 @@ func (i *smallIndex) Val(id uint32) ([]byte, bool) {
 	}
 
 	return []byte(val), true
-}
-
-func (i *smallIndex) Delete(val []byte) error {
-	i.mut.Lock()
-	defer i.mut.Unlock()
-
-	// Check the reverse mapping to get the ID for the value.
-	if id, ok := i.val2id[string(val)]; ok {
-		// Generate the corresponding database key.
-		key := make([]byte, len(i.prefix)+8) // prefix plus uint32 id
-		copy(key, i.prefix)
-		binary.BigEndian.PutUint32(key[len(i.prefix):], id)
-
-		// Put an empty value into the database. This indicates that the
-		// entry does not exist any more and prevents the ID from being
-		// reused in the future.
-		if err := i.db.Put(key, []byte{}); err != nil {
-			return err
-		}
-
-		// Delete reverse mapping.
-		delete(i.id2val, id)
-	}
-
-	// Delete forward mapping.
-	delete(i.val2id, string(val))
-	return nil
 }
 
 // Values returns the set of values in the index

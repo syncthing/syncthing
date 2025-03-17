@@ -108,29 +108,8 @@ type Iterator interface {
 // is empty for a db in memory.
 type Backend interface {
 	Reader
-	Writer
 	NewReadTransaction() (ReadTransaction, error)
-	NewWriteTransaction(hooks ...CommitHook) (WriteTransaction, error)
 	Close() error
-	Compact() error
-	Location() string
-}
-
-type Tuning int
-
-const (
-	// N.b. these constants must match those in lib/config.Tuning!
-	TuningAuto Tuning = iota
-	TuningSmall
-	TuningLarge
-)
-
-func Open(path string, tuning Tuning) (Backend, error) {
-	return OpenLevelDB(path, tuning)
-}
-
-func OpenMemory() Backend {
-	return OpenLevelDBMemory()
 }
 
 var (

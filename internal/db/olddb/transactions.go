@@ -4,16 +4,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package db
+package olddb
 
 import (
 	"fmt"
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/syncthing/syncthing/internal/db/olddb/backend"
 	"github.com/syncthing/syncthing/internal/gen/bep"
 	"github.com/syncthing/syncthing/internal/gen/dbproto"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
