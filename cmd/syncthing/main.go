@@ -537,6 +537,16 @@ func syncthingMain(options serveOptions) {
 	// early etc. will have it available.
 	l.Infoln(build.LongVersion)
 
+	// Ensure that we have a certificate and key.
+	cert, err := syncthing.LoadOrGenerateCertificate(
+		locations.Get(locations.CertFile),
+		locations.Get(locations.KeyFile),
+	)
+	if err != nil {
+		l.Warnln("Failed to load/generate certificate:", err)
+		os.Exit(1)
+	}
+
 	// Ensure we are the only running instance
 	lf := flock.New(locations.Get(locations.CertFile))
 	locked, err := lf.TryLock()
@@ -545,16 +555,6 @@ func syncthingMain(options serveOptions) {
 		os.Exit(1)
 	} else if !locked {
 		l.Warnln("Failed to acquire lock: is another Syncthing instance already running?")
-		os.Exit(1)
-	}
-
-	// Ensure that we have a certificate and key.
-	cert, err := syncthing.LoadOrGenerateCertificate(
-		locations.Get(locations.CertFile),
-		locations.Get(locations.KeyFile),
-	)
-	if err != nil {
-		l.Warnln("Failed to load/generate certificate:", err)
 		os.Exit(1)
 	}
 
