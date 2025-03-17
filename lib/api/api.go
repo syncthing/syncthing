@@ -1791,7 +1791,7 @@ func browse(fsType fs.FilesystemType, current string) []string {
 		return browseRoots(fsType)
 	}
 
-	parent, base := parentAndBase(current)
+	parent, base := filepath.Split(current)
 	ffs := fs.NewFilesystem(fsType, parent)
 	files := browseFiles(ffs, base)
 	for i := range files {
@@ -1825,27 +1825,6 @@ func browseRoots(fsType fs.FilesystemType) []string {
 	}
 
 	return nil
-}
-
-// parentAndBase returns the parent directory and the remaining base of the
-// path. The base may be empty if the path ends with a path separator.
-func parentAndBase(current string) (string, string) {
-	search, _ := fs.ExpandTilde(current)
-	pathSeparator := string(fs.PathSeparator)
-
-	if strings.HasSuffix(current, pathSeparator) && !strings.HasSuffix(search, pathSeparator) {
-		search = search + pathSeparator
-	}
-	searchDir := filepath.Dir(search)
-
-	// The searchFile should be the last component of search, or empty if it
-	// ends with a path separator
-	var searchFile string
-	if !strings.HasSuffix(search, pathSeparator) {
-		searchFile = filepath.Base(search)
-	}
-
-	return searchDir, searchFile
 }
 
 func browseFiles(ffs fs.Filesystem, search string) []string {
