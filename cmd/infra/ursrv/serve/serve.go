@@ -77,6 +77,7 @@ var (
 		{regexp.MustCompile(`\ssyncthing@archlinux`), "Arch (3rd party)"},
 		{regexp.MustCompile(`@debian`), "Debian (3rd party)"},
 		{regexp.MustCompile(`@fedora`), "Fedora (3rd party)"},
+		{regexp.MustCompile(`@openSUSE`), "openSUSE (3rd party)"},
 		{regexp.MustCompile(`\sbrew@`), "Homebrew (3rd party)"},
 		{regexp.MustCompile(`\sroot@buildkitsandbox`), "LinuxServer.io (3rd party)"},
 		{regexp.MustCompile(`\sports@freebsd`), "FreeBSD (3rd party)"},
@@ -351,6 +352,9 @@ func (s *server) addReport(rep *contract.Report) bool {
 			break
 		}
 	}
+	rep.DistDist = rep.Distribution
+	rep.DistOS = rep.OS
+	rep.DistArch = rep.Arch
 
 	_, loaded := s.reports.LoadAndStore(rep.UniqueID, rep)
 	return loaded
