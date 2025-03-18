@@ -48,7 +48,7 @@ const (
 	UserHomeBaseDir BaseDirEnum = "userHome"
 
 	levelDBDir          = "index-v0.14.0.db"
-	databaseName        = "index-v1.db"
+	databaseName        = "index-v2.db"
 	configFileName      = "config.xml"
 	defaultStateDir     = ".local/state/syncthing"
 	oldDefaultConfigDir = ".config/syncthing"
@@ -245,7 +245,8 @@ func unixDataDir(userHome, configDir, xdgDataHome, xdgStateHome string, fileExis
 	// If a database exists at the config location, use that. This is the
 	// most common case for both legacy (~/.config/syncthing) and current
 	// (~/.local/state/syncthing) setups.
-	if fileExists(filepath.Join(configDir, levelDBDir)) || fileExists(filepath.Join(configDir, databaseName)) {
+	if fileExists(filepath.Join(configDir, databaseName)) ||
+		fileExists(filepath.Join(configDir, levelDBDir)) {
 		return configDir
 	}
 
