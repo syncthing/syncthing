@@ -137,20 +137,8 @@ jobs:
 
   package-windows:
     name: Package for Windows
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: bash
+    runs-on: ubuntu-latest
     steps:
-      - name: Set git to use LF
-        # Without this, the checkout will happen with CRLF line endings,
-        # which is fine for the source code but messes up tests that depend
-        # on data on disk being as expected. Ideally, those tests should be
-        # fixed, but not today.
-        run: |
-          git config --global core.autocrlf false
-          git config --global core.eol lf
-
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -165,38 +153,23 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: |
-            ~\AppData\Local\go-build
-            ~\go\pkg\mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-windows-${{ hashFiles('**/go.sum') }}
 
       - name: Install dependencies
         run: |
           go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.4.0
 
-      - name: Create packages (CGO)
+      - name: Create packages
         run: |
           for tgt in syncthing stdiscosrv strelaysrv ; do
-            go run build.go -goarch amd64 zip $tgt
+            go run build.go -goos windows -goarch amd64 -cc "zig cc -target x86_64-windows" zip $tgt
+            go run build.go -goos windows -goarch 386 -cc "zig cc -target x86-windows" zip $tgt
+            go run build.go -goos windows -goarch arm64 -cc "zig cc -target aarch64-windows" zip $tgt
           done
         env:
           CGO_ENABLED: "1"
-
-      - name: Create packages (without CGO)
-        run: |
-          for arch in arm64 arm 386 ; do
-            for tgt in syncthing stdiscosrv strelaysrv ; do
-              if ! go run build.go -goarch $arch zip $tgt ; then
-                plat="windows/$arch"
-                if go run build.go -tags wazero -goarch $arch zip $tgt ; then
-                  echo "::notice ::Used wazero to build $tgt for $plat"
-                else
-                  echo "::notice ::Failed to build $tgt for $plat"
-                fi
-              fi
-            done
-          done
-        env:
-          CGO_ENABLED: "0"
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
