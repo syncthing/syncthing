@@ -670,6 +670,8 @@ jobs:
         run: |
           gem install fpm
 
+      - uses: mlugg/setup-zig@v1
+
       - uses: actions/cache@v4
         with:
           path: |
@@ -679,15 +681,15 @@ jobs:
 
       - name: Package for Debian (CGO)
         run: |
-          sudo apt-get install -y gcc-arm-linux-gnueabi gcc-aarch64-linux-gnu
           for tgt in syncthing stdiscosrv strelaysrv ; do
-            go run build.go -no-upgrade -installsuffix=no-upgrade -goos linux -goarch amd64 deb "$tgt"
-            go run build.go -no-upgrade -installsuffix=no-upgrade -goos linux -goarch arm64 -cc aarch64-linux-gnu-gcc deb "$tgt"
-            go run build.go -no-upgrade -installsuffix=no-upgrade -goos linux -goarch arm -cc arm-linux-gnueabi-gcc deb "$tgt"
+            go run build.go -no-upgrade -installsuffix=no-upgrade -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" deb "$tgt"
+            go run build.go -no-upgrade -installsuffix=no-upgrade -goos linux -goarch arm -cc "zig cc -target arm-linux-musleabi" deb "$tgt"
+            go run build.go -no-upgrade -installsuffix=no-upgrade -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" deb "$tgt"
           done
         env:
           BUILD_USER: debian
           CGO_ENABLED: "1"
+          EXTRA_LDFLAGS: "-linkmode=external -extldflags=-static"
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
