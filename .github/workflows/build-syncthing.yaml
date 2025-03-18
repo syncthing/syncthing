@@ -15,9 +15,7 @@ env:
   GO_VERSION: "~1.24.0"
 
   # Optimize compatibility on the slow archictures.
-  # GO386: softfloat
-  # GOARM: "5"
-  # GOMIPS: softfloat
+  GOMIPS: softfloat
 
   # Avoid hilarious amounts of obscuring log output when running tests.
   LOGGER_DISCARD: "1"
@@ -283,6 +281,8 @@ jobs:
           go version
           echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
+      - uses: mlugg/setup-zig@v1
+
       - uses: actions/cache@v4
         with:
           path: |
@@ -292,33 +292,28 @@ jobs:
 
       - name: Create packages (CGO)
         run: |
-          sudo apt-get install -y \
-            gcc-i686-linux-gnu \
-            gcc-arm-linux-gnueabi gcc-aarch64-linux-gnu \
-            gcc-mips-linux-gnu gcc-mips64-linux-gnuabi64 \
-            gcc-mipsel-linux-gnu gcc-mips64el-linux-gnuabi64 \
-            gcc-riscv64-linux-gnu \
-            gcc-s390x-linux-gnu
-
           for tgt in syncthing stdiscosrv strelaysrv ; do
-            go run build.go -tags "osusergo netgo sqlite_omit_load_extension" -goos linux -goarch amd64 tar "$tgt"
-            go run build.go -tags "osusergo netgo sqlite_omit_load_extension" -goos linux -goarch 386 -cc i686-linux-gnu-gcc tar "$tgt"
-            go run build.go -tags "osusergo netgo sqlite_omit_load_extension" -goos linux -goarch arm -cc arm-linux-gnueabi-gcc tar "$tgt"
-            go run build.go -tags "osusergo netgo sqlite_omit_load_extension" -goos linux -goarch arm64 -cc aarch64-linux-gnu-gcc tar "$tgt"
-            go run build.go -tags "osusergo netgo sqlite_omit_load_extension" -goos linux -goarch mips -cc mips-linux-gnu-gcc tar "$tgt"
-            go run build.go -tags "osusergo netgo sqlite_omit_load_extension" -goos linux -goarch mips64 -cc mips64-linux-gnuabi64-gcc tar "$tgt"
-            go run build.go -tags "osusergo netgo sqlite_omit_load_extension" -goos linux -goarch mipsle -cc mipsel-linux-gnu-gcc tar "$tgt"
-            go run build.go -tags "osusergo netgo sqlite_omit_load_extension" -goos linux -goarch mips64le -cc mips64el-linux-gnuabi64-gcc tar "$tgt"
-            go run build.go -tags "osusergo netgo sqlite_omit_load_extension" -goos linux -goarch riscv64 -cc riscv64-linux-gnu-gcc tar "$tgt"
-            go run build.go -tags "osusergo netgo sqlite_omit_load_extension" -goos linux -goarch s390x -cc s390x-linux-gnu-gcc tar "$tgt"
+            go run build.go -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" tar "$tgt"
+            go run build.go -goos linux -goarch 386 -cc "zig cc -target x86-linux-musl" tar "$tgt"
+            go run build.go -goos linux -goarch arm -cc "zig cc -target arm-linux-musleabi" tar "$tgt"
+            go run build.go -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" tar "$tgt"
+            go run build.go -goos linux -goarch mips -cc "zig cc -target mips-linux-musleabi" tar "$tgt"
+            # go run build.go -goos linux -goarch mips64 -cc "zig cc -target mips64-linux-muslabi64" tar "$tgt"
+            go run build.go -goos linux -goarch mipsle -cc "zig cc -target mipsel-linux-musleabi" tar "$tgt"
+            # go run build.go -goos linux -goarch mips64le -cc "zig cc -target mips64el-linux-muslabi64" tar "$tgt"
+            go run build.go -goos linux -goarch riscv64 -cc "zig cc -target riscv64-linux-musl" tar "$tgt"
+            go run build.go -goos linux -goarch s390x -cc "zig cc -target s390x-linux-musl" tar "$tgt"
+            go run build.go -goos linux -goarch loong64 -cc "zig cc -target loongarch64-linux-musl" tar "$tgt"
+            # go run build.go -goos linux -goarch ppc64 -cc "zig cc -target powerpc64-linux-musl" tar "$tgt"
+            go run build.go -goos linux -goarch ppc64le -cc "zig cc -target powerpc64le-linux-musl" tar "$tgt"
           done
         env:
           CGO_ENABLED: "1"
-          EXTRA_LDFLAGS: "-extldflags=-static"
+          EXTRA_LDFLAGS: "-linkmode=external -extldflags=-static"
 
       - name: Create packages (without CGO)
         run: |
-          archs=(loong64 ppc64 ppc64le)
+          archs=(mips64 mips64le ppc64le)
           for goarch in $archs ; do
             for tgt in syncthing stdiscosrv strelaysrv ; do
               go run build.go -goarch "$goarch" tar "$tgt"
