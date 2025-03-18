@@ -977,6 +977,8 @@ jobs:
           go version
           echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
+      - uses: mlugg/setup-zig@v1
+
       - uses: actions/cache@v4
         with:
           path: |
@@ -986,18 +988,16 @@ jobs:
 
       - name: Build binaries (CGO)
         run: |
-          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
-
           # amd64
-          go run build.go -tags "osusergo netgo sqlite_omit_load_extension" -goos linux -goarch amd64 -no-upgrade build ${{ matrix.pkg }}
+          go run build.go -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" -no-upgrade build ${{ matrix.pkg }}
           mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-amd64
 
           # arm64
-          go run build.go -tags "osusergo netgo sqlite_omit_load_extension" -goos linux -goarch arm64 -cc aarch64-linux-gnu-gcc -no-upgrade build ${{ matrix.pkg }}
+          go run build.go -goos linux -goarch arm64  -cc "zig cc -target aarch64-linux-musl" -no-upgrade build ${{ matrix.pkg }}
           mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm64
 
           # arm
-          go run build.go -tags "osusergo netgo sqlite_omit_load_extension" -goos linux -goarch arm -cc arm-linux-gnueabi-gcc -no-upgrade build ${{ matrix.pkg }}
+          go run build.go -goos linux -goarch arm -cc "zig cc -target arm-linux-musleabi" -no-upgrade build ${{ matrix.pkg }}
           mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm
         env:
           CGO_ENABLED: "1"
