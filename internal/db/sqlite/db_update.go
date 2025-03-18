@@ -102,15 +102,12 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 			if err != nil {
 				return wrap(err, "marshal blocklist")
 			}
-			res, err := insertBlockListStmt.Exec(f.BlocksHash, bs)
-			if err != nil {
+			if _, err := insertBlockListStmt.Exec(f.BlocksHash, bs); err != nil {
 				return wrap(err, "insert blocklist")
 			}
-			affected, _ := res.RowsAffected()
 
-			if device == protocol.LocalDeviceID && affected != 0 {
-				// Update block lists, unless we didn't have to insert the
-				// blocklist (all blocks already in place.)
+			if device == protocol.LocalDeviceID {
+				// Insert all blocks
 				if err := s.insertBlocksLocked(txp, f.BlocksHash, f.Blocks); err != nil {
 					return wrap(err, "insert blocks")
 				}
@@ -301,12 +298,10 @@ func (*DB) insertBlocksLocked(tx *txPreparedStmts, blocklistHash []byte, blocks 
 			"size":           b.Size,
 		}
 	}
-	if _, err := tx.NamedExec(`
+	_, err := tx.NamedExec(`
 		INSERT OR IGNORE INTO blocks (hash, blocklist_hash, idx, offset, size)
-		VALUES (:hash, :blocklist_hash, :idx, :offset, :size)`, bs); err != nil {
-		return wrap(err)
-	}
-	return nil
+		VALUES (:hash, :blocklist_hash, :idx, :offset, :size)`, bs)
+	return wrap(err)
 }
 
 func (s *DB) recalcGlobalForFolder(txp *txPreparedStmts, folderIdx int64) error {
