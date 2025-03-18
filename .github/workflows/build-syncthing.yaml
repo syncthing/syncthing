@@ -273,13 +273,13 @@ jobs:
             go run build.go -goos linux -goarch arm -cc "zig cc -target arm-linux-musleabi" tar "$tgt"
             go run build.go -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" tar "$tgt"
             go run build.go -goos linux -goarch mips -cc "zig cc -target mips-linux-musleabi" tar "$tgt"
-            # go run build.go -goos linux -goarch mips64 -cc "zig cc -target mips64-linux-muslabi64" tar "$tgt"
+            # go run build.go -goos linux -goarch mips64 -cc "zig cc -target mips64-linux-muslabi64" tar "$tgt" softfloat confusion
             go run build.go -goos linux -goarch mipsle -cc "zig cc -target mipsel-linux-musleabi" tar "$tgt"
-            # go run build.go -goos linux -goarch mips64le -cc "zig cc -target mips64el-linux-muslabi64" tar "$tgt"
+            # go run build.go -goos linux -goarch mips64le -cc "zig cc -target mips64el-linux-muslabi64" tar "$tgt" softfloat confusion
             go run build.go -goos linux -goarch riscv64 -cc "zig cc -target riscv64-linux-musl" tar "$tgt"
             go run build.go -goos linux -goarch s390x -cc "zig cc -target s390x-linux-musl" tar "$tgt"
             go run build.go -goos linux -goarch loong64 -cc "zig cc -target loongarch64-linux-musl" tar "$tgt"
-            # go run build.go -goos linux -goarch ppc64 -cc "zig cc -target powerpc64-linux-musl" tar "$tgt"
+            # go run build.go -goos linux -goarch ppc64 -cc "zig cc -target powerpc64-linux-musl" tar "$tgt" linkmode not supported
             go run build.go -goos linux -goarch ppc64le -cc "zig cc -target powerpc64le-linux-musl" tar "$tgt"
           done
         env:
@@ -288,7 +288,7 @@ jobs:
 
       - name: Create packages (without CGO)
         run: |
-          archs=(mips64 mips64le ppc64le)
+          archs=(mips64 mips64le ppc64)
           for goarch in $archs ; do
             for tgt in syncthing stdiscosrv strelaysrv ; do
               go run build.go -goarch "$goarch" tar "$tgt"
