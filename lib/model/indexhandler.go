@@ -300,15 +300,18 @@ func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if time.Since(t0) > 10*time.Second {
-			break
-		}
 		// This is to make sure that renames (which is an add followed by a delete) land in the same batch.
 		// Even if the batch is full, we allow a last delete to slip in, we do this by making sure that
 		// the batch ends with a non-delete, or that the last item in the batch is already a delete
 		if batch.Full() && (!fi.IsDeleted() || previousWasDelete) {
 			if err := batch.Flush(); err != nil {
 				return err
+			}
+			if time.Since(t0) > 5*time.Second {
+				// minor hack -- avoid very long running read transactions
+				// during index transmission, to help prevent excessive
+				// growth of database WAL file
+				break
 			}
 		}
 
