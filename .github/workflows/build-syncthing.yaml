@@ -265,7 +265,7 @@ jobs:
             ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
 
-      - name: Create packages (CGO)
+      - name: Create packages
         run: |
           sudo apt-get install -y gcc-mips64-linux-gnuabi64 gcc-mips64el-linux-gnuabi64
           for tgt in syncthing stdiscosrv strelaysrv ; do
@@ -286,17 +286,6 @@ jobs:
         env:
           CGO_ENABLED: "1"
           EXTRA_LDFLAGS: "-linkmode=external -extldflags=-static"
-
-      - name: Create packages (without CGO)
-        run: |
-          archs=(ppc64)
-          for goarch in $archs ; do
-            for tgt in syncthing stdiscosrv strelaysrv ; do
-              go run build.go -goarch "$goarch" tar "$tgt"
-            done
-          done
-        env:
-          CGO_ENABLED: "0"
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
