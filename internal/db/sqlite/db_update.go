@@ -21,13 +21,6 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
 
-	tx, err := s.sql.BeginTxx(context.Background(), nil)
-	if err != nil {
-		return wrap(err)
-	}
-	defer tx.Rollback() //nolint:errcheck
-	txp := &txPreparedStmts{Tx: tx}
-
 	folderIdx, err := s.folderIdxLocked(folder)
 	if err != nil {
 		return wrap(err)
@@ -36,6 +29,13 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 	if err != nil {
 		return wrap(err)
 	}
+
+	tx, err := s.sql.BeginTxx(context.Background(), nil)
+	if err != nil {
+		return wrap(err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+	txp := &txPreparedStmts{Tx: tx}
 
 	//nolint:sqlclosecheck
 	insertFileStmt, err := txp.Preparex(`
@@ -203,6 +203,10 @@ func (s *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
 	if err != nil {
 		return wrap(err)
 	}
+	deviceIdx, err := s.deviceIdxLocked(device)
+	if err != nil {
+		return wrap(err)
+	}
 
 	tx, err := s.sql.BeginTxx(context.Background(), nil)
 	if err != nil {
@@ -214,12 +218,9 @@ func (s *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
 	// Drop all the file entries
 
 	result, err := tx.Exec(`
-		DELETE FROM files WHERE ROWID in (
-			SELECT f.ROWID FROM files f
-			INNER JOIN devices d ON f.device_idx = d.idx
-			WHERE f.folder_idx = ? AND d.device_id = ?
-		)
-	`, folderIdx, device.String())
+		DELETE FROM files
+		WHERE folder_idx = ? AND device_idx = ?
+	`, folderIdx, deviceIdx)
 	if err != nil {
 		return wrap(err)
 	}
@@ -249,6 +250,10 @@ func (s *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []str
 	if err != nil {
 		return wrap(err)
 	}
+	deviceIdx, err := s.deviceIdxLocked(device)
+	if err != nil {
+		return wrap(err)
+	}
 
 	tx, err := s.sql.BeginTxx(context.Background(), nil)
 	if err != nil {
@@ -260,12 +265,9 @@ func (s *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []str
 	// Drop the named files
 
 	query, args, err := sqlx.In(`
-		DELETE FROM files WHERE ROWID in (
-			SELECT f.ROWID FROM files f
-			INNER JOIN devices d ON f.device_idx = d.idx
-			WHERE f.folder_idx = ? AND device_id = ? AND f.name IN (?)
-		)
-	`, folderIdx, device.String(), names)
+		DELETE FROM files
+		WHERE folder_idx = ? AND device_idx = ? AND name IN (?)
+	`, folderIdx, deviceIdx, names)
 	if err != nil {
 		return wrap(err)
 	}
