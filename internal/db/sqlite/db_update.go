@@ -302,7 +302,8 @@ func (*DB) insertBlocksLocked(tx *txPreparedStmts, blocklistHash []byte, blocks 
 	}
 	_, err := tx.NamedExec(`
 		INSERT OR IGNORE INTO blocks (hash, blocklist_hash, idx, offset, size)
-		VALUES (:hash, :blocklist_hash, :idx, :offset, :size)`, bs)
+		VALUES (:hash, :blocklist_hash, :idx, :offset, :size)
+	`, bs)
 	return wrap(err)
 }
 
@@ -311,12 +312,13 @@ func (s *DB) recalcGlobalForFolder(txp *txPreparedStmts, folderIdx int64) error 
 	// recalculate.
 	//nolint:sqlclosecheck
 	namesStmt, err := txp.Preparex(`
-	SELECT f.name FROM files f
-	WHERE f.folder_idx = ? AND NOT EXISTS (
-		SELECT 1 FROM files g
-		WHERE g.folder_idx = ? AND g.name = f.name AND g.local_flags & ? != 0
-	)
-	GROUP BY name`)
+		SELECT f.name FROM files f
+		WHERE f.folder_idx = ? AND NOT EXISTS (
+			SELECT 1 FROM files g
+			WHERE g.folder_idx = ? AND g.name = f.name AND g.local_flags & ? != 0
+		)
+		GROUP BY name
+	`)
 	if err != nil {
 		return wrap(err)
 	}
@@ -341,7 +343,8 @@ func (s *DB) recalcGlobalForFile(txp *txPreparedStmts, folderIdx int64, file str
 	//nolint:sqlclosecheck
 	selStmt, err := txp.Preparex(`
 		SELECT name, folder_idx, device_idx, sequence, modified, version, deleted, invalid, local_flags FROM files
-		WHERE folder_idx = ? AND name = ?`)
+		WHERE folder_idx = ? AND name = ?
+	`)
 	if err != nil {
 		return wrap(err)
 	}
