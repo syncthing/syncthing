@@ -20,5 +20,5 @@ CREATE TABLE IF NOT EXISTS indexids (
     PRIMARY KEY(device_idx, folder_idx),
     FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE,
     FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE
-) STRICT
+) STRICT, WITHOUT ROWID
 ;
