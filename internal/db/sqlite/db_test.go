@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
@@ -961,6 +962,79 @@ func TestAllForBlocksHash(t *testing.T) {
 	if vals[1].Name != "test3" {
 		t.Log(vals[1])
 		t.Error("expected test3")
+	}
+}
+
+func TestBlocklistGarbageCollection(t *testing.T) {
+	t.Parallel()
+
+	sdb, err := OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := sdb.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// Add three files
+
+	files := []protocol.FileInfo{
+		genFile("test1", 1, 1),
+		genFile("test2", 2, 2),
+		genFile("test3", 3, 3),
+	}
+
+	if err := sdb.Update(folderID, protocol.LocalDeviceID, files); err != nil {
+		t.Fatal(err)
+	}
+
+	// There should exist three blockslists and six blocks
+
+	var count int
+	if err := sdb.sql.Get(&count, `SELECT count(*) FROM blocklists`); err != nil {
+		t.Fatal(err)
+	}
+	if count != 3 {
+		t.Log(count)
+		t.Fatal("expected 3 blocklists")
+	}
+	if err := sdb.sql.Get(&count, `SELECT count(*) FROM blocks`); err != nil {
+		t.Fatal(err)
+	}
+	if count != 6 {
+		t.Log(count)
+		t.Fatal("expected 6 blocks")
+	}
+
+	// Mark test3 as deleted, it's blocks and blocklist are now eligible for collection
+	files = files[2:]
+	files[0].SetDeleted(42)
+	if err := sdb.Update(folderID, protocol.LocalDeviceID, files); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run garbage collection
+	if err := sdb.periodic(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	// There should exist two blockslists and four blocks
+
+	if err := sdb.sql.Get(&count, `SELECT count(*) FROM blocklists`); err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Log(count)
+		t.Error("expected 2 blocklists")
+	}
+	if err := sdb.sql.Get(&count, `SELECT count(*) FROM blocks`); err != nil {
+		t.Fatal(err)
+	}
+	if count != 3 {
+		t.Log(count)
+		t.Error("expected 3 blocks")
 	}
 }
 
