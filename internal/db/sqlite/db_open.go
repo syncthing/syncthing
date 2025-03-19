@@ -46,6 +46,12 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 	if _, err := sqlDB.Exec(`PRAGMA auto_vacuum = INCREMENTAL`); err != nil {
 		return nil, wrap(err, "PRAGMA auto_vacuum")
 	}
+	if _, err := sqlDB.Exec(`PRAGMA default_temp_store = MEMORY`); err != nil {
+		return nil, wrap(err, "PRAGMA default_temp_store")
+	}
+	if _, err := sqlDB.Exec(`PRAGMA temp_store = MEMORY`); err != nil {
+		return nil, wrap(err, "PRAGMA temp_store")
+	}
 
 	sqlDB.SetMaxOpenConns(maxDBConns)
 
