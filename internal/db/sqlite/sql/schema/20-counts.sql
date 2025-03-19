@@ -31,18 +31,17 @@ BEGIN
         WHERE folder_idx = OLD.folder_idx AND device_idx = OLD.device_idx AND type = OLD.type AND local_flags = OLD.local_flags AND deleted = OLD.deleted;
 END
 ;
-CREATE TRIGGER IF NOT EXISTS counts_update_add AFTER UPDATE ON files
+CREATE TRIGGER IF NOT EXISTS counts_update AFTER UPDATE OF local_flags ON files
 WHEN NEW.local_flags != OLD.local_flags
 BEGIN
     INSERT INTO counts (folder_idx, device_idx, type, local_flags, count, size, deleted)
         VALUES (NEW.folder_idx, NEW.device_idx, NEW.type, NEW.local_flags, 1, NEW.size, NEW.deleted)
         ON CONFLICT DO UPDATE SET count = count + 1, size = size + NEW.size;
-END
-;
-CREATE TRIGGER IF NOT EXISTS counts_update_del AFTER UPDATE ON files
-WHEN NEW.local_flags != OLD.local_flags
-BEGIN
     UPDATE counts SET count = count - 1, size = size - OLD.size
         WHERE folder_idx = OLD.folder_idx AND device_idx = OLD.device_idx AND type = OLD.type AND local_flags = OLD.local_flags AND deleted = OLD.deleted;
 END
+;
+DROP TRIGGER IF EXISTS counts_update_add -- tmp migration
+;
+DROP TRIGGER IF EXISTS counts_update_del -- tmp migration
 ;
