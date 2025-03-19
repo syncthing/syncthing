@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS counts (
     PRIMARY KEY(folder_idx, device_idx, type, local_flags, deleted),
     FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
     FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE
-) STRICT
+) STRICT, WITHOUT ROWID
 ;
 
 --- Maintain counts when files are added and removed using triggers

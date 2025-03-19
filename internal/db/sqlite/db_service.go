@@ -79,16 +79,16 @@ func (s *DB) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context) error 
 
 	if _, err := tx.ExecContext(ctx, `
 		DELETE FROM blocklists
-		WHERE blocklist_hash NOT IN (
-			SELECT blocklist_hash FROM files WHERE blocklist_hash IS NOT NULL
+		WHERE NOT EXISTS (
+			SELECT 1 FROM files WHERE files.blocklist_hash = blocklists.blocklist_hash
 		)`); err != nil {
 		return wrap(err, "delete blocklists")
 	}
 
 	if _, err := tx.ExecContext(ctx, `
 		DELETE FROM blocks
-		WHERE blocklist_hash NOT IN (
-			SELECT blocklist_hash FROM blocklists WHERE blocklist_hash IS NOT NULL
+		WHERE NOT EXISTS (
+			SELECT 1 FROM blocklists WHERE blocklists.blocklist_hash = blocks.blocklist_hash
 		)`); err != nil {
 		return wrap(err, "delete blocks")
 	}

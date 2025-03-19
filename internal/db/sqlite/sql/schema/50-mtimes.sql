@@ -6,5 +6,5 @@ CREATE TABLE IF NOT EXISTS mtimes (
     virtual INTEGER NOT NULL, -- unix nanos
     PRIMARY KEY(folder_idx, name),
     FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE
-) STRICT
+) STRICT, WITHOUT ROWID
 ;
