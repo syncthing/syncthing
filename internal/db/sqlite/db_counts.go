@@ -90,7 +90,7 @@ func (s *DB) needSizeRemote(folder string, device protocol.DeviceID) (db.Counts,
 		)
 		GROUP BY g.type, g.local_flags, g.deleted
 
-		UNION
+		UNION ALL
 
 		SELECT g.type, count(*) as count, sum(g.size) as size, g.local_flags, g.deleted FROM files g
 		INNER JOIN folders o ON o.idx = g.folder_idx

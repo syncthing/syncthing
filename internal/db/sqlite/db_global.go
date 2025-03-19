@@ -156,7 +156,7 @@ func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order
 			WHERE f.name = g.name AND f.version = g.version AND f.folder_idx = g.folder_idx AND d.device_id = ?
 		)
 
-		UNION
+		UNION ALL
 
 		SELECT fi.fiprotobuf, bl.blprotobuf, g.name, g.size, g.modified FROM fileinfos fi
 		INNER JOIN files g on fi.sequence = g.sequence
