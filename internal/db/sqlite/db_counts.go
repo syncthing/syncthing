@@ -79,7 +79,7 @@ func (s *DB) needSizeLocal(folder string) (db.Counts, error) {
 
 func (s *DB) needSizeRemote(folder string, device protocol.DeviceID) (db.Counts, error) {
 	var res []countsRow
-	// See AllNeededNames for commentary as that is the same query without summing
+	// See AllNeededGlobalFiles for commentary as that is the same query without summing
 	if err := s.stmt(`
 		SELECT g.type, count(*) as count, sum(g.size) as size, g.local_flags, g.deleted FROM files g
 		INNER JOIN folders o ON o.idx = g.folder_idx
