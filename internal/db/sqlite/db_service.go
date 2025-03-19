@@ -77,20 +77,26 @@ func (s *DB) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context) error 
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	if _, err := tx.ExecContext(ctx, `
+	if res, err := tx.ExecContext(ctx, `
 		DELETE FROM blocklists
 		WHERE NOT EXISTS (
 			SELECT 1 FROM files WHERE files.blocklist_hash = blocklists.blocklist_hash
 		)`); err != nil {
 		return wrap(err, "delete blocklists")
+	} else if shouldDebug() {
+		rows, err := res.RowsAffected()
+		l.Debugln("Blocklist GC:", rows, err)
 	}
 
-	if _, err := tx.ExecContext(ctx, `
+	if res, err := tx.ExecContext(ctx, `
 		DELETE FROM blocks
 		WHERE NOT EXISTS (
 			SELECT 1 FROM blocklists WHERE blocklists.blocklist_hash = blocks.blocklist_hash
 		)`); err != nil {
 		return wrap(err, "delete blocks")
+	} else if shouldDebug() {
+		rows, err := res.RowsAffected()
+		l.Debugln("Blocks GC:", rows, err)
 	}
 
 	return wrap(tx.Commit())

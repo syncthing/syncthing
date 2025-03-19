@@ -11,3 +11,5 @@ import (
 )
 
 var l = logger.DefaultLogger.NewFacility("sqlite", "SQLite database")
+
+func shouldDebug() bool { return l.ShouldDebug("sqlite") }
