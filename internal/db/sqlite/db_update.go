@@ -41,7 +41,8 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 	insertFileStmt, err := txp.Preparex(`
 		INSERT OR REPLACE INTO files (folder_idx, device_idx, remote_sequence, name, type, modified, size, version, deleted, invalid, local_flags, blocklist_hash)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		RETURNING sequence`)
+		RETURNING sequence
+	`)
 	if err != nil {
 		return wrap(err, "prepare insert file")
 	}
@@ -49,7 +50,8 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 	//nolint:sqlclosecheck
 	insertFileInfoStmt, err := txp.Preparex(`
 		INSERT INTO fileinfos (sequence, fiprotobuf)
-		VALUES (?, ?)`)
+		VALUES (?, ?)
+	`)
 	if err != nil {
 		return wrap(err, "prepare insert fileinfo")
 	}
@@ -57,7 +59,8 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 	//nolint:sqlclosecheck
 	insertBlockListStmt, err := txp.Preparex(`
 		INSERT OR IGNORE INTO blocklists (blocklist_hash, blprotobuf)
-		VALUES (?, ?)`)
+		VALUES (?, ?)
+	`)
 	if err != nil {
 		return wrap(err, "prepare insert blocklist")
 	}
@@ -173,7 +176,8 @@ func (s *DB) DropDevice(device protocol.DeviceID) error {
 		SELECT folder_idx
 		FROM counts
 		WHERE device_idx = ? AND count > 0
-		GROUP BY folder_idx`, deviceIdx); err != nil {
+		GROUP BY folder_idx
+	`, deviceIdx); err != nil {
 		return wrap(err)
 	}
 
