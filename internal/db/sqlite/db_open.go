@@ -53,6 +53,7 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 		return nil, wrap(err, "PRAGMA temp_store")
 	}
 	if _, err := sqlDB.Exec(`PRAGMA optimize = 0x10002`); err != nil {
+		// https://www.sqlite.org/pragma.html#pragma_optimize
 		return nil, wrap(err, "PRAGMA optimize")
 	}
 	if _, err := sqlDB.Exec(`PRAGMA journal_size_limit = 6144000;`); err != nil {
