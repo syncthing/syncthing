@@ -57,7 +57,7 @@ type Options struct {
 	ResetDeltaIdxs bool
 	Verbose        bool
 	// zero duration means use default value
-	DBIndirectGCInterval time.Duration
+	DBMaintenanceInterval time.Duration
 }
 
 type App struct {
@@ -118,7 +118,7 @@ func (a *App) Start() error {
 func (a *App) startup() error {
 	a.mainService.Add(ur.NewFailureHandler(a.cfg, a.evLogger))
 
-	a.mainService.Add(a.sdb.Service(a.opts.DBIndirectGCInterval))
+	a.mainService.Add(a.sdb.Service(a.opts.DBMaintenanceInterval))
 
 	if a.opts.AuditWriter != nil {
 		a.mainService.Add(newAuditService(a.opts.AuditWriter, a.evLogger))

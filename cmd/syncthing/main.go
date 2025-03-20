@@ -140,41 +140,41 @@ var entrypoint struct {
 // serveOptions are the options for the `syncthing serve` command.
 type serveOptions struct {
 	cmdutil.CommonOptions
-	AllowNewerConfig bool   `help:"Allow loading newer than current config version"`
-	Audit            bool   `help:"Write events to audit file"`
-	AuditFile        string `name:"auditfile" placeholder:"PATH" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)"`
-	BrowserOnly      bool   `help:"Open GUI in browser"`
-	DataDir          string `name:"data" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
-	DeviceID         bool   `help:"Show the device ID"`
-	GenerateDir      string `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"` // DEPRECATED: replaced by subcommand!
-	GUIAddress       string `name:"gui-address" placeholder:"URL" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")"`
-	GUIAPIKey        string `name:"gui-apikey" placeholder:"API-KEY" help:"Override GUI API key"`
-	LogFile          string `name:"logfile" default:"${logFile}" placeholder:"PATH" help:"Log file name (see below)"`
-	LogFlags         int    `name:"logflags" default:"${logFlags}" placeholder:"BITS" help:"Select information in log line prefix (see below)"`
-	LogMaxFiles      int    `placeholder:"N" default:"${logMaxFiles}" name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)"`
-	LogMaxSize       int    `placeholder:"BYTES" default:"${logMaxSize}" help:"Maximum size of any file (zero to disable log rotation)"`
-	NoBrowser        bool   `help:"Do not start browser"`
-	NoRestart        bool   `env:"STNORESTART" help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash"`
-	NoUpgrade        bool   `env:"STNOUPGRADE" help:"Disable automatic upgrades"`
-	Paths            bool   `help:"Show configuration paths"`
-	Paused           bool   `help:"Start with all devices and folders paused"`
-	Unpaused         bool   `help:"Start with all devices and folders unpaused"`
-	Upgrade          bool   `help:"Perform upgrade"`
-	UpgradeCheck     bool   `help:"Check for available upgrade"`
-	UpgradeTo        string `placeholder:"URL" help:"Force upgrade directly from specified URL"`
-	Verbose          bool   `help:"Print verbose log output"`
-	Version          bool   `help:"Show version"`
+	AllowNewerConfig      bool          `help:"Allow loading newer than current config version"`
+	Audit                 bool          `help:"Write events to audit file"`
+	AuditFile             string        `name:"auditfile" placeholder:"PATH" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)"`
+	BrowserOnly           bool          `help:"Open GUI in browser"`
+	DataDir               string        `name:"data" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
+	DeviceID              bool          `help:"Show the device ID"`
+	GenerateDir           string        `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"` // DEPRECATED: replaced by subcommand!
+	GUIAddress            string        `name:"gui-address" placeholder:"URL" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")"`
+	GUIAPIKey             string        `name:"gui-apikey" placeholder:"API-KEY" help:"Override GUI API key"`
+	LogFile               string        `name:"logfile" default:"${logFile}" placeholder:"PATH" help:"Log file name (see below)"`
+	LogFlags              int           `name:"logflags" default:"${logFlags}" placeholder:"BITS" help:"Select information in log line prefix (see below)"`
+	LogMaxFiles           int           `placeholder:"N" default:"${logMaxFiles}" name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)"`
+	LogMaxSize            int           `placeholder:"BYTES" default:"${logMaxSize}" help:"Maximum size of any file (zero to disable log rotation)"`
+	NoBrowser             bool          `help:"Do not start browser"`
+	NoRestart             bool          `env:"STNORESTART" help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash"`
+	NoUpgrade             bool          `env:"STNOUPGRADE" help:"Disable automatic upgrades"`
+	Paths                 bool          `help:"Show configuration paths"`
+	Paused                bool          `help:"Start with all devices and folders paused"`
+	Unpaused              bool          `help:"Start with all devices and folders unpaused"`
+	Upgrade               bool          `help:"Perform upgrade"`
+	UpgradeCheck          bool          `help:"Check for available upgrade"`
+	UpgradeTo             string        `placeholder:"URL" help:"Force upgrade directly from specified URL"`
+	Verbose               bool          `help:"Print verbose log output"`
+	Version               bool          `help:"Show version"`
+	DBMaintenanceInterval time.Duration `env:"STDBMAINTINTERVAL" help:"Database maintenance interval" default:"8h"`
 
 	// Debug options below
-	DebugDBIndirectGCInterval time.Duration `env:"STGCINDIRECTEVERY" help:"Database indirection GC interval"`
-	DebugGUIAssetsDir         string        `placeholder:"PATH" help:"Directory to load GUI assets from" env:"STGUIASSETS"`
-	DebugPerfStats            bool          `env:"STPERFSTATS" help:"Write running performance statistics to perf-$pid.csv (Unix only)"`
-	DebugProfileBlock         bool          `env:"STBLOCKPROFILE" help:"Write block profiles to block-$pid-$timestamp.pprof every 20 seconds"`
-	DebugProfileCPU           bool          `help:"Write a CPU profile to cpu-$pid.pprof on exit" env:"STCPUPROFILE"`
-	DebugProfileHeap          bool          `env:"STHEAPPROFILE" help:"Write heap profiles to heap-$pid-$timestamp.pprof each time heap usage increases"`
-	DebugProfilerListen       string        `placeholder:"ADDR" env:"STPROFILER" help:"Network profiler listen address"`
-	DebugResetDatabase        bool          `name:"reset-database" help:"Reset the database, forcing a full rescan and resync"`
-	DebugResetDeltaIdxs       bool          `name:"reset-deltas" help:"Reset delta index IDs, forcing a full index exchange"`
+	DebugGUIAssetsDir   string `placeholder:"PATH" help:"Directory to load GUI assets from" env:"STGUIASSETS"`
+	DebugPerfStats      bool   `env:"STPERFSTATS" help:"Write running performance statistics to perf-$pid.csv (Unix only)"`
+	DebugProfileBlock   bool   `env:"STBLOCKPROFILE" help:"Write block profiles to block-$pid-$timestamp.pprof every 20 seconds"`
+	DebugProfileCPU     bool   `help:"Write a CPU profile to cpu-$pid.pprof on exit" env:"STCPUPROFILE"`
+	DebugProfileHeap    bool   `env:"STHEAPPROFILE" help:"Write heap profiles to heap-$pid-$timestamp.pprof each time heap usage increases"`
+	DebugProfilerListen string `placeholder:"ADDR" env:"STPROFILER" help:"Network profiler listen address"`
+	DebugResetDatabase  bool   `name:"reset-database" help:"Reset the database, forcing a full rescan and resync"`
+	DebugResetDeltaIdxs bool   `name:"reset-deltas" help:"Reset delta index IDs, forcing a full index exchange"`
 
 	// Internal options, not shown to users
 	InternalRestarting   bool `env:"STRESTART" hidden:"1"`
@@ -634,11 +634,11 @@ func syncthingMain(options serveOptions) {
 	}
 
 	appOpts := syncthing.Options{
-		NoUpgrade:            options.NoUpgrade,
-		ProfilerAddr:         options.DebugProfilerListen,
-		ResetDeltaIdxs:       options.DebugResetDeltaIdxs,
-		Verbose:              options.Verbose,
-		DBIndirectGCInterval: options.DebugDBIndirectGCInterval,
+		NoUpgrade:             options.NoUpgrade,
+		ProfilerAddr:          options.DebugProfilerListen,
+		ResetDeltaIdxs:        options.DebugResetDeltaIdxs,
+		Verbose:               options.Verbose,
+		DBMaintenanceInterval: options.DBMaintenanceInterval,
 	}
 	if options.Audit {
 		appOpts.AuditWriter = auditWriter(options.AuditFile)
