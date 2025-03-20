@@ -56,7 +56,7 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 		// https://www.sqlite.org/pragma.html#pragma_optimize
 		return nil, wrap(err, "PRAGMA optimize")
 	}
-	if _, err := sqlDB.Exec(`PRAGMA journal_size_limit = 6144000;`); err != nil {
+	if _, err := sqlDB.Exec(`PRAGMA journal_size_limit = 6144000`); err != nil {
 		// https://www.powersync.com/blog/sqlite-optimizations-for-ultra-high-performance
 		return nil, wrap(err, "PRAGMA journal_size_limit")
 	}
