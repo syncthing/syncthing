@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
-	"github.com/syncthing/syncthing/internal/db/dbext"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -3954,7 +3953,7 @@ func TestPendingFolder(t *testing.T) {
 
 	setDevice(t, w, config.DeviceConfiguration{DeviceID: device2})
 	pfolder := "default"
-	of := dbext.ObservedFolder{
+	of := db.ObservedFolder{
 		Time:  time.Now().Truncate(time.Second),
 		Label: pfolder,
 	}

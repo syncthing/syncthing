@@ -13,20 +13,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/db/dbext"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
 )
 
 func TestDeviceStat(t *testing.T) {
-	db, err := sqlite.OpenTemp()
+	sdb, err := sqlite.OpenTemp()
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		db.Close()
+		sdb.Close()
 	})
 
-	sr := NewDeviceStatisticsReference(dbext.NewTyped(db, "devstatref"))
+	sr := NewDeviceStatisticsReference(db.NewTyped(sdb, "devstatref"))
 	if err := sr.WasSeen(); err != nil {
 		t.Fatal(err)
 	}

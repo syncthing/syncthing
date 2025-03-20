@@ -977,6 +977,7 @@ func TestBlocklistGarbageCollection(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
+	svc := sdb.Service(time.Hour).(*Service)
 
 	// Add three files
 
@@ -1016,7 +1017,7 @@ func TestBlocklistGarbageCollection(t *testing.T) {
 	}
 
 	// Run garbage collection
-	if err := sdb.periodic(context.Background()); err != nil {
+	if err := svc.periodic(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 

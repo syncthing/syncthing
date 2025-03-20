@@ -4,13 +4,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package dbext_test
+package db_test
 
 import (
 	"testing"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/db/dbext"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
 )
 
@@ -25,8 +25,8 @@ func TestNamespacedInt(t *testing.T) {
 		ldb.Close()
 	})
 
-	n1 := dbext.NewTyped(ldb, "foo")
-	n2 := dbext.NewTyped(ldb, "bar")
+	n1 := db.NewTyped(ldb, "foo")
+	n2 := db.NewTyped(ldb, "bar")
 
 	t.Run("Int", func(t *testing.T) {
 		t.Parallel()

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/db/dbext"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
 )
@@ -137,7 +137,7 @@ func TestTokenManager(t *testing.T) {
 	t.Cleanup(func() {
 		mdb.Close()
 	})
-	kdb := dbext.NewMiscDB(mdb)
+	kdb := db.NewMiscDB(mdb)
 	clock := &mockClock{now: time.Now()}
 
 	// Token manager keeps up to three tokens with a validity time of 24 hours.

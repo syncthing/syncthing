@@ -27,7 +27,7 @@ import (
 	"github.com/d4l3k/messagediff"
 	"github.com/thejerf/suture/v4"
 
-	"github.com/syncthing/syncthing/internal/db/dbext"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/build"
@@ -91,7 +91,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	t.Cleanup(func() {
 		mdb.Close()
 	})
-	kdb := dbext.NewMiscDB(mdb)
+	kdb := db.NewMiscDB(mdb)
 	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb).(*service)
 
 	srv.started = make(chan string)
@@ -1067,7 +1067,7 @@ func startHTTPWithShutdownTimeout(t *testing.T, cfg config.Wrapper, shutdownTime
 	t.Cleanup(func() {
 		mdb.Close()
 	})
-	kdb := dbext.NewMiscDB(mdb)
+	kdb := db.NewMiscDB(mdb)
 	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, mockedSummary, errorLog, systemLog, false, kdb).(*service)
 	svc.started = addrChan
 
@@ -1585,7 +1585,7 @@ func TestEventMasks(t *testing.T) {
 	t.Cleanup(func() {
 		mdb.Close()
 	})
-	kdb := dbext.NewMiscDB(mdb)
+	kdb := db.NewMiscDB(mdb)
 	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb).(*service)
 
 	if mask := svc.getEventMask(""); mask != DefaultEventMask {

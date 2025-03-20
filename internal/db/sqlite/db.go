@@ -2,10 +2,12 @@ package sqlite
 
 import (
 	"sync"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/thejerf/suture/v4"
 )
 
 type DB struct {
@@ -29,6 +31,10 @@ func (s *DB) Close() error {
 		stmt.Close()
 	}
 	return wrap(s.sql.Close())
+}
+
+func (s *DB) Service(maintenanceInterval time.Duration) suture.Service {
+	return newService(s, maintenanceInterval)
 }
 
 func (s *DB) ListFolders() ([]string, error) {

@@ -9,7 +9,7 @@ package stats
 import (
 	"time"
 
-	"github.com/syncthing/syncthing/internal/db/dbext"
+	"github.com/syncthing/syncthing/internal/db"
 )
 
 type FolderStatistics struct {
@@ -18,7 +18,7 @@ type FolderStatistics struct {
 }
 
 type FolderStatisticsReference struct {
-	kv *dbext.Typed
+	kv *db.Typed
 }
 
 type LastFile struct {
@@ -27,7 +27,7 @@ type LastFile struct {
 	Deleted  bool      `json:"deleted"`
 }
 
-func NewFolderStatisticsReference(kv *dbext.Typed) *FolderStatisticsReference {
+func NewFolderStatisticsReference(kv *db.Typed) *FolderStatisticsReference {
 	return &FolderStatisticsReference{
 		kv: kv,
 	}

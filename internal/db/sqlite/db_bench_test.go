@@ -23,6 +23,7 @@ func BenchmarkUpdate(b *testing.B) {
 			b.Fatal(err)
 		}
 	})
+	svc := db.Service(time.Hour).(*Service)
 
 	fs := make([]protocol.FileInfo, 100)
 	seed := 0
@@ -30,7 +31,7 @@ func BenchmarkUpdate(b *testing.B) {
 	size := 10000
 	for size < 200_000 {
 		t0 := time.Now()
-		if err := db.periodic(context.Background()); err != nil {
+		if err := svc.periodic(context.Background()); err != nil {
 			b.Fatal(err)
 		}
 		b.Log("garbage collect in", time.Since(t0))

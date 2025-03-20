@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
-	"github.com/syncthing/syncthing/internal/db/dbext"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stats"
@@ -437,29 +436,29 @@ type Model struct {
 	overrideArgsForCall []struct {
 		arg1 string
 	}
-	PendingDevicesStub        func() (map[protocol.DeviceID]dbext.ObservedDevice, error)
+	PendingDevicesStub        func() (map[protocol.DeviceID]db.ObservedDevice, error)
 	pendingDevicesMutex       sync.RWMutex
 	pendingDevicesArgsForCall []struct {
 	}
 	pendingDevicesReturns struct {
-		result1 map[protocol.DeviceID]dbext.ObservedDevice
+		result1 map[protocol.DeviceID]db.ObservedDevice
 		result2 error
 	}
 	pendingDevicesReturnsOnCall map[int]struct {
-		result1 map[protocol.DeviceID]dbext.ObservedDevice
+		result1 map[protocol.DeviceID]db.ObservedDevice
 		result2 error
 	}
-	PendingFoldersStub        func(protocol.DeviceID) (map[string]dbext.PendingFolder, error)
+	PendingFoldersStub        func(protocol.DeviceID) (map[string]db.PendingFolder, error)
 	pendingFoldersMutex       sync.RWMutex
 	pendingFoldersArgsForCall []struct {
 		arg1 protocol.DeviceID
 	}
 	pendingFoldersReturns struct {
-		result1 map[string]dbext.PendingFolder
+		result1 map[string]db.PendingFolder
 		result2 error
 	}
 	pendingFoldersReturnsOnCall map[int]struct {
-		result1 map[string]dbext.PendingFolder
+		result1 map[string]db.PendingFolder
 		result2 error
 	}
 	ReceiveOnlySizeStub        func(string) (db.Counts, error)
@@ -2672,7 +2671,7 @@ func (fake *Model) OverrideArgsForCall(i int) string {
 	return argsForCall.arg1
 }
 
-func (fake *Model) PendingDevices() (map[protocol.DeviceID]dbext.ObservedDevice, error) {
+func (fake *Model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, error) {
 	fake.pendingDevicesMutex.Lock()
 	ret, specificReturn := fake.pendingDevicesReturnsOnCall[len(fake.pendingDevicesArgsForCall)]
 	fake.pendingDevicesArgsForCall = append(fake.pendingDevicesArgsForCall, struct {
@@ -2696,39 +2695,39 @@ func (fake *Model) PendingDevicesCallCount() int {
 	return len(fake.pendingDevicesArgsForCall)
 }
 
-func (fake *Model) PendingDevicesCalls(stub func() (map[protocol.DeviceID]dbext.ObservedDevice, error)) {
+func (fake *Model) PendingDevicesCalls(stub func() (map[protocol.DeviceID]db.ObservedDevice, error)) {
 	fake.pendingDevicesMutex.Lock()
 	defer fake.pendingDevicesMutex.Unlock()
 	fake.PendingDevicesStub = stub
 }
 
-func (fake *Model) PendingDevicesReturns(result1 map[protocol.DeviceID]dbext.ObservedDevice, result2 error) {
+func (fake *Model) PendingDevicesReturns(result1 map[protocol.DeviceID]db.ObservedDevice, result2 error) {
 	fake.pendingDevicesMutex.Lock()
 	defer fake.pendingDevicesMutex.Unlock()
 	fake.PendingDevicesStub = nil
 	fake.pendingDevicesReturns = struct {
-		result1 map[protocol.DeviceID]dbext.ObservedDevice
+		result1 map[protocol.DeviceID]db.ObservedDevice
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *Model) PendingDevicesReturnsOnCall(i int, result1 map[protocol.DeviceID]dbext.ObservedDevice, result2 error) {
+func (fake *Model) PendingDevicesReturnsOnCall(i int, result1 map[protocol.DeviceID]db.ObservedDevice, result2 error) {
 	fake.pendingDevicesMutex.Lock()
 	defer fake.pendingDevicesMutex.Unlock()
 	fake.PendingDevicesStub = nil
 	if fake.pendingDevicesReturnsOnCall == nil {
 		fake.pendingDevicesReturnsOnCall = make(map[int]struct {
-			result1 map[protocol.DeviceID]dbext.ObservedDevice
+			result1 map[protocol.DeviceID]db.ObservedDevice
 			result2 error
 		})
 	}
 	fake.pendingDevicesReturnsOnCall[i] = struct {
-		result1 map[protocol.DeviceID]dbext.ObservedDevice
+		result1 map[protocol.DeviceID]db.ObservedDevice
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *Model) PendingFolders(arg1 protocol.DeviceID) (map[string]dbext.PendingFolder, error) {
+func (fake *Model) PendingFolders(arg1 protocol.DeviceID) (map[string]db.PendingFolder, error) {
 	fake.pendingFoldersMutex.Lock()
 	ret, specificReturn := fake.pendingFoldersReturnsOnCall[len(fake.pendingFoldersArgsForCall)]
 	fake.pendingFoldersArgsForCall = append(fake.pendingFoldersArgsForCall, struct {
@@ -2753,7 +2752,7 @@ func (fake *Model) PendingFoldersCallCount() int {
 	return len(fake.pendingFoldersArgsForCall)
 }
 
-func (fake *Model) PendingFoldersCalls(stub func(protocol.DeviceID) (map[string]dbext.PendingFolder, error)) {
+func (fake *Model) PendingFoldersCalls(stub func(protocol.DeviceID) (map[string]db.PendingFolder, error)) {
 	fake.pendingFoldersMutex.Lock()
 	defer fake.pendingFoldersMutex.Unlock()
 	fake.PendingFoldersStub = stub
@@ -2766,28 +2765,28 @@ func (fake *Model) PendingFoldersArgsForCall(i int) protocol.DeviceID {
 	return argsForCall.arg1
 }
 
-func (fake *Model) PendingFoldersReturns(result1 map[string]dbext.PendingFolder, result2 error) {
+func (fake *Model) PendingFoldersReturns(result1 map[string]db.PendingFolder, result2 error) {
 	fake.pendingFoldersMutex.Lock()
 	defer fake.pendingFoldersMutex.Unlock()
 	fake.PendingFoldersStub = nil
 	fake.pendingFoldersReturns = struct {
-		result1 map[string]dbext.PendingFolder
+		result1 map[string]db.PendingFolder
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *Model) PendingFoldersReturnsOnCall(i int, result1 map[string]dbext.PendingFolder, result2 error) {
+func (fake *Model) PendingFoldersReturnsOnCall(i int, result1 map[string]db.PendingFolder, result2 error) {
 	fake.pendingFoldersMutex.Lock()
 	defer fake.pendingFoldersMutex.Unlock()
 	fake.PendingFoldersStub = nil
 	if fake.pendingFoldersReturnsOnCall == nil {
 		fake.pendingFoldersReturnsOnCall = make(map[int]struct {
-			result1 map[string]dbext.PendingFolder
+			result1 map[string]db.PendingFolder
 			result2 error
 		})
 	}
 	fake.pendingFoldersReturnsOnCall[i] = struct {
-		result1 map[string]dbext.PendingFolder
+		result1 map[string]db.PendingFolder
 		result2 error
 	}{result1, result2}
 }

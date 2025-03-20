@@ -14,8 +14,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/db"
 	newdb "github.com/syncthing/syncthing/internal/db"
-	"github.com/syncthing/syncthing/internal/db/dbext"
 	"github.com/syncthing/syncthing/internal/db/olddb"
 	"github.com/syncthing/syncthing/internal/db/olddb/backend"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
@@ -168,7 +168,7 @@ func OpenDatabase(path string) (newdb.DB, error) {
 	return sdb, nil
 }
 
-func TryMigrateDatabase(sdb newdb.DB, miscDB *dbext.Typed, oldDBDir string) error {
+func TryMigrateDatabase(sdb newdb.DB, miscDB *db.Typed, oldDBDir string) error {
 	if _, err := os.Lstat(oldDBDir); err != nil {
 		// No old database
 		return nil

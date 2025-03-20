@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package dbext
+package db
 
 import (
 	"database/sql"
@@ -12,15 +12,13 @@ import (
 	"errors"
 	"iter"
 	"time"
-
-	"github.com/syncthing/syncthing/internal/db"
 )
 
 type KV interface {
 	KVGet(key string) ([]byte, error)
 	KVPut(key string, val []byte) error
 	KVDelete(key string) error
-	KVPrefix(prefix string) (iter.Seq[db.KeyValue], func() error)
+	KVPrefix(prefix string) (iter.Seq[KeyValue], func() error)
 }
 
 // Typed is a simple key-value store using a specific namespace within a

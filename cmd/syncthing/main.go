@@ -39,7 +39,7 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/cmd/syncthing/generate"
-	"github.com/syncthing/syncthing/internal/db/dbext"
+	"github.com/syncthing/syncthing/internal/db"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -167,7 +167,6 @@ type serveOptions struct {
 
 	// Debug options below
 	DebugDBIndirectGCInterval time.Duration `env:"STGCINDIRECTEVERY" help:"Database indirection GC interval"`
-	DebugDBRecheckInterval    time.Duration `env:"STRECHECKDBEVERY" help:"Database metadata recalculation interval"`
 	DebugGUIAssetsDir         string        `placeholder:"PATH" help:"Directory to load GUI assets from" env:"STGUIASSETS"`
 	DebugPerfStats            bool          `env:"STPERFSTATS" help:"Write running performance statistics to perf-$pid.csv (Unix only)"`
 	DebugProfileBlock         bool          `env:"STBLOCKPROFILE" help:"Write block profiles to block-$pid-$timestamp.pprof every 20 seconds"`
@@ -600,7 +599,7 @@ func syncthingMain(options serveOptions) {
 		os.Exit(1)
 	}
 
-	miscDB := dbext.NewMiscDB(sdb)
+	miscDB := db.NewMiscDB(sdb)
 	if err := syncthing.TryMigrateDatabase(sdb, miscDB, locations.Get(locations.LegacyDatabase)); err != nil {
 		l.Warnln("Failed to migrate old-style database:", err)
 		os.Exit(1)
@@ -639,17 +638,10 @@ func syncthingMain(options serveOptions) {
 		ProfilerAddr:         options.DebugProfilerListen,
 		ResetDeltaIdxs:       options.DebugResetDeltaIdxs,
 		Verbose:              options.Verbose,
-		DBRecheckInterval:    options.DebugDBRecheckInterval,
 		DBIndirectGCInterval: options.DebugDBIndirectGCInterval,
 	}
 	if options.Audit {
 		appOpts.AuditWriter = auditWriter(options.AuditFile)
-	}
-	if dur, err := time.ParseDuration(os.Getenv("STRECHECKDBEVERY")); err == nil {
-		appOpts.DBRecheckInterval = dur
-	}
-	if dur, err := time.ParseDuration(os.Getenv("STGCINDIRECTEVERY")); err == nil {
-		appOpts.DBIndirectGCInterval = dur
 	}
 
 	app, err := syncthing.New(cfgWrapper, sdb, evLogger, cert, appOpts)
@@ -840,7 +832,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 	}
 }
 
-func initialAutoUpgradeCheck(misc *dbext.Typed) (upgrade.Release, error) {
+func initialAutoUpgradeCheck(misc *db.Typed) (upgrade.Release, error) {
 	if last, ok, err := misc.Time(upgradeCheckKey); err == nil && ok && time.Since(last) < upgradeCheckInterval {
 		return upgrade.Release{}, errTooEarlyUpgradeCheck
 	}

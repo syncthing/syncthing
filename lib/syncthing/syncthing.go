@@ -23,7 +23,6 @@ import (
 	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/internal/db"
-	"github.com/syncthing/syncthing/internal/db/dbext"
 	"github.com/syncthing/syncthing/lib/api"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -57,8 +56,7 @@ type Options struct {
 	ProfilerAddr   string
 	ResetDeltaIdxs bool
 	Verbose        bool
-	// null duration means use default value
-	DBRecheckInterval    time.Duration
+	// zero duration means use default value
 	DBIndirectGCInterval time.Duration
 }
 
@@ -120,7 +118,7 @@ func (a *App) Start() error {
 func (a *App) startup() error {
 	a.mainService.Add(ur.NewFailureHandler(a.cfg, a.evLogger))
 
-	a.mainService.Add(a.sdb)
+	a.mainService.Add(a.sdb.Service(a.opts.DBIndirectGCInterval))
 
 	if a.opts.AuditWriter != nil {
 		a.mainService.Add(newAuditService(a.opts.AuditWriter, a.evLogger))
@@ -207,7 +205,7 @@ func (a *App) startup() error {
 
 	// Grab the previously running version string from the database.
 
-	miscDB := dbext.NewMiscDB(a.sdb)
+	miscDB := db.NewMiscDB(a.sdb)
 	prevVersion, _, err := miscDB.String("prevVersion")
 	if err != nil {
 		l.Warnln("Database:", err)
@@ -401,7 +399,7 @@ func (a *App) stopWithErr(stopReason svcutil.ExitStatus, err error) svcutil.Exit
 	return a.exitStatus
 }
 
-func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder, miscDB *dbext.Typed) error {
+func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder, miscDB *db.Typed) error {
 	guiCfg := a.cfg.GUI()
 
 	if !guiCfg.Enabled {

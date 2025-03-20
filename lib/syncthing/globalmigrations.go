@@ -7,7 +7,7 @@
 package syncthing
 
 import (
-	"github.com/syncthing/syncthing/internal/db/dbext"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/lib/config"
 )
 
@@ -16,8 +16,8 @@ const (
 	globalMigrationDBKey   = "globalMigrationVersion"
 )
 
-func globalMigration(db dbext.KV, cfg config.Wrapper) error {
-	miscDB := dbext.NewMiscDB(db)
+func globalMigration(kv db.KV, cfg config.Wrapper) error {
+	miscDB := db.NewMiscDB(kv)
 	prevVersion, _, err := miscDB.Int64(globalMigrationDBKey)
 	if err != nil {
 		return err

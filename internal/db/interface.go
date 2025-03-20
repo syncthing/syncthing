@@ -10,7 +10,7 @@ import (
 )
 
 type DB interface {
-	suture.Service
+	Service(maintenantInterval time.Duration) suture.Service
 
 	// Basics
 	Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error
