@@ -51,12 +51,11 @@ const (
 )
 
 type Options struct {
-	AuditWriter    io.Writer
-	NoUpgrade      bool
-	ProfilerAddr   string
-	ResetDeltaIdxs bool
-	Verbose        bool
-	// zero duration means use default value
+	AuditWriter           io.Writer
+	NoUpgrade             bool
+	ProfilerAddr          string
+	ResetDeltaIdxs        bool
+	Verbose               bool
 	DBMaintenanceInterval time.Duration
 }
 
