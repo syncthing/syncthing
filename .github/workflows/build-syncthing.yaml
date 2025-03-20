@@ -487,11 +487,7 @@ jobs:
             echo "::group ::$plat"
             for tgt in syncthing stdiscosrv strelaysrv ; do
               if ! go run build.go -goos "$goos" -goarch "$goarch" tar "$tgt" ; then
-                if go run build.go -tags wazero -goos "$goos" -goarch "$goarch" tar "$tgt" ; then
-                  echo "::notice ::Used wazero to build $tgt for $plat"
-                else
-                  echo "::warning ::Failed to build $tgt for $plat"
-                fi
+                echo "::warning ::Failed to build $tgt for $plat"
               fi
             done
             echo "::endgroup::"
