@@ -72,11 +72,15 @@ type DB interface {
 	GetMtime(folder, name string) (ondisk, virtual time.Time)
 	PutMtime(folder, name string, ondisk, virtual time.Time) error
 
-	// Generic KV
-	DeleteKV(key string) error
+	KV
+}
+
+// Generic KV store
+type KV interface {
 	GetKV(key string) ([]byte, error)
-	PrefixKV(prefix string) (iter.Seq[KeyValue], func() error)
 	PutKV(key string, val []byte) error
+	DeleteKV(key string) error
+	PrefixKV(prefix string) (iter.Seq[KeyValue], func() error)
 }
 
 type BlockMapEntry struct {

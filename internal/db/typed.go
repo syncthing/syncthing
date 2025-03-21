@@ -10,16 +10,8 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"errors"
-	"iter"
 	"time"
 )
-
-type KV interface {
-	GetKV(key string) ([]byte, error)
-	PutKV(key string, val []byte) error
-	DeleteKV(key string) error
-	PrefixKV(prefix string) (iter.Seq[KeyValue], func() error)
-}
 
 // Typed is a simple key-value store using a specific namespace within a
 // lower level KV.
