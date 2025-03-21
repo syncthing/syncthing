@@ -132,7 +132,7 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 		need, _ = c.model.NeedSize(folder, protocol.LocalDeviceID)
 		ro, _ = c.model.ReceiveOnlySize(folder)
 		ourSeq, _ = c.model.Sequence(folder, protocol.LocalDeviceID)
-		// remoteSeq = snap.RemoteSequences() XXX
+		remoteSeq, _ = c.model.RemoteSequences(folder)
 	}
 	// For API backwards compatibility (SyncTrayzor needs it) an empty folder
 	// summary is returned for not running folders, an error might actually be

@@ -122,6 +122,11 @@ func (m metricsDB) ListDevicesForFolder(folder string) ([]protocol.DeviceID, err
 	return m.DB.ListDevicesForFolder(folder)
 }
 
+func (m metricsDB) RemoteSequences(folder string) (map[protocol.DeviceID]int64, error) {
+	defer m.account(folder, "RemoteSequences")()
+	return m.DB.RemoteSequences(folder)
+}
+
 func (m metricsDB) DropAllFiles(folder string, device protocol.DeviceID) error {
 	defer m.account(folder, "DropAllFiles")()
 	return m.DB.DropAllFiles(folder, device)

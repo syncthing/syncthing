@@ -142,3 +142,55 @@ func TestBlocksDeleted(t *testing.T) {
 		t.Error("expected one hit")
 	}
 }
+
+func TestRemoteSequence(t *testing.T) {
+	t.Parallel()
+
+	sdb, err := OpenTemp()
+	if err != nil {
+		t.Fatal()
+	}
+	t.Cleanup(func() {
+		if err := sdb.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// Insert a local file
+	file := genFile("foo", 1, 0)
+	if err := sdb.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{file}); err != nil {
+		t.Fatal()
+	}
+
+	// Insert several remote files
+	file = genFile("foo1", 1, 42)
+	if err := sdb.Update(folderID, protocol.DeviceID{42}, []protocol.FileInfo{file}); err != nil {
+		t.Fatal()
+	}
+	if err := sdb.Update(folderID, protocol.DeviceID{43}, []protocol.FileInfo{file}); err != nil {
+		t.Fatal()
+	}
+	file = genFile("foo2", 1, 43)
+	if err := sdb.Update(folderID, protocol.DeviceID{43}, []protocol.FileInfo{file}); err != nil {
+		t.Fatal()
+	}
+	if err := sdb.Update(folderID, protocol.DeviceID{44}, []protocol.FileInfo{file}); err != nil {
+		t.Fatal()
+	}
+	file = genFile("foo3", 1, 44)
+	if err := sdb.Update(folderID, protocol.DeviceID{44}, []protocol.FileInfo{file}); err != nil {
+		t.Fatal()
+	}
+
+	// Verify remote sequences
+	seqs, err := sdb.RemoteSequences(folderID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(seqs) != 3 || seqs[protocol.DeviceID{42}] != 42 ||
+		seqs[protocol.DeviceID{43}] != 43 ||
+		seqs[protocol.DeviceID{44}] != 44 {
+		t.Log(seqs)
+		t.Error("bad seqs")
+	}
+}

@@ -48,6 +48,7 @@ type DB interface {
 	GetDeviceSequence(folder string, device protocol.DeviceID) (int64, error)
 	ListFolders() ([]string, error)
 	ListDevicesForFolder(folder string) ([]protocol.DeviceID, error)
+	RemoteSequences(folder string) (map[protocol.DeviceID]int64, error)
 
 	// Counts
 	CountGlobal(folder string) (Counts, error)

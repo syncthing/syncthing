@@ -490,6 +490,19 @@ type Model struct {
 		result1 []protocol.FileInfo
 		result2 error
 	}
+	RemoteSequencesStub        func(string) (map[protocol.DeviceID]int64, error)
+	remoteSequencesMutex       sync.RWMutex
+	remoteSequencesArgsForCall []struct {
+		arg1 string
+	}
+	remoteSequencesReturns struct {
+		result1 map[protocol.DeviceID]int64
+		result2 error
+	}
+	remoteSequencesReturnsOnCall map[int]struct {
+		result1 map[protocol.DeviceID]int64
+		result2 error
+	}
 	RequestStub        func(protocol.Connection, *protocol.Request) (protocol.RequestResponse, error)
 	requestMutex       sync.RWMutex
 	requestArgsForCall []struct {
@@ -2922,6 +2935,70 @@ func (fake *Model) RemoteNeedFolderFilesReturnsOnCall(i int, result1 []protocol.
 	}{result1, result2}
 }
 
+func (fake *Model) RemoteSequences(arg1 string) (map[protocol.DeviceID]int64, error) {
+	fake.remoteSequencesMutex.Lock()
+	ret, specificReturn := fake.remoteSequencesReturnsOnCall[len(fake.remoteSequencesArgsForCall)]
+	fake.remoteSequencesArgsForCall = append(fake.remoteSequencesArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	stub := fake.RemoteSequencesStub
+	fakeReturns := fake.remoteSequencesReturns
+	fake.recordInvocation("RemoteSequences", []interface{}{arg1})
+	fake.remoteSequencesMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Model) RemoteSequencesCallCount() int {
+	fake.remoteSequencesMutex.RLock()
+	defer fake.remoteSequencesMutex.RUnlock()
+	return len(fake.remoteSequencesArgsForCall)
+}
+
+func (fake *Model) RemoteSequencesCalls(stub func(string) (map[protocol.DeviceID]int64, error)) {
+	fake.remoteSequencesMutex.Lock()
+	defer fake.remoteSequencesMutex.Unlock()
+	fake.RemoteSequencesStub = stub
+}
+
+func (fake *Model) RemoteSequencesArgsForCall(i int) string {
+	fake.remoteSequencesMutex.RLock()
+	defer fake.remoteSequencesMutex.RUnlock()
+	argsForCall := fake.remoteSequencesArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *Model) RemoteSequencesReturns(result1 map[protocol.DeviceID]int64, result2 error) {
+	fake.remoteSequencesMutex.Lock()
+	defer fake.remoteSequencesMutex.Unlock()
+	fake.RemoteSequencesStub = nil
+	fake.remoteSequencesReturns = struct {
+		result1 map[protocol.DeviceID]int64
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Model) RemoteSequencesReturnsOnCall(i int, result1 map[protocol.DeviceID]int64, result2 error) {
+	fake.remoteSequencesMutex.Lock()
+	defer fake.remoteSequencesMutex.Unlock()
+	fake.RemoteSequencesStub = nil
+	if fake.remoteSequencesReturnsOnCall == nil {
+		fake.remoteSequencesReturnsOnCall = make(map[int]struct {
+			result1 map[protocol.DeviceID]int64
+			result2 error
+		})
+	}
+	fake.remoteSequencesReturnsOnCall[i] = struct {
+		result1 map[protocol.DeviceID]int64
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *Model) Request(arg1 protocol.Connection, arg2 *protocol.Request) (protocol.RequestResponse, error) {
 	fake.requestMutex.Lock()
 	ret, specificReturn := fake.requestReturnsOnCall[len(fake.requestArgsForCall)]
@@ -3838,6 +3915,8 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.receiveOnlySizeMutex.RUnlock()
 	fake.remoteNeedFolderFilesMutex.RLock()
 	defer fake.remoteNeedFolderFilesMutex.RUnlock()
+	fake.remoteSequencesMutex.RLock()
+	defer fake.remoteSequencesMutex.RUnlock()
 	fake.requestMutex.RLock()
 	defer fake.requestMutex.RUnlock()
 	fake.requestGlobalMutex.RLock()

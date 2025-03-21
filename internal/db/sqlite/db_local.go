@@ -62,6 +62,34 @@ func (s *DB) GetDeviceSequence(folder string, device protocol.DeviceID) (int64, 
 	return res.Int64, nil
 }
 
+func (s *DB) RemoteSequences(folder string) (map[protocol.DeviceID]int64, error) {
+	type row struct {
+		Device string
+		Seq    int64
+	}
+
+	it, errFn := iterStructs[row](s.stmt(`
+		SELECT d.device_id AS device, MAX(f.remote_sequence) AS seq FROM files f
+		INNER JOIN folders o ON o.idx = f.folder_idx
+		INNER JOIN devices d ON d.idx = f.device_idx
+		WHERE o.folder_id = ? AND remote_sequence IS NOT NULL
+		GROUP BY d.device_id
+	`).Queryx(folder))
+
+	res := make(map[protocol.DeviceID]int64)
+	for row, err := range itererr.Zip(it, errFn) {
+		if err != nil {
+			return nil, wrap(err)
+		}
+		dev, err := protocol.DeviceIDFromString(row.Device)
+		if err != nil {
+			return nil, wrap(err, "device ID")
+		}
+		res[dev] = row.Seq
+	}
+	return res, nil
+}
+
 func (s *DB) AllLocalFiles(folder string, device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error) {
 	it, errFn := iterStructs[indirectFI](s.stmt(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
