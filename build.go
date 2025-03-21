@@ -292,7 +292,7 @@ func runCommand(cmd string, target target) {
 		test(strings.Fields(extraTags), "github.com/syncthing/syncthing/internal/...", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
 
 	case "bench":
-		bench(strings.Fields(extraTags), "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
+		bench(strings.Fields(extraTags), "github.com/syncthing/syncthing/internal/...", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
 
 	case "integration":
 		integration(false)
