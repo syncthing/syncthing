@@ -23,7 +23,7 @@ var copyrightCheckExts = map[string]bool{
 }
 
 // Directories to search
-var copyrightCheckDirs = []string{".", "../cmd", "../lib", "../test", "../script"}
+var copyrightCheckDirs = []string{".", "../cmd", "../internal", "../lib", "../test", "../script"}
 
 // Valid copyright headers, searched for in the top five lines in each file.
 var copyrightRegexps = []string{
