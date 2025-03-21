@@ -443,7 +443,7 @@ func TestPrefixGlobbing(t *testing.T) {
 	if len(vals) != 4 {
 		t.Log(vals)
 		t.Error("expected four items")
-	} else if vals[0].Name != "test2" || vals[3].Name != "test2/b/c" {
+	} else if vals[0].Name != "test2" || vals[3].Name != filepath.FromSlash("test2/b/c") {
 		t.Error(vals)
 	}
 
