@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/timeutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -100,10 +101,9 @@ func BenchmarkUpdate(b *testing.B) {
 		b.Run(fmt.Sprintf("Insert100Rem@%d", size), func(b *testing.B) {
 			for range b.N {
 				for i := range fs {
-					clock++
 					fs[i].Blocks = genBlocks(fs[i].Name, seed, 64)
 					fs[i].Version = fs[i].Version.Update(42)
-					fs[i].Sequence = clock
+					fs[i].Sequence = timeutil.StrictlyMonotonicNanos()
 				}
 				if err := db.Update(folderID, protocol.DeviceID{42}, fs); err != nil {
 					b.Fatal(err)

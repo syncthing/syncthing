@@ -19,6 +19,7 @@ import (
 
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
+	"github.com/syncthing/syncthing/internal/timeutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -1093,20 +1094,20 @@ func genDir(name string, seq int) protocol.FileInfo {
 	}
 }
 
-var clock = time.Now().Unix()
-
 func genFile(name string, numBlocks int, seq int) protocol.FileInfo {
-	clock++
+	ts := timeutil.StrictlyMonotonicNanos()
+	s := ts / 1e9
+	ns := int32(ts % 1e9)
 	return protocol.FileInfo{
 		Name:         name,
 		Size:         int64(numBlocks) * blockSize,
-		ModifiedS:    clock,
+		ModifiedS:    s,
 		ModifiedBy:   1,
 		Version:      protocol.Vector{}.Update(1),
 		Sequence:     int64(seq),
 		Blocks:       genBlocks(name, 0, numBlocks),
 		Permissions:  0o644,
-		ModifiedNs:   12345678,
+		ModifiedNs:   ns,
 		RawBlockSize: blockSize,
 	}
 }
