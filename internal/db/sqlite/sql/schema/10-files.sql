@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS fileinfos (
 ;
 -- There can be only one file per folder, device, and remote sequence number
 CREATE UNIQUE INDEX IF NOT EXISTS files_remote_sequence ON files (folder_idx, device_idx, remote_sequence)
+    WHERE remote_sequence IS NOT NULL
 ;
 -- There can be only one file per folder, device, and name
 CREATE UNIQUE INDEX IF NOT EXISTS files_device_name ON files (folder_idx, device_idx, name)

@@ -45,17 +45,19 @@ func (s *DB) GetDeviceFile(folder string, device protocol.DeviceID, file string)
 
 func (s *DB) GetDeviceSequence(folder string, device protocol.DeviceID) (int64, error) {
 	field := "sequence"
+	extra := ""
 	if device != protocol.LocalDeviceID {
-		field = "remote_sequence"
+		field = "f.remote_sequence"
+		extra = "AND f.remote_sequence IS NOT NULL"
 	}
 
 	var res sql.NullInt64
 	err := s.stmt(fmt.Sprintf(`
-		SELECT MAX(f.%s) FROM files f
+		SELECT MAX(%s) FROM files f
 		INNER JOIN folders o ON o.idx = f.folder_idx
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ?
-	`, field)).Get(&res, folder, device.String())
+		WHERE o.folder_id = ? AND d.device_id = ? %s
+	`, field, extra)).Get(&res, folder, device.String())
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, nil
 	}
