@@ -22,7 +22,7 @@ func TestIndexIDs(t *testing.T) {
 	t.Run("LocalDeviceID", func(t *testing.T) {
 		t.Parallel()
 
-		localID, err := db.IndexIDGet("foo", protocol.LocalDeviceID)
+		localID, err := db.GetIndexID("foo", protocol.LocalDeviceID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -30,7 +30,7 @@ func TestIndexIDs(t *testing.T) {
 			t.Fatal("should have been generated")
 		}
 
-		again, err := db.IndexIDGet("foo", protocol.LocalDeviceID)
+		again, err := db.GetIndexID("foo", protocol.LocalDeviceID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -38,7 +38,7 @@ func TestIndexIDs(t *testing.T) {
 			t.Fatal("should get same again")
 		}
 
-		other, err := db.IndexIDGet("bar", protocol.LocalDeviceID)
+		other, err := db.GetIndexID("bar", protocol.LocalDeviceID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -50,7 +50,7 @@ func TestIndexIDs(t *testing.T) {
 	t.Run("OtherDeviceID", func(t *testing.T) {
 		t.Parallel()
 
-		localID, err := db.IndexIDGet("foo", protocol.DeviceID{42})
+		localID, err := db.GetIndexID("foo", protocol.DeviceID{42})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -59,11 +59,11 @@ func TestIndexIDs(t *testing.T) {
 		}
 
 		newID := protocol.NewIndexID()
-		if err := db.IndexIDSet("foo", protocol.DeviceID{42}, newID); err != nil {
+		if err := db.SetIndexID("foo", protocol.DeviceID{42}, newID); err != nil {
 			t.Fatal(err)
 		}
 
-		again, err := db.IndexIDGet("foo", protocol.DeviceID{42})
+		again, err := db.GetIndexID("foo", protocol.DeviceID{42})
 		if err != nil {
 			t.Fatal(err)
 		}

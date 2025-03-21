@@ -12,9 +12,9 @@ import (
 
 // The database is where we store the virtual mtimes
 type database interface {
-	MtimeGet(folder, name string) (ondisk, virtual time.Time)
-	MtimePut(folder, name string, ondisk, virtual time.Time) error
-	MtimeDelete(folder, name string) error
+	GetMtime(folder, name string) (ondisk, virtual time.Time)
+	PutMtime(folder, name string, ondisk, virtual time.Time) error
+	DeleteMtime(folder, name string) error
 }
 
 type mtimeFS struct {
@@ -155,11 +155,11 @@ func (f *mtimeFS) save(name string, ondisk, virtual time.Time) {
 	if ondisk.Equal(virtual) {
 		// If the virtual time and the real on disk time are equal we don't
 		// need to store anything.
-		_ = f.db.MtimeDelete(f.folderID, name)
+		_ = f.db.DeleteMtime(f.folderID, name)
 		return
 	}
 
-	_ = f.db.MtimePut(f.folderID, name, ondisk, virtual)
+	_ = f.db.PutMtime(f.folderID, name, ondisk, virtual)
 }
 
 func (f *mtimeFS) load(name string) (ondisk, virtual time.Time) {
@@ -167,7 +167,7 @@ func (f *mtimeFS) load(name string) (ondisk, virtual time.Time) {
 		name = UnicodeLowercaseNormalized(name)
 	}
 
-	return f.db.MtimeGet(f.folderID, name)
+	return f.db.GetMtime(f.folderID, name)
 }
 
 // The mtimeFileInfo is an os.FileInfo that lies about the ModTime().

@@ -7,7 +7,7 @@ import (
 	"github.com/syncthing/syncthing/internal/db"
 )
 
-func (s *DB) KVGet(key string) ([]byte, error) {
+func (s *DB) GetKV(key string) ([]byte, error) {
 	var val []byte
 	if err := s.stmt(`
 		SELECT value FROM kv
@@ -18,7 +18,7 @@ func (s *DB) KVGet(key string) ([]byte, error) {
 	return val, nil
 }
 
-func (s *DB) KVPut(key string, val []byte) error {
+func (s *DB) PutKV(key string, val []byte) error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
 	_, err := s.stmt(`
@@ -28,7 +28,7 @@ func (s *DB) KVPut(key string, val []byte) error {
 	return wrap(err)
 }
 
-func (s *DB) KVDelete(key string) error {
+func (s *DB) DeleteKV(key string) error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
 	_, err := s.stmt(`
@@ -37,7 +37,7 @@ func (s *DB) KVDelete(key string) error {
 	return wrap(err)
 }
 
-func (s *DB) KVPrefix(prefix string) (iter.Seq[db.KeyValue], func() error) {
+func (s *DB) PrefixKV(prefix string) (iter.Seq[db.KeyValue], func() error) {
 	var rows *sqlx.Rows
 	var err error
 	if prefix == "" {

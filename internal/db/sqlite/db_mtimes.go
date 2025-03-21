@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-func (s *DB) MtimeGet(folder, name string) (ondisk, virtual time.Time) {
+func (s *DB) GetMtime(folder, name string) (ondisk, virtual time.Time) {
 	var res struct {
 		Ondisk  int64
 		Virtual int64
@@ -19,7 +19,7 @@ func (s *DB) MtimeGet(folder, name string) (ondisk, virtual time.Time) {
 	return time.Unix(0, res.Ondisk), time.Unix(0, res.Virtual)
 }
 
-func (s *DB) MtimePut(folder, name string, ondisk, virtual time.Time) error {
+func (s *DB) PutMtime(folder, name string, ondisk, virtual time.Time) error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
 	folderIdx, err := s.folderIdxLocked(folder)
@@ -33,7 +33,7 @@ func (s *DB) MtimePut(folder, name string, ondisk, virtual time.Time) error {
 	return wrap(err)
 }
 
-func (s *DB) MtimeDelete(folder, name string) error {
+func (s *DB) DeleteMtime(folder, name string) error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
 	folderIdx, err := s.folderIdxLocked(folder)

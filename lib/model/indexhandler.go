@@ -52,7 +52,7 @@ type indexHandler struct {
 }
 
 func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, folder config.FolderConfiguration, sdb db.DB, runner service, startInfo *clusterConfigDeviceInfo, evLogger events.Logger) (*indexHandler, error) {
-	myIndexID, err := sdb.IndexIDGet(folder.ID, protocol.LocalDeviceID)
+	myIndexID, err := sdb.GetIndexID(folder.ID, protocol.LocalDeviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 	// otherwise we drop our old index data and expect to get a
 	// completely new set.
 
-	theirIndexID, _ := sdb.IndexIDGet(folder.ID, conn.DeviceID())
+	theirIndexID, _ := sdb.GetIndexID(folder.ID, conn.DeviceID())
 	if startInfo.remote.IndexID == 0 {
 		// They're not announcing an index ID. This means they
 		// do not support delta indexes and we should clear any
@@ -115,7 +115,7 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 		// instead.
 		l.Infof("Device %v folder %s has a new index ID (%v)", conn.DeviceID().Short(), folder.Description(), startInfo.remote.IndexID)
 		sdb.DropAllFiles(folder.ID, conn.DeviceID())
-		sdb.IndexIDSet(folder.ID, conn.DeviceID(), startInfo.remote.IndexID)
+		sdb.SetIndexID(folder.ID, conn.DeviceID(), startInfo.remote.IndexID)
 	}
 
 	return &indexHandler{

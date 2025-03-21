@@ -228,17 +228,17 @@ func TestMtimeFSInsensitive(t *testing.T) {
 
 type mapStore map[string][2]time.Time
 
-func (s mapStore) MtimePut(_, name string, real, virtual time.Time) error {
+func (s mapStore) PutMtime(_, name string, real, virtual time.Time) error {
 	s[name] = [2]time.Time{real, virtual}
 	return nil
 }
 
-func (s mapStore) MtimeGet(_, name string) (real, virtual time.Time) {
+func (s mapStore) GetMtime(_, name string) (real, virtual time.Time) {
 	v := s[name]
 	return v[0], v[1]
 }
 
-func (s mapStore) MtimeDelete(_, name string) error {
+func (s mapStore) DeleteMtime(_, name string) error {
 	delete(s, name)
 	return nil
 }

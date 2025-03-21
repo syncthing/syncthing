@@ -147,9 +147,9 @@ func (m metricsDB) DropFolder(folder string) error {
 	return m.DB.DropFolder(folder)
 }
 
-func (m metricsDB) IndexIDDropAll() error {
+func (m metricsDB) DropAllIndexIDs() error {
 	defer m.account("-", "IndexIDDropAll")()
-	return m.DB.IndexIDDropAll()
+	return m.DB.DropAllIndexIDs()
 }
 
 func (m metricsDB) ListFolders() ([]string, error) {
@@ -167,9 +167,9 @@ func (m metricsDB) CountGlobal(folder string) (Counts, error) {
 	return m.DB.CountGlobal(folder)
 }
 
-func (m metricsDB) IndexIDGet(folder string, device protocol.DeviceID) (protocol.IndexID, error) {
+func (m metricsDB) GetIndexID(folder string, device protocol.DeviceID) (protocol.IndexID, error) {
 	defer m.account(folder, "IndexIDGet")()
-	return m.DB.IndexIDGet(folder, device)
+	return m.DB.GetIndexID(folder, device)
 }
 
 func (m metricsDB) GetDeviceFile(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {
@@ -197,9 +197,9 @@ func (m metricsDB) GetDeviceSequence(folder string, device protocol.DeviceID) (i
 	return m.DB.GetDeviceSequence(folder, device)
 }
 
-func (m metricsDB) IndexIDSet(folder string, device protocol.DeviceID, id protocol.IndexID) error {
+func (m metricsDB) SetIndexID(folder string, device protocol.DeviceID, id protocol.IndexID) error {
 	defer m.account(folder, "IndexIDSet")()
-	return m.DB.IndexIDSet(folder, device, id)
+	return m.DB.SetIndexID(folder, device, id)
 }
 
 func (m metricsDB) Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error {
@@ -208,22 +208,22 @@ func (m metricsDB) Update(folder string, device protocol.DeviceID, fs []protocol
 	return m.DB.Update(folder, device, fs)
 }
 
-func (m metricsDB) KVGet(key string) ([]byte, error) {
-	defer m.account("-", "KVGet")()
-	return m.DB.KVGet(key)
+func (m metricsDB) GetKV(key string) ([]byte, error) {
+	defer m.account("-", "GetKV")()
+	return m.DB.GetKV(key)
 }
 
-func (m metricsDB) KVPut(key string, val []byte) error {
-	defer m.account("-", "KVPut")()
-	return m.DB.KVPut(key, val)
+func (m metricsDB) PutKV(key string, val []byte) error {
+	defer m.account("-", "PutKV")()
+	return m.DB.PutKV(key, val)
 }
 
-func (m metricsDB) KVDelete(key string) error {
-	defer m.account("-", "KVDelete")()
-	return m.DB.KVDelete(key)
+func (m metricsDB) DeleteKV(key string) error {
+	defer m.account("-", "DeleteKV")()
+	return m.DB.DeleteKV(key)
 }
 
-func (m metricsDB) KVPrefix(prefix string) (iter.Seq[KeyValue], func() error) {
-	defer m.account("-", "KVPrefix")()
-	return m.DB.KVPrefix(prefix)
+func (m metricsDB) PrefixKV(prefix string) (iter.Seq[KeyValue], func() error) {
+	defer m.account("-", "PrefixKV")()
+	return m.DB.PrefixKV(prefix)
 }

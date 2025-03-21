@@ -2623,10 +2623,10 @@ func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protoco
 			}
 
 			if deviceCfg.DeviceID == m.id {
-				protocolDevice.IndexID, _ = m.sdb.IndexIDGet(folderCfg.ID, protocol.LocalDeviceID)
+				protocolDevice.IndexID, _ = m.sdb.GetIndexID(folderCfg.ID, protocol.LocalDeviceID)
 				protocolDevice.MaxSequence, _ = m.sdb.GetDeviceSequence(folderCfg.ID, protocol.LocalDeviceID)
 			} else {
-				protocolDevice.IndexID, _ = m.sdb.IndexIDGet(folderCfg.ID, deviceCfg.DeviceID)
+				protocolDevice.IndexID, _ = m.sdb.GetIndexID(folderCfg.ID, deviceCfg.DeviceID)
 				protocolDevice.MaxSequence, _ = m.sdb.GetDeviceSequence(folderCfg.ID, deviceCfg.DeviceID)
 			}
 

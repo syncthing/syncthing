@@ -228,7 +228,7 @@ func TryMigrateDatabase(sdb newdb.DB, miscDB *db.Typed, oldDBDir string) error {
 	}
 
 	l.Infoln("Migrating virtual mtimes...")
-	if err := ll.IterateMtimes(sdb.MtimePut); err != nil {
+	if err := ll.IterateMtimes(sdb.PutMtime); err != nil {
 		l.Warnln("Failed to migrate mtimes:", err)
 	}
 

@@ -57,20 +57,20 @@ type DB interface {
 	CountReceiveOnlyChanged(folder string) (Counts, error)
 
 	// Index IDs
-	IndexIDDropAll() error
-	IndexIDGet(folder string, device protocol.DeviceID) (protocol.IndexID, error)
-	IndexIDSet(folder string, device protocol.DeviceID, id protocol.IndexID) error
+	DropAllIndexIDs() error
+	GetIndexID(folder string, device protocol.DeviceID) (protocol.IndexID, error)
+	SetIndexID(folder string, device protocol.DeviceID, id protocol.IndexID) error
 
 	// MtimeFS
-	MtimeDelete(folder, name string) error
-	MtimeGet(folder, name string) (ondisk, virtual time.Time)
-	MtimePut(folder, name string, ondisk, virtual time.Time) error
+	DeleteMtime(folder, name string) error
+	GetMtime(folder, name string) (ondisk, virtual time.Time)
+	PutMtime(folder, name string, ondisk, virtual time.Time) error
 
 	// Generic KV
-	KVDelete(key string) error
-	KVGet(key string) ([]byte, error)
-	KVPrefix(prefix string) (iter.Seq[KeyValue], func() error)
-	KVPut(key string, val []byte) error
+	DeleteKV(key string) error
+	GetKV(key string) ([]byte, error)
+	PrefixKV(prefix string) (iter.Seq[KeyValue], func() error)
+	PutKV(key string, val []byte) error
 }
 
 type BlockMapEntry struct {
