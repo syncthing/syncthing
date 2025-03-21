@@ -1099,7 +1099,9 @@ func (m *model) LocalChangedFolderFiles(folder string, page, perpage int) ([]pro
 	p := newPager(page, perpage)
 	files := make([]protocol.FileInfo, 0, perpage)
 
-	it, errFn := m.sdb.AllLocalFiles(folder, protocol.LocalDeviceID) // XXX: can be more efficient by checking flags in select
+	// This could be made more efficient with a specifically targeted DB
+	// call
+	it, errFn := m.sdb.AllLocalFiles(folder, protocol.LocalDeviceID)
 	for f := range it {
 		if !f.IsReceiveOnlyChanged() {
 			continue

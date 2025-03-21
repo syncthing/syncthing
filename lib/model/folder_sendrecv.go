@@ -578,7 +578,11 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	// that don't result in a conflict.
 	case err == nil && !info.IsDir():
 		// Check that it is what we have in the database.
-		curFile, hasCurFile, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name) // XXX: error
+		curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
+		if err != nil {
+			f.newPullError(file.Name, fmt.Errorf("handling dir: %w", err))
+			return
+		}
 		if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, false, scanChan); err != nil {
 			f.newPullError(file.Name, fmt.Errorf("handling dir: %w", err))
 			return
@@ -727,8 +731,8 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 	}()
 
 	if shouldDebug() {
-		curFile, _, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name) // XXX error
-		l.Debugf("need symlink\n\t%v\n\t%v", file, curFile)
+		curFile, ok, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
+		l.Debugf("need symlink\n\t%v\n\t%v", file, curFile, ok)
 	}
 
 	if len(file.SymlinkTarget) == 0 {
@@ -769,7 +773,10 @@ func (f *sendReceiveFolder) handleSymlinkCheckExisting(file protocol.FileInfo, s
 		return err
 	}
 	// Check that it is what we have in the database.
-	curFile, hasCurFile, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name) // XXX error
+	curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
+	if err != nil {
+		return err
+	}
 	if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, false, scanChan); err != nil {
 		return err
 	}
@@ -815,7 +822,10 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, dbUpdateChan chan<
 		})
 	}()
 
-	cur, hasCur, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name) // XXX error
+	cur, hasCur, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
+	if err != nil {
+		return
+	}
 
 	if err = f.checkToBeDeleted(file, cur, hasCur, scanChan); err != nil {
 		if fs.IsNotExist(err) || fs.IsErrCaseConflict(err) {
@@ -834,7 +844,11 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, dbUpdateChan chan<
 
 // deleteFile attempts to delete the given file
 func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
-	cur, hasCur, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name) // XXX error
+	cur, hasCur, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
+	if err != nil {
+		f.newPullError(file.Name, fmt.Errorf("delete file: %w", err))
+		return
+	}
 	f.deleteFileWithCurrent(file, cur, hasCur, dbUpdateChan, scanChan)
 }
 
@@ -955,7 +969,10 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 		return err
 	}
 	// Check that the target corresponds to what we have in the DB
-	curTarget, ok, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, target.Name) // XXX error
+	curTarget, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, target.Name)
+	if err != nil {
+		return err
+	}
 	switch stat, serr := f.mtimefs.Lstat(target.Name); {
 	case serr != nil:
 		var caseErr *fs.ErrCaseConflict
