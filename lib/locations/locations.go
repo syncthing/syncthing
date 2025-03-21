@@ -255,14 +255,16 @@ func unixDataDir(userHome, configDir, xdgDataHome, xdgStateHome string, fileExis
 	// but that's not what we did previously, so we retain the old behavior.
 	if xdgDataHome != "" {
 		candidate := filepath.Join(xdgDataHome, "syncthing")
-		if fileExists(filepath.Join(candidate, levelDBDir)) || fileExists(filepath.Join(candidate, databaseName)) {
+		if fileExists(filepath.Join(candidate, databaseName)) ||
+			fileExists(filepath.Join(candidate, levelDBDir)) {
 			return candidate
 		}
 	}
 
 	// Legacy: if a database exists under ~/.config/syncthing, use that
 	candidate := filepath.Join(userHome, oldDefaultConfigDir)
-	if fileExists(filepath.Join(candidate, levelDBDir)) || fileExists(filepath.Join(candidate, databaseName)) {
+	if fileExists(filepath.Join(candidate, databaseName)) ||
+		fileExists(filepath.Join(candidate, levelDBDir)) {
 		return candidate
 	}
 
