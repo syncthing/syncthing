@@ -156,7 +156,7 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
-// Opens a database and attempts migrating the legacy database to the new database format.
+// Opens a database
 func OpenDatabase(path string) (newdb.DB, error) {
 	sql, err := sqlite.Open(path)
 	if err != nil {
@@ -168,17 +168,20 @@ func OpenDatabase(path string) (newdb.DB, error) {
 	return sdb, nil
 }
 
-func TryMigrateDatabase(sdb newdb.DB, miscDB *db.Typed, oldDBDir string) error {
+// Attempts migration of the old (LevelDB-based) database type to the new (SQLite-based) type
+func TryMigrateDatabase(sdb newdb.DB, oldDBDir string) error {
 	if _, err := os.Lstat(oldDBDir); err != nil {
 		// No old database
 		return nil
 	}
+
 	be, err := backend.OpenLevelDBRO(oldDBDir)
 	if err != nil {
 		// Apparently, not a valid old database
 		return nil
 	}
 
+	miscDB := db.NewMiscDB(sdb)
 	if when, ok, err := miscDB.Time("migrated-from-leveldb-at"); err == nil && ok {
 		l.Warnf("Old-style database present but already migrated at %v; please manually move or remove %s.", when, oldDBDir)
 		return nil
