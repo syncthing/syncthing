@@ -599,8 +599,7 @@ func syncthingMain(options serveOptions) {
 		os.Exit(1)
 	}
 
-	miscDB := db.NewMiscDB(sdb)
-	if err := syncthing.TryMigrateDatabase(sdb, miscDB, locations.Get(locations.LegacyDatabase)); err != nil {
+	if err := syncthing.TryMigrateDatabase(sdb, locations.Get(locations.LegacyDatabase)); err != nil {
 		l.Warnln("Failed to migrate old-style database:", err)
 		os.Exit(1)
 	}
@@ -611,6 +610,7 @@ func syncthingMain(options serveOptions) {
 	autoUpgradePossible := autoUpgradePossible(options)
 	if autoUpgradePossible && cfgWrapper.Options().AutoUpgradeEnabled() {
 		// try to do upgrade directly and log the error if relevant.
+		miscDB := db.NewMiscDB(sdb)
 		release, err := initialAutoUpgradeCheck(miscDB)
 		if err == nil {
 			err = upgrade.To(release)
