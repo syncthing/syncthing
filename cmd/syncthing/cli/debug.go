@@ -41,5 +41,4 @@ func (p *profileCommand) Run(ctx Context) error {
 type debugCommand struct {
 	File    fileCommand    `cmd:"" help:"Show information about a file (or directory/symlink)"`
 	Profile profileCommand `cmd:"" help:"Save a profile to help figuring out what Syncthing does"`
-	Index   indexCommand   `cmd:"" help:"Show information about the index (database)"`
 }

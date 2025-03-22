@@ -14,9 +14,9 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/gen/apiproto"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -24,7 +24,7 @@ import (
 
 type tokenManager struct {
 	key      string
-	miscDB   *db.NamespacedKV
+	miscDB   *db.Typed
 	lifetime time.Duration
 	maxItems int
 
@@ -35,7 +35,7 @@ type tokenManager struct {
 	saveTimer *time.Timer
 }
 
-func newTokenManager(key string, miscDB *db.NamespacedKV, lifetime time.Duration, maxItems int) *tokenManager {
+func newTokenManager(key string, miscDB *db.Typed, lifetime time.Duration, maxItems int) *tokenManager {
 	var tokens apiproto.TokenSet
 	if bs, ok, _ := miscDB.Bytes(key); ok {
 		_ = proto.Unmarshal(bs, &tokens) // best effort
@@ -152,7 +152,7 @@ type tokenCookieManager struct {
 	tokens     *tokenManager
 }
 
-func newTokenCookieManager(shortID string, guiCfg config.GUIConfiguration, evLogger events.Logger, miscDB *db.NamespacedKV) *tokenCookieManager {
+func newTokenCookieManager(shortID string, guiCfg config.GUIConfiguration, evLogger events.Logger, miscDB *db.Typed) *tokenCookieManager {
 	return &tokenCookieManager{
 		cookieName: "sessionid-" + shortID,
 		shortID:    shortID,

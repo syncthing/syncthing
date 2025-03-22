@@ -12,9 +12,15 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
+	"github.com/syncthing/syncthing/internal/db"
+	newdb "github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/db/olddb"
+	"github.com/syncthing/syncthing/internal/db/olddb/backend"
+	"github.com/syncthing/syncthing/internal/db/sqlite"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
@@ -150,6 +156,92 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
-func OpenDBBackend(path string, tuning config.Tuning) (backend.Backend, error) {
-	return backend.Open(path, backend.Tuning(tuning))
+// Opens a database
+func OpenDatabase(path string) (newdb.DB, error) {
+	sql, err := sqlite.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	sdb := newdb.MetricsWrap(sql)
+
+	return sdb, nil
+}
+
+// Attempts migration of the old (LevelDB-based) database type to the new (SQLite-based) type
+func TryMigrateDatabase(sdb newdb.DB, oldDBDir string) error {
+	if _, err := os.Lstat(oldDBDir); err != nil {
+		// No old database
+		return nil
+	}
+
+	be, err := backend.OpenLevelDBRO(oldDBDir)
+	if err != nil {
+		// Apparently, not a valid old database
+		return nil
+	}
+
+	miscDB := db.NewMiscDB(sdb)
+	if when, ok, err := miscDB.Time("migrated-from-leveldb-at"); err == nil && ok {
+		l.Warnf("Old-style database present but already migrated at %v; please manually move or remove %s.", when, oldDBDir)
+		return nil
+	}
+
+	l.Infoln("Migrating old-style database to SQLite; this may take a while...")
+
+	ll, err := olddb.NewLowlevel(be)
+	if err != nil {
+		return err
+	}
+
+	for _, folder := range ll.ListFolders() {
+		l.Infoln("Migrating folder", folder, "...")
+		var batch []protocol.FileInfo
+		fs, err := olddb.NewFileSet(folder, ll)
+		if err != nil {
+			return err
+		}
+
+		snap, err := fs.Snapshot()
+		if err != nil {
+			return err
+		}
+
+		err = nil
+		_ = snap.WithHaveSequence(0, func(f protocol.FileInfo) bool {
+			batch = append(batch, f)
+			if len(batch) == 1000 {
+				if err = sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
+					return false
+				}
+				batch = batch[:0]
+			}
+			return true
+		})
+		if err != nil {
+			return err
+		}
+
+		if len(batch) > 0 {
+			if err := sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
+				return err
+			}
+		}
+		snap.Release()
+	}
+
+	l.Infoln("Migrating virtual mtimes...")
+	if err := ll.IterateMtimes(sdb.PutMtime); err != nil {
+		l.Warnln("Failed to migrate mtimes:", err)
+	}
+
+	_ = miscDB.PutTime("migrated-from-leveldb-at", time.Now())
+	_ = miscDB.PutString("migrated-from-leveldb-by", build.LongVersion)
+
+	l.Infoln("Migration complete")
+	be.Close()
+
+	_ = os.Rename(oldDBDir, oldDBDir+"-migrated")
+
+	return nil
 }
