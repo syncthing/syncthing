@@ -3,6 +3,7 @@ name: Build Syncthing
 on:
   pull_request:
   push:
+  workflow_call:
   workflow_dispatch:
 
 env:
