@@ -170,7 +170,8 @@ func OpenDatabase(path string) (newdb.DB, error) {
 }
 
 // Attempts migration of the old (LevelDB-based) database type to the new (SQLite-based) type
-func TryMigrateDatabase(sdb newdb.DB, oldDBDir string) error {
+func TryMigrateDatabase() error {
+	oldDBDir := locations.Get(locations.LegacyDatabase)
 	if _, err := os.Lstat(oldDBDir); err != nil {
 		// No old database
 		return nil
@@ -180,6 +181,11 @@ func TryMigrateDatabase(sdb newdb.DB, oldDBDir string) error {
 	if err != nil {
 		// Apparently, not a valid old database
 		return nil
+	}
+
+	sdb, err := sqlite.OpenForMigration(locations.Get(locations.Database))
+	if err != nil {
+		return err
 	}
 
 	miscDB := db.NewMiscDB(sdb)
@@ -196,6 +202,7 @@ func TryMigrateDatabase(sdb newdb.DB, oldDBDir string) error {
 		return err
 	}
 
+	totFiles, totBlocks := 0, 0
 	for _, folder := range ll.ListFolders() {
 		// Start a writer routine
 		fis := make(chan protocol.FileInfo, 50)
@@ -205,12 +212,13 @@ func TryMigrateDatabase(sdb newdb.DB, oldDBDir string) error {
 		go func() {
 			defer wg.Done()
 			var batch []protocol.FileInfo
-			count := 0
+			files, blocks := 0, 0
 			t0 := time.Now()
 			t1 := time.Now()
 			for fi := range fis {
 				batch = append(batch, fi)
-				count++
+				files++
+				blocks += len(fi.Blocks)
 				if len(batch) == 1000 {
 					writeErr = sdb.Update(folder, protocol.LocalDeviceID, batch)
 					if writeErr != nil {
@@ -220,7 +228,7 @@ func TryMigrateDatabase(sdb newdb.DB, oldDBDir string) error {
 					if time.Since(t1) > 10*time.Second {
 						d := time.Since(t0) + 1
 						t1 = time.Now()
-						l.Infof("Migrating folder %s... (%d files in %v, %.01f files/s)", folder, count, d.Truncate(time.Millisecond), float64(count)/d.Seconds())
+						l.Infof("Migrating folder %s... (%d files and %dk blocks in %v, %.01f files/s)", folder, files, blocks/1000, d.Truncate(time.Second), float64(files)/d.Seconds())
 					}
 				}
 			}
@@ -228,7 +236,9 @@ func TryMigrateDatabase(sdb newdb.DB, oldDBDir string) error {
 				writeErr = sdb.Update(folder, protocol.LocalDeviceID, batch)
 			}
 			d := time.Since(t0) + 1
-			l.Infof("Migrated folder %s; %d files in %v, %.01f files/s", folder, count, d.Truncate(time.Millisecond), float64(count)/d.Seconds())
+			l.Infof("Migrated folder %s; %d files and %dk blocks in %v, %.01f files/s", folder, files, blocks/1000, d.Truncate(time.Second), float64(files)/d.Seconds())
+			totFiles += files
+			totBlocks += blocks
 		}()
 
 		// Iterate the existing files
@@ -263,8 +273,9 @@ func TryMigrateDatabase(sdb newdb.DB, oldDBDir string) error {
 	_ = miscDB.PutString("migrated-from-leveldb-by", build.LongVersion)
 
 	be.Close()
+	sdb.Close()
 	_ = os.Rename(oldDBDir, oldDBDir+"-migrated")
 
-	l.Infoln("Migration complete in", time.Since(t0))
+	l.Infof("Migration complete, %d files and %dk blocks in %s", totFiles, totBlocks/1000, time.Since(t0).Truncate(time.Second))
 	return nil
 }

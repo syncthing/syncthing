@@ -593,14 +593,14 @@ func syncthingMain(options serveOptions) {
 		})
 	}
 
-	sdb, err := syncthing.OpenDatabase(locations.Get(locations.Database))
-	if err != nil {
-		l.Warnln("Error opening database:", err)
+	if err := syncthing.TryMigrateDatabase(); err != nil {
+		l.Warnln("Failed to migrate old-style database:", err)
 		os.Exit(1)
 	}
 
-	if err := syncthing.TryMigrateDatabase(sdb, locations.Get(locations.LegacyDatabase)); err != nil {
-		l.Warnln("Failed to migrate old-style database:", err)
+	sdb, err := syncthing.OpenDatabase(locations.Get(locations.Database))
+	if err != nil {
+		l.Warnln("Error opening database:", err)
 		os.Exit(1)
 	}
 

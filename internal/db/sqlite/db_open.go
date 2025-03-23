@@ -29,6 +29,39 @@ func Open(path string) (*DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
+	sqlDB.SetMaxOpenConns(maxDBConns)
+	if _, err := sqlDB.Exec(`PRAGMA journal_mode = WAL`); err != nil {
+		return nil, wrap(err, "PRAGMA journal_mode")
+	}
+	if _, err := sqlDB.Exec(`PRAGMA optimize = 0x10002`); err != nil {
+		// https://www.sqlite.org/pragma.html#pragma_optimize
+		return nil, wrap(err, "PRAGMA optimize")
+	}
+	if _, err := sqlDB.Exec(`PRAGMA journal_size_limit = 6144000`); err != nil {
+		// https://www.powersync.com/blog/sqlite-optimizations-for-ultra-high-performance
+		return nil, wrap(err, "PRAGMA journal_size_limit")
+	}
+	return openCommon(sqlDB)
+}
+
+// Open the database with options suitable for the migration inserts. This
+// is not a safe mode of operation for normal processing, use only for bulk
+// inserts with a close afterwards.
+func OpenForMigration(path string) (*DB, error) {
+	sqlDB, err := sqlx.Open(dbDriver, "file:"+path+"?"+commonOptions)
+	if err != nil {
+		return nil, fmt.Errorf("open database: %w", err)
+	}
+	sqlDB.SetMaxOpenConns(1)
+	if _, err := sqlDB.Exec(`PRAGMA foreign_keys = 0`); err != nil {
+		return nil, err
+	}
+	if _, err := sqlDB.Exec(`PRAGMA journal_mode = OFF`); err != nil {
+		return nil, err
+	}
+	if _, err := sqlDB.Exec(`PRAGMA synchronous = 0`); err != nil {
+		return nil, err
+	}
 	return openCommon(sqlDB)
 }
 
@@ -46,9 +79,6 @@ func OpenTemp() (*DB, error) {
 }
 
 func openCommon(sqlDB *sqlx.DB) (*DB, error) {
-	if _, err := sqlDB.Exec(`PRAGMA journal_mode = WAL`); err != nil {
-		return nil, wrap(err, "PRAGMA journal_mode")
-	}
 	if _, err := sqlDB.Exec(`PRAGMA auto_vacuum = INCREMENTAL`); err != nil {
 		return nil, wrap(err, "PRAGMA auto_vacuum")
 	}
@@ -58,16 +88,6 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 	if _, err := sqlDB.Exec(`PRAGMA temp_store = MEMORY`); err != nil {
 		return nil, wrap(err, "PRAGMA temp_store")
 	}
-	if _, err := sqlDB.Exec(`PRAGMA optimize = 0x10002`); err != nil {
-		// https://www.sqlite.org/pragma.html#pragma_optimize
-		return nil, wrap(err, "PRAGMA optimize")
-	}
-	if _, err := sqlDB.Exec(`PRAGMA journal_size_limit = 6144000`); err != nil {
-		// https://www.powersync.com/blog/sqlite-optimizations-for-ultra-high-performance
-		return nil, wrap(err, "PRAGMA journal_size_limit")
-	}
-
-	sqlDB.SetMaxOpenConns(maxDBConns)
 
 	db := &DB{
 		sql:        sqlDB,
