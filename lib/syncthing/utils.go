@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
@@ -188,6 +189,7 @@ func TryMigrateDatabase(sdb newdb.DB, oldDBDir string) error {
 	}
 
 	l.Infoln("Migrating old-style database to SQLite; this may take a while...")
+	t0 := time.Now()
 
 	ll, err := olddb.NewLowlevel(be)
 	if err != nil {
@@ -195,39 +197,61 @@ func TryMigrateDatabase(sdb newdb.DB, oldDBDir string) error {
 	}
 
 	for _, folder := range ll.ListFolders() {
-		l.Infoln("Migrating folder", folder, "...")
-		var batch []protocol.FileInfo
+		// Start a writer routine
+		fis := make(chan protocol.FileInfo, 50)
+		var writeErr error
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var batch []protocol.FileInfo
+			count := 0
+			t0 := time.Now()
+			t1 := time.Now()
+			for fi := range fis {
+				batch = append(batch, fi)
+				count++
+				if len(batch) == 1000 {
+					writeErr = sdb.Update(folder, protocol.LocalDeviceID, batch)
+					if writeErr != nil {
+						return
+					}
+					batch = batch[:0]
+					if time.Since(t1) > 10*time.Second {
+						d := time.Since(t0) + 1
+						t1 = time.Now()
+						l.Infof("Migrating folder %s... (%d files in %v, %.01f files/s)", folder, count, d.Truncate(time.Millisecond), float64(count)/d.Seconds())
+					}
+				}
+			}
+			if len(batch) > 0 {
+				writeErr = sdb.Update(folder, protocol.LocalDeviceID, batch)
+			}
+			d := time.Since(t0) + 1
+			l.Infof("Migrated folder %s; %d files in %v, %.01f files/s", folder, count, d.Truncate(time.Millisecond), float64(count)/d.Seconds())
+		}()
+
+		// Iterate the existing files
 		fs, err := olddb.NewFileSet(folder, ll)
 		if err != nil {
 			return err
 		}
-
 		snap, err := fs.Snapshot()
 		if err != nil {
 			return err
 		}
-
-		err = nil
-		_ = snap.WithHaveSequence(0, func(f protocol.FileInfo) bool {
-			batch = append(batch, f)
-			if len(batch) == 1000 {
-				if err = sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
-					return false
-				}
-				batch = batch[:0]
-			}
+		_ = snap.WithHaveSequence(0, func(fi protocol.FileInfo) bool {
+			fis <- fi
 			return true
 		})
-		if err != nil {
-			return err
-		}
-
-		if len(batch) > 0 {
-			if err := sdb.Update(folder, protocol.LocalDeviceID, batch); err != nil {
-				return err
-			}
-		}
+		close(fis)
 		snap.Release()
+
+		// Wait for writes to complete
+		wg.Wait()
+		if writeErr != nil {
+			return writeErr
+		}
 	}
 
 	l.Infoln("Migrating virtual mtimes...")
@@ -238,10 +262,9 @@ func TryMigrateDatabase(sdb newdb.DB, oldDBDir string) error {
 	_ = miscDB.PutTime("migrated-from-leveldb-at", time.Now())
 	_ = miscDB.PutString("migrated-from-leveldb-by", build.LongVersion)
 
-	l.Infoln("Migration complete")
 	be.Close()
-
 	_ = os.Rename(oldDBDir, oldDBDir+"-migrated")
 
+	l.Infoln("Migration complete in", time.Since(t0))
 	return nil
 }
