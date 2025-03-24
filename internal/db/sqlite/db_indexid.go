@@ -27,7 +27,7 @@ func (s *DB) GetIndexID(folder string, device protocol.DeviceID) (protocol.Index
 		WHERE o.folder_id = ? AND d.device_id = ?
 	`).Get(&indexID, folder, device.String()); err == nil && indexID != "" {
 		idx, err := indexIDFromHex(indexID)
-		return idx, wrap(err)
+		return idx, wrap(err, "select")
 	}
 	if device != protocol.LocalDeviceID {
 		// For non-local devices we do not create the index ID, so return
@@ -48,7 +48,7 @@ func (s *DB) GetIndexID(folder string, device protocol.DeviceID) (protocol.Index
 	if err := s.stmt(`
 		SELECT index_id FROM indexids WHERE folder_idx = ? AND device_idx = {{.LocalDeviceIdx}}
 	`).Get(&indexID, folderIdx); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return 0, wrap(err)
+		return 0, wrap(err, "select local")
 	}
 
 	if indexID == "" {
@@ -62,7 +62,7 @@ func (s *DB) GetIndexID(folder string, device protocol.DeviceID) (protocol.Index
 				WHERE folder_idx = ? AND device_idx = {{.LocalDeviceIdx}}
 			ON CONFLICT DO UPDATE SET index_id = ?
 		`).Exec(folderIdx, indexIDToHex(id), folderIdx, indexIDToHex(id)); err != nil {
-			return 0, wrap(err)
+			return 0, wrap(err, "insert")
 		}
 		return id, nil
 	}
@@ -84,7 +84,7 @@ func (s *DB) SetIndexID(folder string, device protocol.DeviceID, id protocol.Ind
 	}
 
 	if _, err := s.stmt(`
-		INSERT OR REPLACE INTO indexids (folder_idx, device_idx, index_id) values (?, ?, ?)
+		INSERT OR REPLACE INTO indexids (folder_idx, device_idx, index_id, sequence) values (?, ?, ?, 0)
 	`).Exec(folderIdx, deviceIdx, indexIDToHex(id)); err != nil {
 		return wrap(err, "insert")
 	}
