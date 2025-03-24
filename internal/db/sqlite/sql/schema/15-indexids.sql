@@ -15,19 +15,10 @@ CREATE TABLE IF NOT EXISTS indexids (
     FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE
 ) STRICT, WITHOUT ROWID
 ;
-CREATE TRIGGER IF NOT EXISTS indexids_remote_seq AFTER INSERT ON files
-    WHEN NEW.remote_sequence IS NOT NULL
+CREATE TRIGGER IF NOT EXISTS indexids_seq AFTER INSERT ON files
 BEGIN
     INSERT INTO indexids (folder_idx, device_idx, index_id, sequence)
-        VALUES (NEW.folder_idx, NEW.device_idx, 0, NEW.remote_sequence)
-        ON CONFLICT DO UPDATE SET sequence = NEW.remote_sequence;
-END
-;
-CREATE TRIGGER IF NOT EXISTS indexids_local_seq AFTER INSERT ON files
-    WHEN NEW.remote_sequence IS NULL
-BEGIN
-    INSERT INTO indexids (folder_idx, device_idx, index_id, sequence)
-        VALUES (NEW.folder_idx, NEW.device_idx, 0, NEW.sequence)
-        ON CONFLICT DO UPDATE SET sequence = NEW.sequence;
+        VALUES (NEW.folder_idx, NEW.device_idx, 0, coalesce(NEW.sequence, NEW.remote_sequence))
+        ON CONFLICT DO UPDATE SET sequence = coalesce(NEW.sequence, NEW.remote_sequence);
 END
 ;
