@@ -2136,7 +2136,7 @@ type ApiWebauthnCredential struct {
 	CreateTime    time.Time `json:"createTime"`
 }
 
-// Duplicate of api.WebauthnVolatileState to verify JSON serialization stability
+// Duplicate of apiproto.WebauthnVolatileState to verify JSON serialization stability
 type ApiWebauthnCredentialsState struct {
 	Credentials map[string]struct {
 		SignCount   uint32    `json:"signCount"`
