@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -90,6 +91,53 @@ func (s *DB) DropAllIndexIDs() error {
 	defer s.updateLock.Unlock()
 	_, err := s.stmt(`DELETE FROM indexids`).Exec()
 	return wrap(err)
+}
+
+func (s *DB) GetDeviceSequence(folder string, device protocol.DeviceID) (int64, error) {
+	var res sql.NullInt64
+	err := s.stmt(`
+		SELECT sequence FROM indexids i
+		INNER JOIN folders o ON o.idx = i.folder_idx
+		INNER JOIN devices d ON d.idx = i.device_idx
+		WHERE o.folder_id = ? AND d.device_id = ?
+	`).Get(&res, folder, device.String())
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, wrap(err)
+	}
+	if !res.Valid {
+		return 0, nil
+	}
+	return res.Int64, nil
+}
+
+func (s *DB) RemoteSequences(folder string) (map[protocol.DeviceID]int64, error) {
+	type row struct {
+		Device string
+		Seq    int64
+	}
+
+	it, errFn := iterStructs[row](s.stmt(`
+		SELECT d.device_id AS device, i.sequence AS seq FROM indexids i
+		INNER JOIN folders o ON o.idx = i.folder_idx
+		INNER JOIN devices d ON d.idx = i.device_idx
+		WHERE o.folder_id = ? AND i.device_idx != {{.LocalDeviceIdx}}
+	`).Queryx(folder))
+
+	res := make(map[protocol.DeviceID]int64)
+	for row, err := range itererr.Zip(it, errFn) {
+		if err != nil {
+			return nil, wrap(err)
+		}
+		dev, err := protocol.DeviceIDFromString(row.Device)
+		if err != nil {
+			return nil, wrap(err, "device ID")
+		}
+		res[dev] = row.Seq
+	}
+	return res, nil
 }
 
 func indexIDFromHex(s string) (protocol.IndexID, error) {

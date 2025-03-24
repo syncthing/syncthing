@@ -146,6 +146,23 @@ func BenchmarkUpdate(b *testing.B) {
 			b.ReportMetric(float64(count)/b.Elapsed().Seconds(), "files/s")
 		})
 
+		b.Run(fmt.Sprintf("GetDeviceSequenceLoc@%d", size), func(b *testing.B) {
+			for range b.N {
+				_, err := db.GetDeviceSequence(folderID, protocol.LocalDeviceID)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+		b.Run(fmt.Sprintf("GetDeviceSequenceRem@%d", size), func(b *testing.B) {
+			for range b.N {
+				_, err := db.GetDeviceSequence(folderID, protocol.DeviceID{42})
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+
 		b.Run(fmt.Sprintf("RemoteNeed@%d", size), func(b *testing.B) {
 			count := 0
 			for range b.N {

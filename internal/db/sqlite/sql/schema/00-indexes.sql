@@ -17,14 +17,3 @@ CREATE TABLE IF NOT EXISTS devices (
     device_id TEXT NOT NULL UNIQUE COLLATE BINARY
 ) STRICT
 ;
-
--- indexids holds the index ID for a given device and folder
-CREATE TABLE IF NOT EXISTS indexids (
-    device_idx INTEGER NOT NULL,
-    folder_idx INTEGER NOT NULL,
-    index_id TEXT NOT NULL COLLATE BINARY,
-    PRIMARY KEY(device_idx, folder_idx),
-    FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE,
-    FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE
-) STRICT, WITHOUT ROWID
-;

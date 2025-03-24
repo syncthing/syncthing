@@ -99,27 +99,29 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 	}
 
 	ver, _ := db.getAppliedSchemaVersion()
-	filter := func(scr string) bool {
-		scr = filepath.Base(scr)
-		nstr, _, ok := strings.Cut(scr, "-")
-		if !ok {
-			return false
+	if ver.SchemaVersion > 0 {
+		filter := func(scr string) bool {
+			scr = filepath.Base(scr)
+			nstr, _, ok := strings.Cut(scr, "-")
+			if !ok {
+				return false
+			}
+			n, err := strconv.ParseInt(nstr, 10, 32)
+			if err != nil {
+				return false
+			}
+			return int(n) > ver.SchemaVersion
 		}
-		n, err := strconv.ParseInt(nstr, 10, 32)
-		if err != nil {
-			return false
+		if err := db.runScripts("migrations/*", filter); err != nil {
+			return nil, fmt.Errorf("init database: %w", err)
 		}
-		return int(n) > ver.SchemaVersion
-	}
-	if err := db.runScripts("migrations/*", filter); err != nil {
-		return nil, fmt.Errorf("init database: %w", err)
 	}
 
 	// Touch device IDs that should always exist and have a low index
 	// numbers, and will never change
 	db.localDeviceIdx, _ = db.deviceIdxLocked(protocol.LocalDeviceID)
 
-	// Set the initial schema version, if not already set
+	// Set the current schema version, if not already set
 	if err := db.setAppliedSchemaVersion(currentSchemaVersion); err != nil {
 		return nil, err
 	}
