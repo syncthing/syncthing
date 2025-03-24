@@ -485,5 +485,5 @@ func (s *webauthnService) updateCredentialVolatileState(credId string, updatedCr
 func (s *webauthnService) getVolatileState(w http.ResponseWriter, _ *http.Request) {
 	st := s.loadVolatileState()
 	w.WriteHeader(http.StatusOK)
-	sendJSON(w, st)
+	sendProtobufJSON(w, st)
 }

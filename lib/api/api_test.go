@@ -38,7 +38,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/thejerf/suture/v4"
 
-	"github.com/syncthing/syncthing/internal/gen/apiproto"
 	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -2001,6 +2000,25 @@ func (req *startWebauthnAuthenticationResponse) finish(cred *webauthnProtocol.Cr
 	}
 }
 
+// Duplicate of config.WebauthnCredential to verify JSON serialization stability
+type ApiWebauthnCredential struct {
+	ID            string    `json:"id"`
+	RpId          string    `json:"rpId"`
+	Nickname      string    `json:"nickname"`
+	PublicKeyCose string    `json:"publicKeyCose"`
+	Transports    []string  `json:"transports"`
+	RequireUv     bool      `json:"requireUv"`
+	CreateTime    time.Time `json:"createTime"`
+}
+
+// Duplicate of api.WebauthnVolatileState to verify JSON serialization stability
+type ApiWebauthnCredentialsState struct {
+	Credentials map[string]struct {
+		SignCount   uint32    `json:"signCount"`
+		LastUseTime time.Time `json:"lastUseTime"`
+	} `json:"credentials"`
+}
+
 func TestWebauthnRegistration(t *testing.T) {
 	t.Parallel()
 
@@ -2084,7 +2102,7 @@ func TestWebauthnRegistration(t *testing.T) {
 			t.Fatalf("Failed to finish WebAuthn registration: status %d", finishResp.StatusCode)
 		}
 
-		var pendingCred config.WebauthnCredential
+		var pendingCred ApiWebauthnCredential
 		err := unmarshalTo(finishResp.Body, &pendingCred)
 		if err != nil {
 			t.Fatal(err)
@@ -2110,14 +2128,14 @@ func TestWebauthnRegistration(t *testing.T) {
 			t.Errorf("Wrong Nickname in registration success response")
 		}
 
-		var volState apiproto.WebauthnVolatileState
+		var volState ApiWebauthnCredentialsState
 		getVolStateResp := httpGetCsrf(baseURL+"/rest/webauthn/state", csrfTokenName, csrfTokenValue, t)
 		err = unmarshalTo(getVolStateResp.Body, &volState)
 		if err != nil {
 			t.Fatal(err)
 		}
 		credVolState := volState.Credentials[pendingCred.ID]
-		if !(time.Since(credVolState.LastUseTime.AsTime()) < 10*time.Second) {
+		if !(time.Since(credVolState.LastUseTime) < 10*time.Second) {
 			t.Errorf("Wrong LastUseTime after registration success")
 		}
 		if credVolState.SignCount != 42 {
@@ -2459,7 +2477,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 				}
 			}
 
-			var volState apiproto.WebauthnVolatileState
+			var volState ApiWebauthnCredentialsState
 			getVolStateResp := httpGet("/rest/webauthn/state", testAPIKey, csrfTokenName, csrfTokenValue)
 			err := unmarshalTo(getVolStateResp.Body, &volState)
 			if err != nil {
@@ -2469,7 +2487,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 			if !ok {
 				t.Fatalf("Failed to get credential state")
 			}
-			if !(time.Since(credVolState.LastUseTime.AsTime()) < 10*time.Second) {
+			if !(time.Since(credVolState.LastUseTime) < 10*time.Second) {
 				t.Errorf("Wrong LastUseTime after authentication success")
 			}
 			if credVolState.SignCount != 42 {
@@ -3199,6 +3217,58 @@ func TestWebauthnConfigChanges(t *testing.T) {
 	}
 
 	cfgPath := "/rest/config"
+
+	t.Run("Can fetch WebAuthn config", func(t *testing.T) {
+		t.Parallel()
+		w := initConfig(t)
+		get, _ := startHttpServer(t, w)
+		initialCfg := w.GUI()
+		resp := get(cfgPath + "/gui")
+		var cfg struct {
+			WebauthnUserId      []byte                  `json:"webauthnUserId"`
+			WebauthnRpId        string                  `json:"webauthnRpId"`
+			WebauthnOrigins     []string                `json:"webauthnOrigins"`
+			WebauthnCredentials []ApiWebauthnCredential `json:"webauthnCredentials"`
+		}
+		err := unmarshalTo(resp.Body, &cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !cmp.Equal(cfg.WebauthnUserId, initialCfg.WebauthnUserId) {
+			t.Errorf("Wrong WebauthnUserId in fetched WebAuthn config; expected: %v, got: %v", cfg.WebauthnUserId, initialCfg.WebauthnUserId)
+		}
+		if cfg.WebauthnRpId != initialCfg.WebauthnRpId {
+			t.Errorf("Wrong WebauthnRpId in fetched WebAuthn config; expected: %v, got: %v", cfg.WebauthnRpId, initialCfg.WebauthnRpId)
+		}
+		if !cmp.Equal(cfg.WebauthnOrigins, initialCfg.WebauthnOrigins) {
+			t.Errorf("Wrong WebauthnOrigins in fetched WebAuthn config; expected: %v, got: %v", cfg.WebauthnOrigins, initialCfg.WebauthnOrigins)
+		}
+
+		if len(cfg.WebauthnCredentials) != len(initialWebauthnCredentials) {
+			t.Errorf("Wrong length of credentials in fetched WebAuthn config; expected: %v, got: %v", len(cfg.WebauthnCredentials), len(initialWebauthnCredentials))
+		}
+		if cfg.WebauthnCredentials[0].ID != initialWebauthnCredentials[0].ID {
+			t.Errorf("Wrong credential ID in fetched WebAuthn config; expected: %v, got: %v", cfg.WebauthnCredentials[0].ID, initialWebauthnCredentials[0].ID)
+		}
+		if cfg.WebauthnCredentials[0].RpId != initialWebauthnCredentials[0].RpId {
+			t.Errorf("Wrong credential RpId in fetched WebAuthn config; expected: %v, got: %v", cfg.WebauthnCredentials[0].RpId, initialWebauthnCredentials[0].RpId)
+		}
+		if cfg.WebauthnCredentials[0].Nickname != initialWebauthnCredentials[0].Nickname {
+			t.Errorf("Wrong credential Nickname in fetched WebAuthn config; expected: %v, got: %v", cfg.WebauthnCredentials[0].Nickname, initialWebauthnCredentials[0].Nickname)
+		}
+		if cfg.WebauthnCredentials[0].PublicKeyCose != initialWebauthnCredentials[0].PublicKeyCose {
+			t.Errorf("Wrong credential PublicKeyCose in fetched WebAuthn config; expected: %v, got: %v", cfg.WebauthnCredentials[0].PublicKeyCose, initialWebauthnCredentials[0].PublicKeyCose)
+		}
+		if !cmp.Equal(cfg.WebauthnCredentials[0].Transports, initialWebauthnCredentials[0].Transports) {
+			t.Errorf("Wrong credential Transports in fetched WebAuthn config; expected: %v, got: %v", cfg.WebauthnCredentials[0].Transports, initialWebauthnCredentials[0].Transports)
+		}
+		if cfg.WebauthnCredentials[0].RequireUv != initialWebauthnCredentials[0].RequireUv {
+			t.Errorf("Wrong credential RequireUv in fetched WebAuthn config; expected: %v, got: %v", cfg.WebauthnCredentials[0].RequireUv, initialWebauthnCredentials[0].RequireUv)
+		}
+		if cfg.WebauthnCredentials[0].CreateTime.Truncate(time.Second) != initialWebauthnCredentials[0].CreateTime.Truncate(time.Second) {
+			t.Errorf("Wrong credential CreateTime in fetched WebAuthn config; expected: %v, got: %v", cfg.WebauthnCredentials[0].CreateTime, initialWebauthnCredentials[0].CreateTime)
+		}
+	})
 
 	t.Run("Cannot add WebAuthn credential through just config", func(t *testing.T) {
 		t.Parallel()

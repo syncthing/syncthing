@@ -39,6 +39,8 @@ import (
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -214,6 +216,19 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 		// This Marshal() can't fail though.
 		bs, _ = json.Marshal(map[string]string{"error": err.Error()})
 		http.Error(w, string(bs), http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprintf(w, "%s\n", bs)
+}
+
+// Same as `sendJSON`, but compatible with protobuf's json field name tags
+func sendProtobufJSON(w http.ResponseWriter, jsonObject proto.Message) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	// Marshalling might fail, in which case we should return a 500 with the
+	// actual error.
+	bs, err := protojson.MarshalOptions{Indent: "  "}.Marshal(jsonObject)
+	if err != nil {
+		sendJSON(w, map[string]string{"error": err.Error()})
 		return
 	}
 	fmt.Fprintf(w, "%s\n", bs)
