@@ -318,6 +318,15 @@ func TestBasics(t *testing.T) {
 	t.Run("Sequence", func(t *testing.T) {
 		t.Parallel()
 
+		iid, err := sdb.GetIndexID(folderID, protocol.LocalDeviceID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if iid == 0 {
+			t.Log(iid)
+			t.Fatal("expected index ID")
+		}
+
 		if seq, err := sdb.GetDeviceSequence(folderID, protocol.LocalDeviceID); err != nil {
 			t.Fatal(err)
 		} else if seq != 4 {

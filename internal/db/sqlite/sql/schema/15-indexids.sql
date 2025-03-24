@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS indexids (
 CREATE TRIGGER IF NOT EXISTS indexids_seq AFTER INSERT ON files
 BEGIN
     INSERT INTO indexids (folder_idx, device_idx, index_id, sequence)
-        VALUES (NEW.folder_idx, NEW.device_idx, 0, coalesce(NEW.sequence, NEW.remote_sequence))
-        ON CONFLICT DO UPDATE SET sequence = coalesce(NEW.sequence, NEW.remote_sequence);
+        VALUES (NEW.folder_idx, NEW.device_idx, "", COALESCE(NEW.remote_sequence, NEW.sequence))
+        ON CONFLICT DO UPDATE SET sequence = COALESCE(NEW.remote_sequence, NEW.sequence);
 END
 ;

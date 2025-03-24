@@ -52,11 +52,16 @@ func (s *DB) GetIndexID(folder string, device protocol.DeviceID) (protocol.Index
 	}
 
 	if indexID == "" {
-		// Generate a new index ID
+		// Generate a new index ID. Some trickiness in the query as we need
+		// to find the max sequence of local files if there already exist
+		// any.
 		id := protocol.NewIndexID()
 		if _, err := s.stmt(`
-			INSERT INTO indexids (folder_idx, device_idx, index_id) values (?, {{.LocalDeviceIdx}}, ?)
-		`).Exec(folderIdx, indexIDToHex(id)); err != nil {
+			INSERT INTO indexids (folder_idx, device_idx, index_id, sequence)
+				SELECT ?, {{.LocalDeviceIdx}}, ?, COALESCE(MAX(sequence), 0) FROM files
+				WHERE folder_idx = ? AND device_idx = {{.LocalDeviceIdx}}
+			ON CONFLICT DO UPDATE SET index_id = ?
+		`).Exec(folderIdx, indexIDToHex(id), folderIdx, indexIDToHex(id)); err != nil {
 			return 0, wrap(err)
 		}
 		return id, nil
