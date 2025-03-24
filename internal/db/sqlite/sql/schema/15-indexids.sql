@@ -4,7 +4,7 @@
 -- License, v. 2.0. If a copy of the MPL was not distributed with this file,
 -- You can obtain one at https://mozilla.org/MPL/2.0/.
 
--- indexids holds the index ID for a given device and folder
+-- indexids holds the index ID and maximum sequence for a given device and folder
 CREATE TABLE IF NOT EXISTS indexids (
     device_idx INTEGER NOT NULL,
     folder_idx INTEGER NOT NULL,
