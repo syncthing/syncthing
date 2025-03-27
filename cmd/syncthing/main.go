@@ -381,8 +381,7 @@ func (options serveOptions) Run() error {
 			if err != nil {
 				l.Warnln("Upgrade:", err)
 				os.Exit(1)
-			}
-			if locked {
+			} else if locked {
 				err = upgradeViaRest()
 			} else {
 				err = upgrade.To(release)
