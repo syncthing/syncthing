@@ -21,11 +21,12 @@ import (
 	stdsync "sync"
 	"time"
 
+	"golang.org/x/net/http2"
+
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"golang.org/x/net/http2"
 )
 
 type globalClient struct {
@@ -116,6 +117,7 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 				InsecureSkipVerify: opts.insecure,
 				Certificates:       []tls.Certificate{cert},
 				MinVersion:         tls.VersionTLS12,
+				ClientSessionCache: tls.NewLRUClientSessionCache(0),
 			},
 		}),
 	}}
@@ -134,6 +136,7 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, evLo
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: opts.insecure,
 				MinVersion:         tls.VersionTLS12,
+				ClientSessionCache: tls.NewLRUClientSessionCache(0),
 			},
 		}),
 	}}

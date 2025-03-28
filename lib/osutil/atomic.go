@@ -101,7 +101,7 @@ func (w *AtomicWriter) Close() error {
 		// On Windows, we might not be allowed to rename over the file
 		// because it's read-only. Get us some write permissions and try
 		// again.
-		_ = w.fs.Chmod(w.path, 0644)
+		_ = w.fs.Chmod(w.path, 0o644)
 		err = w.fs.Rename(w.next.Name(), w.path)
 	}
 	if err != nil {

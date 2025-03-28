@@ -1,0 +1,34 @@
+- runtime: go1.21
+  requirements:
+    # See https://en.wikipedia.org/wiki/MacOS_version_history#Releases
+    #
+    # macOS 10.15 (Catalina) per https://go.dev/doc/go1.22#darwin
+    darwin: "19"
+    # Per https://go.dev/doc/go1.23#linux
+    linux: "2.6.32"
+    # Windows 10's initial release was 10.0.10240.16405, per
+    # https://learn.microsoft.com/en-us/windows/release-health/release-information
+    # and Windows 11's initial release was 10.0.22000.194 per
+    # https://learn.microsoft.com/en-us/windows/release-health/windows11-release-information
+    #
+    # Windows 10/Windows Server 2016 per https://go.dev/doc/go1.21#windows
+    windows: "10.0"
+
+- runtime: go1.22
+  requirements:
+    darwin: "19"
+    linux: "2.6.32"
+    windows: "10.0"
+
+- runtime: go1.23
+  requirements:
+    # macOS 11 (Big Sur) per https://tip.golang.org/doc/go1.23#darwin
+    darwin: "20"
+    linux: "2.6.32"
+    windows: "10.0"
+
+- runtime: go1.24
+  requirements:
+    darwin: "20"
+    linux: "3.2"
+    windows: "10.0"

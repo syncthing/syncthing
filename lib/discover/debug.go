@@ -10,6 +10,4 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-var (
-	l = logger.DefaultLogger.NewFacility("discover", "Remote device discovery")
-)
+var l = logger.DefaultLogger.NewFacility("discover", "Remote device discovery")

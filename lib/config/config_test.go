@@ -100,7 +100,7 @@ func TestDefaultValues(t *testing.T) {
 		},
 		Defaults: Defaults{
 			Folder: FolderConfiguration{
-				FilesystemType:   fs.FilesystemTypeBasic,
+				FilesystemType:   FilesystemTypeBasic,
 				Path:             "~",
 				Type:             FolderTypeSendReceive,
 				Devices:          []FolderDeviceConfiguration{{DeviceID: device1}},
@@ -127,7 +127,7 @@ func TestDefaultValues(t *testing.T) {
 			Device: DeviceConfiguration{
 				Addresses:       []string{"dynamic"},
 				AllowedNetworks: []string{},
-				Compression:     protocol.CompressionMetadata,
+				Compression:     CompressionMetadata,
 				IgnoredFolders:  []ObservedFolder{},
 			},
 			Ignores: Ignores{
@@ -175,7 +175,7 @@ func TestDeviceConfig(t *testing.T) {
 		expectedFolders := []FolderConfiguration{
 			{
 				ID:               "test",
-				FilesystemType:   fs.FilesystemTypeBasic,
+				FilesystemType:   FilesystemTypeBasic,
 				Path:             "testdata",
 				Devices:          []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
 				Type:             FolderTypeSendOnly,
@@ -205,7 +205,7 @@ func TestDeviceConfig(t *testing.T) {
 				DeviceID:        device1,
 				Name:            "node one",
 				Addresses:       []string{"tcp://a"},
-				Compression:     protocol.CompressionMetadata,
+				Compression:     CompressionMetadata,
 				AllowedNetworks: []string{},
 				IgnoredFolders:  []ObservedFolder{},
 			},
@@ -213,7 +213,7 @@ func TestDeviceConfig(t *testing.T) {
 				DeviceID:        device4,
 				Name:            "node two",
 				Addresses:       []string{"tcp://b"},
-				Compression:     protocol.CompressionMetadata,
+				Compression:     CompressionMetadata,
 				AllowedNetworks: []string{},
 				IgnoredFolders:  []ObservedFolder{},
 			},
@@ -305,6 +305,11 @@ func TestOverriddenValues(t *testing.T) {
 		t.Error(err)
 	}
 
+	if cfg.Options().URUniqueID == "" {
+		t.Error("expected usage reporting unique ID to be set since usage reporting is enabled")
+	}
+	expected.URUniqueID = cfg.Options().URUniqueID // it's random
+
 	if diff, equal := messagediff.PrettyDiff(expected, cfg.Options()); !equal {
 		t.Errorf("Overridden config differs. Diff:\n%s", diff)
 	}
@@ -339,7 +344,7 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 			DeviceID:        device4,
 			Name:            name, // Set when auto created
 			Addresses:       []string{"dynamic"},
-			Compression:     protocol.CompressionMetadata,
+			Compression:     CompressionMetadata,
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 		},
@@ -363,21 +368,21 @@ func TestDeviceCompression(t *testing.T) {
 		device1: {
 			DeviceID:        device1,
 			Addresses:       []string{"dynamic"},
-			Compression:     protocol.CompressionMetadata,
+			Compression:     CompressionMetadata,
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 		},
 		device2: {
 			DeviceID:        device2,
 			Addresses:       []string{"dynamic"},
-			Compression:     protocol.CompressionMetadata,
+			Compression:     CompressionMetadata,
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 		},
 		device3: {
 			DeviceID:        device3,
 			Addresses:       []string{"dynamic"},
-			Compression:     protocol.CompressionNever,
+			Compression:     CompressionNever,
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 		},
@@ -385,7 +390,7 @@ func TestDeviceCompression(t *testing.T) {
 			DeviceID:        device4,
 			Name:            name, // Set when auto created
 			Addresses:       []string{"dynamic"},
-			Compression:     protocol.CompressionMetadata,
+			Compression:     CompressionMetadata,
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 		},
@@ -428,7 +433,7 @@ func TestDeviceAddressesStatic(t *testing.T) {
 			DeviceID:        device4,
 			Name:            name, // Set when auto created
 			Addresses:       []string{"dynamic"},
-			Compression:     protocol.CompressionMetadata,
+			Compression:     CompressionMetadata,
 			AllowedNetworks: []string{},
 			IgnoredFolders:  []ObservedFolder{},
 		},
@@ -551,7 +556,7 @@ func TestFolderCheckPath(t *testing.T) {
 
 	for _, testcase := range testcases {
 		cfg := FolderConfiguration{
-			FilesystemType: fs.FilesystemTypeFake,
+			FilesystemType: FilesystemTypeFake,
 			MarkerName:     DefaultMarkerName,
 		}
 
@@ -1276,7 +1281,7 @@ func adjustDeviceConfiguration(cfg *DeviceConfiguration, id protocol.DeviceID, n
 func adjustFolderConfiguration(cfg *FolderConfiguration, id, label string, fsType fs.FilesystemType, path string) {
 	cfg.ID = id
 	cfg.Label = label
-	cfg.FilesystemType = fsType
+	cfg.FilesystemType = FilesystemType(fsType)
 	cfg.Path = path
 }
 

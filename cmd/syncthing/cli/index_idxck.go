@@ -13,6 +13,10 @@ import (
 	"fmt"
 	"sort"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/syncthing/syncthing/internal/gen/bep"
+	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -42,12 +46,12 @@ func indexCheck() (err error) {
 	folders := make(map[uint32]string)
 	devices := make(map[uint32]string)
 	deviceToIDs := make(map[string]uint32)
-	fileInfos := make(map[fileInfoKey]protocol.FileInfo)
-	globals := make(map[globalKey]db.VersionList)
+	fileInfos := make(map[fileInfoKey]*bep.FileInfo)
+	globals := make(map[globalKey]*dbproto.VersionList)
 	sequences := make(map[sequenceKey]string)
 	needs := make(map[globalKey]struct{})
 	blocklists := make(map[string]struct{})
-	versions := make(map[string]protocol.Vector)
+	versions := make(map[string]*bep.Vector)
 	usedBlocklists := make(map[string]struct{})
 	usedVersions := make(map[string]struct{})
 	var localDeviceKey uint32
@@ -74,26 +78,26 @@ func indexCheck() (err error) {
 			device := binary.BigEndian.Uint32(key[1+4:])
 			name := nulString(key[1+4+4:])
 
-			var f protocol.FileInfo
-			err := f.Unmarshal(it.Value())
+			var f bep.FileInfo
+			err := proto.Unmarshal(it.Value(), &f)
 			if err != nil {
 				fmt.Println("Unable to unmarshal FileInfo:", err)
 				success = false
 				continue
 			}
 
-			fileInfos[fileInfoKey{folder, device, name}] = f
+			fileInfos[fileInfoKey{folder, device, name}] = &f
 
 		case db.KeyTypeGlobal:
 			folder := binary.BigEndian.Uint32(key[1:])
 			name := nulString(key[1+4:])
-			var flv db.VersionList
-			if err := flv.Unmarshal(it.Value()); err != nil {
+			var flv dbproto.VersionList
+			if err := proto.Unmarshal(it.Value(), &flv); err != nil {
 				fmt.Println("Unable to unmarshal VersionList:", err)
 				success = false
 				continue
 			}
-			globals[globalKey{folder, name}] = flv
+			globals[globalKey{folder, name}] = &flv
 
 		case db.KeyTypeFolderIdx:
 			key := binary.BigEndian.Uint32(it.Key()[1:])
@@ -124,13 +128,13 @@ func indexCheck() (err error) {
 
 		case db.KeyTypeVersion:
 			hash := string(key[1:])
-			var v protocol.Vector
-			if err := v.Unmarshal(it.Value()); err != nil {
+			var v bep.Vector
+			if err := proto.Unmarshal(it.Value(), &v); err != nil {
 				fmt.Println("Unable to unmarshal Vector:", err)
 				success = false
 				continue
 			}
-			versions[hash] = v
+			versions[hash] = &v
 		}
 	}
 
@@ -248,25 +252,27 @@ func indexCheck() (err error) {
 			if fi.VersionHash != nil {
 				fiv = versions[string(fi.VersionHash)]
 			}
-			if !fiv.Equal(version) {
+			if !protocol.VectorFromWire(fiv).Equal(version) {
 				fmt.Printf("VersionList %q, folder %q, entry %d, FileInfo version mismatch, %v (VersionList) != %v (FileInfo)\n", gk.name, folder, i, version, fi.Version)
 				success = false
 			}
-			if fi.IsInvalid() != invalid {
-				fmt.Printf("VersionList %q, folder %q, entry %d, FileInfo invalid mismatch, %v (VersionList) != %v (FileInfo)\n", gk.name, folder, i, invalid, fi.IsInvalid())
+			ffi := protocol.FileInfoFromDB(fi)
+			if ffi.IsInvalid() != invalid {
+				fmt.Printf("VersionList %q, folder %q, entry %d, FileInfo invalid mismatch, %v (VersionList) != %v (FileInfo)\n", gk.name, folder, i, invalid, ffi.IsInvalid())
 				success = false
 			}
-			if fi.IsDeleted() != deleted {
-				fmt.Printf("VersionList %q, folder %q, entry %d, FileInfo deleted mismatch, %v (VersionList) != %v (FileInfo)\n", gk.name, folder, i, deleted, fi.IsDeleted())
+			if ffi.IsDeleted() != deleted {
+				fmt.Printf("VersionList %q, folder %q, entry %d, FileInfo deleted mismatch, %v (VersionList) != %v (FileInfo)\n", gk.name, folder, i, deleted, ffi.IsDeleted())
 				success = false
 			}
 		}
-		for i, fv := range vl.RawVersions {
+		for i, fv := range vl.Versions {
+			ver := protocol.VectorFromWire(fv.Version)
 			for _, device := range fv.Devices {
-				checkGlobal(i, device, fv.Version, false, fv.Deleted)
+				checkGlobal(i, device, ver, false, fv.Deleted)
 			}
 			for _, device := range fv.InvalidDevices {
-				checkGlobal(i, device, fv.Version, true, fv.Deleted)
+				checkGlobal(i, device, ver, true, fv.Deleted)
 			}
 		}
 
@@ -276,10 +282,10 @@ func indexCheck() (err error) {
 		if needsLocally(vl) {
 			_, ok := needs[gk]
 			if !ok {
-				fv, _ := vl.GetGlobal()
-				devB, _ := fv.FirstDevice()
+				fv, _ := vlGetGlobal(vl)
+				devB, _ := fvFirstDevice(fv)
 				dev := deviceToIDs[string(devB)]
-				fi := fileInfos[fileInfoKey{gk.folder, dev, gk.name}]
+				fi := protocol.FileInfoFromDB(fileInfos[fileInfoKey{gk.folder, dev, gk.name}])
 				if !fi.IsDeleted() && !fi.IsIgnored() {
 					fmt.Printf("Missing need entry for needed file %q, folder %q\n", gk.name, folder)
 				}
@@ -345,11 +351,84 @@ func indexCheck() (err error) {
 	return nil
 }
 
-func needsLocally(vl db.VersionList) bool {
-	gfv, gok := vl.GetGlobal()
+func needsLocally(vl *dbproto.VersionList) bool {
+	gfv, gok := vlGetGlobal(vl)
 	if !gok { // That's weird, but we hardly need something non-existent
 		return false
 	}
-	fv, ok := vl.Get(protocol.LocalDeviceID[:])
-	return db.Need(gfv, ok, fv.Version)
+	fv, ok := vlGet(vl, protocol.LocalDeviceID[:])
+	return db.Need(gfv, ok, protocol.VectorFromWire(fv.Version))
+}
+
+// Get returns a FileVersion that contains the given device and whether it has
+// been found at all.
+func vlGet(vl *dbproto.VersionList, device []byte) (*dbproto.FileVersion, bool) {
+	_, i, _, ok := vlFindDevice(vl, device)
+	if !ok {
+		return &dbproto.FileVersion{}, false
+	}
+	return vl.Versions[i], true
+}
+
+// GetGlobal returns the current global FileVersion. The returned FileVersion
+// may be invalid, if all FileVersions are invalid. Returns false only if
+// VersionList is empty.
+func vlGetGlobal(vl *dbproto.VersionList) (*dbproto.FileVersion, bool) {
+	i := vlFindGlobal(vl)
+	if i == -1 {
+		return nil, false
+	}
+	return vl.Versions[i], true
+}
+
+// findGlobal returns the first version that isn't invalid, or if all versions are
+// invalid just the first version (i.e. 0) or -1, if there's no versions at all.
+func vlFindGlobal(vl *dbproto.VersionList) int {
+	for i := range vl.Versions {
+		if !fvIsInvalid(vl.Versions[i]) {
+			return i
+		}
+	}
+	if len(vl.Versions) == 0 {
+		return -1
+	}
+	return 0
+}
+
+// findDevice returns whether the device is in InvalidVersions or Versions and
+// in InvalidDevices or Devices (true for invalid), the positions in the version
+// and device slices and whether it has been found at all.
+func vlFindDevice(vl *dbproto.VersionList, device []byte) (bool, int, int, bool) {
+	for i, v := range vl.Versions {
+		if j := deviceIndex(v.Devices, device); j != -1 {
+			return false, i, j, true
+		}
+		if j := deviceIndex(v.InvalidDevices, device); j != -1 {
+			return true, i, j, true
+		}
+	}
+	return false, -1, -1, false
+}
+
+func deviceIndex(devices [][]byte, device []byte) int {
+	for i, dev := range devices {
+		if bytes.Equal(device, dev) {
+			return i
+		}
+	}
+	return -1
+}
+
+func fvFirstDevice(fv *dbproto.FileVersion) ([]byte, bool) {
+	if len(fv.Devices) != 0 {
+		return fv.Devices[0], true
+	}
+	if len(fv.InvalidDevices) != 0 {
+		return fv.InvalidDevices[0], true
+	}
+	return nil, false
+}
+
+func fvIsInvalid(fv *dbproto.FileVersion) bool {
+	return fv == nil || len(fv.Devices) == 0
 }

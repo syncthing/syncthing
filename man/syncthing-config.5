@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Jul 18, 2024" "v1.27.7" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Mar 19, 2025" "v1.29.3" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -862,6 +862,8 @@ for example:
 .EE
 .UNINDENT
 .UNINDENT
+.sp
+In the GUI, multiple values are separated by commas.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -872,7 +874,9 @@ True if synchronization with this devices is (temporarily) suspended.
 .TP
 .B allowedNetwork
 If given, this restricts connections to this device to only this network.
-The mechanism is described in detail in a \fI\%separate chapter\fP).
+The mechanism is described in detail in a \fI\%separate chapter\fP).  To configure multiple networks, you
+can either: repeat \fB<allowedNetwork>\fP tags in the configuration file or
+enter several networks separated by commas in the GUI.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -903,6 +907,8 @@ despite the config name looking like kilobits/second.
 Contains the ID of the folder that should be ignored. This folder will
 always be skipped when advertised from the containing remote device,
 i.e. this will be logged, but there will be no dialog shown in the web GUI.
+Multiple ignored folders are represented by repeated \fB<ignoredFolder>\fP
+tags in the configuration file.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1202,7 +1208,10 @@ The \fBoptions\fP element contains all other global configuration options.
 .TP
 .B listenAddress
 The listen address for incoming sync connections. See
-\fI\%Listen Addresses\fP for the allowed syntax.
+\fI\%Listen Addresses\fP for the allowed syntax.  To configure multiple
+addresses, you can either: repeat \fB<listenAddress>\fP tags in the
+configuration file or enter several addresses separated by commas in the
+GUI.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1213,7 +1222,10 @@ may be present. The syntax for non\-default entries is that of an HTTP or
 HTTPS URL. A number of options may be added as query options to the URL:
 \fBinsecure\fP to prevent certificate validation (required for HTTP URLs)
 and \fBid=<device ID>\fP to perform certificate pinning. The device ID to
-use is printed by the discovery server on startup.
+use is printed by the discovery server on startup.  To configure multiple
+servers, you can either: repeat \fB<globalAnnounceServer>\fP tags in the
+configuration file or enter several servers separated by commas in the
+GUI.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1381,7 +1393,10 @@ The URL from which release information is loaded, for automatic upgrades.
 .INDENT 0.0
 .TP
 .B alwaysLocalNet
-Network that should be considered as local given in CIDR notation.
+Network that should be considered as local given in CIDR notation.  To
+configure multiple networks, you can either: repeat \fB<alwaysLocalNet>\fP
+tags in the configuration file or enter several networks separated by
+commas in the GUI.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1400,7 +1415,9 @@ into account files that have at least this many blocks.
 .TP
 .B unackedNotificationID
 ID of a notification to be displayed in the web GUI. Will be removed once
-the user acknowledged it (e.g. an transition notice on an upgrade).
+the user acknowledged it (e.g. a transition notice on an upgrade).  Multiple
+IDs are represented by repeated \fB<unackedNotificationID>\fP tags in the
+configuration file.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1417,11 +1434,16 @@ Server to be used for STUN, given as ip:port. The keyword \fBdefault\fP gets
 expanded to
 \fBstun.callwithus.com:3478\fP, \fBstun.counterpath.com:3478\fP,
 \fBstun.counterpath.net:3478\fP, \fBstun.ekiga.net:3478\fP,
-\fBstun.ideasip.com:3478\fP, \fBstun.internetcalls.com:3478\fP,
-\fBstun.schlund.de:3478\fP, \fBstun.sipgate.net:10000\fP,
+\fBstun.hitv.com:3478\fP, \fBstun.ideasip.com:3478\fP,
+\fBstun.internetcalls.com:3478\fP, \fBstun.miwifi.com:3478\fP,
+\fBstun.schlund.de:3478\fP,\(ga\(gastun.sipgate.net:10000\(ga\(ga,
 \fBstun.sipgate.net:3478\fP, \fBstun.voip.aebc.com:3478\fP,
 \fBstun.voiparound.com:3478\fP, \fBstun.voipbuster.com:3478\fP,
 \fBstun.voipstunt.com:3478\fP and \fBstun.xten.com:3478\fP (this is the default).
+.sp
+To configure multiple servers, you can either: repeat \fB<stunServer>\fP tags
+in the configuration file or enter several servers separated by commas in
+the GUI.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1501,7 +1523,9 @@ troubleshooting step and causes high database churn. The default is now
 Feature flags are simple strings that, when added to the configuration, may
 unleash unfinished or still\-in\-development features to allow early user
 testing.  Any supported value will be separately announced with the feature,
-so that regular users do not enable it by accident.
+so that regular users do not enable it by accident.  To configure multiple
+flags, you can either: repeat \fB<featureFlag>\fP tags in the configuration
+file or enter several flags separated by commas in the GUI.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1626,9 +1650,9 @@ line is represented as by a \fB<line>\fP element.
 .SS Listen Addresses
 .sp
 The following address types are accepted in sync protocol listen addresses.
-If you want Syncthing to listen on multiple addresses, you can either: add
-multiple \fB<listenAddress>\fP tags in the configuration file or enter several
-addresses separated by commas in the GUI.
+If you want Syncthing to listen on multiple addresses, you can either: repeat
+\fB<listenAddress>\fP tags in the configuration file or enter several addresses
+separated by commas in the GUI.
 .INDENT 0.0
 .TP
 .B Default listen addresses (\fBdefault\fP)

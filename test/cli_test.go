@@ -23,7 +23,7 @@ func TestCLIReset(t *testing.T) {
 	// Create directories that reset will remove
 
 	for _, dir := range dirs {
-		err := os.Mkdir(dir, 0755)
+		err := os.Mkdir(dir, 0o755)
 		if err != nil && !os.IsExist(err) {
 			t.Fatal(err)
 		}

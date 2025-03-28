@@ -223,7 +223,7 @@ func setupAPIBench() *rc.Process {
 		panic(err)
 	}
 
-	err = os.WriteFile("s1/knownfile", []byte("somedatahere"), 0644)
+	err = os.WriteFile("s1/knownfile", []byte("somedatahere"), 0o644)
 	if err != nil {
 		panic(err)
 	}

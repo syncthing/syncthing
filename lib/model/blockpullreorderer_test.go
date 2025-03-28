@@ -14,9 +14,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-var (
-	someBlocks = []protocol.BlockInfo{{Offset: 1}, {Offset: 2}, {Offset: 3}}
-)
+var someBlocks = []protocol.BlockInfo{{Offset: 1}, {Offset: 2}, {Offset: 3}}
 
 func Test_chunk(t *testing.T) {
 	type args struct {

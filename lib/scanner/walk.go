@@ -17,13 +17,14 @@ import (
 	"unicode/utf8"
 
 	metrics "github.com/rcrowley/go-metrics"
+	"golang.org/x/text/unicode/norm"
+
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"golang.org/x/text/unicode/norm"
 )
 
 type Config struct {
@@ -237,20 +238,36 @@ func (w *walker) walkWithoutHashing(ctx context.Context) chan ScanResult {
 	return finishedChan
 }
 
+const walkFailureEventDesc = "Unexpected error while walking the filesystem during scan"
+
 func (w *walker) scan(ctx context.Context, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) {
 	hashFiles := w.walkAndHashFiles(ctx, toHashChan, finishedChan)
 	if len(w.Subs) == 0 {
-		w.Filesystem.Walk(".", hashFiles)
+		if err := w.Filesystem.Walk(".", hashFiles); isWarnableError(err) {
+			w.EventLogger.Log(events.Failure, walkFailureEventDesc)
+			l.Warnf("Aborted scan due to an unexpected error: %v", err)
+		}
 	} else {
 		for _, sub := range w.Subs {
 			if err := osutil.TraversesSymlink(w.Filesystem, filepath.Dir(sub)); err != nil {
 				l.Debugf("%v: Skip walking %v as it is below a symlink", w, sub)
 				continue
 			}
-			w.Filesystem.Walk(sub, hashFiles)
+			if err := w.Filesystem.Walk(sub, hashFiles); isWarnableError(err) {
+				w.EventLogger.Log(events.Failure, walkFailureEventDesc)
+				l.Warnf("Aborted scan of path '%v' due to an unexpected error: %v", sub, err)
+			}
 		}
 	}
 	close(toHashChan)
+}
+
+// isWarnableError returns true if err is a kind of error we should warn
+// about receiving from the folder walk.
+func isWarnableError(err error) bool {
+	return err != nil &&
+		!errors.Is(err, fs.SkipDir) && // intentional skip
+		!errors.Is(err, context.Canceled) // folder restarting
 }
 
 func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) fs.WalkFunc {
@@ -293,6 +310,11 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 			return skip
 		}
 
+		// Just in case the filesystem doesn't produce the normalization the OS
+		// uses, and we use internally.
+		nonNormPath := path
+		path = normalizePath(path)
+
 		if m := w.Matcher.Match(path); m.IsIgnored() {
 			l.Debugln(w, "ignored (patterns):", path)
 			// Only descend if matcher says so and the current file is not a symlink.
@@ -319,9 +341,27 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 			return nil
 		}
 
+		if path != nonNormPath {
+			if !w.AutoNormalize {
+				// We're not authorized to do anything about it, so complain and skip.
+				handleError(ctx, "normalizing path", nonNormPath, errUTF8Normalization, finishedChan)
+				return skip
+			}
+
+			path, err = w.applyNormalization(nonNormPath, path, info)
+			if err != nil {
+				handleError(ctx, "normalizing path", nonNormPath, err, finishedChan)
+				return skip
+			}
+		}
+
 		if ignoredParent == "" {
 			// parent isn't ignored, nothing special
-			return w.handleItem(ctx, path, info, toHashChan, finishedChan, skip)
+			if err := w.handleItem(ctx, path, info, toHashChan, finishedChan); err != nil {
+				handleError(ctx, "scan", path, err, finishedChan)
+				return skip
+			}
+			return nil
 		}
 
 		// Part of current path below the ignored (potential) parent
@@ -330,7 +370,11 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 		// ignored path isn't actually a parent of the current path
 		if rel == path {
 			ignoredParent = ""
-			return w.handleItem(ctx, path, info, toHashChan, finishedChan, skip)
+			if err := w.handleItem(ctx, path, info, toHashChan, finishedChan); err != nil {
+				handleError(ctx, "scan", path, err, finishedChan)
+				return skip
+			}
+			return nil
 		}
 
 		// The previously ignored parent directories of the current, not
@@ -345,8 +389,9 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 				handleError(ctx, "scan", ignoredParent, err, finishedChan)
 				return skip
 			}
-			if err = w.handleItem(ctx, ignoredParent, info, toHashChan, finishedChan, skip); err != nil {
-				return err
+			if err = w.handleItem(ctx, ignoredParent, info, toHashChan, finishedChan); err != nil {
+				handleError(ctx, "scan", path, err, finishedChan)
+				return skip
 			}
 		}
 		ignoredParent = ""
@@ -355,14 +400,10 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 	}
 }
 
-func (w *walker) handleItem(ctx context.Context, path string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult, skip error) error {
-	oldPath := path
-	path, err := w.normalizePath(path, info)
-	if err != nil {
-		handleError(ctx, "normalizing path", oldPath, err, finishedChan)
-		return skip
-	}
-
+// Returning an error does not indicate that the walk should be aborted - it
+// will simply report the error for that path to the user (same for walk...
+// functions called from here).
+func (w *walker) handleItem(ctx context.Context, path string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) error {
 	switch {
 	case info.IsSymlink():
 		if err := w.walkSymlink(ctx, path, info, finishedChan); err != nil {
@@ -375,13 +416,16 @@ func (w *walker) handleItem(ctx context.Context, path string, info fs.FileInfo, 
 		return nil
 
 	case info.IsDir():
-		err = w.walkDir(ctx, path, info, finishedChan)
+		return w.walkDir(ctx, path, info, finishedChan)
 
 	case info.IsRegular():
-		err = w.walkRegular(ctx, path, info, toHashChan)
-	}
+		return w.walkRegular(ctx, path, info, toHashChan)
 
-	return err
+	default:
+		// A special file, socket, fifo, etc. -- do nothing, just skip and continue scanning.
+		l.Debugf("Skipping non-regular file %s (%s)", path, info.Mode())
+		return nil
+	}
 }
 
 func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo) error {
@@ -409,7 +453,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	}
 	f = w.updateFileInfo(f, curFile)
 	f.NoPermissions = w.IgnorePerms
-	f.RawBlockSize = blockSize
+	f.RawBlockSize = int32(blockSize)
 	l.Debugln(w, "checking:", f)
 
 	if hasCurFile {
@@ -495,8 +539,6 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 	return nil
 }
 
-// walkSymlink returns nil or an error, if the error is of the nature that
-// it should stop the entire walk.
 func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileInfo, finishedChan chan<- ScanResult) error {
 	// Symlinks are not supported on Windows. We ignore instead of returning
 	// an error.
@@ -506,8 +548,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 
 	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter)
 	if err != nil {
-		handleError(ctx, "reading link", relPath, err, finishedChan)
-		return nil
+		return err
 	}
 
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
@@ -550,30 +591,21 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 	return nil
 }
 
-// normalizePath returns the normalized relative path (possibly after fixing
-// it on disk), or skip is true.
-func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, err error) {
+func normalizePath(path string) string {
 	if build.IsDarwin || build.IsIOS {
 		// Mac OS X file names should always be NFD normalized.
-		normPath = norm.NFD.String(path)
-	} else {
-		// Every other OS in the known universe uses NFC or just plain
-		// doesn't bother to define an encoding. In our case *we* do care,
-		// so we enforce NFC regardless.
-		normPath = norm.NFC.String(path)
+		return norm.NFD.String(path)
 	}
+	// Every other OS in the known universe uses NFC or just plain
+	// doesn't bother to define an encoding. In our case *we* do care,
+	// so we enforce NFC regardless.
+	return norm.NFC.String(path)
+}
 
-	if path == normPath {
-		// The file name is already normalized: nothing to do
-		return path, nil
-	}
-
-	if !w.AutoNormalize {
-		// We're not authorized to do anything about it, so complain and skip.
-
-		return "", errUTF8Normalization
-	}
-
+// applyNormalization fixes the normalization of the file on disk, i.e. ensures
+// the file at path ends up named normPath. It shouldn't but may happen that the
+// file ends up with a different name, in which case that one should be scanned.
+func (w *walker) applyNormalization(path, normPath string, info fs.FileInfo) (string, error) {
 	// We will attempt to normalize it.
 	normInfo, err := w.Filesystem.Lstat(normPath)
 	if fs.IsNotExist(err) {
@@ -629,6 +661,7 @@ func (w *walker) updateFileInfo(dst, src protocol.FileInfo) protocol.FileInfo {
 }
 
 func handleError(ctx context.Context, context, path string, err error, finishedChan chan<- ScanResult) {
+	l.Debugf("handle error on '%v': %v: %v", path, context, err)
 	select {
 	case finishedChan <- ScanResult{
 		Err:  fmt.Errorf("%s: %w", context, err),
@@ -715,14 +748,14 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanO
 		if err != nil {
 			return protocol.FileInfo{}, err
 		}
-		f.SymlinkTarget = target
+		f.SymlinkTarget = []byte(target)
 		f.NoPermissions = true // Symlinks don't have permissions of their own
 		return f, nil
 	}
 
 	f.Permissions = uint32(fi.Mode() & fs.ModePerm)
 	f.ModifiedS = fi.ModTime().Unix()
-	f.ModifiedNs = fi.ModTime().Nanosecond()
+	f.ModifiedNs = int32(fi.ModTime().Nanosecond())
 
 	if fi.IsDir() {
 		f.Type = protocol.FileInfoTypeDirectory

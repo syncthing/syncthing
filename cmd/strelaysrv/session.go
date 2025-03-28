@@ -68,7 +68,6 @@ func findSession(key string) *session {
 	ses, ok := pendingSessions[key]
 	if !ok {
 		return nil
-
 	}
 	delete(pendingSessions, key)
 	return ses

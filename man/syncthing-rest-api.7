@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Jul 18, 2024" "v1.27.7" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Mar 19, 2025" "v1.29.3" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -1289,10 +1289,29 @@ not connected.  Otherwise it can be either \fBpaused\fP, \fBnotSharing\fP, or
 
 .SS GET /rest/db/file
 .sp
-Returns most data available about a given file, including version and
-availability. Takes \fBfolder\fP and \fBfile\fP parameters. \fBlocal\fP and
-\fBglobal\fP refer to the current file on disk and the globally newest file,
-respectively.
+Returns most data about a given file, including version and availability.
+.SS Request
+.sp
+The call requires parameters for \fBfolder\fP and \fBfile\fP in the query string:
+.INDENT 0.0
+.IP \(bu 2
+\fBfolder\fP is the folder ID which you can find in the Syncthing Web GUI,
+e.g. \fB5camp\-slpa8\fP\&.
+.IP \(bu 2
+\fBfile\fP is the relative path of the file starting from the folder root to the
+file you are interested in.  The path and filename must be correctly
+URL\-encoded.
+.UNINDENT
+.SS Example Request
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+$ curl \-s \-H X\-API\-KEY:... \(dqhttp://localhost:8384/rest/db/file?folder=YOUR_FOLDER_ID\(dq \-\-url\-query \(dqfile=path/to/file.pdf\(dq
+.EE
+.UNINDENT
+.UNINDENT
+.SS Response
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -1305,55 +1324,53 @@ respectively.
     }
   ],
   \(dqglobal\(dq: { /* a file entry */ },
-  \(dqlocal\(dq: { /* a file entry */ }
-}
-.EE
-.UNINDENT
-.UNINDENT
-.sp
-A file entry looks like this:
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.EX
-{
-  {
-    \(dqdeleted\(dq: false,
-    \(dqignored\(dq: false,
-    \(dqinodeChange\(dq: \(dq1970\-01\-01T01:00:00+01:00\(dq,
-    \(dqinvalid\(dq: false,
-    \(dqlocalFlags\(dq: 0,
-    \(dqmodified\(dq: \(dq2022\-09\-28T08:07:19.979723+02:00\(dq,
-    \(dqmodifiedBy\(dq: \(dq523ITIE\(dq,
-    \(dqmustRescan\(dq: false,
-    \(dqname\(dq: \(dqimg\(dq,
-    \(dqnoPermissions\(dq: false,
-    \(dqnumBlocks\(dq: 0,
-    \(dqpermissions\(dq: \(dq0755\(dq,
-    \(dqplatform\(dq: { /* platform specific data */ },
-    \(dqsequence\(dq: 914,
-    \(dqsize\(dq: 128,
-    \(dqtype\(dq: \(dqFILE_INFO_TYPE_DIRECTORY\(dq,
-    \(dqversion\(dq: [
-      \(dq523ITIE:1664345275\(dq
-    ]
-  },
+  \(dqlocal\(dq: { /* a file entry */ },
   \(dqmtime\(dq: {
     \(dqerr\(dq: null,
     \(dqvalue\(dq: {
       \(dqreal\(dq: \(dq0001\-01\-01T00:00:00Z\(dq,
       \(dqvirtual\(dq: \(dq0001\-01\-01T00:00:00Z\(dq
-    }
   }
 }
 .EE
 .UNINDENT
 .UNINDENT
 .sp
+\fBlocal\fP and \fBglobal\fP refer to the current file on the local device and the
+globally newest file, respectively.  A file entry looks like this:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+{
+  \(dqdeleted\(dq: false,
+  \(dqignored\(dq: false,
+  \(dqinodeChange\(dq: \(dq1970\-01\-01T01:00:00+01:00\(dq,
+  \(dqinvalid\(dq: false,
+  \(dqlocalFlags\(dq: 0,
+  \(dqmodified\(dq: \(dq2022\-09\-28T08:07:19.979723+02:00\(dq,
+  \(dqmodifiedBy\(dq: \(dq523ITIE\(dq,
+  \(dqmustRescan\(dq: false,
+  \(dqname\(dq: \(dqimg\(dq,
+  \(dqnoPermissions\(dq: false,
+  \(dqnumBlocks\(dq: 0,
+  \(dqpermissions\(dq: \(dq0755\(dq,
+  \(dqplatform\(dq: { /* platform specific data */ },
+  \(dqsequence\(dq: 914,
+  \(dqsize\(dq: 128,
+  \(dqtype\(dq: \(dqFILE_INFO_TYPE_DIRECTORY\(dq,
+  \(dqversion\(dq: [
+    \(dq523ITIE:1664345275\(dq
+  ]
+}
+.EE
+.UNINDENT
+.UNINDENT
+.sp
 Platform specific data may be ownership, extended attributes, etc. and is
-divided into entries per operating system / platform. An example platform
-entry containing ownership information for Unix systems and an extended
-attribute for macOS (“darwin”) looks as follows:
+divided into entries per operating system / platform.  An example platform entry
+containing ownership information for Unix systems and an extended attribute for
+macOS (“darwin”) looks as follows:
 .INDENT 0.0
 .INDENT 3.5
 .sp

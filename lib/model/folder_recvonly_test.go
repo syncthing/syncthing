@@ -391,11 +391,10 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 
 	files := make([]protocol.FileInfo, 0, 2)
 	snap := fsetSnapshot(t, f.fset)
-	snap.WithHave(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
-		if n := fi.FileName(); n != file && n != knownFile {
+	snap.WithHave(protocol.LocalDeviceID, func(f protocol.FileInfo) bool {
+		if f.Name != file && f.Name != knownFile {
 			return true
 		}
-		f := fi.(protocol.FileInfo)
 		f.LocalFlags = 0
 		f.Version = protocol.Vector{}.Update(device1.Short())
 		files = append(files, f)
@@ -576,7 +575,7 @@ func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.Fi
 			Permissions: 0o644,
 			Size:        fi.Size(),
 			ModifiedS:   fi.ModTime().Unix(),
-			ModifiedNs:  int(fi.ModTime().UnixNano() % 1e9),
+			ModifiedNs:  int32(fi.ModTime().Nanosecond()),
 			Version:     protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 42}}},
 			Sequence:    42,
 			Blocks:      blocks,

@@ -18,6 +18,7 @@ type requiresRestart struct {
 func (requiresRestart) VerifyConfiguration(_, _ Configuration) error {
 	return nil
 }
+
 func (c requiresRestart) CommitConfiguration(_, _ Configuration) bool {
 	select {
 	case c.committed <- struct{}{}:
@@ -25,6 +26,7 @@ func (c requiresRestart) CommitConfiguration(_, _ Configuration) bool {
 	}
 	return false
 }
+
 func (requiresRestart) String() string {
 	return "requiresRestart"
 }
@@ -34,9 +36,11 @@ type validationError struct{}
 func (validationError) VerifyConfiguration(_, _ Configuration) error {
 	return errors.New("some error")
 }
+
 func (validationError) CommitConfiguration(_, _ Configuration) bool {
 	return true
 }
+
 func (validationError) String() string {
 	return "validationError"
 }

@@ -49,18 +49,17 @@ var (
 		"dynamic+https://relays.syncthing.net/endpoint",
 		netutil.AddressURL("quic", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultQUICPort))),
 	}
-	DefaultGUIPort = 8384
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
 	// contains <globalAnnounceServer>default-v4</globalAnnounceServer>.
 	DefaultDiscoveryServersV4 = []string{
-		"https://discovery.syncthing.net/v2/?noannounce&id=LYXKCHX-VI3NYZR-ALCJBHF-WMZYSPK-QG6QJA3-MPFYMSO-U56GTUK-NA2MIAW",
-		"https://discovery-v4.syncthing.net/v2/?nolookup&id=LYXKCHX-VI3NYZR-ALCJBHF-WMZYSPK-QG6QJA3-MPFYMSO-U56GTUK-NA2MIAW",
+		"https://discovery-lookup.syncthing.net/v2/?noannounce",
+		"https://discovery-announce-v4.syncthing.net/v2/?nolookup",
 	}
 	// DefaultDiscoveryServersV6 should be substituted when the configuration
 	// contains <globalAnnounceServer>default-v6</globalAnnounceServer>.
 	DefaultDiscoveryServersV6 = []string{
-		"https://discovery.syncthing.net/v2/?noannounce&id=LYXKCHX-VI3NYZR-ALCJBHF-WMZYSPK-QG6QJA3-MPFYMSO-U56GTUK-NA2MIAW",
-		"https://discovery-v6.syncthing.net/v2/?nolookup&id=LYXKCHX-VI3NYZR-ALCJBHF-WMZYSPK-QG6QJA3-MPFYMSO-U56GTUK-NA2MIAW",
+		"https://discovery-lookup.syncthing.net/v2/?noannounce",
+		"https://discovery-announce-v6.syncthing.net/v2/?nolookup",
 	}
 	// DefaultDiscoveryServers should be substituted when the configuration
 	// contains <globalAnnounceServer>default</globalAnnounceServer>.
@@ -79,8 +78,10 @@ var (
 		"stun.counterpath.com:3478",
 		"stun.counterpath.net:3478",
 		"stun.ekiga.net:3478",
+		"stun.hitv.com:3478",
 		"stun.ideasip.com:3478",
 		"stun.internetcalls.com:3478",
+		"stun.miwifi.com:3478",
 		"stun.schlund.de:3478",
 		"stun.sipgate.net:10000",
 		"stun.sipgate.net:3478",
@@ -97,6 +98,28 @@ var (
 	errFolderIDDuplicate = errors.New("folder has duplicate ID")
 	errFolderPathEmpty   = errors.New("folder has empty path")
 )
+
+type Configuration struct {
+	Version                  int                   `json:"version" xml:"version,attr"`
+	Folders                  []FolderConfiguration `json:"folders" xml:"folder"`
+	Devices                  []DeviceConfiguration `json:"devices" xml:"device"`
+	GUI                      GUIConfiguration      `json:"gui" xml:"gui"`
+	LDAP                     LDAPConfiguration     `json:"ldap" xml:"ldap"`
+	Options                  OptionsConfiguration  `json:"options" xml:"options"`
+	IgnoredDevices           []ObservedDevice      `json:"remoteIgnoredDevices" xml:"remoteIgnoredDevice"`
+	DeprecatedPendingDevices []ObservedDevice      `json:"-" xml:"pendingDevice,omitempty"` // Deprecated: Do not use.
+	Defaults                 Defaults              `json:"defaults" xml:"defaults"`
+}
+
+type Defaults struct {
+	Folder  FolderConfiguration `json:"folder" xml:"folder"`
+	Device  DeviceConfiguration `json:"device" xml:"device"`
+	Ignores Ignores             `json:"ignores" xml:"ignores"`
+}
+
+type Ignores struct {
+	Lines []string `json:"lines" xml:"line"`
+}
 
 func New(myID protocol.DeviceID) Configuration {
 	var cfg Configuration
@@ -116,13 +139,23 @@ func New(myID protocol.DeviceID) Configuration {
 }
 
 func (cfg *Configuration) ProbeFreePorts() error {
-	port, err := getFreePort("127.0.0.1", DefaultGUIPort)
-	if err != nil {
-		return fmt.Errorf("get free port (GUI): %w", err)
+	if cfg.GUI.Network() == "tcp" {
+		guiHost, guiPort, err := net.SplitHostPort(cfg.GUI.Address())
+		if err != nil {
+			return fmt.Errorf("get default port (GUI): %w", err)
+		}
+		port, err := strconv.Atoi(guiPort)
+		if err != nil {
+			return fmt.Errorf("convert default port (GUI): %w", err)
+		}
+		port, err = getFreePort(guiHost, port)
+		if err != nil {
+			return fmt.Errorf("get free port (GUI): %w", err)
+		}
+		cfg.GUI.RawAddress = net.JoinHostPort(guiHost, strconv.Itoa(port))
 	}
-	cfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
 
-	port, err = getFreePort("0.0.0.0", DefaultTCPPort)
+	port, err := getFreePort("0.0.0.0", DefaultTCPPort)
 	if err != nil {
 		return fmt.Errorf("get free port (BEP): %w", err)
 	}

@@ -18,6 +18,15 @@ angular.module('syncthing.core')
             LocaleService.autoConfigLocale();
 
             if (!$scope.authenticated) {
+                function setVersionFromHeader(_data, _status, headers) {
+                    var version = headers('X-Syncthing-Version');
+                    if (version) {
+                        $scope.version = { version: version };
+                    }
+                }
+                // Get index.html again (likely cached) to retrieve the version header
+                $http.get('').success(setVersionFromHeader).error(setVersionFromHeader);
+
                 // Can't proceed yet - wait for the page reload after successful login.
                 return;
             }
@@ -1456,7 +1465,7 @@ angular.module('syncthing.core')
             // Assume hasRemoteGUIAddress is true or we would not be here
             var conn = $scope.connections[deviceCfg.deviceID];
             // Use regex to filter out scope ID from IPv6 addresses.
-            return 'http://' + replaceAddressPort(conn.address, deviceCfg.remoteGUIPort).replace('%.*?\]:', ']:');
+            return 'http://' + replaceAddressPort(conn.address, deviceCfg.remoteGUIPort).replace(/%.*?\]:/, ']:');
         };
 
         function replaceAddressPort(address, newPort) {
@@ -3585,6 +3594,11 @@ angular.module('syncthing.core')
                 return 'checkbox';
             }
             if (value instanceof Array) {
+                if (value.some(function (element) {
+                    return typeof element !== 'number' && typeof element !== 'string';
+                })) {
+                    return 'skip';
+                }
                 return 'list';
             }
             if (typeof value === 'object') {
@@ -3940,7 +3954,6 @@ angular.module('syncthing.core')
                 untrusted: '=',
             },
             link: function (scope, elem, attrs) {
-                var plain = false;
                 scope.togglePasswordVisibility = function() {
                     scope.plain = !scope.plain;
                 };

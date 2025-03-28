@@ -10,9 +10,15 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/thejerf/suture/v4"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/syncthing/syncthing/internal/gen/discosrv"
+	"github.com/syncthing/syncthing/internal/protoutil"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type amqpReplicator struct {
@@ -20,7 +26,7 @@ type amqpReplicator struct {
 	broker   string
 	sender   *amqpSender
 	receiver *amqpReceiver
-	outbox   chan ReplicationRecord
+	outbox   chan *discosrv.ReplicationRecord
 }
 
 func newAMQPReplicator(broker, clientID string, db database) *amqpReplicator {
@@ -29,7 +35,7 @@ func newAMQPReplicator(broker, clientID string, db database) *amqpReplicator {
 	sender := &amqpSender{
 		broker:   broker,
 		clientID: clientID,
-		outbox:   make(chan ReplicationRecord, replicationOutboxSize),
+		outbox:   make(chan *discosrv.ReplicationRecord, replicationOutboxSize),
 	}
 	svc.Add(sender)
 
@@ -45,18 +51,18 @@ func newAMQPReplicator(broker, clientID string, db database) *amqpReplicator {
 		broker:   broker,
 		sender:   sender,
 		receiver: receiver,
-		outbox:   make(chan ReplicationRecord, replicationOutboxSize),
+		outbox:   make(chan *discosrv.ReplicationRecord, replicationOutboxSize),
 	}
 }
 
-func (s *amqpReplicator) send(key string, ps []DatabaseAddress, seen int64) {
+func (s *amqpReplicator) send(key *protocol.DeviceID, ps []*discosrv.DatabaseAddress, seen int64) {
 	s.sender.send(key, ps, seen)
 }
 
 type amqpSender struct {
 	broker   string
 	clientID string
-	outbox   chan ReplicationRecord
+	outbox   chan *discosrv.ReplicationRecord
 }
 
 func (s *amqpSender) Serve(ctx context.Context) error {
@@ -71,12 +77,12 @@ func (s *amqpSender) Serve(ctx context.Context) error {
 	for {
 		select {
 		case rec := <-s.outbox:
-			size := rec.Size()
+			size := proto.Size(rec)
 			if len(buf) < size {
 				buf = make([]byte, size)
 			}
 
-			n, err := rec.MarshalTo(buf)
+			n, err := protoutil.MarshalTo(buf, rec)
 			if err != nil {
 				replicationSendsTotal.WithLabelValues("error").Inc()
 				return fmt.Errorf("replication marshal: %w", err)
@@ -109,9 +115,9 @@ func (s *amqpSender) String() string {
 	return fmt.Sprintf("amqpSender(%q)", s.broker)
 }
 
-func (s *amqpSender) send(key string, ps []DatabaseAddress, seen int64) {
-	item := ReplicationRecord{
-		Key:       key,
+func (s *amqpSender) send(key *protocol.DeviceID, ps []*discosrv.DatabaseAddress, seen int64) {
+	item := &discosrv.ReplicationRecord{
+		Key:       key[:],
 		Addresses: ps,
 		Seen:      seen,
 	}
@@ -156,13 +162,22 @@ func (s *amqpReceiver) Serve(ctx context.Context) error {
 				continue
 			}
 
-			var rec ReplicationRecord
-			if err := rec.Unmarshal(msg.Body); err != nil {
+			var rec discosrv.ReplicationRecord
+			if err := proto.Unmarshal(msg.Body, &rec); err != nil {
 				replicationRecvsTotal.WithLabelValues("error").Inc()
 				return fmt.Errorf("replication unmarshal: %w", err)
 			}
+			id, err := protocol.DeviceIDFromBytes(rec.Key)
+			if err != nil {
+				id, err = protocol.DeviceIDFromString(string(rec.Key))
+			}
+			if err != nil {
+				log.Println("Replication device ID:", err)
+				replicationRecvsTotal.WithLabelValues("error").Inc()
+				continue
+			}
 
-			if err := s.db.merge(rec.Key, rec.Addresses, rec.Seen); err != nil {
+			if err := s.db.merge(&id, rec.Addresses, rec.Seen); err != nil {
 				return fmt.Errorf("replication database merge: %w", err)
 			}
 

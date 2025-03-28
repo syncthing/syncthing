@@ -23,10 +23,10 @@ func testWalkSkipSymlink(t *testing.T, fsType FilesystemType, uri string) {
 
 	fs := NewFilesystem(fsType, uri)
 
-	if err := fs.MkdirAll("target/foo", 0755); err != nil {
+	if err := fs.MkdirAll("target/foo", 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := fs.Mkdir("towalk", 0755); err != nil {
+	if err := fs.Mkdir("towalk", 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := fs.CreateSymlink("target", "towalk/symlink"); err != nil {

@@ -6,6 +6,13 @@
 
 package config
 
+type AuthMode int32
+
+const (
+	AuthModeStatic AuthMode = 0
+	AuthModeLDAP   AuthMode = 1
+)
+
 func (t AuthMode) String() string {
 	switch t {
 	case AuthModeStatic:

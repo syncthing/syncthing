@@ -11,14 +11,14 @@ package fs
 
 import (
 	"fmt"
+	"go/version"
 	"os"
+	"runtime"
 	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
-
-const IO_REPARSE_TAG_DEDUP = 0x80000013
 
 func readReparseTag(path string) (uint32, error) {
 	namep, err := syscall.UTF16PtrFromString(path)
@@ -32,7 +32,7 @@ func readReparseTag(path string) (uint32, error) {
 	}
 	defer syscall.CloseHandle(h)
 
-	//https://docs.microsoft.com/windows/win32/api/winbase/ns-winbase-file_attribute_tag_info
+	// https://docs.microsoft.com/windows/win32/api/winbase/ns-winbase-file_attribute_tag_info
 	const fileAttributeTagInfo = 9
 	type FILE_ATTRIBUTE_TAG_INFO struct {
 		FileAttributes uint32
@@ -60,10 +60,6 @@ func isDirectoryJunction(reparseTag uint32) bool {
 	return reparseTag == windows.IO_REPARSE_TAG_MOUNT_POINT
 }
 
-func isDeduplicatedFile(reparseTag uint32) bool {
-	return reparseTag == IO_REPARSE_TAG_DEDUP
-}
-
 type dirJunctFileInfo struct {
 	os.FileInfo
 }
@@ -71,42 +67,38 @@ type dirJunctFileInfo struct {
 func (fi *dirJunctFileInfo) Mode() os.FileMode {
 	// Simulate a directory and not a symlink; also set the execute
 	// bits so the directory can be traversed Unix-side.
-	return fi.FileInfo.Mode() ^ os.ModeSymlink | os.ModeDir | 0111
+	return fi.FileInfo.Mode()&^junctionPointModeMask | os.ModeDir | 0o111
 }
 
 func (fi *dirJunctFileInfo) IsDir() bool {
 	return true
 }
 
-type dedupFileInfo struct {
-	os.FileInfo
-}
+var junctionPointModeMask os.FileMode
 
-func (fi *dedupFileInfo) Mode() os.FileMode {
-	// A deduplicated file should be treated as a regular file and not an
-	// irregular file.
-	return fi.FileInfo.Mode() &^ os.ModeIrregular
+func init() {
+	// Per https://tip.golang.org/doc/go1.23#minor_library_changes
+	// In go1.22 (and go1.23 when GODEBUG=winsymlink=0) Windows' directory
+	// junctions (aka "mount points") always have ModeSymlink set.
+	junctionPointModeMask = os.ModeSymlink
+	if version.Compare(runtime.Version(), "go1.23") >= 0 {
+		// In go1.23 Windows' directory junctions always have ModeIrregular set
+		// (unless GODEBUG=winsymlink=0).
+		junctionPointModeMask |= os.ModeIrregular
+	}
 }
 
 func (f *BasicFilesystem) underlyingLstat(name string) (os.FileInfo, error) {
-	var fi, err = os.Lstat(name)
+	fi, err := os.Lstat(name)
 
 	// There are cases where files are tagged as symlink, but they end up being
 	// something else. Make sure we properly handle those types.
 	if err == nil {
 		// NTFS directory junctions can be treated as ordinary directories,
 		// see https://forum.syncthing.net/t/option-to-follow-directory-junctions-symbolic-links/14750
-		if fi.Mode()&os.ModeSymlink != 0 && f.junctionsAsDirs {
+		if fi.Mode()&junctionPointModeMask != 0 && f.junctionsAsDirs {
 			if reparseTag, reparseErr := readReparseTag(name); reparseErr == nil && isDirectoryJunction(reparseTag) {
 				return &dirJunctFileInfo{fi}, nil
-			}
-		}
-
-		// Workaround for #9120 till golang properly handles deduplicated files by
-		// considering them regular files.
-		if fi.Mode()&os.ModeIrregular != 0 {
-			if reparseTag, reparseErr := readReparseTag(name); reparseErr == nil && isDeduplicatedFile(reparseTag) {
-				return &dedupFileInfo{fi}, nil
 			}
 		}
 	}

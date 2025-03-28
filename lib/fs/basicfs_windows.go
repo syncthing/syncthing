@@ -198,7 +198,7 @@ func (f *BasicFilesystem) Remove(name string) error {
 	err = os.Remove(name)
 	if os.IsPermission(err) {
 		// Try to remove the read-only attribute and try again
-		if os.Chmod(name, 0600) == nil {
+		if os.Chmod(name, 0o600) == nil {
 			err = os.Remove(name)
 		}
 	}

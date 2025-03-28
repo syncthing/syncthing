@@ -22,12 +22,13 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/gen/discosrv"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stringutil"
 )
@@ -45,10 +46,14 @@ type apiSrv struct {
 	listener       net.Listener
 	repl           replicator // optional
 	useHTTP        bool
-	missesIncrease int
+	compression    bool
+	gzipWriters    sync.Pool
+	seenTracker    *retryAfterTracker
+	notSeenTracker *retryAfterTracker
+}
 
-	mapsMut sync.Mutex
-	misses  map[string]int32
+type replicator interface {
+	send(key *protocol.DeviceID, addrs []*discosrv.DatabaseAddress, seen int64)
 }
 
 type requestID int64
@@ -61,19 +66,30 @@ type contextKey int
 
 const idKey contextKey = iota
 
-func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, useHTTP bool, missesIncrease int) *apiSrv {
+func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, useHTTP, compression bool) *apiSrv {
 	return &apiSrv{
-		addr:           addr,
-		cert:           cert,
-		db:             db,
-		repl:           repl,
-		useHTTP:        useHTTP,
-		misses:         make(map[string]int32),
-		missesIncrease: missesIncrease,
+		addr:        addr,
+		cert:        cert,
+		db:          db,
+		repl:        repl,
+		useHTTP:     useHTTP,
+		compression: compression,
+		seenTracker: &retryAfterTracker{
+			name:         "seenTracker",
+			bucketStarts: time.Now(),
+			desiredRate:  250,
+			currentDelay: notFoundRetryUnknownMinSeconds,
+		},
+		notSeenTracker: &retryAfterTracker{
+			name:         "notSeenTracker",
+			bucketStarts: time.Now(),
+			desiredRate:  250,
+			currentDelay: notFoundRetryUnknownMaxSeconds / 2,
+		},
 	}
 }
 
-func (s *apiSrv) Serve(_ context.Context) error {
+func (s *apiSrv) Serve(ctx context.Context) error {
 	if s.useHTTP {
 		listener, err := net.Listen("tcp", s.addr)
 		if err != nil {
@@ -104,8 +120,15 @@ func (s *apiSrv) Serve(_ context.Context) error {
 		ReadTimeout:    httpReadTimeout,
 		WriteTimeout:   httpWriteTimeout,
 		MaxHeaderBytes: httpMaxHeaderBytes,
-		ErrorLog:       log.New(io.Discard, "", 0),
 	}
+	if !debug {
+		srv.ErrorLog = log.New(io.Discard, "", 0)
+	}
+
+	go func() {
+		<-ctx.Done()
+		srv.Shutdown(context.Background())
+	}()
 
 	err := srv.Serve(s.listener)
 	if err != nil {
@@ -175,7 +198,7 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 	deviceID, err := protocol.DeviceIDFromString(req.URL.Query().Get("device"))
 	if err != nil {
 		if debug {
-			log.Println(reqID, "bad device param")
+			log.Println(reqID, "bad device param:", err)
 		}
 		lookupRequestsTotal.WithLabelValues("bad_request").Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
@@ -183,8 +206,7 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	key := deviceID.String()
-	rec, err := s.db.get(key)
+	rec, err := s.db.get(&deviceID)
 	if err != nil {
 		// some sort of internal error
 		lookupRequestsTotal.WithLabelValues("internal_error").Inc()
@@ -194,27 +216,14 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if len(rec.Addresses) == 0 {
-		lookupRequestsTotal.WithLabelValues("not_found").Inc()
-
-		s.mapsMut.Lock()
-		misses := s.misses[key]
-		if misses < rec.Misses {
-			misses = rec.Misses
+		var afterS int
+		if rec.Seen == 0 {
+			afterS = s.notSeenTracker.retryAfterS()
+			lookupRequestsTotal.WithLabelValues("not_found_ever").Inc()
+		} else {
+			afterS = s.seenTracker.retryAfterS()
+			lookupRequestsTotal.WithLabelValues("not_found_recent").Inc()
 		}
-		misses += int32(s.missesIncrease)
-		s.misses[key] = misses
-		s.mapsMut.Unlock()
-
-		if misses >= notFoundMissesWriteInterval {
-			rec.Misses = misses
-			rec.Missed = time.Now().UnixNano()
-			rec.Addresses = nil
-			// rec.Seen retained from get
-			s.db.put(key, rec)
-		}
-
-		afterS := notFoundRetryAfterSeconds(int(misses))
-		retryAfterHistogram.Observe(float64(afterS))
 		w.Header().Set("Retry-After", strconv.Itoa(afterS))
 		http.Error(w, "Not Found", http.StatusNotFound)
 		return
@@ -226,10 +235,16 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 	var bw io.Writer = w
 
 	// Use compression if the client asks for it
-	if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
+	if s.compression && strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
+		gw, ok := s.gzipWriters.Get().(*gzip.Writer)
+		if ok {
+			gw.Reset(w)
+		} else {
+			gw = gzip.NewWriter(w)
+		}
 		w.Header().Set("Content-Encoding", "gzip")
-		gw := gzip.NewWriter(bw)
 		defer gw.Close()
+		defer s.gzipWriters.Put(gw)
 		bw = gw
 	}
 
@@ -268,6 +283,9 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 
 	addresses := fixupAddresses(remoteAddr, ann.Addresses)
 	if len(addresses) == 0 {
+		if debug {
+			log.Println(reqID, "no addresses")
+		}
 		announceRequestsTotal.WithLabelValues("bad_request").Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
 		http.Error(w, "Bad Request", http.StatusBadRequest)
@@ -275,6 +293,9 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 	}
 
 	if err := s.handleAnnounce(deviceID, addresses); err != nil {
+		if debug {
+			log.Println(reqID, "handle:", err)
+		}
 		announceRequestsTotal.WithLabelValues("internal_error").Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -285,6 +306,9 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 
 	w.Header().Set("Reannounce-After", reannounceAfterString())
 	w.WriteHeader(http.StatusNoContent)
+	if debug {
+		log.Println(reqID, "announced", deviceID, addresses)
+	}
 }
 
 func (s *apiSrv) Stop() {
@@ -292,29 +316,31 @@ func (s *apiSrv) Stop() {
 }
 
 func (s *apiSrv) handleAnnounce(deviceID protocol.DeviceID, addresses []string) error {
-	key := deviceID.String()
 	now := time.Now()
 	expire := now.Add(addressExpiryTime).UnixNano()
 
-	dbAddrs := make([]DatabaseAddress, len(addresses))
-	for i := range addresses {
-		dbAddrs[i].Address = addresses[i]
-		dbAddrs[i].Expires = expire
-	}
-
 	// The address slice must always be sorted for database merges to work
 	// properly.
-	sort.Sort(databaseAddressOrder(dbAddrs))
+	slices.Sort(addresses)
+	addresses = slices.Compact(addresses)
+
+	dbAddrs := make([]*discosrv.DatabaseAddress, len(addresses))
+	for i := range addresses {
+		dbAddrs[i] = &discosrv.DatabaseAddress{
+			Address: addresses[i],
+			Expires: expire,
+		}
+	}
 
 	seen := now.UnixNano()
 	if s.repl != nil {
-		s.repl.send(key, dbAddrs, seen)
+		s.repl.send(&deviceID, dbAddrs, seen)
 	}
-	return s.db.merge(key, dbAddrs, seen)
+	return s.db.merge(&deviceID, dbAddrs, seen)
 }
 
 func handlePing(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(204)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func certificateBytes(req *http.Request) ([]byte, error) {
@@ -360,7 +386,7 @@ func certificateBytes(req *http.Request) ([]byte, error) {
 		}
 
 		bs = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: hdr})
-	} else if hdr := req.Header.Get("X-Forwarded-Tls-Client-Cert"); hdr != "" {
+	} else if cert := req.Header.Get("X-Forwarded-Tls-Client-Cert"); cert != "" {
 		// Traefik 2 passtlsclientcert
 		//
 		// The certificate is in PEM format, maybe with URL encoding
@@ -368,19 +394,36 @@ func certificateBytes(req *http.Request) ([]byte, error) {
 		// statements. We need to decode, reinstate the newlines every 64
 		// character and add statements for the PEM decoder
 
-		if strings.Contains(hdr, "%") {
-			if unesc, err := url.QueryUnescape(hdr); err == nil {
-				hdr = unesc
+		if strings.Contains(cert, "%") {
+			if unesc, err := url.QueryUnescape(cert); err == nil {
+				cert = unesc
 			}
 		}
 
-		for i := 64; i < len(hdr); i += 65 {
-			hdr = hdr[:i] + "\n" + hdr[i:]
+		const (
+			header = "-----BEGIN CERTIFICATE-----"
+			footer = "-----END CERTIFICATE-----"
+		)
+
+		var b bytes.Buffer
+		b.Grow(len(header) + 1 + len(cert) + len(cert)/64 + 1 + len(footer) + 1)
+
+		b.WriteString(header)
+		b.WriteByte('\n')
+
+		for i := 0; i < len(cert); i += 64 {
+			end := i + 64
+			if end > len(cert) {
+				end = len(cert)
+			}
+			b.WriteString(cert[i:end])
+			b.WriteByte('\n')
 		}
 
-		hdr = "-----BEGIN CERTIFICATE-----\n" + hdr
-		hdr += "\n-----END CERTIFICATE-----\n"
-		bs = []byte(hdr)
+		b.WriteString(footer)
+		b.WriteByte('\n')
+
+		bs = b.Bytes()
 	}
 
 	if bs == nil {
@@ -482,7 +525,7 @@ func (lrw *loggingResponseWriter) WriteHeader(code int) {
 	lrw.ResponseWriter.WriteHeader(code)
 }
 
-func addressStrs(dbAddrs []DatabaseAddress) []string {
+func addressStrs(dbAddrs []*discosrv.DatabaseAddress) []string {
 	res := make([]string, len(dbAddrs))
 	for i, a := range dbAddrs {
 		res[i] = a.Address
@@ -494,15 +537,44 @@ func errorRetryAfterString() string {
 	return strconv.Itoa(errorRetryAfterSeconds + rand.Intn(errorRetryFuzzSeconds))
 }
 
-func notFoundRetryAfterSeconds(misses int) int {
-	retryAfterS := notFoundRetryMinSeconds + notFoundRetryIncSeconds*misses
-	if retryAfterS > notFoundRetryMaxSeconds {
-		retryAfterS = notFoundRetryMaxSeconds
-	}
-	retryAfterS += rand.Intn(notFoundRetryFuzzSeconds)
-	return retryAfterS
-}
-
 func reannounceAfterString() string {
 	return strconv.Itoa(reannounceAfterSeconds + rand.Intn(reannounzeFuzzSeconds))
+}
+
+type retryAfterTracker struct {
+	name        string
+	desiredRate float64 // requests per second
+
+	mut          sync.Mutex
+	lastCount    int       // requests in the last bucket
+	curCount     int       // requests in the current bucket
+	bucketStarts time.Time // start of the current bucket
+	currentDelay int       // current delay in seconds
+}
+
+func (t *retryAfterTracker) retryAfterS() int {
+	now := time.Now()
+	t.mut.Lock()
+	if durS := now.Sub(t.bucketStarts).Seconds(); durS > float64(t.currentDelay) {
+		t.bucketStarts = now
+		t.lastCount = t.curCount
+		lastRate := float64(t.lastCount) / durS
+
+		switch {
+		case t.currentDelay > notFoundRetryUnknownMinSeconds &&
+			lastRate < 0.75*t.desiredRate:
+			t.currentDelay = max(8*t.currentDelay/10, notFoundRetryUnknownMinSeconds)
+		case t.currentDelay < notFoundRetryUnknownMaxSeconds &&
+			lastRate > 1.25*t.desiredRate:
+			t.currentDelay = min(3*t.currentDelay/2, notFoundRetryUnknownMaxSeconds)
+		}
+
+		t.curCount = 0
+	}
+	if t.curCount == 0 {
+		retryAfterLevel.WithLabelValues(t.name).Set(float64(t.currentDelay))
+	}
+	t.curCount++
+	t.mut.Unlock()
+	return t.currentDelay + rand.Intn(t.currentDelay/4)
 }
