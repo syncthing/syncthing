@@ -30,107 +30,10 @@ func genBlocks(n int) []protocol.BlockInfo {
 	return b
 }
 
-func TestIgnoredFiles(t *testing.T) {
-	ldb, err := openJSONS("testdata/v0.14.48-ignoredfiles.db.jsons")
-	if err != nil {
-		t.Fatal(err)
-	}
-	db := newLowlevel(t, ldb)
-	defer db.Close()
-	if err := UpdateSchema(db); err != nil {
-		t.Fatal(err)
-	}
-
-	fs := newFileSet(t, "test", db)
-
-	// The contents of the database are like this:
-	//
-	// 	fs := newFileSet(t, "test", db)
-	// 	fs.Update(protocol.LocalDeviceID, []protocol.FileInfo{
-	// 		{ // invalid (ignored) file
-	// 			Name:    "foo",
-	// 			Type:    protocol.FileInfoTypeFile,
-	// 			Invalid: true,
-	// 			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 1, Value: 1000}}},
-	// 		},
-	// 		{ // regular file
-	// 			Name:    "bar",
-	// 			Type:    protocol.FileInfoTypeFile,
-	// 			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 1, Value: 1001}}},
-	// 		},
-	// 	})
-	// 	fs.Update(protocol.DeviceID{42}, []protocol.FileInfo{
-	// 		{ // invalid file
-	// 			Name:    "baz",
-	// 			Type:    protocol.FileInfoTypeFile,
-	// 			Invalid: true,
-	// 			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1000}}},
-	// 		},
-	// 		{ // regular file
-	// 			Name:    "quux",
-	// 			Type:    protocol.FileInfoTypeFile,
-	// 			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1002}}},
-	// 		},
-	// 	})
-
-	// Local files should have the "ignored" bit in addition to just being
-	// generally invalid if we want to look at the simulation of that bit.
-
-	snap := snapshot(t, fs)
-	defer snap.Release()
-	fi, ok := snap.Get(protocol.LocalDeviceID, "foo")
-	if !ok {
-		t.Fatal("foo should exist")
-	}
-	if !fi.IsInvalid() {
-		t.Error("foo should be invalid")
-	}
-	if !fi.IsIgnored() {
-		t.Error("foo should be ignored")
-	}
-
-	fi, ok = snap.Get(protocol.LocalDeviceID, "bar")
-	if !ok {
-		t.Fatal("bar should exist")
-	}
-	if fi.IsInvalid() {
-		t.Error("bar should not be invalid")
-	}
-	if fi.IsIgnored() {
-		t.Error("bar should not be ignored")
-	}
-
-	// Remote files have the invalid bit as usual, and the IsInvalid() method
-	// should pick this up too.
-
-	fi, ok = snap.Get(protocol.DeviceID{42}, "baz")
-	if !ok {
-		t.Fatal("baz should exist")
-	}
-	if !fi.IsInvalid() {
-		t.Error("baz should be invalid")
-	}
-	if !fi.IsInvalid() {
-		t.Error("baz should be invalid")
-	}
-
-	fi, ok = snap.Get(protocol.DeviceID{42}, "quux")
-	if !ok {
-		t.Fatal("quux should exist")
-	}
-	if fi.IsInvalid() {
-		t.Error("quux should not be invalid")
-	}
-	if fi.IsInvalid() {
-		t.Error("quux should not be invalid")
-	}
-}
-
 const myID = 1
 
 var (
 	remoteDevice0, remoteDevice1 protocol.DeviceID
-	update0to3Folder             = "UpdateSchema0to3"
 	invalid                      = "invalid"
 	slashPrefixed                = "/notgood"
 	haveUpdate0to3               map[protocol.DeviceID][]protocol.FileInfo
@@ -154,143 +57,6 @@ func init() {
 			protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(5), RawInvalid: true},
 			protocol.FileInfo{Name: invalid, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1004}}}, Blocks: genBlocks(5), RawInvalid: true},
 		},
-	}
-}
-
-func TestUpdate0to3(t *testing.T) {
-	ldb, err := openJSONS("testdata/v0.14.45-update0to3.db.jsons")
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	db := newLowlevel(t, ldb)
-	defer db.Close()
-	updater := schemaUpdater{db}
-
-	folder := []byte(update0to3Folder)
-
-	if err := updater.updateSchema0to1(0); err != nil {
-		t.Fatal(err)
-	}
-
-	trans, err := db.newReadOnlyTransaction()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer trans.Release()
-	if _, ok, err := trans.getFile(folder, protocol.LocalDeviceID[:], []byte(slashPrefixed)); err != nil {
-		t.Fatal(err)
-	} else if ok {
-		t.Error("File prefixed by '/' was not removed during transition to schema 1")
-	}
-
-	var key []byte
-
-	key, err = db.keyer.GenerateGlobalVersionKey(nil, folder, []byte(invalid))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.Get(key); err != nil {
-		t.Error("Invalid file wasn't added to global list")
-	}
-
-	if err := updater.updateSchema1to2(1); err != nil {
-		t.Fatal(err)
-	}
-
-	found := false
-	trans, err = db.newReadOnlyTransaction()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer trans.Release()
-	_ = trans.withHaveSequence(folder, 0, func(fi protocol.FileIntf) bool {
-		f := fi.(protocol.FileInfo)
-		l.Infoln(f)
-		if found {
-			t.Error("Unexpected additional file via sequence", f.FileName())
-			return true
-		}
-		if e := haveUpdate0to3[protocol.LocalDeviceID][0]; f.IsEquivalentOptional(e, protocol.FileInfoComparison{IgnorePerms: true, IgnoreBlocks: true}) {
-			found = true
-		} else {
-			t.Errorf("Wrong file via sequence, got %v, expected %v", f, e)
-		}
-		return true
-	})
-	if !found {
-		t.Error("Local file wasn't added to sequence bucket", err)
-	}
-
-	if err := updater.updateSchema2to3(2); err != nil {
-		t.Fatal(err)
-	}
-
-	need := map[string]protocol.FileInfo{
-		haveUpdate0to3[remoteDevice0][0].Name: haveUpdate0to3[remoteDevice0][0],
-		haveUpdate0to3[remoteDevice1][0].Name: haveUpdate0to3[remoteDevice1][0],
-		haveUpdate0to3[remoteDevice0][2].Name: haveUpdate0to3[remoteDevice0][2],
-	}
-
-	trans, err = db.newReadOnlyTransaction()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer trans.Release()
-
-	key, err = trans.keyer.GenerateNeedFileKey(nil, folder, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	dbi, err := trans.NewPrefixIterator(key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer dbi.Release()
-
-	for dbi.Next() {
-		name := trans.keyer.NameFromGlobalVersionKey(dbi.Key())
-		key, err = trans.keyer.GenerateGlobalVersionKey(key, folder, name)
-		bs, err := trans.Get(key)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var vl VersionListDeprecated
-		if err := vl.Unmarshal(bs); err != nil {
-			t.Fatal(err)
-		}
-		key, err = trans.keyer.GenerateDeviceFileKey(key, folder, vl.Versions[0].Device, name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		fi, ok, err := trans.getFileTrunc(key, false)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !ok {
-			device := "<invalid>"
-			if dev, err := protocol.DeviceIDFromBytes(vl.Versions[0].Device); err != nil {
-				device = dev.String()
-			}
-			t.Fatal("surprise missing global file", string(name), device)
-		}
-		e, ok := need[fi.FileName()]
-		if !ok {
-			t.Error("Got unexpected needed file:", fi.FileName())
-		}
-		f := fi.(protocol.FileInfo)
-		delete(need, f.Name)
-		if !f.IsEquivalentOptional(e, protocol.FileInfoComparison{IgnorePerms: true, IgnoreBlocks: true}) {
-			t.Errorf("Wrong needed file, got %v, expected %v", f, e)
-		}
-	}
-	if dbi.Error() != nil {
-		t.Fatal(err)
-	}
-
-	for n := range need {
-		t.Errorf(`Missing needed file "%v"`, n)
 	}
 }
 
@@ -447,11 +213,10 @@ func TestRepairSequence(t *testing.T) {
 	}
 	defer it.Release()
 	for it.Next() {
-		intf, ok, err := ro.getFileTrunc(it.Value(), false)
+		fi, ok, err := ro.getFileTrunc(it.Value(), false)
 		if err != nil {
 			t.Fatal(err)
 		}
-		fi := intf.(protocol.FileInfo)
 		seq := ro.keyer.SequenceFromSequenceKey(it.Key())
 		if !ok {
 			t.Errorf("Sequence entry %v points at nothing", seq)
@@ -529,81 +294,6 @@ func TestCheckGlobals(t *testing.T) {
 	_, err = db.Get(gk)
 	if !backend.IsNotFound(err) {
 		t.Error("Expected key missing error, got", err)
-	}
-}
-
-func TestUpdateTo10(t *testing.T) {
-	ldb, err := openJSONS("./testdata/v1.4.0-updateTo10.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	db := newLowlevel(t, ldb)
-	defer db.Close()
-
-	UpdateSchema(db)
-
-	folder := "test"
-
-	meta, err := db.getMetaAndCheck(folder)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	empty := Counts{}
-
-	c := meta.Counts(protocol.LocalDeviceID, needFlag)
-	if c.Files != 1 {
-		t.Error("Expected 1 needed file locally, got", c.Files)
-	}
-	c.Files = 0
-	if c.Deleted != 1 {
-		t.Error("Expected 1 needed deletion locally, got", c.Deleted)
-	}
-	c.Deleted = 0
-	if !c.Equal(empty) {
-		t.Error("Expected all counts to be zero, got", c)
-	}
-	c = meta.Counts(remoteDevice0, needFlag)
-	if !c.Equal(empty) {
-		t.Error("Expected all counts to be zero, got", c)
-	}
-
-	trans, err := db.newReadOnlyTransaction()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer trans.Release()
-	// a
-	vl, err := trans.getGlobalVersions(nil, []byte(folder), []byte("a"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, v := range vl.RawVersions {
-		if !v.Deleted {
-			t.Error("Unexpected undeleted global version for a")
-		}
-	}
-	// b
-	vl, err = trans.getGlobalVersions(nil, []byte(folder), []byte("b"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !vl.RawVersions[0].Deleted {
-		t.Error("vl.Versions[0] not deleted for b")
-	}
-	if vl.RawVersions[1].Deleted {
-		t.Error("vl.Versions[1] deleted for b")
-	}
-	// c
-	vl, err = trans.getGlobalVersions(nil, []byte(folder), []byte("c"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if vl.RawVersions[0].Deleted {
-		t.Error("vl.Versions[0] deleted for c")
-	}
-	if !vl.RawVersions[1].Deleted {
-		t.Error("vl.Versions[1] not deleted for c")
 	}
 }
 
@@ -770,7 +460,7 @@ func TestUpdateTo14(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fiBs := mustMarshal(&fileWOBlocks)
+	fiBs := mustMarshal(fileWOBlocks.ToWire(true))
 	if err := trans.Put(key, fiBs); err != nil {
 		t.Fatal(err)
 	}
@@ -800,9 +490,9 @@ func TestUpdateTo14(t *testing.T) {
 
 	if vl, err := ro.getGlobalVersions(nil, folder, name); err != nil {
 		t.Fatal(err)
-	} else if fv, ok := vl.GetGlobal(); !ok {
+	} else if fv, ok := vlGetGlobal(vl); !ok {
 		t.Error("missing global")
-	} else if !fv.IsInvalid() {
+	} else if !fvIsInvalid(fv) {
 		t.Error("global not marked as invalid")
 	}
 }
@@ -875,8 +565,8 @@ func TestCheckLocalNeed(t *testing.T) {
 			t.Errorf("Expected 2 needed files locally, got %v in meta", c.Files)
 		}
 		needed := make([]protocol.FileInfo, 0, 2)
-		snap.WithNeed(protocol.LocalDeviceID, func(fi protocol.FileIntf) bool {
-			needed = append(needed, fi.(protocol.FileInfo))
+		snap.WithNeed(protocol.LocalDeviceID, func(fi protocol.FileInfo) bool {
+			needed = append(needed, fi)
 			return true
 		})
 		if l := len(needed); l != 2 {
@@ -940,7 +630,7 @@ func TestDuplicateNeedCount(t *testing.T) {
 	fs = newFileSet(t, folder, db)
 	found := false
 	for _, c := range fs.meta.counts.Counts {
-		if bytes.Equal(protocol.LocalDeviceID[:], c.DeviceID) && c.LocalFlags == needFlag {
+		if protocol.LocalDeviceID == c.DeviceID && c.LocalFlags == needFlag {
 			if found {
 				t.Fatal("second need count for local device encountered")
 			}

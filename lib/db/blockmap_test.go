@@ -13,8 +13,10 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-var f1, f2, f3 protocol.FileInfo
-var folders = []string{"folder1", "folder2"}
+var (
+	f1, f2, f3 protocol.FileInfo
+	folders    = []string{"folder1", "folder2"}
+)
 
 func init() {
 	blocks := genBlocks(30)

@@ -63,12 +63,6 @@ implementations][11] for Windows, Mac, and Linux.
 
 To run Syncthing in Docker, see [the Docker README][16].
 
-## Vote on features/bugs
-
-We'd like to encourage you to [vote][12] on issues that matter to you.
-This helps the team understand what are the biggest pain points for our
-users, and could potentially influence what is being worked on next.
-
 ## Getting in Touch
 
 The first and best point of contact is the [Forum][8].
@@ -88,13 +82,11 @@ build process.
 
 ## Signed Releases
 
-As of v0.10.15 and onwards, release binaries are GPG signed with the key
-D26E6ED000654A3E, available from https://syncthing.net/security/ and
-most key servers.
-
-There is also a built-in automatic upgrade mechanism (disabled in some
-distribution channels) which uses a compiled in ECDSA signature. macOS
-binaries are also properly code signed.
+Release binaries are GPG signed with the key available from
+https://syncthing.net/security/. There is also a built-in automatic
+upgrade mechanism (disabled in some distribution channels) which uses a
+compiled in ECDSA signature. macOS and Windows binaries are also
+code-signed.
 
 ## Documentation
 
@@ -111,7 +103,6 @@ All code is licensed under the [MPLv2 License][7].
 [8]: https://forum.syncthing.net/
 [10]: https://github.com/syncthing/syncthing/issues
 [11]: https://docs.syncthing.net/users/contrib.html#gui-wrappers
-[12]: https://www.bountysource.com/teams/syncthing/issues
 [13]: https://github.com/syncthing/syncthing/blob/main/GOALS.md
 [14]: assets/logo-text-128.png
 [15]: https://syncthing.net/

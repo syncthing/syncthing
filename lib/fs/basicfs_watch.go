@@ -4,9 +4,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-//go:build !(solaris && !cgo) && !(darwin && !cgo) && !(android && amd64)
+//go:build !(solaris && !cgo) && !(darwin && !cgo) && !(darwin && kqueue) && !(android && amd64)
 // +build !solaris cgo
 // +build !darwin cgo
+// +build !darwin !kqueue
 // +build !android !amd64
 
 package fs
@@ -14,6 +15,7 @@ package fs
 import (
 	"context"
 	"errors"
+	"unicode/utf8"
 
 	"github.com/syncthing/notify"
 )
@@ -38,6 +40,10 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 	}
 
 	absShouldIgnore := func(absPath string) bool {
+		if !utf8.ValidString(absPath) {
+			return true
+		}
+
 		rel, err := f.unrootedChecked(absPath, roots)
 		if err != nil {
 			return true
@@ -78,7 +84,14 @@ func (f *BasicFilesystem) watchLoop(ctx context.Context, name string, roots []st
 
 		select {
 		case ev := <-backendChan:
-			relPath, err := f.unrootedChecked(ev.Path(), roots)
+			evPath := ev.Path()
+
+			if !utf8.ValidString(evPath) {
+				l.Debugln(f.Type(), f.URI(), "Watch: Ignoring invalid UTF-8")
+				continue
+			}
+
+			relPath, err := f.unrootedChecked(evPath, roots)
 			if err != nil {
 				select {
 				case errChan <- err:

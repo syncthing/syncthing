@@ -75,7 +75,7 @@ func init() {
 		},
 		Defaults: config.Defaults{
 			Folder: config.FolderConfiguration{
-				FilesystemType: fs.FilesystemTypeFake,
+				FilesystemType: config.FilesystemTypeFake,
 				Path:           rand.String(32),
 			},
 		},
@@ -102,7 +102,7 @@ func newDefaultCfgWrapper() (config.Wrapper, config.FolderConfiguration, context
 }
 
 func newFolderConfig() config.FolderConfiguration {
-	cfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", fs.FilesystemTypeFake, rand.String(32)+"?content=true")
+	cfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", config.FilesystemTypeFake, rand.String(32)+"?content=true")
 	cfg.FSWatcherEnabled = false
 	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
 	return cfg
@@ -300,7 +300,7 @@ func folderIgnoresAlwaysReload(t testing.TB, m *testModel, fcfg config.FolderCon
 	m.mut.Unlock()
 }
 
-func basicClusterConfig(local, remote protocol.DeviceID, folders ...string) protocol.ClusterConfig {
+func basicClusterConfig(local, remote protocol.DeviceID, folders ...string) *protocol.ClusterConfig {
 	var cc protocol.ClusterConfig
 	for _, folder := range folders {
 		cc.Folders = append(cc.Folders, protocol.Folder{
@@ -315,7 +315,7 @@ func basicClusterConfig(local, remote protocol.DeviceID, folders ...string) prot
 			},
 		})
 	}
-	return cc
+	return &cc
 }
 
 func localIndexUpdate(m *testModel, folder string, fs []protocol.FileInfo) {

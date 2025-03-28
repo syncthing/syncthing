@@ -90,7 +90,7 @@ func TestOverride(t *testing.T) {
 
 	log.Println("Changing file on sendRecv side...")
 
-	fd, err = os.OpenFile("s2/testfile.txt", os.O_WRONLY|os.O_APPEND, 0644)
+	fd, err = os.OpenFile("s2/testfile.txt", os.O_WRONLY|os.O_APPEND, 0o644)
 	if err != nil {
 		t.Fatal(err)
 	}

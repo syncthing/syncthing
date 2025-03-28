@@ -11,28 +11,25 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/gen/discosrv"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 func TestDatabaseGetSet(t *testing.T) {
-	db, err := newMemoryLevelDBStore()
-	if err != nil {
-		t.Fatal(err)
-	}
+	db := newInMemoryStore(t.TempDir(), 0, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	go db.Serve(ctx)
 	defer cancel()
 
 	// Check missing record
 
-	rec, err := db.get("abcd")
+	rec, err := db.get(&protocol.EmptyDeviceID)
 	if err != nil {
 		t.Error("not found should not be an error")
 	}
 	if len(rec.Addresses) != 0 {
 		t.Error("addresses should be empty")
-	}
-	if rec.Misses != 0 {
-		t.Error("missing should be zero")
 	}
 
 	// Set up a clock
@@ -43,16 +40,16 @@ func TestDatabaseGetSet(t *testing.T) {
 
 	// Put a record
 
-	rec.Addresses = []DatabaseAddress{
+	rec.Addresses = []*discosrv.DatabaseAddress{
 		{Address: "tcp://1.2.3.4:5", Expires: tc.Now().Add(time.Minute).UnixNano()},
 	}
-	if err := db.put("abcd", rec); err != nil {
+	if err := db.put(&protocol.EmptyDeviceID, rec); err != nil {
 		t.Fatal(err)
 	}
 
 	// Verify it
 
-	rec, err = db.get("abcd")
+	rec, err = db.get(&protocol.EmptyDeviceID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,16 +66,16 @@ func TestDatabaseGetSet(t *testing.T) {
 
 	tc.wind(30 * time.Second)
 
-	addrs := []DatabaseAddress{
+	addrs := []*discosrv.DatabaseAddress{
 		{Address: "tcp://6.7.8.9:0", Expires: tc.Now().Add(time.Minute).UnixNano()},
 	}
-	if err := db.merge("abcd", addrs, tc.Now().UnixNano()); err != nil {
+	if err := db.merge(&protocol.EmptyDeviceID, addrs, tc.Now().UnixNano()); err != nil {
 		t.Fatal(err)
 	}
 
 	// Verify it
 
-	rec, err = db.get("abcd")
+	rec, err = db.get(&protocol.EmptyDeviceID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +98,7 @@ func TestDatabaseGetSet(t *testing.T) {
 
 	// Verify it
 
-	rec, err = db.get("abcd")
+	rec, err = db.get(&protocol.EmptyDeviceID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,40 +111,18 @@ func TestDatabaseGetSet(t *testing.T) {
 		t.Error("incorrect address")
 	}
 
-	// Put a record with misses
-
-	rec = DatabaseRecord{Misses: 42, Missed: tc.Now().UnixNano()}
-	if err := db.put("efgh", rec); err != nil {
-		t.Fatal(err)
-	}
-
-	// Verify it
-
-	rec, err = db.get("efgh")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(rec.Addresses) != 0 {
-		t.Log(rec.Addresses)
-		t.Fatal("should have no addresses")
-	}
-	if rec.Misses != 42 {
-		t.Log(rec.Misses)
-		t.Error("incorrect misses")
-	}
-
 	// Set an address
 
-	addrs = []DatabaseAddress{
+	addrs = []*discosrv.DatabaseAddress{
 		{Address: "tcp://6.7.8.9:0", Expires: tc.Now().Add(time.Minute).UnixNano()},
 	}
-	if err := db.merge("efgh", addrs, tc.Now().UnixNano()); err != nil {
+	if err := db.merge(&protocol.GlobalDeviceID, addrs, tc.Now().UnixNano()); err != nil {
 		t.Fatal(err)
 	}
 
 	// Verify it
 
-	rec, err = db.get("efgh")
+	rec, err = db.get(&protocol.GlobalDeviceID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,46 +130,124 @@ func TestDatabaseGetSet(t *testing.T) {
 		t.Log(rec.Addresses)
 		t.Fatal("should have one address")
 	}
-	if rec.Misses != 0 {
-		t.Log(rec.Misses)
-		t.Error("should have no misses")
-	}
 }
 
 func TestFilter(t *testing.T) {
 	// all cases are expired with t=10
 	cases := []struct {
-		a []DatabaseAddress
-		b []DatabaseAddress
+		a []*discosrv.DatabaseAddress
+		b []*discosrv.DatabaseAddress
 	}{
 		{
 			a: nil,
 			b: nil,
 		},
 		{
-			a: []DatabaseAddress{{Address: "a", Expires: 9}, {Address: "b", Expires: 9}, {Address: "c", Expires: 9}},
-			b: []DatabaseAddress{},
+			a: []*discosrv.DatabaseAddress{{Address: "a", Expires: 9}, {Address: "b", Expires: 9}, {Address: "c", Expires: 9}},
+			b: []*discosrv.DatabaseAddress{},
 		},
 		{
-			a: []DatabaseAddress{{Address: "a", Expires: 10}},
-			b: []DatabaseAddress{{Address: "a", Expires: 10}},
+			a: []*discosrv.DatabaseAddress{{Address: "a", Expires: 10}},
+			b: []*discosrv.DatabaseAddress{{Address: "a", Expires: 10}},
 		},
 		{
-			a: []DatabaseAddress{{Address: "a", Expires: 10}, {Address: "b", Expires: 10}, {Address: "c", Expires: 10}},
-			b: []DatabaseAddress{{Address: "a", Expires: 10}, {Address: "b", Expires: 10}, {Address: "c", Expires: 10}},
+			a: []*discosrv.DatabaseAddress{{Address: "a", Expires: 10}, {Address: "b", Expires: 10}, {Address: "c", Expires: 10}},
+			b: []*discosrv.DatabaseAddress{{Address: "a", Expires: 10}, {Address: "b", Expires: 10}, {Address: "c", Expires: 10}},
 		},
 		{
-			a: []DatabaseAddress{{Address: "a", Expires: 5}, {Address: "b", Expires: 15}, {Address: "c", Expires: 5}, {Address: "d", Expires: 15}, {Address: "e", Expires: 5}},
-			b: []DatabaseAddress{{Address: "b", Expires: 15}, {Address: "d", Expires: 15}},
+			a: []*discosrv.DatabaseAddress{{Address: "a", Expires: 5}, {Address: "b", Expires: 15}, {Address: "c", Expires: 5}, {Address: "d", Expires: 15}, {Address: "e", Expires: 5}},
+			b: []*discosrv.DatabaseAddress{{Address: "b", Expires: 15}, {Address: "d", Expires: 15}},
 		},
 	}
 
 	for _, tc := range cases {
-		res := expire(tc.a, 10)
+		res := expire(tc.a, time.Unix(0, 10))
 		if fmt.Sprint(res) != fmt.Sprint(tc.b) {
 			t.Errorf("Incorrect result %v, expected %v", res, tc.b)
 		}
 	}
+}
+
+func TestMerge(t *testing.T) {
+	cases := []struct {
+		a, b, res []*discosrv.DatabaseAddress
+	}{
+		{nil, nil, nil},
+		{
+			nil,
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 10}},
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 10}},
+		},
+		{
+			nil,
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 10}, {Address: "b", Expires: 10}, {Address: "c", Expires: 10}},
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 10}, {Address: "b", Expires: 10}, {Address: "c", Expires: 10}},
+		},
+		{
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 10}},
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 15}},
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 15}},
+		},
+		{
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 10}},
+			[]*discosrv.DatabaseAddress{{Address: "b", Expires: 15}},
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 10}, {Address: "b", Expires: 15}},
+		},
+		{
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 10}, {Address: "b", Expires: 15}},
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 15}, {Address: "b", Expires: 15}},
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 15}, {Address: "b", Expires: 15}},
+		},
+		{
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 10}, {Address: "b", Expires: 15}},
+			[]*discosrv.DatabaseAddress{{Address: "b", Expires: 15}, {Address: "c", Expires: 20}},
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 10}, {Address: "b", Expires: 15}, {Address: "c", Expires: 20}},
+		},
+		{
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 10}, {Address: "b", Expires: 15}},
+			[]*discosrv.DatabaseAddress{{Address: "b", Expires: 5}, {Address: "c", Expires: 20}},
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 10}, {Address: "b", Expires: 15}, {Address: "c", Expires: 20}},
+		},
+		{
+			[]*discosrv.DatabaseAddress{{Address: "y", Expires: 10}, {Address: "z", Expires: 10}},
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 5}, {Address: "b", Expires: 15}},
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 5}, {Address: "b", Expires: 15}, {Address: "y", Expires: 10}, {Address: "z", Expires: 10}},
+		},
+		{
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 10}, {Address: "b", Expires: 15}, {Address: "d", Expires: 10}},
+			[]*discosrv.DatabaseAddress{{Address: "b", Expires: 5}, {Address: "c", Expires: 20}},
+			[]*discosrv.DatabaseAddress{{Address: "a", Expires: 10}, {Address: "b", Expires: 15}, {Address: "c", Expires: 20}, {Address: "d", Expires: 10}},
+		},
+	}
+
+	for _, tc := range cases {
+		rec := merge(&discosrv.DatabaseRecord{Addresses: tc.a}, &discosrv.DatabaseRecord{Addresses: tc.b})
+		if fmt.Sprint(rec.Addresses) != fmt.Sprint(tc.res) {
+			t.Errorf("Incorrect result %v, expected %v", rec.Addresses, tc.res)
+		}
+		rec = merge(&discosrv.DatabaseRecord{Addresses: tc.b}, &discosrv.DatabaseRecord{Addresses: tc.a})
+		if fmt.Sprint(rec.Addresses) != fmt.Sprint(tc.res) {
+			t.Errorf("Incorrect result %v, expected %v", rec.Addresses, tc.res)
+		}
+	}
+}
+
+func BenchmarkMergeEqual(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		ar := []*discosrv.DatabaseAddress{{Address: "a", Expires: 10}, {Address: "b", Expires: 15}}
+		br := []*discosrv.DatabaseAddress{{Address: "a", Expires: 15}, {Address: "b", Expires: 10}}
+		res := merge(&discosrv.DatabaseRecord{Addresses: ar}, &discosrv.DatabaseRecord{Addresses: br})
+		if len(res.Addresses) != 2 {
+			b.Fatal("wrong length")
+		}
+		if res.Addresses[0].Address != "a" || res.Addresses[1].Address != "b" {
+			b.Fatal("wrong address")
+		}
+		if res.Addresses[0].Expires != 15 || res.Addresses[1].Expires != 15 {
+			b.Fatal("wrong expiry")
+		}
+	}
+	b.ReportAllocs() // should be zero per operation
 }
 
 type testClock struct {

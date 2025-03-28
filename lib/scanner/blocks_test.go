@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"fmt"
 	origAdler32 "hash/adler32"
 	mrand "math/rand"
@@ -18,7 +19,6 @@ import (
 
 	rollingAdler32 "github.com/chmduquesne/rollinghash/adler32"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 var blocksTestData = []struct {
@@ -27,43 +27,67 @@ var blocksTestData = []struct {
 	hash      []string
 	weakhash  []uint32
 }{
-	{[]byte(""), 1024, []string{
-		"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+	{
+		[]byte(""), 1024,
+		[]string{
+			"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+		},
 		[]uint32{0},
 	},
-	{[]byte("contents"), 1024, []string{
-		"d1b2a59fbea7e20077af9f91b27e95e865061b270be03ff539ab3b73587882e8"},
+	{
+		[]byte("contents"), 1024,
+		[]string{
+			"d1b2a59fbea7e20077af9f91b27e95e865061b270be03ff539ab3b73587882e8",
+		},
 		[]uint32{0x0f3a036f},
 	},
-	{[]byte("contents"), 9, []string{
-		"d1b2a59fbea7e20077af9f91b27e95e865061b270be03ff539ab3b73587882e8"},
+	{
+		[]byte("contents"), 9,
+		[]string{
+			"d1b2a59fbea7e20077af9f91b27e95e865061b270be03ff539ab3b73587882e8",
+		},
 		[]uint32{0x0f3a036f},
 	},
-	{[]byte("contents"), 8, []string{
-		"d1b2a59fbea7e20077af9f91b27e95e865061b270be03ff539ab3b73587882e8"},
+	{
+		[]byte("contents"), 8,
+		[]string{
+			"d1b2a59fbea7e20077af9f91b27e95e865061b270be03ff539ab3b73587882e8",
+		},
 		[]uint32{0x0f3a036f},
 	},
-	{[]byte("contents"), 7, []string{
-		"ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73",
-		"043a718774c572bd8a25adbeb1bfcd5c0256ae11cecf9f9c3f925d0e52beaf89"},
+	{
+		[]byte("contents"), 7,
+		[]string{
+			"ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73",
+			"043a718774c572bd8a25adbeb1bfcd5c0256ae11cecf9f9c3f925d0e52beaf89",
+		},
 		[]uint32{0x0bcb02fc, 0x00740074},
 	},
-	{[]byte("contents"), 3, []string{
-		"1143da2bc54c495c4be31d3868785d39ffdfd56df5668f0645d8f14d47647952",
-		"e4432baa90819aaef51d2a7f8e148bf7e679610f3173752fabb4dcb2d0f418d3",
-		"44ad63f60af0f6db6fdde6d5186ef78176367df261fa06be3079b6c80c8adba4"},
+	{
+		[]byte("contents"), 3,
+		[]string{
+			"1143da2bc54c495c4be31d3868785d39ffdfd56df5668f0645d8f14d47647952",
+			"e4432baa90819aaef51d2a7f8e148bf7e679610f3173752fabb4dcb2d0f418d3",
+			"44ad63f60af0f6db6fdde6d5186ef78176367df261fa06be3079b6c80c8adba4",
+		},
 		[]uint32{0x02780141, 0x02970148, 0x015d00e8},
 	},
-	{[]byte("conconts"), 3, []string{
-		"1143da2bc54c495c4be31d3868785d39ffdfd56df5668f0645d8f14d47647952",
-		"1143da2bc54c495c4be31d3868785d39ffdfd56df5668f0645d8f14d47647952",
-		"44ad63f60af0f6db6fdde6d5186ef78176367df261fa06be3079b6c80c8adba4"},
+	{
+		[]byte("conconts"), 3,
+		[]string{
+			"1143da2bc54c495c4be31d3868785d39ffdfd56df5668f0645d8f14d47647952",
+			"1143da2bc54c495c4be31d3868785d39ffdfd56df5668f0645d8f14d47647952",
+			"44ad63f60af0f6db6fdde6d5186ef78176367df261fa06be3079b6c80c8adba4",
+		},
 		[]uint32{0x02780141, 0x02780141, 0x015d00e8},
 	},
-	{[]byte("contenten"), 3, []string{
-		"1143da2bc54c495c4be31d3868785d39ffdfd56df5668f0645d8f14d47647952",
-		"e4432baa90819aaef51d2a7f8e148bf7e679610f3173752fabb4dcb2d0f418d3",
-		"e4432baa90819aaef51d2a7f8e148bf7e679610f3173752fabb4dcb2d0f418d3"},
+	{
+		[]byte("contenten"), 3,
+		[]string{
+			"1143da2bc54c495c4be31d3868785d39ffdfd56df5668f0645d8f14d47647952",
+			"e4432baa90819aaef51d2a7f8e148bf7e679610f3173752fabb4dcb2d0f418d3",
+			"e4432baa90819aaef51d2a7f8e148bf7e679610f3173752fabb4dcb2d0f418d3",
+		},
 		[]uint32{0x02780141, 0x02970148, 0x02970148},
 	},
 }
@@ -72,7 +96,6 @@ func TestBlocks(t *testing.T) {
 	for testNo, test := range blocksTestData {
 		buf := bytes.NewBuffer(test.data)
 		blocks, err := Blocks(context.TODO(), buf, test.blocksize, -1, nil, true)
-
 		if err != nil {
 			t.Fatal(err)
 		}

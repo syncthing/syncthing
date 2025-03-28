@@ -8,12 +8,14 @@ package db
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 // writeJSONS serializes the database to a JSON stream that can be checked
@@ -178,3 +180,53 @@ func snapshot(t testing.TB, fset *FileSet) *Snapshot {
 // 	defer fd.Close()
 // 	writeJSONS(fd, db)
 // }
+
+func TestFileInfoBatchError(t *testing.T) {
+	// Verify behaviour of the flush function returning an error.
+
+	var errReturn error
+	var called int
+	b := NewFileInfoBatch(func([]protocol.FileInfo) error {
+		called += 1
+		return errReturn
+	})
+
+	// Flush should work when the flush function error is nil
+	b.Append(protocol.FileInfo{Name: "test"})
+	if err := b.Flush(); err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+	if called != 1 {
+		t.Fatalf("expected 1, got %d", called)
+	}
+
+	// Flush should fail with an error retur
+	errReturn = errors.New("problem")
+	b.Append(protocol.FileInfo{Name: "test"})
+	if err := b.Flush(); err != errReturn {
+		t.Fatalf("expected %v, got %v", errReturn, err)
+	}
+	if called != 2 {
+		t.Fatalf("expected 2, got %d", called)
+	}
+
+	// Flush function should not be called again when it's already errored,
+	// same error should be returned by Flush()
+	if err := b.Flush(); err != errReturn {
+		t.Fatalf("expected %v, got %v", errReturn, err)
+	}
+	if called != 2 {
+		t.Fatalf("expected 2, got %d", called)
+	}
+
+	// Reset should clear the error (and the file list)
+	errReturn = nil
+	b.Reset()
+	b.Append(protocol.FileInfo{Name: "test"})
+	if err := b.Flush(); err != nil {
+		t.Fatalf("expected nil, got %v", err)
+	}
+	if called != 3 {
+		t.Fatalf("expected 3, got %d", called)
+	}
+}

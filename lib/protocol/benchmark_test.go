@@ -1,4 +1,8 @@
-// Copyright (C) 2016 The Protocol Authors.
+// Copyright (C) 2016 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package protocol
 
@@ -66,8 +70,8 @@ func benchmarkRequestsConnPair(b *testing.B, conn0, conn1 net.Conn) {
 	c1.Start()
 
 	// Satisfy the assertions in the protocol by sending an initial cluster config
-	c0.ClusterConfig(ClusterConfig{})
-	c1.ClusterConfig(ClusterConfig{})
+	c0.ClusterConfig(&ClusterConfig{})
+	c1.ClusterConfig(&ClusterConfig{})
 
 	// Report some useful stats and reset the timer for the actual test
 	b.ReportAllocs()
@@ -82,9 +86,9 @@ func benchmarkRequestsConnPair(b *testing.B, conn0, conn1 net.Conn) {
 		// Use c0 and c1 for each alternating request, so we get as much
 		// data flowing in both directions.
 		if i%2 == 0 {
-			buf, err = c0.Request(context.Background(), "folder", "file", i, int64(i), 128<<10, nil, 0, false)
+			buf, err = c0.Request(context.Background(), &Request{Folder: "folder", Name: "file", BlockNo: i, Offset: int64(i), Size: 128 << 10})
 		} else {
-			buf, err = c1.Request(context.Background(), "folder", "file", i, int64(i), 128<<10, nil, 0, false)
+			buf, err = c1.Request(context.Background(), &Request{Folder: "folder", Name: "file", BlockNo: i, Offset: int64(i), Size: 128 << 10})
 		}
 
 		if err != nil {
@@ -167,30 +171,30 @@ func negotiateTLS(cert tls.Certificate, conn0, conn1 net.Conn) (net.Conn, net.Co
 
 type fakeModel struct{}
 
-func (*fakeModel) Index(Connection, string, []FileInfo) error {
+func (*fakeModel) Index(Connection, *Index) error {
 	return nil
 }
 
-func (*fakeModel) IndexUpdate(Connection, string, []FileInfo) error {
+func (*fakeModel) IndexUpdate(Connection, *IndexUpdate) error {
 	return nil
 }
 
-func (*fakeModel) Request(_ Connection, _, _ string, _, size int32, offset int64, _ []byte, _ uint32, _ bool) (RequestResponse, error) {
+func (*fakeModel) Request(_ Connection, req *Request) (RequestResponse, error) {
 	// We write the offset to the end of the buffer, so the receiver
 	// can verify that it did in fact get some data back over the
 	// connection.
-	buf := make([]byte, size)
-	binary.BigEndian.PutUint64(buf[len(buf)-8:], uint64(offset))
+	buf := make([]byte, req.Size)
+	binary.BigEndian.PutUint64(buf[len(buf)-8:], uint64(req.Offset))
 	return &fakeRequestResponse{buf}, nil
 }
 
-func (*fakeModel) ClusterConfig(Connection, ClusterConfig) error {
+func (*fakeModel) ClusterConfig(Connection, *ClusterConfig) error {
 	return nil
 }
 
 func (*fakeModel) Closed(Connection, error) {
 }
 
-func (*fakeModel) DownloadProgress(Connection, string, []FileDownloadProgressUpdate) error {
+func (*fakeModel) DownloadProgress(Connection, *DownloadProgress) error {
 	return nil
 }

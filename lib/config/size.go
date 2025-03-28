@@ -14,6 +14,11 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
+type Size struct {
+	Value float64 `json:"value" xml:",chardata"`
+	Unit  string  `json:"unit" xml:"unit,attr"`
+}
+
 func ParseSize(s string) (Size, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -24,7 +29,7 @@ func ParseSize(s string) (Size, error) {
 	for i := 0; i < len(s) && (s[i] >= '0' && s[i] <= '9' || s[i] == '.' || s[i] == ','); i++ {
 		num = s[:i+1]
 	}
-	var i = len(num)
+	i := len(num)
 	for i < len(s) && s[i] == ' ' {
 		i++
 	}

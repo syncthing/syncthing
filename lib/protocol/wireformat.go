@@ -1,4 +1,8 @@
-// Copyright (C) 2014 The Protocol Authors.
+// Copyright (C) 2014 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package protocol
 
@@ -13,29 +17,23 @@ type wireFormatConnection struct {
 	Connection
 }
 
-func (c wireFormatConnection) Index(ctx context.Context, folder string, fs []FileInfo) error {
-	var myFs = make([]FileInfo, len(fs))
-	copy(myFs, fs)
-
-	for i := range fs {
-		myFs[i].Name = norm.NFC.String(filepath.ToSlash(myFs[i].Name))
+func (c wireFormatConnection) Index(ctx context.Context, idx *Index) error {
+	for i := range idx.Files {
+		idx.Files[i].Name = norm.NFC.String(filepath.ToSlash(idx.Files[i].Name))
 	}
 
-	return c.Connection.Index(ctx, folder, myFs)
+	return c.Connection.Index(ctx, idx)
 }
 
-func (c wireFormatConnection) IndexUpdate(ctx context.Context, folder string, fs []FileInfo) error {
-	var myFs = make([]FileInfo, len(fs))
-	copy(myFs, fs)
-
-	for i := range fs {
-		myFs[i].Name = norm.NFC.String(filepath.ToSlash(myFs[i].Name))
+func (c wireFormatConnection) IndexUpdate(ctx context.Context, idxUp *IndexUpdate) error {
+	for i := range idxUp.Files {
+		idxUp.Files[i].Name = norm.NFC.String(filepath.ToSlash(idxUp.Files[i].Name))
 	}
 
-	return c.Connection.IndexUpdate(ctx, folder, myFs)
+	return c.Connection.IndexUpdate(ctx, idxUp)
 }
 
-func (c wireFormatConnection) Request(ctx context.Context, folder string, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
-	name = norm.NFC.String(filepath.ToSlash(name))
-	return c.Connection.Request(ctx, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
+func (c wireFormatConnection) Request(ctx context.Context, req *Request) ([]byte, error) {
+	req.Name = norm.NFC.String(filepath.ToSlash(req.Name))
+	return c.Connection.Request(ctx, req)
 }

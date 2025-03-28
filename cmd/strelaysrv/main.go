@@ -19,19 +19,19 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/build"
-	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/osutil"
-	"github.com/syncthing/syncthing/lib/relay/protocol"
-	"github.com/syncthing/syncthing/lib/tlsutil"
 	"golang.org/x/time/rate"
 
+	_ "github.com/syncthing/syncthing/lib/automaxprocs"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/osutil"
 	_ "github.com/syncthing/syncthing/lib/pmp"
-	_ "github.com/syncthing/syncthing/lib/upnp"
-
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/relay/protocol"
+	"github.com/syncthing/syncthing/lib/tlsutil"
+	_ "github.com/syncthing/syncthing/lib/upnp"
 )
 
 var (

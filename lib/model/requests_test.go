@@ -107,7 +107,7 @@ func TestSymlinkTraversalRead(t *testing.T) {
 	<-done
 
 	// Request a file by traversing the symlink
-	res, err := m.Request(device1Conn, "default", "symlink/requests_test.go", 0, 10, 0, nil, 0, false)
+	res, err := m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "symlink/requests_test.go", Size: 10})
 	if err == nil || res != nil {
 		t.Error("Managed to traverse symlink")
 	}
@@ -143,11 +143,11 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 		}
 		return nil
 	})
-	fc.RequestCalls(func(ctx context.Context, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
-		if name != "symlink" && strings.HasPrefix(name, "symlink") {
-			badReq <- name
+	fc.RequestCalls(func(ctx context.Context, req *protocol.Request) ([]byte, error) {
+		if req.Name != "symlink" && strings.HasPrefix(req.Name, "symlink") {
+			badReq <- req.Name
 		}
-		return fc.fileData[name], nil
+		return fc.fileData[req.Name], nil
 	})
 
 	// Send an update for the symlink, wait for it to sync and be reported back.
@@ -338,7 +338,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	})
 	// Make sure pulling doesn't interfere, as index updates are racy and
 	// thus we cannot distinguish between scan and pull results.
-	fc.RequestCalls(func(ctx context.Context, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+	fc.RequestCalls(func(_ context.Context, _ *protocol.Request) ([]byte, error) {
 		return nil, nil
 	})
 
@@ -440,7 +440,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 		t.Fatalf("unexpected weak hash: %d != 103547413", f.Blocks[0].WeakHash)
 	}
 
-	res, err := m.Request(device1Conn, "default", "foo", 0, int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
+	res, err := m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: len(payload), Hash: f.Blocks[0].Hash, WeakHash: f.Blocks[0].WeakHash})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -454,7 +454,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 
 	writeFile(t, tfs, "foo", payload)
 
-	_, err = m.Request(device1Conn, "default", "foo", 0, int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: len(payload), Hash: f.Blocks[0].Hash, WeakHash: f.Blocks[0].WeakHash})
 	if err == nil {
 		t.Fatalf("expected failure")
 	}
@@ -926,7 +926,7 @@ func TestNeedFolderFiles(t *testing.T) {
 	defer sub.Unsubscribe()
 
 	errPreventSync := errors.New("you aren't getting any of this")
-	fc.RequestCalls(func(ctx context.Context, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+	fc.RequestCalls(func(_ context.Context, _ *protocol.Request) ([]byte, error) {
 		return nil, errPreventSync
 	})
 
@@ -1065,9 +1065,9 @@ func TestRequestLastFileProgress(t *testing.T) {
 
 	done := make(chan struct{})
 
-	fc.RequestCalls(func(ctx context.Context, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+	fc.RequestCalls(func(_ context.Context, req *protocol.Request) ([]byte, error) {
 		defer close(done)
-		progress, queued, rest, err := m.NeedFolderFiles(folder, 1, 10)
+		progress, queued, rest, err := m.NeedFolderFiles(req.Folder, 1, 10)
 		must(t, err)
 		if len(queued)+len(rest) != 0 {
 			t.Error(`There should not be any queued or "rest" items`)
@@ -1075,7 +1075,7 @@ func TestRequestLastFileProgress(t *testing.T) {
 		if len(progress) != 1 {
 			t.Error("Expected exactly one item in progress.")
 		}
-		return fc.fileData[name], nil
+		return fc.fileData[req.Name], nil
 	})
 
 	contents := []byte("test file contents\n")
@@ -1190,7 +1190,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 
 	// Folder removed on remote
 
-	cc = protocol.ClusterConfig{}
+	cc = &protocol.ClusterConfig{}
 	m.ClusterConfig(fc, cc)
 
 	seq++
@@ -1232,7 +1232,7 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 	done := make(chan struct{})
 	defer close(done) // Must be the last thing to be deferred, thus first to run.
 	indexChan := make(chan []protocol.FileInfo, 1)
-	ccChan := make(chan protocol.ClusterConfig, 1)
+	ccChan := make(chan *protocol.ClusterConfig, 1)
 	fc.setIndexFn(func(_ context.Context, folder string, fs []protocol.FileInfo) error {
 		select {
 		case indexChan <- fs:
@@ -1240,7 +1240,7 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 		}
 		return nil
 	})
-	fc.ClusterConfigCalls(func(cc protocol.ClusterConfig) {
+	fc.ClusterConfigCalls(func(cc *protocol.ClusterConfig) {
 		select {
 		case ccChan <- cc:
 		case <-done:
@@ -1305,7 +1305,7 @@ func TestRequestReceiveEncrypted(t *testing.T) {
 		return nil
 	})
 	m.AddConnection(fc, protocol.Hello{})
-	m.ClusterConfig(fc, protocol.ClusterConfig{
+	m.ClusterConfig(fc, &protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
 				ID: "default",
@@ -1355,7 +1355,7 @@ func TestRequestReceiveEncrypted(t *testing.T) {
 	}
 
 	// Simulate request from device that is untrusted too, i.e. with non-empty, but garbage hash
-	_, err := m.Request(fc, fcfg.ID, name, 0, 1064, 0, []byte("garbage"), 0, false)
+	_, err := m.Request(fc, &protocol.Request{Folder: fcfg.ID, Name: name, Size: 1064, Hash: []byte("garbage")})
 	must(t, err)
 
 	changed, err := m.LocalChangedFolderFiles(fcfg.ID, 1, 10)
@@ -1406,7 +1406,7 @@ func TestRequestGlobalInvalidToValid(t *testing.T) {
 	file := fc.files[0]
 	fc.mut.Unlock()
 	file.SetIgnored()
-	m.IndexUpdate(conn, fcfg.ID, []protocol.FileInfo{prepareFileInfoForIndex(file)})
+	m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: fcfg.ID, Files: []protocol.FileInfo{prepareFileInfoForIndex(file)}})
 
 	// Wait for the ignored file to be received and possible pulled
 	timeout := time.After(10 * time.Second)

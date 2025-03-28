@@ -12,8 +12,7 @@
   <meta charset="utf-8"/>
   <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <link rel="shortcut icon" href="assets/img/favicon-default.png" type="image/x-icon"/>
-  <link rel="shortcut icon" href="assets/img/favicon-{{syncthingStatus()}}.png" type="image/x-icon"/>
+  <link rel="shortcut icon" href="assets/img/favicon-default.png" ng-href="assets/img/favicon-{{syncthingStatus()}}.png" type="image/x-icon"/>
   <link rel="mask-icon" href="assets/img/safari-pinned-tab.svg" color="#0882c8"/>
 
   <title ng-bind="thisDeviceName() + ' | Syncthing'"></title>
@@ -120,18 +119,16 @@
               <li ng-if="authenticated"><a href="" ng-click="showDeviceIdentification(thisDevice())"><span class="fa fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
 
               <li ng-if="authenticated" class="divider" aria-hidden="true"></li>
-              <li ng-if="authenticated"><a href="" ng-click="shutdown()"><span class="fa fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
-              <li ng-if="authenticated"><a href="" ng-click="restart()"><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
-
-              <li ng-if="authenticated" class="divider" aria-hidden="true"></li>
               <li ng-if="authenticated"><a href="" ng-click="advanced()"><span class="fa fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
               <li ng-if="authenticated"><a href="" ng-click="logging.show()"><span class="fa fa-fw fa-wrench"></span>&nbsp;<span translate>Logs</span></a></li>
 
               <li class="divider" aria-hidden="true" ng-if="config.gui.debugging"></li>
               <li><a href="/rest/debug/support" target="_blank" ng-if="config.gui.debugging"><span class="fa fa-fw fa-user-md"></span>&nbsp;<span translate>Support Bundle</span></a></li>
 
-              <li ng-if="authenticated && isAuthEnabled()" class="divider" aria-hidden="true"></li>
+              <li ng-if="authenticated" class="divider" aria-hidden="true"></li>
               <li ng-if="authenticated && isAuthEnabled()"><a href="" ng-click="logout()"><span class="far fa-fw fa-sign-out"></span>&nbsp;<span translate>Log Out</span></a></li>
+              <li ng-if="authenticated"><a href="" ng-click="restart()"><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
+              <li ng-if="authenticated"><a href="" ng-click="shutdown()"><span class="fa fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
             </ul>
           </li>
         </ul>
@@ -404,9 +401,9 @@
                     <span class="hidden-xs">{{folderStatusText(folder)}}</span>
                     <span ng-switch-when="scanning" ng-if="scanPercentage(folder.id) != undefined">({{scanPercentage(folder.id) | percent}})</span>
                     <span ng-switch-when="syncing">({{syncPercentage(folder.id) | percent}}, {{model[folder.id].needBytes | binary}}B)</span>
-		    <span class="inline-icon">
+                    <span class="inline-icon">
                       <span class="visible-xs fa fa-fw {{folderStatusIcon(folder)}}" aria-label="{{folderStatusText(folder)}}"></span>
-		    </span>
+                    </span>
                   </div>
                   <div class="panel-title-text">
                     <span tooltip data-original-title="{{folder.label.length != 0 ? folder.id : ''}}">{{folder.label.length != 0 ? folder.label : folder.id}}</span>
@@ -414,7 +411,7 @@
                 </h4>
               </button>
               <div id="folder-{{$index}}" class="panel-collapse collapse">
-                <div class="panel-body">
+                <div class="panel-body less-padding">
                   <table class="table table-condensed table-striped table-auto">
                     <tbody>
                       <tr class="visible-xs">
@@ -585,12 +582,16 @@
                       </tr>
                       <tr>
                         <th><span class="fas fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
-                        <td class="text-right no-overflow-ellipse word-break-all">
+                        <td class="text-right no-overflow-ellipse overflow-break-word">
                           <span ng-repeat="device in otherDevices(folder.devices)">
-                            <span ng-switch="completion[device.deviceID][folder.id].remoteState">
-                              <span ng-switch-when="notSharing" data-original-title="{{'The remote device has not accepted sharing this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>1</sup><span ng-if="!$last">,</span></span>
-                              <span ng-switch-when="paused" data-original-title="{{'The remote device has paused this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>2</sup><span ng-if="!$last">,</span></span>
-                              <span ng-switch-default>{{deviceName(devices[device.deviceID])}}<span ng-if="!$last">,</span></span>
+                            <span ng-if="folder.type !== 'receiveencrypted' && device.encryptionPassword" class="text-nowrap">
+                              <span class="fa fa-lock"></span>&nbsp;<!-- Avoid stray space...
+                         --></span><!-- Avoid stray space...
+                         --><span ng-switch="completion[device.deviceID][folder.id].remoteState"><!-- Avoid stray space...
+                           --><a ng-switch-when="notSharing" href="" ng-click="editDeviceExisting(devices[device.deviceID])" data-original-title="{{'The remote device has not accepted sharing this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>1</sup></a><!-- Avoid stray space...
+                           --><a ng-switch-when="paused" href="" ng-click="editDeviceExisting(devices[device.deviceID])" data-original-title="{{'The remote device has paused this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>2</sup></a><!-- Avoid stray space...
+                           --><a ng-switch-default href="" ng-click="editDeviceExisting(devices[device.deviceID])">{{deviceName(devices[device.deviceID])}}</a><!-- Avoid stray space...
+                           --><span ng-if="!$last">,</span>
                             </span>
                           </span>
                         </td>
@@ -678,7 +679,7 @@
               </h4>
             </button>
             <div id="device-this" class="panel-collapse collapse in">
-              <div class="panel-body">
+              <div class="panel-body less-padding">
                 <table class="table table-condensed table-striped table-auto">
                   <tbody>
                     <tr>
@@ -793,7 +794,7 @@
                 </h4>
               </button>
               <div id="device-{{$index}}" class="panel-collapse collapse">
-                <div class="panel-body">
+                <div class="panel-body less-padding">
                   <table class="table table-condensed table-striped table-auto">
                     <tbody>
                       <tr class="visible-xs">
@@ -940,12 +941,16 @@
                       </tr>
                       <tr ng-if="deviceFolders(deviceCfg).length > 0">
                         <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
-                        <td class="text-right no-overflow-ellipse word-break-all">
+                        <td class="text-right no-overflow-ellipse overflow-break-word">
                           <span ng-repeat="folderID in deviceFolders(deviceCfg)">
-                            <span ng-switch="completion[deviceCfg.deviceID][folderID].remoteState">
-                              <span ng-switch-when="notSharing" data-original-title="{{'The remote device has not accepted sharing this folder.' | translate}}" tooltip>{{folderLabel(folderID)}}<sup>1</sup><span ng-if="!$last">,</span></span>
-                              <span ng-switch-when="paused" data-original-title="{{'The remote device has paused this folder.' | translate}}" tooltip>{{folderLabel(folderID)}}<sup>2</sup><span ng-if="!$last">,</span></span>
-                              <span ng-switch-default>{{folderLabel(folderID)}}<span ng-if="!$last">,</span></span>
+                            <span ng-if="folderIsSharedEncrypted(folderID, deviceCfg.deviceID)" class="text-nowrap">
+                              <span class="fa fa-lock"></span>&nbsp;<!-- Avoid stray space...
+                         --></span><!-- Avoid stray space...
+                         --><span ng-switch="completion[deviceCfg.deviceID][folderID].remoteState"><!-- Avoid stray space...
+                           --><span ng-switch-when="notSharing" data-original-title="{{'The remote device has not accepted sharing this folder.' | translate}}" tooltip>{{folderLabel(folderID)}}<sup>1</sup></span><!-- Avoid stray space...
+                           --><span ng-switch-when="paused" data-original-title="{{'The remote device has paused this folder.' | translate}}" tooltip>{{folderLabel(folderID)}}<sup>2</sup></span><!-- Avoid stray space...
+                           --><span ng-switch-default>{{folderLabel(folderID)}}</span><!-- Avoid stray space...
+                           --><span ng-if="!$last">,</span>
                             </span>
                           </span>
                         </td>
@@ -1043,6 +1048,7 @@
   <script type="text/javascript" src="vendor/bootstrap/js/bootstrap.js"></script>
   <script type="text/javascript" src="vendor/daterangepicker/daterangepicker.js"></script>
   <script type="text/javascript" src="vendor/fancytree/jquery.fancytree-all-deps.js"></script>
+  <script type="text/javascript" src="vendor/HumanizeDuration.js/humanize-duration.js"></script>
   <!-- / vendor scripts -->
 
   <!-- gui application code -->

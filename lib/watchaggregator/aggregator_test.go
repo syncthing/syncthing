@@ -42,7 +42,7 @@ const (
 var (
 	folderRoot       = filepath.Clean("/home/someuser/syncthing")
 	defaultFolderCfg = config.FolderConfiguration{
-		FilesystemType:  fs.FilesystemTypeBasic,
+		FilesystemType:  config.FilesystemTypeBasic,
 		Path:            folderRoot,
 		FSWatcherDelayS: testNotifyDelayS,
 	}

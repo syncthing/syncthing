@@ -15,6 +15,9 @@ To grant Syncthing additional capabilities without running as root, use the
 `PCAP` environment variable with the same syntax as that for `setcap(8)`.
 For example, `PCAP=cap_chown,cap_fowner+ep`.
 
+To set a different umask value, use the `UMASK` environment variable. For
+example `UMASK=002`.
+
 ## Example Usage
 
 **Docker cli**
@@ -46,6 +49,11 @@ services:
       - 22000:22000/udp # QUIC file transfers
       - 21027:21027/udp # Receive local discovery broadcasts
     restart: unless-stopped
+    healthcheck:
+      test: curl -fkLsS -m 2 127.0.0.1:8384/rest/noauth/health | grep -o --color=never OK || exit 1
+      interval: 1m
+      timeout: 10s
+      retries: 3
 ```
 
 ## Discovery
@@ -81,6 +89,11 @@ services:
       - /wherever/st-sync:/var/syncthing
     network_mode: host
     restart: unless-stopped
+    healthcheck:
+      test: curl -fkLsS -m 2 127.0.0.1:8384/rest/noauth/health | grep -o --color=never OK || exit 1
+      interval: 1m
+      timeout: 10s
+      retries: 3
 ```
 
 Be aware that syncthing alone is now in control of what interfaces and ports it

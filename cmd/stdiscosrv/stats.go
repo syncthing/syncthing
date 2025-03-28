@@ -7,10 +7,7 @@
 package main
 
 import (
-	"os"
-
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
 )
 
 var (
@@ -99,13 +96,28 @@ var (
 			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 		}, []string{"operation"})
 
-	retryAfterHistogram = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Namespace: "syncthing",
-		Subsystem: "discovery",
-		Name:      "retry_after_seconds",
-		Help:      "Retry-After header value in seconds.",
-		Buckets:   prometheus.ExponentialBuckets(60, 2, 7), // 60, 120, 240, 480, 960, 1920, 3840
-	})
+	databaseWriteSeconds = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: "syncthing",
+			Subsystem: "discovery",
+			Name:      "database_write_seconds",
+			Help:      "Time spent writing the database.",
+		})
+	databaseLastWritten = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: "syncthing",
+			Subsystem: "discovery",
+			Name:      "database_last_written",
+			Help:      "Timestamp of the last successful database write.",
+		})
+
+	retryAfterLevel = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "syncthing",
+			Subsystem: "discovery",
+			Name:      "retry_after_seconds",
+			Help:      "Retry-After header value in seconds.",
+		}, []string{"name"})
 )
 
 const (
@@ -126,16 +138,6 @@ func init() {
 		replicationSendsTotal, replicationRecvsTotal,
 		databaseKeys, databaseStatisticsSeconds,
 		databaseOperations, databaseOperationSeconds,
-		retryAfterHistogram)
-
-	processCollectorOpts := collectors.ProcessCollectorOpts{
-		Namespace: "syncthing_discovery",
-		PidFn: func() (int, error) {
-			return os.Getpid(), nil
-		},
-	}
-
-	prometheus.MustRegister(
-		collectors.NewProcessCollector(processCollectorOpts),
-	)
+		databaseWriteSeconds, databaseLastWritten,
+		retryAfterLevel)
 }

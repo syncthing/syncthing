@@ -1,0 +1,10 @@
+version: v2
+modules:
+  - path: proto
+    name: github.com/syncthing/syncthing
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - WIRE_JSON

@@ -15,14 +15,14 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/thejerf/suture/v4"
+
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stats"
-
-	"github.com/thejerf/suture/v4"
 )
 
 type tlsConn interface {

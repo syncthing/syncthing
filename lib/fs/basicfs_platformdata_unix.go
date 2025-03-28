@@ -9,9 +9,7 @@
 
 package fs
 
-import (
-	"github.com/syncthing/syncthing/lib/protocol"
-)
+import "github.com/syncthing/syncthing/lib/protocol"
 
 func (f *BasicFilesystem) PlatformData(name string, scanOwnership, scanXattrs bool, xattrFilter XattrFilter) (protocol.PlatformData, error) {
 	return unixPlatformData(f, name, f.userCache, f.groupCache, scanOwnership, scanXattrs, xattrFilter)

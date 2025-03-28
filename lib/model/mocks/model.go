@@ -50,11 +50,11 @@ type Model struct {
 		arg1 protocol.Connection
 		arg2 error
 	}
-	ClusterConfigStub        func(protocol.Connection, protocol.ClusterConfig) error
+	ClusterConfigStub        func(protocol.Connection, *protocol.ClusterConfig) error
 	clusterConfigMutex       sync.RWMutex
 	clusterConfigArgsForCall []struct {
 		arg1 protocol.Connection
-		arg2 protocol.ClusterConfig
+		arg2 *protocol.ClusterConfig
 	}
 	clusterConfigReturns struct {
 		result1 error
@@ -198,12 +198,11 @@ type Model struct {
 	dismissPendingFolderReturnsOnCall map[int]struct {
 		result1 error
 	}
-	DownloadProgressStub        func(protocol.Connection, string, []protocol.FileDownloadProgressUpdate) error
+	DownloadProgressStub        func(protocol.Connection, *protocol.DownloadProgress) error
 	downloadProgressMutex       sync.RWMutex
 	downloadProgressArgsForCall []struct {
 		arg1 protocol.Connection
-		arg2 string
-		arg3 []protocol.FileDownloadProgressUpdate
+		arg2 *protocol.DownloadProgress
 	}
 	downloadProgressReturns struct {
 		result1 error
@@ -290,12 +289,11 @@ type Model struct {
 		result1 []*model.TreeEntry
 		result2 error
 	}
-	IndexStub        func(protocol.Connection, string, []protocol.FileInfo) error
+	IndexStub        func(protocol.Connection, *protocol.Index) error
 	indexMutex       sync.RWMutex
 	indexArgsForCall []struct {
 		arg1 protocol.Connection
-		arg2 string
-		arg3 []protocol.FileInfo
+		arg2 *protocol.Index
 	}
 	indexReturns struct {
 		result1 error
@@ -303,12 +301,11 @@ type Model struct {
 	indexReturnsOnCall map[int]struct {
 		result1 error
 	}
-	IndexUpdateStub        func(protocol.Connection, string, []protocol.FileInfo) error
+	IndexUpdateStub        func(protocol.Connection, *protocol.IndexUpdate) error
 	indexUpdateMutex       sync.RWMutex
 	indexUpdateArgsForCall []struct {
 		arg1 protocol.Connection
-		arg2 string
-		arg3 []protocol.FileInfo
+		arg2 *protocol.IndexUpdate
 	}
 	indexUpdateReturns struct {
 		result1 error
@@ -331,7 +328,7 @@ type Model struct {
 		result2 []string
 		result3 error
 	}
-	LocalChangedFolderFilesStub        func(string, int, int) ([]db.FileInfoTruncated, error)
+	LocalChangedFolderFilesStub        func(string, int, int) ([]protocol.FileInfo, error)
 	localChangedFolderFilesMutex       sync.RWMutex
 	localChangedFolderFilesArgsForCall []struct {
 		arg1 string
@@ -339,14 +336,14 @@ type Model struct {
 		arg3 int
 	}
 	localChangedFolderFilesReturns struct {
-		result1 []db.FileInfoTruncated
+		result1 []protocol.FileInfo
 		result2 error
 	}
 	localChangedFolderFilesReturnsOnCall map[int]struct {
-		result1 []db.FileInfoTruncated
+		result1 []protocol.FileInfo
 		result2 error
 	}
-	NeedFolderFilesStub        func(string, int, int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error)
+	NeedFolderFilesStub        func(string, int, int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error)
 	needFolderFilesMutex       sync.RWMutex
 	needFolderFilesArgsForCall []struct {
 		arg1 string
@@ -354,15 +351,15 @@ type Model struct {
 		arg3 int
 	}
 	needFolderFilesReturns struct {
-		result1 []db.FileInfoTruncated
-		result2 []db.FileInfoTruncated
-		result3 []db.FileInfoTruncated
+		result1 []protocol.FileInfo
+		result2 []protocol.FileInfo
+		result3 []protocol.FileInfo
 		result4 error
 	}
 	needFolderFilesReturnsOnCall map[int]struct {
-		result1 []db.FileInfoTruncated
-		result2 []db.FileInfoTruncated
-		result3 []db.FileInfoTruncated
+		result1 []protocol.FileInfo
+		result2 []protocol.FileInfo
+		result3 []protocol.FileInfo
 		result4 error
 	}
 	OnHelloStub        func(protocol.DeviceID, net.Addr, protocol.Hello) error
@@ -408,7 +405,7 @@ type Model struct {
 		result1 map[string]db.PendingFolder
 		result2 error
 	}
-	RemoteNeedFolderFilesStub        func(string, protocol.DeviceID, int, int) ([]db.FileInfoTruncated, error)
+	RemoteNeedFolderFilesStub        func(string, protocol.DeviceID, int, int) ([]protocol.FileInfo, error)
 	remoteNeedFolderFilesMutex       sync.RWMutex
 	remoteNeedFolderFilesArgsForCall []struct {
 		arg1 string
@@ -417,25 +414,18 @@ type Model struct {
 		arg4 int
 	}
 	remoteNeedFolderFilesReturns struct {
-		result1 []db.FileInfoTruncated
+		result1 []protocol.FileInfo
 		result2 error
 	}
 	remoteNeedFolderFilesReturnsOnCall map[int]struct {
-		result1 []db.FileInfoTruncated
+		result1 []protocol.FileInfo
 		result2 error
 	}
-	RequestStub        func(protocol.Connection, string, string, int32, int32, int64, []byte, uint32, bool) (protocol.RequestResponse, error)
+	RequestStub        func(protocol.Connection, *protocol.Request) (protocol.RequestResponse, error)
 	requestMutex       sync.RWMutex
 	requestArgsForCall []struct {
 		arg1 protocol.Connection
-		arg2 string
-		arg3 string
-		arg4 int32
-		arg5 int32
-		arg6 int64
-		arg7 []byte
-		arg8 uint32
-		arg9 bool
+		arg2 *protocol.Request
 	}
 	requestReturns struct {
 		result1 protocol.RequestResponse
@@ -443,6 +433,28 @@ type Model struct {
 	}
 	requestReturnsOnCall map[int]struct {
 		result1 protocol.RequestResponse
+		result2 error
+	}
+	RequestGlobalStub        func(context.Context, protocol.DeviceID, string, string, int, int64, int, []byte, uint32, bool) ([]byte, error)
+	requestGlobalMutex       sync.RWMutex
+	requestGlobalArgsForCall []struct {
+		arg1  context.Context
+		arg2  protocol.DeviceID
+		arg3  string
+		arg4  string
+		arg5  int
+		arg6  int64
+		arg7  int
+		arg8  []byte
+		arg9  uint32
+		arg10 bool
+	}
+	requestGlobalReturns struct {
+		result1 []byte
+		result2 error
+	}
+	requestGlobalReturnsOnCall map[int]struct {
+		result1 []byte
 		result2 error
 	}
 	ResetFolderStub        func(string) error
@@ -733,12 +745,12 @@ func (fake *Model) ClosedArgsForCall(i int) (protocol.Connection, error) {
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *Model) ClusterConfig(arg1 protocol.Connection, arg2 protocol.ClusterConfig) error {
+func (fake *Model) ClusterConfig(arg1 protocol.Connection, arg2 *protocol.ClusterConfig) error {
 	fake.clusterConfigMutex.Lock()
 	ret, specificReturn := fake.clusterConfigReturnsOnCall[len(fake.clusterConfigArgsForCall)]
 	fake.clusterConfigArgsForCall = append(fake.clusterConfigArgsForCall, struct {
 		arg1 protocol.Connection
-		arg2 protocol.ClusterConfig
+		arg2 *protocol.ClusterConfig
 	}{arg1, arg2})
 	stub := fake.ClusterConfigStub
 	fakeReturns := fake.clusterConfigReturns
@@ -759,13 +771,13 @@ func (fake *Model) ClusterConfigCallCount() int {
 	return len(fake.clusterConfigArgsForCall)
 }
 
-func (fake *Model) ClusterConfigCalls(stub func(protocol.Connection, protocol.ClusterConfig) error) {
+func (fake *Model) ClusterConfigCalls(stub func(protocol.Connection, *protocol.ClusterConfig) error) {
 	fake.clusterConfigMutex.Lock()
 	defer fake.clusterConfigMutex.Unlock()
 	fake.ClusterConfigStub = stub
 }
 
-func (fake *Model) ClusterConfigArgsForCall(i int) (protocol.Connection, protocol.ClusterConfig) {
+func (fake *Model) ClusterConfigArgsForCall(i int) (protocol.Connection, *protocol.ClusterConfig) {
 	fake.clusterConfigMutex.RLock()
 	defer fake.clusterConfigMutex.RUnlock()
 	argsForCall := fake.clusterConfigArgsForCall[i]
@@ -1453,25 +1465,19 @@ func (fake *Model) DismissPendingFolderReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Model) DownloadProgress(arg1 protocol.Connection, arg2 string, arg3 []protocol.FileDownloadProgressUpdate) error {
-	var arg3Copy []protocol.FileDownloadProgressUpdate
-	if arg3 != nil {
-		arg3Copy = make([]protocol.FileDownloadProgressUpdate, len(arg3))
-		copy(arg3Copy, arg3)
-	}
+func (fake *Model) DownloadProgress(arg1 protocol.Connection, arg2 *protocol.DownloadProgress) error {
 	fake.downloadProgressMutex.Lock()
 	ret, specificReturn := fake.downloadProgressReturnsOnCall[len(fake.downloadProgressArgsForCall)]
 	fake.downloadProgressArgsForCall = append(fake.downloadProgressArgsForCall, struct {
 		arg1 protocol.Connection
-		arg2 string
-		arg3 []protocol.FileDownloadProgressUpdate
-	}{arg1, arg2, arg3Copy})
+		arg2 *protocol.DownloadProgress
+	}{arg1, arg2})
 	stub := fake.DownloadProgressStub
 	fakeReturns := fake.downloadProgressReturns
-	fake.recordInvocation("DownloadProgress", []interface{}{arg1, arg2, arg3Copy})
+	fake.recordInvocation("DownloadProgress", []interface{}{arg1, arg2})
 	fake.downloadProgressMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3)
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1
@@ -1485,17 +1491,17 @@ func (fake *Model) DownloadProgressCallCount() int {
 	return len(fake.downloadProgressArgsForCall)
 }
 
-func (fake *Model) DownloadProgressCalls(stub func(protocol.Connection, string, []protocol.FileDownloadProgressUpdate) error) {
+func (fake *Model) DownloadProgressCalls(stub func(protocol.Connection, *protocol.DownloadProgress) error) {
 	fake.downloadProgressMutex.Lock()
 	defer fake.downloadProgressMutex.Unlock()
 	fake.DownloadProgressStub = stub
 }
 
-func (fake *Model) DownloadProgressArgsForCall(i int) (protocol.Connection, string, []protocol.FileDownloadProgressUpdate) {
+func (fake *Model) DownloadProgressArgsForCall(i int) (protocol.Connection, *protocol.DownloadProgress) {
 	fake.downloadProgressMutex.RLock()
 	defer fake.downloadProgressMutex.RUnlock()
 	argsForCall := fake.downloadProgressArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *Model) DownloadProgressReturns(result1 error) {
@@ -1898,25 +1904,19 @@ func (fake *Model) GlobalDirectoryTreeReturnsOnCall(i int, result1 []*model.Tree
 	}{result1, result2}
 }
 
-func (fake *Model) Index(arg1 protocol.Connection, arg2 string, arg3 []protocol.FileInfo) error {
-	var arg3Copy []protocol.FileInfo
-	if arg3 != nil {
-		arg3Copy = make([]protocol.FileInfo, len(arg3))
-		copy(arg3Copy, arg3)
-	}
+func (fake *Model) Index(arg1 protocol.Connection, arg2 *protocol.Index) error {
 	fake.indexMutex.Lock()
 	ret, specificReturn := fake.indexReturnsOnCall[len(fake.indexArgsForCall)]
 	fake.indexArgsForCall = append(fake.indexArgsForCall, struct {
 		arg1 protocol.Connection
-		arg2 string
-		arg3 []protocol.FileInfo
-	}{arg1, arg2, arg3Copy})
+		arg2 *protocol.Index
+	}{arg1, arg2})
 	stub := fake.IndexStub
 	fakeReturns := fake.indexReturns
-	fake.recordInvocation("Index", []interface{}{arg1, arg2, arg3Copy})
+	fake.recordInvocation("Index", []interface{}{arg1, arg2})
 	fake.indexMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3)
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1
@@ -1930,17 +1930,17 @@ func (fake *Model) IndexCallCount() int {
 	return len(fake.indexArgsForCall)
 }
 
-func (fake *Model) IndexCalls(stub func(protocol.Connection, string, []protocol.FileInfo) error) {
+func (fake *Model) IndexCalls(stub func(protocol.Connection, *protocol.Index) error) {
 	fake.indexMutex.Lock()
 	defer fake.indexMutex.Unlock()
 	fake.IndexStub = stub
 }
 
-func (fake *Model) IndexArgsForCall(i int) (protocol.Connection, string, []protocol.FileInfo) {
+func (fake *Model) IndexArgsForCall(i int) (protocol.Connection, *protocol.Index) {
 	fake.indexMutex.RLock()
 	defer fake.indexMutex.RUnlock()
 	argsForCall := fake.indexArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *Model) IndexReturns(result1 error) {
@@ -1966,25 +1966,19 @@ func (fake *Model) IndexReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Model) IndexUpdate(arg1 protocol.Connection, arg2 string, arg3 []protocol.FileInfo) error {
-	var arg3Copy []protocol.FileInfo
-	if arg3 != nil {
-		arg3Copy = make([]protocol.FileInfo, len(arg3))
-		copy(arg3Copy, arg3)
-	}
+func (fake *Model) IndexUpdate(arg1 protocol.Connection, arg2 *protocol.IndexUpdate) error {
 	fake.indexUpdateMutex.Lock()
 	ret, specificReturn := fake.indexUpdateReturnsOnCall[len(fake.indexUpdateArgsForCall)]
 	fake.indexUpdateArgsForCall = append(fake.indexUpdateArgsForCall, struct {
 		arg1 protocol.Connection
-		arg2 string
-		arg3 []protocol.FileInfo
-	}{arg1, arg2, arg3Copy})
+		arg2 *protocol.IndexUpdate
+	}{arg1, arg2})
 	stub := fake.IndexUpdateStub
 	fakeReturns := fake.indexUpdateReturns
-	fake.recordInvocation("IndexUpdate", []interface{}{arg1, arg2, arg3Copy})
+	fake.recordInvocation("IndexUpdate", []interface{}{arg1, arg2})
 	fake.indexUpdateMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3)
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1
@@ -1998,17 +1992,17 @@ func (fake *Model) IndexUpdateCallCount() int {
 	return len(fake.indexUpdateArgsForCall)
 }
 
-func (fake *Model) IndexUpdateCalls(stub func(protocol.Connection, string, []protocol.FileInfo) error) {
+func (fake *Model) IndexUpdateCalls(stub func(protocol.Connection, *protocol.IndexUpdate) error) {
 	fake.indexUpdateMutex.Lock()
 	defer fake.indexUpdateMutex.Unlock()
 	fake.IndexUpdateStub = stub
 }
 
-func (fake *Model) IndexUpdateArgsForCall(i int) (protocol.Connection, string, []protocol.FileInfo) {
+func (fake *Model) IndexUpdateArgsForCall(i int) (protocol.Connection, *protocol.IndexUpdate) {
 	fake.indexUpdateMutex.RLock()
 	defer fake.indexUpdateMutex.RUnlock()
 	argsForCall := fake.indexUpdateArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *Model) IndexUpdateReturns(result1 error) {
@@ -2101,7 +2095,7 @@ func (fake *Model) LoadIgnoresReturnsOnCall(i int, result1 []string, result2 []s
 	}{result1, result2, result3}
 }
 
-func (fake *Model) LocalChangedFolderFiles(arg1 string, arg2 int, arg3 int) ([]db.FileInfoTruncated, error) {
+func (fake *Model) LocalChangedFolderFiles(arg1 string, arg2 int, arg3 int) ([]protocol.FileInfo, error) {
 	fake.localChangedFolderFilesMutex.Lock()
 	ret, specificReturn := fake.localChangedFolderFilesReturnsOnCall[len(fake.localChangedFolderFilesArgsForCall)]
 	fake.localChangedFolderFilesArgsForCall = append(fake.localChangedFolderFilesArgsForCall, struct {
@@ -2128,7 +2122,7 @@ func (fake *Model) LocalChangedFolderFilesCallCount() int {
 	return len(fake.localChangedFolderFilesArgsForCall)
 }
 
-func (fake *Model) LocalChangedFolderFilesCalls(stub func(string, int, int) ([]db.FileInfoTruncated, error)) {
+func (fake *Model) LocalChangedFolderFilesCalls(stub func(string, int, int) ([]protocol.FileInfo, error)) {
 	fake.localChangedFolderFilesMutex.Lock()
 	defer fake.localChangedFolderFilesMutex.Unlock()
 	fake.LocalChangedFolderFilesStub = stub
@@ -2141,33 +2135,33 @@ func (fake *Model) LocalChangedFolderFilesArgsForCall(i int) (string, int, int) 
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *Model) LocalChangedFolderFilesReturns(result1 []db.FileInfoTruncated, result2 error) {
+func (fake *Model) LocalChangedFolderFilesReturns(result1 []protocol.FileInfo, result2 error) {
 	fake.localChangedFolderFilesMutex.Lock()
 	defer fake.localChangedFolderFilesMutex.Unlock()
 	fake.LocalChangedFolderFilesStub = nil
 	fake.localChangedFolderFilesReturns = struct {
-		result1 []db.FileInfoTruncated
+		result1 []protocol.FileInfo
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *Model) LocalChangedFolderFilesReturnsOnCall(i int, result1 []db.FileInfoTruncated, result2 error) {
+func (fake *Model) LocalChangedFolderFilesReturnsOnCall(i int, result1 []protocol.FileInfo, result2 error) {
 	fake.localChangedFolderFilesMutex.Lock()
 	defer fake.localChangedFolderFilesMutex.Unlock()
 	fake.LocalChangedFolderFilesStub = nil
 	if fake.localChangedFolderFilesReturnsOnCall == nil {
 		fake.localChangedFolderFilesReturnsOnCall = make(map[int]struct {
-			result1 []db.FileInfoTruncated
+			result1 []protocol.FileInfo
 			result2 error
 		})
 	}
 	fake.localChangedFolderFilesReturnsOnCall[i] = struct {
-		result1 []db.FileInfoTruncated
+		result1 []protocol.FileInfo
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *Model) NeedFolderFiles(arg1 string, arg2 int, arg3 int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error) {
+func (fake *Model) NeedFolderFiles(arg1 string, arg2 int, arg3 int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error) {
 	fake.needFolderFilesMutex.Lock()
 	ret, specificReturn := fake.needFolderFilesReturnsOnCall[len(fake.needFolderFilesArgsForCall)]
 	fake.needFolderFilesArgsForCall = append(fake.needFolderFilesArgsForCall, struct {
@@ -2194,7 +2188,7 @@ func (fake *Model) NeedFolderFilesCallCount() int {
 	return len(fake.needFolderFilesArgsForCall)
 }
 
-func (fake *Model) NeedFolderFilesCalls(stub func(string, int, int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, error)) {
+func (fake *Model) NeedFolderFilesCalls(stub func(string, int, int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error)) {
 	fake.needFolderFilesMutex.Lock()
 	defer fake.needFolderFilesMutex.Unlock()
 	fake.NeedFolderFilesStub = stub
@@ -2207,34 +2201,34 @@ func (fake *Model) NeedFolderFilesArgsForCall(i int) (string, int, int) {
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
-func (fake *Model) NeedFolderFilesReturns(result1 []db.FileInfoTruncated, result2 []db.FileInfoTruncated, result3 []db.FileInfoTruncated, result4 error) {
+func (fake *Model) NeedFolderFilesReturns(result1 []protocol.FileInfo, result2 []protocol.FileInfo, result3 []protocol.FileInfo, result4 error) {
 	fake.needFolderFilesMutex.Lock()
 	defer fake.needFolderFilesMutex.Unlock()
 	fake.NeedFolderFilesStub = nil
 	fake.needFolderFilesReturns = struct {
-		result1 []db.FileInfoTruncated
-		result2 []db.FileInfoTruncated
-		result3 []db.FileInfoTruncated
+		result1 []protocol.FileInfo
+		result2 []protocol.FileInfo
+		result3 []protocol.FileInfo
 		result4 error
 	}{result1, result2, result3, result4}
 }
 
-func (fake *Model) NeedFolderFilesReturnsOnCall(i int, result1 []db.FileInfoTruncated, result2 []db.FileInfoTruncated, result3 []db.FileInfoTruncated, result4 error) {
+func (fake *Model) NeedFolderFilesReturnsOnCall(i int, result1 []protocol.FileInfo, result2 []protocol.FileInfo, result3 []protocol.FileInfo, result4 error) {
 	fake.needFolderFilesMutex.Lock()
 	defer fake.needFolderFilesMutex.Unlock()
 	fake.NeedFolderFilesStub = nil
 	if fake.needFolderFilesReturnsOnCall == nil {
 		fake.needFolderFilesReturnsOnCall = make(map[int]struct {
-			result1 []db.FileInfoTruncated
-			result2 []db.FileInfoTruncated
-			result3 []db.FileInfoTruncated
+			result1 []protocol.FileInfo
+			result2 []protocol.FileInfo
+			result3 []protocol.FileInfo
 			result4 error
 		})
 	}
 	fake.needFolderFilesReturnsOnCall[i] = struct {
-		result1 []db.FileInfoTruncated
-		result2 []db.FileInfoTruncated
-		result3 []db.FileInfoTruncated
+		result1 []protocol.FileInfo
+		result2 []protocol.FileInfo
+		result3 []protocol.FileInfo
 		result4 error
 	}{result1, result2, result3, result4}
 }
@@ -2454,7 +2448,7 @@ func (fake *Model) PendingFoldersReturnsOnCall(i int, result1 map[string]db.Pend
 	}{result1, result2}
 }
 
-func (fake *Model) RemoteNeedFolderFiles(arg1 string, arg2 protocol.DeviceID, arg3 int, arg4 int) ([]db.FileInfoTruncated, error) {
+func (fake *Model) RemoteNeedFolderFiles(arg1 string, arg2 protocol.DeviceID, arg3 int, arg4 int) ([]protocol.FileInfo, error) {
 	fake.remoteNeedFolderFilesMutex.Lock()
 	ret, specificReturn := fake.remoteNeedFolderFilesReturnsOnCall[len(fake.remoteNeedFolderFilesArgsForCall)]
 	fake.remoteNeedFolderFilesArgsForCall = append(fake.remoteNeedFolderFilesArgsForCall, struct {
@@ -2482,7 +2476,7 @@ func (fake *Model) RemoteNeedFolderFilesCallCount() int {
 	return len(fake.remoteNeedFolderFilesArgsForCall)
 }
 
-func (fake *Model) RemoteNeedFolderFilesCalls(stub func(string, protocol.DeviceID, int, int) ([]db.FileInfoTruncated, error)) {
+func (fake *Model) RemoteNeedFolderFilesCalls(stub func(string, protocol.DeviceID, int, int) ([]protocol.FileInfo, error)) {
 	fake.remoteNeedFolderFilesMutex.Lock()
 	defer fake.remoteNeedFolderFilesMutex.Unlock()
 	fake.RemoteNeedFolderFilesStub = stub
@@ -2495,57 +2489,45 @@ func (fake *Model) RemoteNeedFolderFilesArgsForCall(i int) (string, protocol.Dev
 	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
 }
 
-func (fake *Model) RemoteNeedFolderFilesReturns(result1 []db.FileInfoTruncated, result2 error) {
+func (fake *Model) RemoteNeedFolderFilesReturns(result1 []protocol.FileInfo, result2 error) {
 	fake.remoteNeedFolderFilesMutex.Lock()
 	defer fake.remoteNeedFolderFilesMutex.Unlock()
 	fake.RemoteNeedFolderFilesStub = nil
 	fake.remoteNeedFolderFilesReturns = struct {
-		result1 []db.FileInfoTruncated
+		result1 []protocol.FileInfo
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *Model) RemoteNeedFolderFilesReturnsOnCall(i int, result1 []db.FileInfoTruncated, result2 error) {
+func (fake *Model) RemoteNeedFolderFilesReturnsOnCall(i int, result1 []protocol.FileInfo, result2 error) {
 	fake.remoteNeedFolderFilesMutex.Lock()
 	defer fake.remoteNeedFolderFilesMutex.Unlock()
 	fake.RemoteNeedFolderFilesStub = nil
 	if fake.remoteNeedFolderFilesReturnsOnCall == nil {
 		fake.remoteNeedFolderFilesReturnsOnCall = make(map[int]struct {
-			result1 []db.FileInfoTruncated
+			result1 []protocol.FileInfo
 			result2 error
 		})
 	}
 	fake.remoteNeedFolderFilesReturnsOnCall[i] = struct {
-		result1 []db.FileInfoTruncated
+		result1 []protocol.FileInfo
 		result2 error
 	}{result1, result2}
 }
 
-func (fake *Model) Request(arg1 protocol.Connection, arg2 string, arg3 string, arg4 int32, arg5 int32, arg6 int64, arg7 []byte, arg8 uint32, arg9 bool) (protocol.RequestResponse, error) {
-	var arg7Copy []byte
-	if arg7 != nil {
-		arg7Copy = make([]byte, len(arg7))
-		copy(arg7Copy, arg7)
-	}
+func (fake *Model) Request(arg1 protocol.Connection, arg2 *protocol.Request) (protocol.RequestResponse, error) {
 	fake.requestMutex.Lock()
 	ret, specificReturn := fake.requestReturnsOnCall[len(fake.requestArgsForCall)]
 	fake.requestArgsForCall = append(fake.requestArgsForCall, struct {
 		arg1 protocol.Connection
-		arg2 string
-		arg3 string
-		arg4 int32
-		arg5 int32
-		arg6 int64
-		arg7 []byte
-		arg8 uint32
-		arg9 bool
-	}{arg1, arg2, arg3, arg4, arg5, arg6, arg7Copy, arg8, arg9})
+		arg2 *protocol.Request
+	}{arg1, arg2})
 	stub := fake.RequestStub
 	fakeReturns := fake.requestReturns
-	fake.recordInvocation("Request", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6, arg7Copy, arg8, arg9})
+	fake.recordInvocation("Request", []interface{}{arg1, arg2})
 	fake.requestMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
+		return stub(arg1, arg2)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -2559,17 +2541,17 @@ func (fake *Model) RequestCallCount() int {
 	return len(fake.requestArgsForCall)
 }
 
-func (fake *Model) RequestCalls(stub func(protocol.Connection, string, string, int32, int32, int64, []byte, uint32, bool) (protocol.RequestResponse, error)) {
+func (fake *Model) RequestCalls(stub func(protocol.Connection, *protocol.Request) (protocol.RequestResponse, error)) {
 	fake.requestMutex.Lock()
 	defer fake.requestMutex.Unlock()
 	fake.RequestStub = stub
 }
 
-func (fake *Model) RequestArgsForCall(i int) (protocol.Connection, string, string, int32, int32, int64, []byte, uint32, bool) {
+func (fake *Model) RequestArgsForCall(i int) (protocol.Connection, *protocol.Request) {
 	fake.requestMutex.RLock()
 	defer fake.requestMutex.RUnlock()
 	argsForCall := fake.requestArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6, argsForCall.arg7, argsForCall.arg8, argsForCall.arg9
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *Model) RequestReturns(result1 protocol.RequestResponse, result2 error) {
@@ -2594,6 +2576,84 @@ func (fake *Model) RequestReturnsOnCall(i int, result1 protocol.RequestResponse,
 	}
 	fake.requestReturnsOnCall[i] = struct {
 		result1 protocol.RequestResponse
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Model) RequestGlobal(arg1 context.Context, arg2 protocol.DeviceID, arg3 string, arg4 string, arg5 int, arg6 int64, arg7 int, arg8 []byte, arg9 uint32, arg10 bool) ([]byte, error) {
+	var arg8Copy []byte
+	if arg8 != nil {
+		arg8Copy = make([]byte, len(arg8))
+		copy(arg8Copy, arg8)
+	}
+	fake.requestGlobalMutex.Lock()
+	ret, specificReturn := fake.requestGlobalReturnsOnCall[len(fake.requestGlobalArgsForCall)]
+	fake.requestGlobalArgsForCall = append(fake.requestGlobalArgsForCall, struct {
+		arg1  context.Context
+		arg2  protocol.DeviceID
+		arg3  string
+		arg4  string
+		arg5  int
+		arg6  int64
+		arg7  int
+		arg8  []byte
+		arg9  uint32
+		arg10 bool
+	}{arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8Copy, arg9, arg10})
+	stub := fake.RequestGlobalStub
+	fakeReturns := fake.requestGlobalReturns
+	fake.recordInvocation("RequestGlobal", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8Copy, arg9, arg10})
+	fake.requestGlobalMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *Model) RequestGlobalCallCount() int {
+	fake.requestGlobalMutex.RLock()
+	defer fake.requestGlobalMutex.RUnlock()
+	return len(fake.requestGlobalArgsForCall)
+}
+
+func (fake *Model) RequestGlobalCalls(stub func(context.Context, protocol.DeviceID, string, string, int, int64, int, []byte, uint32, bool) ([]byte, error)) {
+	fake.requestGlobalMutex.Lock()
+	defer fake.requestGlobalMutex.Unlock()
+	fake.RequestGlobalStub = stub
+}
+
+func (fake *Model) RequestGlobalArgsForCall(i int) (context.Context, protocol.DeviceID, string, string, int, int64, int, []byte, uint32, bool) {
+	fake.requestGlobalMutex.RLock()
+	defer fake.requestGlobalMutex.RUnlock()
+	argsForCall := fake.requestGlobalArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6, argsForCall.arg7, argsForCall.arg8, argsForCall.arg9, argsForCall.arg10
+}
+
+func (fake *Model) RequestGlobalReturns(result1 []byte, result2 error) {
+	fake.requestGlobalMutex.Lock()
+	defer fake.requestGlobalMutex.Unlock()
+	fake.RequestGlobalStub = nil
+	fake.requestGlobalReturns = struct {
+		result1 []byte
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *Model) RequestGlobalReturnsOnCall(i int, result1 []byte, result2 error) {
+	fake.requestGlobalMutex.Lock()
+	defer fake.requestGlobalMutex.Unlock()
+	fake.RequestGlobalStub = nil
+	if fake.requestGlobalReturnsOnCall == nil {
+		fake.requestGlobalReturnsOnCall = make(map[int]struct {
+			result1 []byte
+			result2 error
+		})
+	}
+	fake.requestGlobalReturnsOnCall[i] = struct {
+		result1 []byte
 		result2 error
 	}{result1, result2}
 }
@@ -3298,6 +3358,8 @@ func (fake *Model) Invocations() map[string][][]interface{} {
 	defer fake.remoteNeedFolderFilesMutex.RUnlock()
 	fake.requestMutex.RLock()
 	defer fake.requestMutex.RUnlock()
+	fake.requestGlobalMutex.RLock()
+	defer fake.requestGlobalMutex.RUnlock()
 	fake.resetFolderMutex.RLock()
 	defer fake.resetFolderMutex.RUnlock()
 	fake.restoreFolderVersionsMutex.RLock()

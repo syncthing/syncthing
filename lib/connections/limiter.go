@@ -12,10 +12,11 @@ import (
 	"io"
 	"sync/atomic"
 
+	"golang.org/x/time/rate"
+
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
-	"golang.org/x/time/rate"
 )
 
 // limiter manages a read and write rate limit, reacting to config changes

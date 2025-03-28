@@ -73,7 +73,7 @@ func RenameOrCopy(method fs.CopyRangeMethod, src, dst fs.Filesystem, from, to st
 // Copy copies the file content from source to destination.
 // Tries hard to succeed on various systems by temporarily tweaking directory
 // permissions and removing the destination file when necessary.
-func Copy(method fs.CopyRangeMethod, src, dst fs.Filesystem, from, to string) (err error) {
+func Copy(method fs.CopyRangeMethod, src, dst fs.Filesystem, from, to string) error {
 	return withPreparedTarget(dst, from, to, func() error {
 		return copyFileContents(method, src, dst, from, to)
 	})
@@ -84,14 +84,14 @@ func Copy(method fs.CopyRangeMethod, src, dst fs.Filesystem, from, to string) (e
 func withPreparedTarget(filesystem fs.Filesystem, from, to string, f func() error) error {
 	// Make sure the destination directory is writeable
 	toDir := filepath.Dir(to)
-	if info, err := filesystem.Stat(toDir); err == nil && info.IsDir() && info.Mode()&0200 == 0 {
-		filesystem.Chmod(toDir, 0755)
+	if info, err := filesystem.Stat(toDir); err == nil && info.IsDir() && info.Mode()&0o200 == 0 {
+		filesystem.Chmod(toDir, 0o755)
 		defer filesystem.Chmod(toDir, info.Mode())
 	}
 
 	// On Windows, make sure the destination file is writeable (or we can't delete it)
 	if build.IsWindows {
-		filesystem.Chmod(to, 0666)
+		filesystem.Chmod(to, 0o666)
 		if !strings.EqualFold(from, to) {
 			err := filesystem.Remove(to)
 			if err != nil && !fs.IsNotExist(err) {

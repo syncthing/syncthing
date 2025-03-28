@@ -805,7 +805,10 @@ func TestIssue3174(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !pats.Match("åäö").IsIgnored() {
+	// The pattern above is normalized when parsing, and in order for this
+	// string to match the pattern, it needs to use the same normalization. And
+	// Go always uses NFC regardless of OS, while we use NFD on macos.
+	if !pats.Match(nativeUnicodeNorm("åäö")).IsIgnored() {
 		t.Error("Should match")
 	}
 }

@@ -11,14 +11,6 @@ LABEL org.opencontainers.image.authors="The Syncthing Project" \
 
 EXPOSE 8080
 
-RUN apk add --no-cache ca-certificates su-exec curl
-ENV PUID=1000 PGID=1000 MAXMIND_KEY=
-
-RUN mkdir /var/strelaypoolsrv && chown 1000 /var/strelaypoolsrv
-USER 1000
-
 COPY strelaypoolsrv-linux-${TARGETARCH} /bin/strelaypoolsrv
-COPY script/strelaypoolsrv-entrypoint.sh /bin/entrypoint.sh
 
-WORKDIR /var/strelaypoolsrv
-ENTRYPOINT ["/bin/entrypoint.sh", "/bin/strelaypoolsrv", "-listen", ":8080"]
+ENTRYPOINT ["/bin/strelaypoolsrv", "-listen", ":8080"]

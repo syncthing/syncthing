@@ -224,7 +224,6 @@ code.ng-binding{
 }
 
 .well, .form-control[readonly="readonly"], .popover { /* read-only fields*/
-    color: #666 !important;
     border-color: #444 !important;
     background-color: #111 !important;
 }
@@ -277,4 +276,18 @@ code.ng-binding{
 /* Remote Devices 'connection type'-icon color set to #aaa */
 .reception {
     filter: invert(77%) sepia(0%) saturate(724%) hue-rotate(146deg) brightness(91%) contrast(85%);
+}
+
+/* Disabled checkbox panels */
+
+.checkbox[disabled] {
+    background-color: #222222;
+}
+
+.checkbox[disabled] * {
+    color: #666666;
+}
+
+.checkbox[disabled] .help-block {
+    color: #666666 !important;
 }

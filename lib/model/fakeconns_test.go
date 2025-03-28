@@ -30,8 +30,8 @@ func newFakeConnection(id protocol.DeviceID, model Model) *fakeConnection {
 		model:      model,
 		closed:     make(chan struct{}),
 	}
-	f.RequestCalls(func(ctx context.Context, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
-		return f.fileData[name], nil
+	f.RequestCalls(func(ctx context.Context, req *protocol.Request) ([]byte, error) {
+		return f.fileData[req.Name], nil
 	})
 	f.DeviceIDReturns(id)
 	f.ConnectionIDReturns(rand.String(16))
@@ -60,14 +60,16 @@ type fakeConnection struct {
 }
 
 func (f *fakeConnection) setIndexFn(fn func(_ context.Context, folder string, fs []protocol.FileInfo) error) {
-	f.IndexCalls(fn)
-	f.IndexUpdateCalls(fn)
+	f.IndexCalls(func(ctx context.Context, idx *protocol.Index) error { return fn(ctx, idx.Folder, idx.Files) })
+	f.IndexUpdateCalls(func(ctx context.Context, idxUp *protocol.IndexUpdate) error {
+		return fn(ctx, idxUp.Folder, idxUp.Files)
+	})
 }
 
-func (f *fakeConnection) DownloadProgress(_ context.Context, folder string, updates []protocol.FileDownloadProgressUpdate) {
+func (f *fakeConnection) DownloadProgress(_ context.Context, dp *protocol.DownloadProgress) {
 	f.downloadProgressMessages = append(f.downloadProgressMessages, downloadProgressMessage{
-		folder:  folder,
-		updates: updates,
+		folder:  dp.Folder,
+		updates: dp.Updates,
 	})
 }
 
@@ -88,14 +90,14 @@ func (f *fakeConnection) addFileLocked(name string, flags uint32, ftype protocol
 		file.Permissions = flags
 		if ftype == protocol.FileInfoTypeFile {
 			file.Size = int64(len(data))
-			file.RawBlockSize = blockSize
+			file.RawBlockSize = int32(blockSize)
 			file.Blocks = blocks
 		}
 	default: // Symlink
 		file.Name = name
 		file.Type = ftype
 		file.Version = version
-		file.SymlinkTarget = string(data)
+		file.SymlinkTarget = data
 		file.NoPermissions = true
 	}
 	f.files = append(f.files, file)
@@ -160,7 +162,7 @@ func (f *fakeConnection) sendIndexUpdate() {
 	for i := range f.files {
 		toSend[i] = prepareFileInfoForIndex(f.files[i])
 	}
-	f.model.IndexUpdate(f, f.folder, toSend)
+	f.model.IndexUpdate(f, &protocol.IndexUpdate{Folder: f.folder, Files: toSend})
 }
 
 func addFakeConn(m *testModel, dev protocol.DeviceID, folderID string) *fakeConnection {
@@ -168,7 +170,7 @@ func addFakeConn(m *testModel, dev protocol.DeviceID, folderID string) *fakeConn
 	fc.folder = folderID
 	m.AddConnection(fc, protocol.Hello{})
 
-	m.ClusterConfig(fc, protocol.ClusterConfig{
+	m.ClusterConfig(fc, &protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
 				ID: folderID,

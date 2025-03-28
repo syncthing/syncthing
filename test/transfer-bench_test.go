@@ -26,18 +26,23 @@ func TestBenchmarkTransferManyFiles(t *testing.T) {
 func TestBenchmarkTransferLargeFile1G(t *testing.T) {
 	setupAndBenchmarkTransfer(t, 1, 30)
 }
+
 func TestBenchmarkTransferLargeFile2G(t *testing.T) {
 	setupAndBenchmarkTransfer(t, 1, 31)
 }
+
 func TestBenchmarkTransferLargeFile4G(t *testing.T) {
 	setupAndBenchmarkTransfer(t, 1, 32)
 }
+
 func TestBenchmarkTransferLargeFile8G(t *testing.T) {
 	setupAndBenchmarkTransfer(t, 1, 33)
 }
+
 func TestBenchmarkTransferLargeFile16G(t *testing.T) {
 	setupAndBenchmarkTransfer(t, 1, 34)
 }
+
 func TestBenchmarkTransferLargeFile32G(t *testing.T) {
 	setupAndBenchmarkTransfer(t, 1, 35)
 }
@@ -54,7 +59,7 @@ func setupAndBenchmarkTransfer(t *testing.T, files, sizeExp int) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = os.MkdirAll("s1", 0755)
+		err = os.MkdirAll("s1", 0o755)
 		if err != nil {
 			t.Fatal(err)
 		}

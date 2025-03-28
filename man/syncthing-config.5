@@ -27,21 +27,19 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Jan 15, 2024" "v1.27.3" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Mar 19, 2025" "v1.29.3" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $XDG_STATE_HOME/syncthing
 $HOME/.local/state/syncthing
 $HOME/Library/Application Support/Syncthing
 %LOCALAPPDATA%\eSyncthing
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH DESCRIPTION
@@ -56,7 +54,7 @@ installations may still use these directories instead of the newer
 defaults.
 
 .sp
-New in version 1.5.0: Database and config can now be set separately. Previously the database was
+Added in version 1.5.0: Database and config can now be set separately. Previously the database was
 always located in the same directory as the config.
 
 .sp
@@ -86,7 +84,7 @@ with a custom certificate for HTTPS as desired.
 .sp
 The database is by default stored in the same directory as the config, but
 the location may be overridden by the \fB\-\-data\fP or \fB\-\-home\fP flags or the
-corresponding environment varibles (\fB$STDATADIR\fP or \fBSTHOMEDIR\fP).
+corresponding environment variables (\fB$STDATADIR\fP or \fBSTHOMEDIR\fP).
 .sp
 The database directory contains the following files, among others:
 .INDENT 0.0
@@ -119,10 +117,9 @@ may no longer correspond to the defaults.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <configuration version=\(dq37\(dq>
-    <folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
+    <folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
         <filesystemType>basic</filesystemType>
         <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
             <encryptionPassword></encryptionPassword>
@@ -228,7 +225,7 @@ may no longer correspond to the defaults.
     </options>
     <remoteIgnoredDevice time=\(dq2022\-01\-09T20:02:01Z\(dq id=\(dq5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU\(dq name=\(dqbugger\(dq address=\(dq192.168.0.20:22000\(dq></remoteIgnoredDevice>
     <defaults>
-        <folder id=\(dq\(dq label=\(dq\(dq path=\(dq~\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
+        <folder id=\(dq\(dq label=\(dq\(dq path=\(dq~\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
             <filesystemType>basic</filesystemType>
             <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
                 <encryptionPassword></encryptionPassword>
@@ -277,16 +274,14 @@ may no longer correspond to the defaults.
         </device>
     </defaults>
 </configuration>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH CONFIGURATION ELEMENT
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <configuration version=\(dq37\(dq>
     <folder></folder>
     <device></device>
@@ -296,8 +291,7 @@ may no longer correspond to the defaults.
     <remoteIgnoredDevice></remoteIgnoredDevice>
     <defaults></defaults>
 </configuration>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -322,9 +316,8 @@ GUI.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
-<folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
+.EX
+<folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
     <filesystemType>basic</filesystemType>
     <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
         <encryptionPassword></encryptionPassword>
@@ -361,8 +354,7 @@ GUI.
     <syncXattrs>false</syncXattrs>
     <sendXattrs>false</sendXattrs>
 </folder>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -435,6 +427,13 @@ If set to \fBtrue\fP, this detects changes to files in the folder and scans them
 .B fsWatcherDelayS
 The duration during which changes detected are accumulated, before a scan is
 scheduled (only takes effect if \fI\%fsWatcherEnabled\fP is set to \fBtrue\fP).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B fsWatcherTimeoutS
+The maximum delay before a scan is triggered when a file is continuously
+changing. If unset or zero a default value is calculated based on
+\fI\%fsWatcherDelayS\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -715,8 +714,7 @@ devices when this is set to \fBtrue\fP\&. See
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq name=\(dqsyno\(dq compression=\(dqmetadata\(dq introducer=\(dqfalse\(dq skipIntroductionRemovals=\(dqfalse\(dq introducedBy=\(dq2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR\(dq>
     <address>dynamic</address>
     <paused>false</paused>
@@ -741,8 +739,7 @@ devices when this is set to \fBtrue\fP\&. See
     <remoteGUIPort>8384</remoteGUIPort>
     <numConnections>0</numConnections>
 </device>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -855,17 +852,17 @@ for example:
 .INDENT 7.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <device id=\(dq...\(dq>
     <address>tcp://192.0.2.1:22001</address>
     <address>quic://192.0.1.254:22000</address>
     <address>dynamic</address>
 </device>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
+.sp
+In the GUI, multiple values are separated by commas.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -876,7 +873,9 @@ True if synchronization with this devices is (temporarily) suspended.
 .TP
 .B allowedNetwork
 If given, this restricts connections to this device to only this network.
-The mechanism is described in detail in a \fI\%separate chapter\fP).
+The mechanism is described in detail in a \fI\%separate chapter\fP).  To configure multiple networks, you
+can either: repeat \fB<allowedNetwork>\fP tags in the configuration file or
+enter several networks separated by commas in the GUI.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -907,6 +906,8 @@ despite the config name looking like kilobits/second.
 Contains the ID of the folder that should be ignored. This folder will
 always be skipped when advertised from the containing remote device,
 i.e. this will be logged, but there will be no dialog shown in the web GUI.
+Multiple ignored folders are represented by repeated \fB<ignoredFolder>\fP
+tags in the configuration file.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -942,15 +943,13 @@ The number of connections to this device. See
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <gui enabled=\(dqtrue\(dq tls=\(dqfalse\(dq debugging=\(dqfalse\(dq>
     <address>127.0.0.1:8384</address>
     <apikey>k1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1</apikey>
     <theme>default</theme>
 </gui>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1060,7 +1059,7 @@ LDAP authentication. Requires ldap top level config section to be present.
 .INDENT 0.0
 .TP
 .B sendBasicAuthPrompt
-New in version 1.26.0.
+Added in version 1.26.0.
 
 .sp
 Prior to version 1.26.0 the GUI used HTTP Basic Authorization for login, but
@@ -1082,16 +1081,14 @@ won’t see browser popups prompting for username and password.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <ldap>
     <address>localhost:389</address>
     <bindDN>cn=%s,ou=users,dc=syncthing,dc=net</bindDN>
     <transport>nontls</transport>
     <insecureSkipVerify>false</insecureSkipVerify>
 </ldap>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1150,8 +1147,7 @@ Search filter for user searches.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <options>
     <listenAddress>default</listenAddress>
     <globalAnnounceServer>default</globalAnnounceServer>
@@ -1202,8 +1198,7 @@ Search filter for user searches.
     <connectionLimitMax>0</connectionLimitMax>
     <insecureAllowOldTLSVersions>false</insecureAllowOldTLSVersions>
 </options>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1212,7 +1207,10 @@ The \fBoptions\fP element contains all other global configuration options.
 .TP
 .B listenAddress
 The listen address for incoming sync connections. See
-\fI\%Listen Addresses\fP for the allowed syntax.
+\fI\%Listen Addresses\fP for the allowed syntax.  To configure multiple
+addresses, you can either: repeat \fB<listenAddress>\fP tags in the
+configuration file or enter several addresses separated by commas in the
+GUI.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1223,7 +1221,10 @@ may be present. The syntax for non\-default entries is that of an HTTP or
 HTTPS URL. A number of options may be added as query options to the URL:
 \fBinsecure\fP to prevent certificate validation (required for HTTP URLs)
 and \fBid=<device ID>\fP to perform certificate pinning. The device ID to
-use is printed by the discovery server on startup.
+use is printed by the discovery server on startup.  To configure multiple
+servers, you can either: repeat \fB<globalAnnounceServer>\fP tags in the
+configuration file or enter several servers separated by commas in the
+GUI.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1391,7 +1392,10 @@ The URL from which release information is loaded, for automatic upgrades.
 .INDENT 0.0
 .TP
 .B alwaysLocalNet
-Network that should be considered as local given in CIDR notation.
+Network that should be considered as local given in CIDR notation.  To
+configure multiple networks, you can either: repeat \fB<alwaysLocalNet>\fP
+tags in the configuration file or enter several networks separated by
+commas in the GUI.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1410,12 +1414,17 @@ into account files that have at least this many blocks.
 .TP
 .B unackedNotificationID
 ID of a notification to be displayed in the web GUI. Will be removed once
-the user acknowledged it (e.g. an transition notice on an upgrade).
+the user acknowledged it (e.g. a transition notice on an upgrade).  Multiple
+IDs are represented by repeated \fB<unackedNotificationID>\fP tags in the
+configuration file.
 .UNINDENT
 .INDENT 0.0
 .TP
 .B trafficClass
-Specify a type of service (TOS)/traffic class of outgoing packets.
+Specify an IPv4 type of service (TOS)/IPv6 traffic class for outgoing
+packets. To specify a differentiated services code point (DSCP) the value
+must be bit shifted to the left by two to take the two least significant
+ECN bits into account.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1424,11 +1433,16 @@ Server to be used for STUN, given as ip:port. The keyword \fBdefault\fP gets
 expanded to
 \fBstun.callwithus.com:3478\fP, \fBstun.counterpath.com:3478\fP,
 \fBstun.counterpath.net:3478\fP, \fBstun.ekiga.net:3478\fP,
-\fBstun.ideasip.com:3478\fP, \fBstun.internetcalls.com:3478\fP,
-\fBstun.schlund.de:3478\fP, \fBstun.sipgate.net:10000\fP,
+\fBstun.hitv.com:3478\fP, \fBstun.ideasip.com:3478\fP,
+\fBstun.internetcalls.com:3478\fP, \fBstun.miwifi.com:3478\fP,
+\fBstun.schlund.de:3478\fP,\(ga\(gastun.sipgate.net:10000\(ga\(ga,
 \fBstun.sipgate.net:3478\fP, \fBstun.voip.aebc.com:3478\fP,
 \fBstun.voiparound.com:3478\fP, \fBstun.voipbuster.com:3478\fP,
 \fBstun.voipstunt.com:3478\fP and \fBstun.xten.com:3478\fP (this is the default).
+.sp
+To configure multiple servers, you can either: repeat \fB<stunServer>\fP tags
+in the configuration file or enter several servers separated by commas in
+the GUI.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1508,7 +1522,9 @@ troubleshooting step and causes high database churn. The default is now
 Feature flags are simple strings that, when added to the configuration, may
 unleash unfinished or still\-in\-development features to allow early user
 testing.  Any supported value will be separately announced with the feature,
-so that regular users do not enable it by accident.
+so that regular users do not enable it by accident.  To configure multiple
+flags, you can either: repeat \fB<featureFlag>\fP tags in the configuration
+file or enter several flags separated by commas in the GUI.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1535,10 +1551,9 @@ detailed in \fI\%insecureAllowOldTLSVersions\fP\&.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <defaults>
-    <folder id=\(dq\(dq label=\(dq\(dq path=\(dq~\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
+    <folder id=\(dq\(dq label=\(dq\(dq path=\(dq~\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
         <filesystemType>basic</filesystemType>
         <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
             <encryptionPassword></encryptionPassword>
@@ -1590,8 +1605,7 @@ detailed in \fI\%insecureAllowOldTLSVersions\fP\&.
         <line>qu*</line>
     </ignores>
 </defaults>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -1623,7 +1637,7 @@ including the appropriate \fI\%folder.device\fP element underneath.
 .INDENT 0.0
 .TP
 .B ignores
-New in version 1.19.0.
+Added in version 1.19.0.
 
 .sp
 Template for the \fI\%ignore patterns\fP applied to new
@@ -1635,9 +1649,9 @@ line is represented as by a \fB<line>\fP element.
 .SS Listen Addresses
 .sp
 The following address types are accepted in sync protocol listen addresses.
-If you want Syncthing to listen on multiple addresses, you can either: add
-multiple \fB<listenAddress>\fP tags in the configuration file or enter several
-addresses separated by commas in the GUI.
+If you want Syncthing to listen on multiple addresses, you can either: repeat
+\fB<listenAddress>\fP tags in the configuration file or enter several addresses
+separated by commas in the GUI.
 .INDENT 0.0
 .TP
 .B Default listen addresses (\fBdefault\fP)

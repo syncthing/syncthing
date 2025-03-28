@@ -12,6 +12,9 @@ import (
 	"io"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/syncthing/syncthing/internal/protoutil"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -75,7 +78,7 @@ func newSharedPullerState(file protocol.FileInfo, fs fs.Filesystem, folderID, te
 }
 
 // A momentary state representing the progress of the puller
-type pullerProgress struct {
+type PullerProgress struct {
 	Total                   int   `json:"total"`
 	Reused                  int   `json:"reused"`
 	CopiedFromOrigin        int   `json:"copiedFromOrigin"`
@@ -386,7 +389,7 @@ func writeEncryptionTrailer(file protocol.FileInfo, writer io.WriterAt) (int64, 
 
 	trailerSize := encryptionTrailerSize(wireFile)
 	bs := make([]byte, trailerSize)
-	n, err := wireFile.MarshalTo(bs)
+	n, err := protoutil.MarshalTo(bs, wireFile.ToWire(false))
 	if err != nil {
 		return 0, err
 	}
@@ -401,17 +404,17 @@ func writeEncryptionTrailer(file protocol.FileInfo, writer io.WriterAt) (int64, 
 }
 
 func encryptionTrailerSize(file protocol.FileInfo) int64 {
-	return int64(file.ProtoSize()) + 4
+	return int64(proto.Size(file.ToWire(false))) + 4 // XXX: Inefficient
 }
 
 // Progress returns the momentarily progress for the puller
-func (s *sharedPullerState) Progress() *pullerProgress {
+func (s *sharedPullerState) Progress() *PullerProgress {
 	s.mut.RLock()
 	defer s.mut.RUnlock()
 	total := s.reused + s.copyTotal + s.pullTotal
 	done := total - s.copyNeeded - s.pullNeeded
 	file := len(s.file.Blocks)
-	return &pullerProgress{
+	return &PullerProgress{
 		Total:               total,
 		Reused:              s.reused,
 		CopiedFromOrigin:    s.copyOrigin,

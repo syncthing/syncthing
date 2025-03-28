@@ -6,6 +6,4 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-var (
-	l = logger.DefaultLogger.NewFacility("relay", "")
-)
+var l = logger.DefaultLogger.NewFacility("relay", "")

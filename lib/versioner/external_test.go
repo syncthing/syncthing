@@ -81,10 +81,10 @@ func prepForRemoval(t *testing.T, file string) {
 		t.Fatal(err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(file), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(file, []byte("hello\n"), 0644); err != nil {
+	if err := os.WriteFile(file, []byte("hello\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }

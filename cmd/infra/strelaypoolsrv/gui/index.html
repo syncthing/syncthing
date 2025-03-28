@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+
+<html lang="en" ng-app="syncthing" ng-controller="relayDataController">
+  <head>
+    <meta charset="utf-8"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="description" content=""/>
+    <meta name="author" content=""/>
+
+    <title>Relay stats</title>
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.13/css/all.css"/>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.13/css/all.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
+  integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+  crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
+  integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
+  crossorigin=""></script>
+
+    <style>
+      #map {
+        height: 600px;
+      }
+      .ng-cloak {
+        display: none;
+      }
+      table {
+        font-size: 11px !important;
+        width: 100%;
+        border: 1px;
+
+      }
+      td {
+        padding: 0px !important;
+      }
+      tfoot td {
+        font-weight: bold;
+      }
+    </style>
+  </head>
+
+  <body class="ng-cloak">
+    <div class="container">
+      <h1>Relay Pool Data</h1>
+      <div ng-if="relays === undefined" class="text-center">
+        <img src="https://cdnjs.cloudflare.com/ajax/libs/galleriffic/2.0.1/css/loader.gif" alt=""/>
+        <p>Please wait while we gather data…</p>
+      </div>
+      <div>
+        <div ng-show="relays !== undefined" class="ng-hide">
+          <p>
+            The relays listed on this page are not managed or vetted by the Syncthing project.
+            Each relay is the responsibility of the relay operator.
+            Currently {{ relays.length }} relays are online.
+          </p>
+        </div>
+        <div id="map"></div> <!-- Can't hide the map, otherwise it freaks out -->
+        <p>The circle size represents how much bytes the relay has transferred relatively to other relays.</p>
+      </div>
+      <div>
+        <table class="table table-striped table-condensed table">
+          <thead>
+            <tr>
+              <th rowspan="2">Address</td>
+              <th rowspan="2">
+                <a ng-click="sortType = 'stats.numActiveSessions'; sortReverse = !sortReverse">
+                  Sessions
+                  <span ng-show="sortType == 'stats.numActiveSessions' && !sortReverse" class="fas fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.numActiveSessions' && sortReverse" class="fas fa-caret-up"></span>
+                </a>
+              </th>
+              <th rowspan="2">
+                <a ng-click="sortType = 'stats.numConnections'; sortReverse = !sortReverse">
+                  Connections
+                  <span ng-show="sortType == 'stats.numConnections' && !sortReverse" class="fas fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.numConnections' && sortReverse" class="fas fa-caret-up"></span>
+                </a>
+              </th>
+              <th rowspan="2">
+                <a ng-click="sortType = 'stats.bytesProxied'; sortReverse = !sortReverse">
+                  Data relayed
+                  <span ng-show="sortType == 'stats.bytesProxied' && !sortReverse" class="fas fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.bytesProxied' && sortReverse" class="fas fa-caret-up"></span>
+                </a>
+              </th>
+              <th colspan="6" class="text-center">Transfer rate in the last period</th>
+              <th rowspan="2">
+                <a ng-click="sortType = 'stats.uptimeSeconds'; sortReverse = !sortReverse">
+                  Uptime hours
+                  <span ng-show="sortType == 'stats.uptimeSeconds' && !sortReverse" class="fas fa-caret-down"></span>
+                  <span ng-show="sortType == 'status.uptimeSeconds' && sortReverse" class="fas fa-caret-up"></span>
+                </a>
+              </th>
+              <th rowspan="2">
+                <a ng-click="sortType = 'stats.options[\'provided-by\'] || \'\''; sortReverse = !sortReverse">
+                  Provided by
+                  <span ng-show="sortType == 'stats.options[\'provided-by\'] || \'\'' && !sortReverse" class="fas fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.options[\'provided-by\'] || \'\'' && sortReverse" class="fas fa-caret-up"></span>
+                </a>
+              </th>
+            </tr>
+            <tr>
+              <th>
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[0]'; sortReverse = !sortReverse">
+                  10s
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[0]' && !sortReverse" class="fas fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[0]' && sortReverse" class="fas fa-caret-up"></span>
+                </a>
+              </th>
+              <th>
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[1]'; sortReverse = !sortReverse">
+                  1m
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[1]' && !sortReverse" class="fas fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[1]' && sortReverse" class="fas fa-caret-up"></span>
+                </a>
+              </th>
+              <th>
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[2]'; sortReverse = !sortReverse">
+                  5m
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[2]' && !sortReverse" class="fas fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[2]' && sortReverse" class="fas fa-caret-up"></span>
+                </a>
+              </th>
+              <th>
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[3]'; sortReverse = !sortReverse">
+                  15m
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[3]' && !sortReverse" class="fas fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[3]' && sortReverse" class="fas fa-caret-up"></span>
+                </a>
+              </th>
+              <th>
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[4]'; sortReverse = !sortReverse">
+                  30m
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[4]' && !sortReverse" class="fas fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[4]' && sortReverse" class="fas fa-caret-up"></span>
+                </a>
+              </th>
+              <th>
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[5]'; sortReverse = !sortReverse">
+                  60m
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[5]' && !sortReverse" class="fas fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[5]' && sortReverse" class="fas fa-caret-up"></span>
+                </a>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr ng-repeat="relay in relays | orderBy:sortType:sortReverse:sortCompare" ng-mouseover="relay.showMarker()" ng-mouseleave="relay.hideMarker()">
+              <td>{{ relay.address }}</td>
+              <td ng-if="!relay.stats" colspan="11"></td>
+              <td ng-if-start="relay.stats">{{ relay.stats.numActiveSessions }}</td>
+              <td>{{ relay.stats.numConnections }}</td>
+              <td>{{ relay.stats.bytesProxied | bytes }}</td>
+              <td>{{ relay.stats.kbps10s1m5m15m30m60m[0] * 128 | bytes }}/s</td>
+              <td>{{ relay.stats.kbps10s1m5m15m30m60m[1] * 128 | bytes }}/s</td>
+              <td>{{ relay.stats.kbps10s1m5m15m30m60m[2] * 128 | bytes }}/s</td>
+              <td>{{ relay.stats.kbps10s1m5m15m30m60m[3] * 128 | bytes }}/s</td>
+              <td>{{ relay.stats.kbps10s1m5m15m30m60m[4] * 128 | bytes }}/s</td>
+              <td>{{ relay.stats.kbps10s1m5m15m30m60m[5] * 128 | bytes }}/s</td>
+              <td ng-if="relay.stats.uptimeSeconds != undefined">{{ relay.stats.uptimeSeconds/60/60 | number:0 }}</td>
+              <td ng-if="relay.stats.uptimeSeconds == undefined"></td>
+              <td title="{{ relay.stats.options['provided-by'] || '' }}" ng-if-end>
+                {{ relay.stats.options['provided-by'] || '' | limitTo:50 }}
+                <span ng-if="(relay.stats.options['provided-by'] || '').length > 50">&hellip;
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>Totals</td>
+              <td>{{ totals.numActiveSessions }}</td>
+              <td>{{ totals.numConnections }}</td>
+              <td>{{ totals.bytesProxied | bytes }}</td>
+              <td>{{ totals.kbps10s1m5m15m30m60m[0] * 128 | bytes }}/s</td>
+              <td>{{ totals.kbps10s1m5m15m30m60m[1] * 128 | bytes }}/s</td>
+              <td>{{ totals.kbps10s1m5m15m30m60m[2] * 128 | bytes }}/s</td>
+              <td>{{ totals.kbps10s1m5m15m30m60m[3] * 128 | bytes }}/s</td>
+              <td>{{ totals.kbps10s1m5m15m30m60m[4] * 128 | bytes }}/s</td>
+              <td>{{ totals.kbps10s1m5m15m30m60m[5] * 128 | bytes }}/s</td>
+              <td>{{ totals.uptimeSeconds/60/60 | number:0 }} hours</td>
+              <td>{{ relays.length }} relays</td>
+            </tr>
+          </tfoor>
+        </table>
+      </div>
+      <hr>
+      <p>
+        This product includes GeoLite2 data created by MaxMind, available from
+        <a href="https://www.maxmind.com">https://www.maxmind.com</a>.
+      </p>
+    </div>
+
+
+    <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.5.8/angular.min.js"></script>
+    <script type="text/javascript" src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+  </body>
+
+  <script>
+  angular.module('syncthing', [
+  ])
+  .config(['$httpProvider', function($httpProvider) {
+    $httpProvider.defaults.timeout = 5000;
+  }])
+  .filter('bytes', function() {
+    return function(bytes, precision) {
+      if (isNaN(parseFloat(bytes)) || !isFinite(bytes)) return '-';
+      if (typeof precision === 'undefined') precision = 1;
+
+      var units = ['bytes', 'kB', 'MB', 'GB', 'TB', 'PB'],
+          number = Math.floor(Math.log(bytes) / Math.log(1024));
+
+      var value = (bytes / Math.pow(1000, Math.floor(number)));
+      if (!isFinite(value)) {
+        value = 0;
+        precision = 0;
+      }
+      if (!isFinite(number)) {
+        units = 'bytes';
+      } else {
+        units = units[number];
+      }
+      return value.toFixed(precision) + ' ' + units;
+    }
+  })
+  .controller('relayDataController', ['$scope', '$rootScope', '$http', '$q', '$compile', '$timeout', function($scope, $rootScope, $http, $q, $compile, $timeout) {
+    $scope.totals = {
+      bytesProxied: 0,
+      goMaxProcs: 0,
+      kbps10s1m5m15m30m60m: [0, 0, 0, 0, 0, 0],
+      numActiveSessions: 0,
+      numConnections: 0,
+      numPendingSessionKeys: 0,
+      numProxies: 0,
+      uptimeSeconds: 0,
+    };
+    $scope.map = L.map('map').setView([40.90296, 1.90925], 2);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {
+      attribution: 'Leaflet',
+      maxZoom: 17
+    }).addTo($scope.map);
+    $scope.tooltipTemplate = $('#infoTemplate').html();
+    $scope.usedLocations = {};
+    $scope.sortType = 'stats.numActiveSessions';
+    $scope.sortReverse = true;
+    $scope.sortCompare = function(a, b) {
+      if (a.value == b.value) {
+        return 0;
+      }
+      if (a.type == "undefined" || a.type == "null") {
+        return -1;
+      }
+      if (b.type == "undefined" || b.type == "null") {
+        return 1;
+      }
+      return a.value > b.value ? 1 : -1;
+    }
+
+    $http.get("/endpoint/full").then(function(response) {
+      $scope.relays = response.data.relays;
+
+      angular.forEach($scope.relays, function(relay) {
+        relay.uri = constructURI(relay.url);
+        relay.address = relay.url.split('/')[2];
+
+        addMarkerToMap(relay);
+
+        if (relay.stats) {
+          angular.forEach($scope.totals, function(value, key) {
+            if (typeof $scope.totals[key] == 'number') {
+              $scope.totals[key] += relay.stats[key];
+            } else if (typeof $scope.totals[key] == 'object' && $scope.totals[key] instanceof Array) {
+              angular.forEach($scope.totals[key], function(value, index) {
+                $scope.totals[key][index] += relay.stats[key][index];
+              });
+            }
+          });
+        }
+      });
+
+      // After the totals were calculated, add circles.
+      angular.forEach($scope.relays, function(relay) {
+        if (relay.stats) {
+          addCircleToMap(relay);
+        }
+      });
+
+      if ($scope.relays.length == 1) {
+        //Center to only relay with zoom
+        $scope.map.panTo(new L.LatLng(relays[0].location.latitude, relays[0].location.longitude));
+        $scope.map.setZoom(13);
+      }
+    });
+
+    function addMarkerToMap(relay) {
+        var loc = relay.location.latitude + "," + relay.location.longitude;
+
+        // Deal with overlapping markers
+        while (loc in $scope.usedLocations) {
+          var locParts = loc.split(',');
+          locParts = [parseFloat(locParts[0]), parseFloat(locParts[1])];
+          locParts[Math.round(Math.random())] += 0.5 * (Math.random() >= 0.5 ? 1 : -1);
+          loc = locParts.join(',');
+        }
+
+        $scope.usedLocations[loc] = true;
+
+        var locParts = loc.split(',');
+
+        relay.marker = new L.Marker([relay.location.latitude, relay.location.longitude],{
+          title: relay.url,
+        });
+
+        var scope = $rootScope.$new(true);
+        scope.relay = relay;
+
+        var icon = new L.Icon({
+          iconSize:     [18, 28], // size of the icon
+          iconAnchor:   [9, 28], // point of the icon which will correspond to marker's location
+          shadowAnchor: [0, 0],  // the same for the shadow
+          popupAnchor:  [0, -27], // popup anchor
+          shadowSize:   [0,0],
+          iconUrl: 'https://cdn.rawgit.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        });
+
+        relay.marker = new L.marker(new L.latLng(locParts[0], locParts[1]),{icon})
+                            .bindPopup($compile($scope.tooltipTemplate)(scope)[0],{})
+                            .on('mouseover', function (e) {
+                                this.openPopup();
+                            }).on('mouseout', function (e) {
+                                this.closePopup();
+                            }).addTo($scope.map);
+
+        relay.showMarker = function() {
+          relay.marker.openPopup();
+        }
+
+        relay.hideMarker = function() {
+          relay.marker.closePopup();
+        }
+      }
+
+
+    function addCircleToMap(relay) {
+      console.log(relay.location.latitude)
+      L.circle([relay.location.latitude, relay.location.longitude],
+        {
+          radius: ((relay.stats.bytesProxied * 100) / $scope.totals.bytesProxied) * 10000,
+          color: "FF0000",
+          fillColor: "#FF0000",
+          fillOpacity: 0.35,
+        }).addTo($scope.map);
+    }
+
+    function constructURI(url) {
+      var uri = document.createElement('a');
+
+      // HAX, otherwise doesn't work
+      uri.href = url.replace('relay://', 'http://');
+
+      // Convert query string to object
+      uri.args = {};
+      angular.forEach(uri.search.replace(/^\?/, '').split('&'), function(query) {
+          var split = query.split('=');
+          uri.args[split[0]] = split[1];
+      });
+
+      return uri;
+    }
+  }]);
+  </script>
+
+  <script type="text/template" id="infoTemplate">
+    <div>
+      <p><b>{{ relay.uri.hostname }}</b> <span ng-if="relay.stats.options['provided-by']">provided by <u>{{ relay.stats.options['provided-by'] }}</u></span></p>
+      <div ng-if="relay.stats">
+        <span ng-if="relay.stats.startTime">Start time: {{ relay.stats.startTime | date:"medium" }}</br></span>
+        <span ng-if="relay.stats.bytesProxied != undefined">Proxied: {{ relay.stats.bytesProxied | bytes }}</br></span>
+        <span ng-if="relay.stats.numActiveSessions != undefined">Sessions: {{ relay.stats.numActiveSessions }}</br></span>
+        <span ng-if="relay.stats.numConnections != undefined">Clients: {{ relay.stats.numConnections }}</br></span>
+        <span ng-if="relay.stats.options.pools">Pools: {{ relay.stats.options.pools.join(', ') }}</br></span>
+        <span ng-if="relay.stats.options['global-rate'] != undefined">
+          <span ng-if="relay.stats.options['global-rate'] > 0">Global rate limit: {{ relay.stats.options['global-rate'] | bytes }}/s</span>
+          <span ng-if="relay.stats.options['global-rate'] == 0">Global rate limit: unlimited</span>
+          <br/>
+        </span>
+        <span ng-if="relay.stats.options['per-session-rate'] != undefined">
+          <span ng-if="relay.stats.options['per-session-rate'] > 0">Session rate limit: {{ relay.stats.options['per-session-rate'] | bytes }}/s</span>
+          <span ng-if="relay.stats.options['per-session-rate'] == 0">Session rate limit: unlimited</span>
+          <br/>
+        </span>
+      </div>
+      <div ng-if="!relay.stats">
+        Data unavailable.
+      <div>
+    </div>
+  </script>
+</html>
