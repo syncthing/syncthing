@@ -12,11 +12,11 @@ import (
 )
 
 type countsRow struct {
-	Type    protocol.FileInfoType
-	Count   int
-	Size    int64
-	Deleted bool
-	FlagBit int64 `db:"local_flags"`
+	Type       protocol.FileInfoType
+	Count      int
+	Size       int64
+	Deleted    bool
+	LocalFlags int64 `db:"local_flags"`
 }
 
 func (s *DB) CountLocal(folder string, device protocol.DeviceID) (db.Counts, error) {

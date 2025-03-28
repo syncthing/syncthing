@@ -49,7 +49,7 @@ nextScript:
 		l.Debugln("Executing script", scr)
 		bs, err := fs.ReadFile(sqlScripts, scr)
 		if err != nil {
-			return wrap(err)
+			return wrap(err, scr)
 		}
 		// SQLite requires one statement per exec, so we split the init
 		// files on lines containing only a semicolon and execute them

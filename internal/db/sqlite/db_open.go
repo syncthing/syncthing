@@ -8,7 +8,6 @@ package sqlite
 
 import (
 	"database/sql"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -27,7 +26,7 @@ func Open(path string) (*DB, error) {
 	// triggers (needed for the delete+insert triggers on row replace).
 	sqlDB, err := sqlx.Open(dbDriver, "file:"+path+"?"+commonOptions)
 	if err != nil {
-		return nil, fmt.Errorf("open database: %w", err)
+		return nil, wrap(err)
 	}
 	sqlDB.SetMaxOpenConns(maxDBConns)
 	if _, err := sqlDB.Exec(`PRAGMA journal_mode = WAL`); err != nil {
@@ -50,17 +49,17 @@ func Open(path string) (*DB, error) {
 func OpenForMigration(path string) (*DB, error) {
 	sqlDB, err := sqlx.Open(dbDriver, "file:"+path+"?"+commonOptions)
 	if err != nil {
-		return nil, fmt.Errorf("open database: %w", err)
+		return nil, wrap(err, "open")
 	}
 	sqlDB.SetMaxOpenConns(1)
 	if _, err := sqlDB.Exec(`PRAGMA foreign_keys = 0`); err != nil {
-		return nil, err
+		return nil, wrap(err, "PRAGMA foreign_keys")
 	}
 	if _, err := sqlDB.Exec(`PRAGMA journal_mode = OFF`); err != nil {
-		return nil, err
+		return nil, wrap(err, "PRAGMA journal_mode")
 	}
 	if _, err := sqlDB.Exec(`PRAGMA synchronous = 0`); err != nil {
-		return nil, err
+		return nil, wrap(err, "PRAGMA synchronous")
 	}
 	return openCommon(sqlDB)
 }
@@ -95,7 +94,7 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 	}
 
 	if err := db.runScripts("schema/*"); err != nil {
-		return nil, fmt.Errorf("init database: %w", err)
+		return nil, wrap(err)
 	}
 
 	ver, _ := db.getAppliedSchemaVersion()
@@ -113,7 +112,7 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 			return int(n) > ver.SchemaVersion
 		}
 		if err := db.runScripts("migrations/*", filter); err != nil {
-			return nil, fmt.Errorf("init database: %w", err)
+			return nil, wrap(err)
 		}
 	}
 
@@ -123,7 +122,7 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 
 	// Set the current schema version, if not already set
 	if err := db.setAppliedSchemaVersion(currentSchemaVersion); err != nil {
-		return nil, err
+		return nil, wrap(err)
 	}
 
 	db.tplInput = map[string]any{
