@@ -285,15 +285,6 @@ func (s *sharedPullerState) skippedSparseBlock(bytes int) {
 	metricFolderProcessedBytesTotal.WithLabelValues(s.folder, metricSourceSkipped).Add(float64(bytes))
 }
 
-func (s *sharedPullerState) copiedFromOriginShifted(bytes int) {
-	s.mut.Lock()
-	s.copyOrigin++
-	s.copyOriginShifted++
-	s.updated = time.Now()
-	s.mut.Unlock()
-	metricFolderProcessedBytesTotal.WithLabelValues(s.folder, metricSourceLocalShifted).Add(float64(bytes))
-}
-
 func (s *sharedPullerState) pullStarted() {
 	s.mut.Lock()
 	s.copyTotal--

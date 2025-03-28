@@ -150,13 +150,12 @@ type Report struct {
 	} `json:"guiStats,omitempty" since:"3"`
 
 	BlockStats struct {
-		Total             int `json:"total,omitempty" metric:"blocks_processed_total,gauge" since:"3"`
-		Renamed           int `json:"renamed,omitempty" metric:"blocks_processed{source=renamed},gauge" since:"3"`
-		Reused            int `json:"reused,omitempty" metric:"blocks_processed{source=reused},gauge" since:"3"`
-		Pulled            int `json:"pulled,omitempty" metric:"blocks_processed{source=pulled},gauge" since:"3"`
-		CopyOrigin        int `json:"copyOrigin,omitempty" metric:"blocks_processed{source=copy_origin},gauge" since:"3"`
-		CopyOriginShifted int `json:"copyOriginShifted,omitempty" metric:"blocks_processed{source=copy_origin_shifted},gauge" since:"3"`
-		CopyElsewhere     int `json:"copyElsewhere,omitempty" metric:"blocks_processed{source=copy_elsewhere},gauge" since:"3"`
+		Total         int `json:"total,omitempty" metric:"blocks_processed_total,gauge" since:"3"`
+		Renamed       int `json:"renamed,omitempty" metric:"blocks_processed{source=renamed},gauge" since:"3"`
+		Reused        int `json:"reused,omitempty" metric:"blocks_processed{source=reused},gauge" since:"3"`
+		Pulled        int `json:"pulled,omitempty" metric:"blocks_processed{source=pulled},gauge" since:"3"`
+		CopyOrigin    int `json:"copyOrigin,omitempty" metric:"blocks_processed{source=copy_origin},gauge" since:"3"`
+		CopyElsewhere int `json:"copyElsewhere,omitempty" metric:"blocks_processed{source=copy_elsewhere},gauge" since:"3"`
 	} `json:"blockStats,omitempty" since:"3"`
 
 	TransportStats map[string]int `json:"transportStats,omitempty" since:"3"`

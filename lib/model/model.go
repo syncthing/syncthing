@@ -606,8 +606,6 @@ func (m *model) UsageReportingStats(report *contract.Report, version int, previe
 				report.BlockStats.Pulled = v
 			case "copyOrigin":
 				report.BlockStats.CopyOrigin = v
-			case "copyOriginShifted":
-				report.BlockStats.CopyOriginShifted = v
 			case "copyElsewhere":
 				report.BlockStats.CopyElsewhere = v
 			}
