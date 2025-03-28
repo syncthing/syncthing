@@ -15,19 +15,13 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 )
 
-const currentSchemaVersion = 3
+const currentSchemaVersion = 1
 
 //go:embed sql/**
 var embedded embed.FS
 
-var sqlScripts fs.FS
-
-func init() {
-	sqlScripts, _ = fs.Sub(embedded, "sql")
-}
-
 func (s *DB) runScripts(glob string, filter ...func(s string) bool) error {
-	scripts, err := fs.Glob(sqlScripts, glob)
+	scripts, err := fs.Glob(embedded, glob)
 	if err != nil {
 		return wrap(err)
 	}
@@ -47,7 +41,7 @@ nextScript:
 			}
 		}
 		l.Debugln("Executing script", scr)
-		bs, err := fs.ReadFile(sqlScripts, scr)
+		bs, err := fs.ReadFile(embedded, scr)
 		if err != nil {
 			return wrap(err, scr)
 		}

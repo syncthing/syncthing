@@ -93,7 +93,7 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 		statements: make(map[string]*sqlx.Stmt),
 	}
 
-	if err := db.runScripts("schema/*"); err != nil {
+	if err := db.runScripts("sql/schema/*"); err != nil {
 		return nil, wrap(err)
 	}
 
@@ -111,7 +111,7 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 			}
 			return int(n) > ver.SchemaVersion
 		}
-		if err := db.runScripts("migrations/*", filter); err != nil {
+		if err := db.runScripts("sql/migrations/*", filter); err != nil {
 			return nil, wrap(err)
 		}
 	}
