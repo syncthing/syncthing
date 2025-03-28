@@ -25,7 +25,6 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -300,7 +299,7 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	// Verify that the fetched blocks have actually been written to the temp file
-	blks, err := scanner.HashFile(context.TODO(), f.ID, f.Filesystem(nil), tempFile, protocol.MinBlockSize, nil, false)
+	blks, err := scanner.HashFile(context.TODO(), f.ID, f.Filesystem(nil), tempFile, protocol.MinBlockSize, nil)
 	if err != nil {
 		t.Log(err)
 	}
@@ -309,128 +308,6 @@ func TestCopierFinder(t *testing.T) {
 		if !bytes.Equal(blks[eq-1].Hash, blocks[eq].Hash) {
 			t.Errorf("Block %d mismatch: %s != %s", eq, blks[eq-1].String(), blocks[eq].String())
 		}
-	}
-}
-
-func TestWeakHash(t *testing.T) {
-	// Setup the model/pull environment
-	_, fo, wcfgCancel := setupSendReceiveFolder(t)
-	defer wcfgCancel()
-	ffs := fo.Filesystem(nil)
-
-	tempFile := fs.TempName("weakhash")
-	var shift int64 = 10
-	var size int64 = 1 << 20
-	expectBlocks := int(size / protocol.MinBlockSize)
-	expectPulls := int(shift / protocol.MinBlockSize)
-	if shift > 0 {
-		expectPulls++
-	}
-
-	f, err := ffs.Create("weakhash")
-	must(t, err)
-	defer f.Close()
-	_, err = io.CopyN(f, rand.Reader, size)
-	if err != nil {
-		t.Error(err)
-	}
-	info, err := f.Stat()
-	if err != nil {
-		t.Error(err)
-	}
-
-	// Create two files, second file has `shifted` bytes random prefix, yet
-	// both are of the same length, for example:
-	// File 1: abcdefgh
-	// File 2: xyabcdef
-	f.Seek(0, io.SeekStart)
-	existing, err := scanner.Blocks(context.TODO(), f, protocol.MinBlockSize, size, nil, true)
-	if err != nil {
-		t.Error(err)
-	}
-
-	f.Seek(0, io.SeekStart)
-	remainder := io.LimitReader(f, size-shift)
-	prefix := io.LimitReader(rand.Reader, shift)
-	nf := io.MultiReader(prefix, remainder)
-	desired, err := scanner.Blocks(context.TODO(), nf, protocol.MinBlockSize, size, nil, true)
-	if err != nil {
-		t.Error(err)
-	}
-
-	existingFile := protocol.FileInfo{
-		Name:       "weakhash",
-		Blocks:     existing,
-		Size:       size,
-		ModifiedS:  info.ModTime().Unix(),
-		ModifiedNs: int32(info.ModTime().Nanosecond()),
-	}
-	desiredFile := protocol.FileInfo{
-		Name:      "weakhash",
-		Size:      size,
-		Blocks:    desired,
-		ModifiedS: info.ModTime().Unix() + 1,
-	}
-
-	fo.updateLocalsFromScanning([]protocol.FileInfo{existingFile})
-
-	copyChan := make(chan copyBlocksState)
-	pullChan := make(chan pullBlockState, expectBlocks)
-	finisherChan := make(chan *sharedPullerState, 1)
-
-	// Run a single fetcher routine
-	go fo.copierRoutine(copyChan, pullChan, finisherChan)
-	defer close(copyChan)
-
-	// Test 1 - no weak hashing, file gets fully repulled (`expectBlocks` pulls).
-	fo.WeakHashThresholdPct = 101
-	fo.handleFile(desiredFile, fsetSnapshot(t, fo.fset), copyChan)
-
-	var pulls []pullBlockState
-	timeout := time.After(10 * time.Second)
-	for len(pulls) < expectBlocks {
-		select {
-		case pull := <-pullChan:
-			pulls = append(pulls, pull)
-		case <-timeout:
-			t.Fatalf("timed out, got %d pulls expected %d", len(pulls), expectPulls)
-		}
-	}
-	finish := <-finisherChan
-
-	select {
-	case <-pullChan:
-		t.Fatal("Pull channel has data to be read")
-	case <-finisherChan:
-		t.Fatal("Finisher channel has data to be read")
-	default:
-	}
-
-	cleanupSharedPullerState(finish)
-	if err := ffs.Remove(tempFile); err != nil {
-		t.Fatal(err)
-	}
-
-	// Test 2 - using weak hash, expectPulls blocks pulled.
-	fo.WeakHashThresholdPct = -1
-	fo.handleFile(desiredFile, fsetSnapshot(t, fo.fset), copyChan)
-
-	pulls = pulls[:0]
-	for len(pulls) < expectPulls {
-		select {
-		case pull := <-pullChan:
-			pulls = append(pulls, pull)
-		case <-time.After(10 * time.Second):
-			t.Fatalf("timed out, got %d pulls expected %d", len(pulls), expectPulls)
-		}
-	}
-
-	finish = <-finisherChan
-	cleanupSharedPullerState(finish)
-
-	expectShifted := expectBlocks - expectPulls
-	if finish.copyOriginShifted != expectShifted {
-		t.Errorf("did not copy %d shifted", expectShifted)
 	}
 }
 
@@ -709,8 +586,8 @@ func TestIssue3164(t *testing.T) {
 
 func TestDiff(t *testing.T) {
 	for i, test := range diffTestData {
-		a, _ := scanner.Blocks(context.TODO(), bytes.NewBufferString(test.a), test.s, -1, nil, false)
-		b, _ := scanner.Blocks(context.TODO(), bytes.NewBufferString(test.b), test.s, -1, nil, false)
+		a, _ := scanner.Blocks(context.TODO(), bytes.NewBufferString(test.a), test.s, -1, nil)
+		b, _ := scanner.Blocks(context.TODO(), bytes.NewBufferString(test.b), test.s, -1, nil)
 		_, d := blockDiff(a, b)
 		if len(d) != len(test.d) {
 			t.Fatalf("Incorrect length for diff %d; %d != %d", i, len(d), len(test.d))
@@ -730,8 +607,8 @@ func TestDiff(t *testing.T) {
 func BenchmarkDiff(b *testing.B) {
 	testCases := make([]struct{ a, b []protocol.BlockInfo }, 0, len(diffTestData))
 	for _, test := range diffTestData {
-		a, _ := scanner.Blocks(context.TODO(), bytes.NewBufferString(test.a), test.s, -1, nil, false)
-		b, _ := scanner.Blocks(context.TODO(), bytes.NewBufferString(test.b), test.s, -1, nil, false)
+		a, _ := scanner.Blocks(context.TODO(), bytes.NewBufferString(test.a), test.s, -1, nil)
+		b, _ := scanner.Blocks(context.TODO(), bytes.NewBufferString(test.b), test.s, -1, nil)
 		testCases = append(testCases, struct{ a, b []protocol.BlockInfo }{a, b})
 	}
 	b.ReportAllocs()

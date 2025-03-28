@@ -111,8 +111,6 @@ type Report struct {
 		ConflictsOther          int            `json:"conflictsOther,omitempty" metric:"folder_feature{feature=ConflictsOther},summary" since:"3"`
 		DisableSparseFiles      int            `json:"disableSparseFiles,omitempty" metric:"folder_feature{feature=DisableSparseFiles},summary" since:"3"`
 		DisableTempIndexes      int            `json:"disableTempIndexes,omitempty" metric:"folder_feature{feature=DisableTempIndexes},summary" since:"3"`
-		AlwaysWeakHash          int            `json:"alwaysWeakHash,omitempty" metric:"folder_feature{feature=AlwaysWeakhash},summary" since:"3"`
-		CustomWeakHashThreshold int            `json:"customWeakHashThreshold,omitempty" metric:"folder_feature{feature=CustomWeakhashThreshold},summary" since:"3"`
 		FsWatcherEnabled        int            `json:"fsWatcherEnabled,omitempty" metric:"folder_feature{feature=FSWatcherEnabled},summary" since:"3"`
 		PullOrder               map[string]int `json:"pullOrder,omitempty" metric:"folder_pull_order,summaryVec:order" since:"3"`
 		FilesystemType          map[string]int `json:"filesystemType,omitempty" metric:"folder_file_system_type,summaryVec:type" since:"3"`
@@ -174,9 +172,6 @@ type Report struct {
 		DoubleStars     int `json:"doubleStars,omitempty" metric:"folder_ignore_lines{kind=doubleStars},summary" since:"3"`
 		Stars           int `json:"stars,omitempty" metric:"folder_ignore_lines{kind=stars},summary" since:"3"`
 	} `json:"ignoreStats,omitempty" since:"3"`
-
-	// V3 fields added late in the RC
-	WeakHashEnabled bool `json:"weakHashEnabled,omitempty" metric:"-" since:"3"` // Deprecated and not provided client-side anymore
 
 	// Added in post processing
 	Received     time.Time `json:"received,omitempty"`

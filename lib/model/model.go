@@ -118,7 +118,7 @@ type Model interface {
 
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*TreeEntry, error)
 
-	RequestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
+	RequestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, blockNo int, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error)
 }
 
 type model struct {
@@ -2036,7 +2036,7 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 			return nil, protocol.ErrNoSuchFile
 		}
 		_, err := readOffsetIntoBuf(folderFs, tempFn, req.Offset, res.data)
-		if err == nil && scanner.Validate(res.data, req.Hash, req.WeakHash) {
+		if err == nil && scanner.Validate(res.data, req.Hash) {
 			return res, nil
 		}
 		// Fall through to reading from a non-temp file, just in case the temp
@@ -2065,8 +2065,8 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 		return nil, protocol.ErrGeneric
 	}
 
-	if folderCfg.Type != config.FolderTypeReceiveEncrypted && len(req.Hash) > 0 && !scanner.Validate(res.data[:n], req.Hash, req.WeakHash) {
-		m.recheckFile(deviceID, req.Folder, req.Name, req.Offset, req.Hash, req.WeakHash)
+	if folderCfg.Type != config.FolderTypeReceiveEncrypted && len(req.Hash) > 0 && !scanner.Validate(res.data[:n], req.Hash) {
+		m.recheckFile(deviceID, req.Folder, req.Name, req.Offset, req.Hash)
 		l.Debugf("%v REQ(in) failed validating data: %s: %q / %q o=%d s=%d", m, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 		return nil, protocol.ErrNoSuchFile
 	}
@@ -2092,7 +2092,7 @@ func newLimitedRequestResponse(size int, limiters ...*semaphore.Semaphore) *requ
 	return res
 }
 
-func (m *model) recheckFile(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte, weakHash uint32) {
+func (m *model) recheckFile(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte) {
 	cf, ok, err := m.CurrentFolderFile(folder, name)
 	if err != nil {
 		l.Debugf("%v recheckFile: %s: %q / %q: current file error: %v", m, deviceID, folder, name, err)
@@ -2119,10 +2119,6 @@ func (m *model) recheckFile(deviceID protocol.DeviceID, folder, name string, off
 	// Seems to want a different version of the file, whatever.
 	if !bytes.Equal(block.Hash, hash) {
 		l.Debugf("%v recheckFile: %s: %q / %q i=%d: hash mismatch %x != %x", m, deviceID, folder, name, blockIndex, block.Hash, hash)
-		return
-	}
-	if weakHash != 0 && block.WeakHash != weakHash {
-		l.Debugf("%v recheckFile: %s: %q / %q i=%d: weak hash mismatch %v != %v", m, deviceID, folder, name, blockIndex, block.WeakHash, weakHash)
 		return
 	}
 
@@ -2462,14 +2458,14 @@ func (m *model) deviceDidCloseRLocked(deviceID protocol.DeviceID, duration time.
 	}
 }
 
-func (m *model) RequestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+func (m *model) RequestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, blockNo int, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
 	conn, connOK := m.requestConnectionForDevice(deviceID)
 	if !connOK {
 		return nil, fmt.Errorf("requestGlobal: no connection to device: %s", deviceID.Short())
 	}
 
-	l.Debugf("%v REQ(out): %s (%s): %q / %q b=%d o=%d s=%d h=%x wh=%x ft=%t", m, deviceID.Short(), conn, folder, name, blockNo, offset, size, hash, weakHash, fromTemporary)
-	return conn.Request(ctx, &protocol.Request{Folder: folder, Name: name, BlockNo: blockNo, Offset: offset, Size: size, Hash: hash, WeakHash: weakHash, FromTemporary: fromTemporary})
+	l.Debugf("%v REQ(out): %s (%s): %q / %q b=%d o=%d s=%d h=%x ft=%t", m, deviceID.Short(), conn, folder, name, blockNo, offset, size, hash, fromTemporary)
+	return conn.Request(ctx, &protocol.Request{Folder: folder, Name: name, BlockNo: blockNo, Offset: offset, Size: size, Hash: hash, FromTemporary: fromTemporary})
 }
 
 // requestConnectionForDevice returns a connection to the given device, to
