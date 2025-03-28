@@ -243,7 +243,7 @@ const walkFailureEventDesc = "Unexpected error while walking the filesystem duri
 func (w *walker) scan(ctx context.Context, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) {
 	hashFiles := w.walkAndHashFiles(ctx, toHashChan, finishedChan)
 	if len(w.Subs) == 0 {
-		if err := w.Filesystem.Walk(".", hashFiles); err != nil {
+		if err := w.Filesystem.Walk(".", hashFiles); isWarnableError(err) {
 			w.EventLogger.Log(events.Failure, walkFailureEventDesc)
 			l.Warnf("Aborted scan due to an unexpected error: %v", err)
 		}
@@ -253,13 +253,21 @@ func (w *walker) scan(ctx context.Context, toHashChan chan<- protocol.FileInfo, 
 				l.Debugf("%v: Skip walking %v as it is below a symlink", w, sub)
 				continue
 			}
-			if err := w.Filesystem.Walk(sub, hashFiles); err != nil {
+			if err := w.Filesystem.Walk(sub, hashFiles); isWarnableError(err) {
 				w.EventLogger.Log(events.Failure, walkFailureEventDesc)
 				l.Warnf("Aborted scan of path '%v' due to an unexpected error: %v", sub, err)
 			}
 		}
 	}
 	close(toHashChan)
+}
+
+// isWarnableError returns true if err is a kind of error we should warn
+// about receiving from the folder walk.
+func isWarnableError(err error) bool {
+	return err != nil &&
+		!errors.Is(err, fs.SkipDir) && // intentional skip
+		!errors.Is(err, context.Canceled) // folder restarting
 }
 
 func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) fs.WalkFunc {
@@ -740,7 +748,7 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanO
 		if err != nil {
 			return protocol.FileInfo{}, err
 		}
-		f.SymlinkTarget = target
+		f.SymlinkTarget = []byte(target)
 		f.NoPermissions = true // Symlinks don't have permissions of their own
 		return f, nil
 	}

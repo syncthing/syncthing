@@ -14,12 +14,14 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"os"
 	"runtime"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/shirou/gopsutil/v4/process"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -118,6 +120,12 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 	report.HashPerf = CpuBench(ctx, 5, 125*time.Millisecond, true)
 	report.MemorySize = int(memorySize() / 1024 / 1024)
 	report.NumCPU = runtime.NumCPU()
+
+	if proc, err := process.NewProcess(int32(os.Getpid())); err == nil {
+		if mem, err := proc.MemoryInfo(); err == nil {
+			report.ProcessRSSMiB = int(mem.RSS / 1024 / 1024)
+		}
+	}
 
 	for _, cfg := range s.cfg.Folders() {
 		report.RescanIntvs = append(report.RescanIntvs, cfg.RescanIntervalS)

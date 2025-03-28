@@ -42,7 +42,6 @@ approval_rules:
         paths:
           - ^[^/]+\.md
           - ^\.policy\.yml
-          - ^\.github/
           - ^LICENSE
     requires:
       count: 1

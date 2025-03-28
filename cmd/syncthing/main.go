@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/gofrs/flock"
 	"github.com/thejerf/suture/v4"
 	"github.com/willabides/kongplete"
 
@@ -41,7 +42,6 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -376,13 +376,14 @@ func (options serveOptions) Run() error {
 	if options.Upgrade {
 		release, err := checkUpgrade()
 		if err == nil {
-			// Use leveldb database locks to protect against concurrent upgrades
-			var ldb backend.Backend
-			ldb, err = syncthing.OpenDBBackend(locations.Get(locations.Database), config.TuningAuto)
+			lf := flock.New(locations.Get(locations.CertFile))
+			locked, err := lf.TryLock()
 			if err != nil {
+				l.Warnln("Upgrade:", err)
+				os.Exit(1)
+			} else if locked {
 				err = upgradeViaRest()
 			} else {
-				_ = ldb.Close()
 				err = upgrade.To(release)
 			}
 		}
@@ -541,6 +542,17 @@ func syncthingMain(options serveOptions) {
 	)
 	if err != nil {
 		l.Warnln("Failed to load/generate certificate:", err)
+		os.Exit(1)
+	}
+
+	// Ensure we are the only running instance
+	lf := flock.New(locations.Get(locations.CertFile))
+	locked, err := lf.TryLock()
+	if err != nil {
+		l.Warnln("Failed to acquire lock:", err)
+		os.Exit(1)
+	} else if !locked {
+		l.Warnln("Failed to acquire lock: is another Syncthing instance already running?")
 		os.Exit(1)
 	}
 
@@ -830,6 +842,10 @@ func initialAutoUpgradeCheck(misc *db.NamespacedKV) (upgrade.Release, error) {
 	if err != nil {
 		return upgrade.Release{}, err
 	}
+	if upgrade.CompareVersions(release.Tag, build.Version) == upgrade.MajorNewer {
+		return upgrade.Release{}, errors.New("higher major version")
+	}
+
 	if lastVersion, ok, err := misc.String(upgradeVersionKey); err == nil && ok && lastVersion == release.Tag {
 		// Only check time if we try to upgrade to the same release.
 		if lastTime, ok, err := misc.Time(upgradeTimeKey); err == nil && ok && time.Since(lastTime) < upgradeRetryInterval {
