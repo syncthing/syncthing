@@ -1029,8 +1029,23 @@
                         <!-- Add more tunnel details as needed -->
                       </dl>
                       <dl>
+                        <dt translate>ServiceID</dt>
+                        <dd>{{tunnel.serviceID}}</dd>
+                        <!-- Add more tunnel details as needed -->
+                      </dl>
+                      <dl ng-if="tunnel.type == 'inbound'">
+                        <dt translate>LocalDialAddress</dt>
+                        <dd>{{tunnel.localDialAddress}}</dd>
+                        <!-- Add more tunnel details as needed -->
+                      </dl>
+                      <dl ng-if="tunnel.type == 'outbound'">
                         <dt translate>LocalListenAddress</dt>
                         <dd>{{tunnel.localListenAddress}}</dd>
+                        <!-- Add more tunnel details as needed -->
+                      </dl>
+                      <dl ng-if="tunnel.type == 'outbound'">
+                        <dt translate>RemoteAddress</dt>
+                        <dd>{{tunnel.remoteAddress}}</dd>
                         <!-- Add more tunnel details as needed -->
                       </dl>
                       <dl>

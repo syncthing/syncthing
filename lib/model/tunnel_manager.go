@@ -327,6 +327,7 @@ func (m *TunnelManager) Status() []map[string]interface{} {
 			"localListenAddress": tunnel.LocalListenAddress,
 			"remoteDeviceID":     tunnel.RemoteDeviceId,
 			"serviceID":          tunnel.RemoteServiceName,
+			"remoteAddress":      tunnel.RemoteAddress,
 			"active":             true,
 			"type":               "outbound",
 		}
