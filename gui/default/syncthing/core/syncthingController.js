@@ -175,6 +175,7 @@ angular.module('syncthing.core')
                 refreshConfig(),
                 refreshCluster(),
                 refreshConnectionStats(),
+                refreshTunnels(),
             ]).then(function() {
                 $http.get(urlbase + '/system/version').success(function (data) {
                     console.log("version", data);
@@ -635,6 +636,12 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         }
 
+        function refreshTunnels() {
+            $http.get(urlbase + '/system/tunnels').success(function(data) {
+                $scope.tunnels = data;
+            });
+        }
+
         function recalcLocalStateTotal() {
             $scope.localStateTotal = {
                 bytes: 0,
@@ -968,6 +975,7 @@ angular.module('syncthing.core')
             refreshDiscoveryCache();
             refreshConnectionStats();
             refreshErrors();
+            refreshTunnels();
         };
 
         $scope.folderStatus = function (folderCfg) {
@@ -2188,6 +2196,10 @@ angular.module('syncthing.core')
 
         $scope.deviceList = function () {
             return deviceList($scope.devices);
+        };
+
+        $scope.tunnelList = function () {
+            return tunnelList($scope.tunnels);
         };
 
         $scope.directoryList = [];

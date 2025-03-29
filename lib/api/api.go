@@ -282,6 +282,7 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/debug", s.getSystemDebug)               // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/log", s.getSystemLog)                   // [since]
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/log.txt", s.getSystemLogTxt)            // [since]
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/tunnels", s.getTunnels)
 
 	// The POST handlers
 	restMux.HandlerFunc(http.MethodPost, "/rest/db/prio", s.postDBPrio)                          // folder file
@@ -2093,4 +2094,8 @@ type bufferedResponseWriter struct {
 func (w bufferedResponseWriter) WriteHeader(int) {}
 func (w bufferedResponseWriter) Header() http.Header {
 	return http.Header{}
+}
+
+func (s *service) getTunnels(w http.ResponseWriter, r *http.Request) {
+	sendJSON(w, s.model.TunnelStatus())
 }

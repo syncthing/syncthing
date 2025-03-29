@@ -111,6 +111,10 @@ function folderList(m) {
     return l;
 }
 
+function tunnelList(tunnels) {
+    return tunnels;
+}
+
 function isEmptyObject(obj) {
     var name;
     for (name in obj) {

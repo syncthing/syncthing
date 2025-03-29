@@ -305,6 +305,37 @@ func (tm *TunnelManager) generateTunnelID() uint64 {
 	return uint64(id)
 }
 
+// Status returns information about active tunnels
+func (m *TunnelManager) Status() []map[string]interface{} {
+	m.Lock()
+	defer m.Unlock()
+
+	status := make([]map[string]interface{}, 0, len(m.config.TunnelsIn)+len(m.config.TunnelsOut))
+
+	for _, tunnel := range m.config.TunnelsIn {
+		info := map[string]interface{}{
+			"serviceID":        tunnel.LocalServiceName,
+			"remoteDeviceID":   tunnel.AllowedRemoteDeviceIds,
+			"localDialAddress": tunnel.LocalDialAddress,
+			"active":           true,
+			"type":             "inbound",
+		}
+		status = append(status, info)
+	}
+	for _, tunnel := range m.config.TunnelsOut {
+		info := map[string]interface{}{
+			"localListenAddress": tunnel.LocalListenAddress,
+			"remoteDeviceID":     tunnel.RemoteDeviceId,
+			"serviceID":          tunnel.RemoteServiceName,
+			"active":             true,
+			"type":               "outbound",
+		}
+		status = append(status, info)
+	}
+
+	return status
+}
+
 func loadTunnelConfig(path string) (*bep.TunnelConfig, error) {
 	l.Debugln("Loading tunnel config from file:", path)
 	file, err := os.Open(path)

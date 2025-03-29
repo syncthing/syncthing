@@ -1001,6 +1001,56 @@
             <div class="clearfix"></div>
           </div>
         </div>
+
+        <!-- Tunnel list -->
+
+        <div class="col-md-6" aria-labelledby="tunnel_list" role="region">
+          <h3 id="tunnel_list"><span translate>Tunnels</span><span ng-if="tunnelList().length > 0"> ({{tunnelList().length}})</span></h3>
+          <div class="panel-group" id="tunnels">
+            <div class="panel panel-default" ng-repeat="tunnel in tunnelList()">
+              <button class="btn panel-heading" data-toggle="collapse" data-parent="#tunnels" data-target="#tunnel-{{$index}}" aria-expanded="false">
+                <h4 class="panel-title">
+                  <span>{{tunnel.type}} - {{tunnel.serviceID}}</span>
+                  <span class="pull-right">
+                    <!-- Status indicators -->
+                    <span ng-if="tunnel.active" class="text-success"><span class="fa fa-check"></span></span>
+                    <span ng-if="!tunnel.active" class="text-danger"><span class="fa fa-times"></span></span>
+                  </span>
+                </h4>
+              </button>
+              <div id="tunnel-{{$index}}" class="panel-collapse collapse">
+                <div class="panel-body">
+                  <div class="row">
+                    <div class="col-md-12">
+                      <!-- Tunnel details -->
+                      <dl>
+                        <dt translate>Type</dt>
+                        <dd>{{tunnel.type}}</dd>
+                        <!-- Add more tunnel details as needed -->
+                      </dl>
+                      <dl>
+                        <dt translate>LocalListenAddress</dt>
+                        <dd>{{tunnel.localListenAddress}}</dd>
+                        <!-- Add more tunnel details as needed -->
+                      </dl>
+                      <dl>
+                        <dt translate>RemoteDeviceID</dt>
+                        <dd>{{tunnel.remoteDeviceID}}</dd>
+                        <!-- Add more tunnel details as needed -->
+                      </dl>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="panel panel-default" ng-if="tunnelList().length == 0">
+              <div class="panel-body">
+                <span translate>No tunnels active</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div> <!-- /row -->
 
     </div> <!-- /container -->

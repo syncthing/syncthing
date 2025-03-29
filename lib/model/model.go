@@ -119,6 +119,8 @@ type Model interface {
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly bool) ([]*TreeEntry, error)
 
 	RequestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
+
+	TunnelStatus() []map[string]interface{}
 }
 
 type model struct {
@@ -170,6 +172,11 @@ type model struct {
 
 	// for testing only
 	foldersRunning atomic.Int32
+}
+
+// TunnelStatus implements Model.
+func (m *model) TunnelStatus() []map[string]interface{} {
+	return m.tunnelManager.Status()
 }
 
 var _ config.Verifier = &model{}
