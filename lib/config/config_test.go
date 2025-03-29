@@ -114,10 +114,9 @@ func TestDefaultValues(t *testing.T) {
 					CleanupIntervalS: 3600,
 					Params:           map[string]string{},
 				},
-				MaxConflicts:         10,
-				WeakHashThresholdPct: 25,
-				MarkerName:           ".stfolder",
-				MaxConcurrentWrites:  2,
+				MaxConflicts:        10,
+				MarkerName:          ".stfolder",
+				MaxConcurrentWrites: 2,
 				XattrFilter: XattrFilter{
 					Entries:            []XattrFilterEntry{},
 					MaxSingleEntrySize: 1024,
@@ -190,10 +189,9 @@ func TestDeviceConfig(t *testing.T) {
 				Versioning: VersioningConfiguration{
 					Params: map[string]string{},
 				},
-				WeakHashThresholdPct: 25,
-				MarkerName:           DefaultMarkerName,
-				JunctionsAsDirs:      true,
-				MaxConcurrentWrites:  maxConcurrentWritesDefault,
+				MarkerName:          DefaultMarkerName,
+				JunctionsAsDirs:     true,
+				MaxConcurrentWrites: maxConcurrentWritesDefault,
 				XattrFilter: XattrFilter{
 					Entries: []XattrFilterEntry{},
 				},

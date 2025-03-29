@@ -517,19 +517,18 @@ type Model struct {
 		result1 protocol.RequestResponse
 		result2 error
 	}
-	RequestGlobalStub        func(context.Context, protocol.DeviceID, string, string, int, int64, int, []byte, uint32, bool) ([]byte, error)
+	RequestGlobalStub        func(context.Context, protocol.DeviceID, string, string, int, int64, int, []byte, bool) ([]byte, error)
 	requestGlobalMutex       sync.RWMutex
 	requestGlobalArgsForCall []struct {
-		arg1  context.Context
-		arg2  protocol.DeviceID
-		arg3  string
-		arg4  string
-		arg5  int
-		arg6  int64
-		arg7  int
-		arg8  []byte
-		arg9  uint32
-		arg10 bool
+		arg1 context.Context
+		arg2 protocol.DeviceID
+		arg3 string
+		arg4 string
+		arg5 int
+		arg6 int64
+		arg7 int
+		arg8 []byte
+		arg9 bool
 	}
 	requestGlobalReturns struct {
 		result1 []byte
@@ -3064,7 +3063,7 @@ func (fake *Model) RequestReturnsOnCall(i int, result1 protocol.RequestResponse,
 	}{result1, result2}
 }
 
-func (fake *Model) RequestGlobal(arg1 context.Context, arg2 protocol.DeviceID, arg3 string, arg4 string, arg5 int, arg6 int64, arg7 int, arg8 []byte, arg9 uint32, arg10 bool) ([]byte, error) {
+func (fake *Model) RequestGlobal(arg1 context.Context, arg2 protocol.DeviceID, arg3 string, arg4 string, arg5 int, arg6 int64, arg7 int, arg8 []byte, arg9 bool) ([]byte, error) {
 	var arg8Copy []byte
 	if arg8 != nil {
 		arg8Copy = make([]byte, len(arg8))
@@ -3073,23 +3072,22 @@ func (fake *Model) RequestGlobal(arg1 context.Context, arg2 protocol.DeviceID, a
 	fake.requestGlobalMutex.Lock()
 	ret, specificReturn := fake.requestGlobalReturnsOnCall[len(fake.requestGlobalArgsForCall)]
 	fake.requestGlobalArgsForCall = append(fake.requestGlobalArgsForCall, struct {
-		arg1  context.Context
-		arg2  protocol.DeviceID
-		arg3  string
-		arg4  string
-		arg5  int
-		arg6  int64
-		arg7  int
-		arg8  []byte
-		arg9  uint32
-		arg10 bool
-	}{arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8Copy, arg9, arg10})
+		arg1 context.Context
+		arg2 protocol.DeviceID
+		arg3 string
+		arg4 string
+		arg5 int
+		arg6 int64
+		arg7 int
+		arg8 []byte
+		arg9 bool
+	}{arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8Copy, arg9})
 	stub := fake.RequestGlobalStub
 	fakeReturns := fake.requestGlobalReturns
-	fake.recordInvocation("RequestGlobal", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8Copy, arg9, arg10})
+	fake.recordInvocation("RequestGlobal", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8Copy, arg9})
 	fake.requestGlobalMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
+		return stub(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -3103,17 +3101,17 @@ func (fake *Model) RequestGlobalCallCount() int {
 	return len(fake.requestGlobalArgsForCall)
 }
 
-func (fake *Model) RequestGlobalCalls(stub func(context.Context, protocol.DeviceID, string, string, int, int64, int, []byte, uint32, bool) ([]byte, error)) {
+func (fake *Model) RequestGlobalCalls(stub func(context.Context, protocol.DeviceID, string, string, int, int64, int, []byte, bool) ([]byte, error)) {
 	fake.requestGlobalMutex.Lock()
 	defer fake.requestGlobalMutex.Unlock()
 	fake.RequestGlobalStub = stub
 }
 
-func (fake *Model) RequestGlobalArgsForCall(i int) (context.Context, protocol.DeviceID, string, string, int, int64, int, []byte, uint32, bool) {
+func (fake *Model) RequestGlobalArgsForCall(i int) (context.Context, protocol.DeviceID, string, string, int, int64, int, []byte, bool) {
 	fake.requestGlobalMutex.RLock()
 	defer fake.requestGlobalMutex.RUnlock()
 	argsForCall := fake.requestGlobalArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6, argsForCall.arg7, argsForCall.arg8, argsForCall.arg9, argsForCall.arg10
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6, argsForCall.arg7, argsForCall.arg8, argsForCall.arg9
 }
 
 func (fake *Model) RequestGlobalReturns(result1 []byte, result2 error) {

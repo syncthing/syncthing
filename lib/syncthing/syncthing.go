@@ -170,7 +170,7 @@ func (a *App) startup() error {
 		}()
 	}
 
-	perf := ur.CpuBench(context.Background(), 3, 150*time.Millisecond, true)
+	perf := ur.CpuBench(context.Background(), 3, 150*time.Millisecond)
 	l.Infof("Hashing performance is %.02f MB/s", perf)
 
 	if a.opts.ResetDeltaIdxs {

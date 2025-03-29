@@ -114,8 +114,8 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 	report.TotMiB = int(totBytes / 1024 / 1024)
 	report.FolderMaxMiB = int(maxBytes / 1024 / 1024)
 	report.MemoryUsageMiB = int((mem.Sys - mem.HeapReleased) / 1024 / 1024)
-	report.SHA256Perf = CpuBench(ctx, 5, 125*time.Millisecond, false)
-	report.HashPerf = CpuBench(ctx, 5, 125*time.Millisecond, true)
+	report.SHA256Perf = CpuBench(ctx, 5, 125*time.Millisecond)
+	report.HashPerf = report.SHA256Perf
 	report.MemorySize = int(memorySize() / 1024 / 1024)
 	report.NumCPU = runtime.NumCPU()
 
@@ -249,11 +249,6 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			}
 			if cfg.DisableTempIndexes {
 				report.FolderUsesV3.DisableTempIndexes++
-			}
-			if cfg.WeakHashThresholdPct < 0 {
-				report.FolderUsesV3.AlwaysWeakHash++
-			} else if cfg.WeakHashThresholdPct != 25 {
-				report.FolderUsesV3.CustomWeakHashThreshold++
 			}
 			if cfg.FSWatcherEnabled {
 				report.FolderUsesV3.FsWatcherEnabled++
@@ -441,7 +436,7 @@ var (
 )
 
 // CpuBench returns CPU performance as a measure of single threaded SHA-256 MiB/s
-func CpuBench(ctx context.Context, iterations int, duration time.Duration, useWeakHash bool) float64 {
+func CpuBench(ctx context.Context, iterations int, duration time.Duration) float64 {
 	blocksResultMut.Lock()
 	defer blocksResultMut.Unlock()
 
@@ -452,7 +447,7 @@ func CpuBench(ctx context.Context, iterations int, duration time.Duration, useWe
 
 	var perf float64
 	for i := 0; i < iterations; i++ {
-		if v := cpuBenchOnce(ctx, duration, useWeakHash, bs); v > perf {
+		if v := cpuBenchOnce(ctx, duration, bs); v > perf {
 			perf = v
 		}
 	}
@@ -465,13 +460,13 @@ func CpuBench(ctx context.Context, iterations int, duration time.Duration, useWe
 	return perf
 }
 
-func cpuBenchOnce(ctx context.Context, duration time.Duration, useWeakHash bool, bs []byte) float64 {
+func cpuBenchOnce(ctx context.Context, duration time.Duration, bs []byte) float64 {
 	t0 := time.Now()
 	b := 0
 	var err error
 	for time.Since(t0) < duration {
 		r := bytes.NewReader(bs)
-		blocksResult, err = scanner.Blocks(ctx, r, protocol.MinBlockSize, int64(len(bs)), nil, useWeakHash)
+		blocksResult, err = scanner.Blocks(ctx, r, protocol.MinBlockSize, int64(len(bs)), nil)
 		if err != nil {
 			return 0 // Context done
 		}

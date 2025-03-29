@@ -31,7 +31,6 @@ import (
 	"github.com/syncthing/syncthing/lib/semaphore"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
-	"github.com/syncthing/syncthing/lib/weakhash"
 )
 
 var (
@@ -1147,12 +1146,12 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 func (f *sendReceiveFolder) reuseBlocks(blocks []protocol.BlockInfo, reused []int, file protocol.FileInfo, tempName string) ([]protocol.BlockInfo, []int) {
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
-	tempBlocks, err := scanner.HashFile(f.ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil, false)
+	tempBlocks, err := scanner.HashFile(f.ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil)
 	if err != nil {
 		var caseErr *fs.ErrCaseConflict
 		if errors.As(err, &caseErr) {
 			if rerr := f.mtimefs.Rename(caseErr.Real, tempName); rerr == nil {
-				tempBlocks, err = scanner.HashFile(f.ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil, false)
+				tempBlocks, err = scanner.HashFile(f.ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil)
 			}
 		}
 	}
@@ -1321,8 +1320,6 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			f.model.progressEmitter.Register(state.sharedPullerState)
 		}
 
-		weakHashFinder, file := f.initWeakHashFinder(state)
-
 	blocks:
 		for _, block := range state.blocks {
 			select {
@@ -1347,84 +1344,59 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 			buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
 
-			var found bool
-			if f.Type != config.FolderTypeReceiveEncrypted {
-				found, err = weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
-					if f.verifyBuffer(buf, block) != nil {
-						return true
+			found := false
+			for e, err := range itererr.Zip(f.model.sdb.AllLocalBlocksWithHash(block.Hash)) {
+				if err != nil {
+					break
+				}
+				it, errFn := f.model.sdb.AllLocalFilesWithBlocksHashAnyFolder(e.BlocklistHash)
+				for folderID, fi := range it {
+					ffs := folderFilesystems[folderID]
+					fd, err := ffs.Open(fi.Name)
+					if err != nil {
+						continue
+					}
+					defer fd.Close()
+
+					_, err = fd.ReadAt(buf, e.Offset)
+					if err != nil {
+						fd.Close()
+						continue
 					}
 
-					err = f.limitedWriteAt(dstFd, buf, block.Offset)
+					// Hash is not SHA256 as it's an encrypted hash token. In that
+					// case we can't verify the block integrity so we'll take it on
+					// trust. (The other side can and will verify.)
+					if f.Type != config.FolderTypeReceiveEncrypted {
+						if err := f.verifyBuffer(buf, block); err != nil {
+							l.Debugln("Finder failed to verify buffer", err)
+							continue
+						}
+					}
+
+					if f.CopyRangeMethod != config.CopyRangeMethodStandard {
+						err = f.withLimiter(func() error {
+							dstFd.mut.Lock()
+							defer dstFd.mut.Unlock()
+							return fs.CopyRange(f.CopyRangeMethod.ToFS(), fd, dstFd.fd, e.Offset, block.Offset, int64(block.Size))
+						})
+					} else {
+						err = f.limitedWriteAt(dstFd, buf, block.Offset)
+					}
 					if err != nil {
 						state.fail(fmt.Errorf("dst write: %w", err))
+						break
 					}
-					if offset == block.Offset {
+					if fi.Name == state.file.Name {
 						state.copiedFromOrigin(block.Size)
 					} else {
-						state.copiedFromOriginShifted(block.Size)
+						state.copiedFromElsewhere(block.Size)
 					}
-
-					return false
-				})
-				if err != nil {
-					l.Debugln("weak hasher iter", err)
+					found = true
+					break
 				}
-			}
-
-			if !found {
-				for e, err := range itererr.Zip(f.model.sdb.AllLocalBlocksWithHash(block.Hash)) {
-					if err != nil {
-						break
-					}
-					it, errFn := f.model.sdb.AllLocalFilesWithBlocksHashAnyFolder(e.BlocklistHash)
-					for folderID, fi := range it {
-						ffs := folderFilesystems[folderID]
-						fd, err := ffs.Open(fi.Name)
-						if err != nil {
-							continue
-						}
-						defer fd.Close()
-
-						_, err = fd.ReadAt(buf, e.Offset)
-						if err != nil {
-							fd.Close()
-							continue
-						}
-
-						// Hash is not SHA256 as it's an encrypted hash token. In that
-						// case we can't verify the block integrity so we'll take it on
-						// trust. (The other side can and will verify.)
-						if f.Type != config.FolderTypeReceiveEncrypted {
-							if err := f.verifyBuffer(buf, block); err != nil {
-								l.Debugln("Finder failed to verify buffer", err)
-								continue
-							}
-						}
-
-						if f.CopyRangeMethod != config.CopyRangeMethodStandard {
-							err = f.withLimiter(func() error {
-								dstFd.mut.Lock()
-								defer dstFd.mut.Unlock()
-								return fs.CopyRange(f.CopyRangeMethod.ToFS(), fd, dstFd.fd, e.Offset, block.Offset, int64(block.Size))
-							})
-						} else {
-							err = f.limitedWriteAt(dstFd, buf, block.Offset)
-						}
-						if err != nil {
-							state.fail(fmt.Errorf("dst write: %w", err))
-							break
-						}
-						if fi.Name == state.file.Name {
-							state.copiedFromOrigin(block.Size)
-						} else {
-							state.copiedFromElsewhere(block.Size)
-						}
-						found = true
-						break
-					}
-					if err := errFn(); err != nil {
-						l.Warnln(err)
-					}
+				if err := errFn(); err != nil {
+					l.Warnln(err)
 				}
 			}
 
@@ -1443,56 +1415,9 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				state.copyDone(block)
 			}
 		}
-		if file != nil {
-			// os.File used to return invalid argument if nil.
-			// fs.File panics as it's an interface.
-			file.Close()
-		}
 
 		out <- state.sharedPullerState
 	}
-}
-
-func (f *sendReceiveFolder) initWeakHashFinder(state copyBlocksState) (*weakhash.Finder, fs.File) {
-	if f.Type == config.FolderTypeReceiveEncrypted {
-		l.Debugln("not weak hashing due to folder type", f.Type)
-		return nil, nil
-	}
-
-	blocksPercentChanged := 0
-	if tot := len(state.file.Blocks); tot > 0 {
-		blocksPercentChanged = (tot - state.have) * 100 / tot
-	}
-
-	if blocksPercentChanged < f.WeakHashThresholdPct {
-		l.Debugf("not weak hashing %s. not enough changed %.02f < %d", state.file.Name, blocksPercentChanged, f.WeakHashThresholdPct)
-		return nil, nil
-	}
-
-	hashesToFind := make([]uint32, 0, len(state.blocks))
-	for _, block := range state.blocks {
-		if block.WeakHash != 0 {
-			hashesToFind = append(hashesToFind, block.WeakHash)
-		}
-	}
-
-	if len(hashesToFind) == 0 {
-		l.Debugf("not weak hashing %s. file did not contain any weak hashes", state.file.Name)
-		return nil, nil
-	}
-
-	file, err := f.mtimefs.Open(state.file.Name)
-	if err != nil {
-		l.Debugln("weak hasher", err)
-		return nil, nil
-	}
-
-	weakHashFinder, err := weakhash.NewFinder(f.ctx, file, state.file.BlockSize(), hashesToFind)
-	if err != nil {
-		l.Debugln("weak hasher", err)
-		return nil, file
-	}
-	return weakHashFinder, file
 }
 
 func (*sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) error {
@@ -1596,7 +1521,7 @@ loop:
 		activity.using(selected)
 		var buf []byte
 		blockNo := int(state.block.Offset / int64(state.file.BlockSize()))
-		buf, lastError = f.model.RequestGlobal(f.ctx, selected.ID, f.folderID, state.file.Name, blockNo, state.block.Offset, int(state.block.Size), state.block.Hash, state.block.WeakHash, selected.FromTemporary)
+		buf, lastError = f.model.RequestGlobal(f.ctx, selected.ID, f.folderID, state.file.Name, blockNo, state.block.Offset, int(state.block.Size), state.block.Hash, selected.FromTemporary)
 		activity.done(selected)
 		if lastError != nil {
 			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, selected.ID.Short(), "returned error:", lastError)

@@ -45,7 +45,7 @@ func (m *Internals) SetIgnores(folderID string, content []string) error {
 }
 
 func (m *Internals) DownloadBlock(ctx context.Context, deviceID protocol.DeviceID, folderID string, path string, blockNumber int, blockInfo protocol.BlockInfo, allowFromTemporary bool) ([]byte, error) {
-	return m.model.RequestGlobal(ctx, deviceID, folderID, path, int(blockNumber), blockInfo.Offset, blockInfo.Size, blockInfo.Hash, blockInfo.WeakHash, allowFromTemporary)
+	return m.model.RequestGlobal(ctx, deviceID, folderID, path, int(blockNumber), blockInfo.Offset, blockInfo.Size, blockInfo.Hash, allowFromTemporary)
 }
 
 func (m *Internals) BlockAvailability(folderID string, file protocol.FileInfo, block protocol.BlockInfo) ([]model.Availability, error) {

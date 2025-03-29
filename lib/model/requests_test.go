@@ -436,11 +436,8 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 	}
 
 	f := checkReceived(<-received)
-	if f.Blocks[0].WeakHash != 103547413 {
-		t.Fatalf("unexpected weak hash: %d != 103547413", f.Blocks[0].WeakHash)
-	}
 
-	res, err := m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: len(payload), Hash: f.Blocks[0].Hash, WeakHash: f.Blocks[0].WeakHash})
+	res, err := m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: len(payload), Hash: f.Blocks[0].Hash})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -454,17 +451,14 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 
 	writeFile(t, tfs, "foo", payload)
 
-	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: len(payload), Hash: f.Blocks[0].Hash, WeakHash: f.Blocks[0].WeakHash})
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: len(payload), Hash: f.Blocks[0].Hash})
 	if err == nil {
 		t.Fatalf("expected failure")
 	}
 
 	select {
 	case fs := <-received:
-		f := checkReceived(fs)
-		if f.Blocks[0].WeakHash != 41943361 {
-			t.Fatalf("unexpected weak hash: %d != 41943361", f.Blocks[0].WeakHash)
-		}
+		checkReceived(fs)
 	case <-time.After(time.Second):
 		t.Fatalf("timed out")
 	}

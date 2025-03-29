@@ -546,32 +546,29 @@ func (f *FileInfo) setNoContent() {
 }
 
 type BlockInfo struct {
-	Hash     []byte
-	Offset   int64
-	Size     int
-	WeakHash uint32
+	Hash   []byte
+	Offset int64
+	Size   int
 }
 
 func (b BlockInfo) ToWire() *bep.BlockInfo {
 	return &bep.BlockInfo{
-		Hash:     b.Hash,
-		Offset:   b.Offset,
-		Size:     int32(b.Size),
-		WeakHash: b.WeakHash,
+		Hash:   b.Hash,
+		Offset: b.Offset,
+		Size:   int32(b.Size),
 	}
 }
 
 func BlockInfoFromWire(w *bep.BlockInfo) BlockInfo {
 	return BlockInfo{
-		Hash:     w.Hash,
-		Offset:   w.Offset,
-		Size:     int(w.Size),
-		WeakHash: w.WeakHash,
+		Hash:   w.Hash,
+		Offset: w.Offset,
+		Size:   int(w.Size),
 	}
 }
 
 func (b BlockInfo) String() string {
-	return fmt.Sprintf("Block{%d/%d/%d/%x}", b.Offset, b.Size, b.WeakHash, b.Hash)
+	return fmt.Sprintf("Block{%d/%d/%x}", b.Offset, b.Size, b.Hash)
 }
 
 // For each block size, the hash of a block of all zeroes
@@ -598,7 +595,6 @@ func BlocksHash(bs []BlockInfo) []byte {
 	h := sha256.New()
 	for _, b := range bs {
 		_, _ = h.Write(b.Hash)
-		_ = binary.Write(h, binary.BigEndian, b.WeakHash)
 	}
 	return h.Sum(nil)
 }
