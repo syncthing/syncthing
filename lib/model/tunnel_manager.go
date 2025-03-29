@@ -314,11 +314,11 @@ func (m *TunnelManager) Status() []map[string]interface{} {
 
 	for _, tunnel := range m.config.TunnelsIn {
 		info := map[string]interface{}{
-			"serviceID":        tunnel.LocalServiceName,
-			"remoteDeviceID":   tunnel.AllowedRemoteDeviceIds,
-			"localDialAddress": tunnel.LocalDialAddress,
-			"active":           true,
-			"type":             "inbound",
+			"serviceID":              tunnel.LocalServiceName,
+			"allowedRemoteDeviceIDs": tunnel.AllowedRemoteDeviceIds,
+			"localDialAddress":       tunnel.LocalDialAddress,
+			"active":                 true,
+			"type":                   "inbound",
 		}
 		status = append(status, info)
 	}

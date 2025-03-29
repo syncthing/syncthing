@@ -1062,9 +1062,38 @@
                         <th><span class="fas fa-fw fa-globe"></span>&nbsp;<span translate>Remote Address</span></th>
                         <td class="text-right">{{tunnel.remoteAddress}}</td>
                       </tr>
-                      <tr>
+                      <tr ng-if="tunnel.type == 'outbound'">
                         <th><span class="fas fa-fw fa-server"></span>&nbsp;<span translate>Remote Device ID</span></th>
-                        <td class="text-right no-overflow-ellipse">{{tunnel.remoteDeviceID}}</td>
+                        <td class="text-right no-overflow-ellipse overflow-break-word">
+                          <!-- If the remote device ID matches a known device, show the device name with link -->
+                          <span ng-if="devices[tunnel.remoteDeviceID]">
+                            <a href="" ng-click="editDeviceExisting(devices[tunnel.remoteDeviceID])">{{deviceName(devices[tunnel.remoteDeviceID])}}</a>
+                          </span>
+                          <!-- If the device is not known, show the raw ID -->
+                          <span ng-if="!devices[tunnel.remoteDeviceID]">
+                            {{tunnel.remoteDeviceID}}
+                          </span>
+                        </td>
+                      </tr>
+                      <tr ng-if="tunnel.type == 'inbound'">
+                        <th><span class="fas fa-fw fa-server"></span>&nbsp;<span translate>Allowed Remote Devices</span></th>
+                        <td class="text-right no-overflow-ellipse overflow-break-word">
+                          <!-- Display each allowed remote device ID -->
+                          <span ng-repeat="deviceID in tunnel.allowedRemoteDeviceIDs">
+                            <!-- If the remote device ID matches a known device, show the device name with link -->
+                            <span ng-if="devices[deviceID]">
+                              <a href="" ng-click="editDeviceExisting(devices[deviceID])">{{deviceName(devices[deviceID])}}</a>
+                            </span>
+                            <!-- If the device is not known, show the raw ID -->
+                            <span ng-if="!devices[deviceID]">
+                              {{deviceID}}
+                            </span>
+                            <!-- Add comma separator between devices -->
+                            <span ng-if="!$last">, </span>
+                          </span>
+                          <!-- If the list is empty, show a message -->
+                          <span ng-if="!tunnel.allowedRemoteDeviceIDs || tunnel.allowedRemoteDeviceIDs.length === 0" translate>Any Device</span>
+                        </td>
                       </tr>
                     </tbody>
                   </table>
