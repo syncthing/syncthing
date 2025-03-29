@@ -1010,51 +1010,72 @@
             <div class="panel panel-default" ng-repeat="tunnel in tunnelList() track by $index">
               <button class="btn panel-heading" data-toggle="collapse" data-parent="#tunnels" data-target="#tunnel-{{$index}}" aria-expanded="false">
                 <h4 class="panel-title">
-                  <span>{{tunnel.type}} - {{tunnel.serviceID}}</span>
-                  <span class="pull-right">
-                    <!-- Status indicators -->
-                    <span ng-if="tunnel.active" class="text-success"><span class="fa fa-check"></span></span>
-                    <span ng-if="!tunnel.active" class="text-danger"><span class="fa fa-times"></span></span>
-                  </span>
+                  <div class="panel-icon hidden-xs">
+                    <span class="fas fa-fw fa-route">
+                      <!-- <img src="assets/img/tunnel.svg" height="50px"/> -->
+                      </span>
+                  </div>
+                  <div class="panel-status pull-right">
+                    <span ng-if="tunnel.active" class="text-success">
+                      <span translate>Active</span>
+                      <span class="inline-icon">
+                        <span class="visible-xs fa fa-fw fa-check" aria-label="Active"></span>
+                      </span>
+                    </span>
+                    <span ng-if="!tunnel.active" class="text-danger">
+                      <span translate>Inactive</span>
+                      <span class="inline-icon">
+                        <span class="visible-xs fa fa-fw fa-times" aria-label="Inactive"></span>
+                      </span>
+                    </span>
+                  </div>
+                  <div class="panel-title-text">
+                    <span>{{tunnel.type}} - {{tunnel.serviceID}}</span>
+                  </div>
                 </h4>
               </button>
               <div id="tunnel-{{$index}}" class="panel-collapse collapse">
-                <div class="panel-body">
-                  <div class="row">
-                    <div class="col-md-12">
-                      <!-- Tunnel details -->
-                      <dl>
-                        <dt translate>Type</dt>
-                        <dd>{{tunnel.type}}</dd>
-                        <!-- Add more tunnel details as needed -->
-                      </dl>
-                      <dl>
-                        <dt translate>ServiceID</dt>
-                        <dd>{{tunnel.serviceID}}</dd>
-                        <!-- Add more tunnel details as needed -->
-                      </dl>
-                      <dl ng-if="tunnel.type == 'inbound'">
-                        <dt translate>LocalDialAddress</dt>
-                        <dd>{{tunnel.localDialAddress}}</dd>
-                        <!-- Add more tunnel details as needed -->
-                      </dl>
-                      <dl ng-if="tunnel.type == 'outbound'">
-                        <dt translate>LocalListenAddress</dt>
-                        <dd>{{tunnel.localListenAddress}}</dd>
-                        <!-- Add more tunnel details as needed -->
-                      </dl>
-                      <dl ng-if="tunnel.type == 'outbound'">
-                        <dt translate>RemoteAddress</dt>
-                        <dd>{{tunnel.remoteAddress}}</dd>
-                        <!-- Add more tunnel details as needed -->
-                      </dl>
-                      <dl>
-                        <dt translate>RemoteDeviceID</dt>
-                        <dd>{{tunnel.remoteDeviceID}}</dd>
-                        <!-- Add more tunnel details as needed -->
-                      </dl>
-                    </div>
-                  </div>
+                <div class="panel-body less-padding">
+                  <table class="table table-condensed table-striped table-auto">
+                    <tbody>
+                      <tr class="visible-xs">
+                        <th><span class="fa fa-fw" ng-class="{'fa-check': tunnel.active, 'fa-times': !tunnel.active}"></span>&nbsp;<span translate>Status</span></th>
+                        <td class="text-right"><span ng-if="tunnel.active" translate>Active</span><span ng-if="!tunnel.active" translate>Inactive</span></td>
+                      </tr>
+                      <tr>
+                        <th><span class="fas fa-fw fa-fingerprint"></span>&nbsp;<span translate>Service ID</span></th>
+                        <td class="text-right no-overflow-ellipse">{{tunnel.serviceID}}</td>
+                      </tr>
+                      <tr>
+                        <th><span class="fas fa-fw fa-tag"></span>&nbsp;<span translate>Type</span></th>
+                        <td class="text-right">{{tunnel.type}}</td>
+                      </tr>
+                      <tr ng-if="tunnel.type == 'inbound'">
+                        <th><span class="fas fa-fw fa-arrow-right"></span>&nbsp;<span translate>Local Dial Address</span></th>
+                        <td class="text-right">{{tunnel.localDialAddress}}</td>
+                      </tr>
+                      <tr ng-if="tunnel.type == 'outbound'">
+                        <th><span class="fas fa-fw fa-arrow-left"></span>&nbsp;<span translate>Local Listen Address</span></th>
+                        <td class="text-right">{{tunnel.localListenAddress}}</td>
+                      </tr>
+                      <tr ng-if="tunnel.type == 'outbound'">
+                        <th><span class="fas fa-fw fa-globe"></span>&nbsp;<span translate>Remote Address</span></th>
+                        <td class="text-right">{{tunnel.remoteAddress}}</td>
+                      </tr>
+                      <tr>
+                        <th><span class="fas fa-fw fa-server"></span>&nbsp;<span translate>Remote Device ID</span></th>
+                        <td class="text-right no-overflow-ellipse">{{tunnel.remoteDeviceID}}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="panel-footer">
+                  <span class="pull-right">
+                    <button type="button" class="btn btn-sm btn-default" ng-if="tunnel.active" disabled>
+                      <span class="fas fa-info-circle"></span>&nbsp;<span translate>Details</span>
+                    </button>
+                  </span>
+                  <div class="clearfix"></div>
                 </div>
               </div>
             </div>

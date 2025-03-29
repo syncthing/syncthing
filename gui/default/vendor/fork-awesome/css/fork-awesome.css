@@ -267,6 +267,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 .fa-download:before {
   content: "\f019";
 }
+.fa-route:before {
+  content: "\f0e8";
+}
 .fa-arrow-circle-o-down:before {
   content: "\f01a";
 }
