@@ -493,7 +493,9 @@ nextFile:
 
 		devices := f.model.fileAvailability(f.FolderConfiguration, fi)
 		if len(devices) > 0 {
-			f.handleFile(fi, copyChan)
+			if err := f.handleFile(fi, copyChan); err != nil {
+				f.newPullError(fileName, err)
+			}
 			continue
 		}
 		f.newPullError(fileName, errNotAvailable)
