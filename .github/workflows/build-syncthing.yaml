@@ -22,6 +22,8 @@ env:
   BUILD_USER: builder
   BUILD_HOST: github.syncthing.net
 
+  TAGS: "netgo osusergo sqlite_omit_load_extension"
+
 # A note on actions and third party code... The actions under actions/ (like
 # `uses: actions/checkout`) are maintained by GitHub, and we need to trust
 # GitHub to maintain their code and infrastructure or we're in deep shit in
@@ -164,10 +166,10 @@ jobs:
       - name: Create packages
         run: |
           for tgt in syncthing stdiscosrv strelaysrv ; do
-            go run build.go -tags sqlite_omit_load_extension -goos windows -goarch amd64 -cc "zig cc -target x86_64-windows" zip $tgt
-            go run build.go -tags sqlite_omit_load_extension -goos windows -goarch 386 -cc "zig cc -target x86-windows" zip $tgt
-            go run build.go -tags sqlite_omit_load_extension -goos windows -goarch arm64 -cc "zig cc -target aarch64-windows" zip $tgt
-            # go run build.go -tags sqlite_omit_load_extension -goos windows -goarch arm -cc "zig cc -target thumb-windows" zip $tgt # failes with linker errors
+            go run build.go -tags "${{env.TAGS}}" -goos windows -goarch amd64 -cc "zig cc -target x86_64-windows" zip $tgt
+            go run build.go -tags "${{env.TAGS}}" -goos windows -goarch 386 -cc "zig cc -target x86-windows" zip $tgt
+            go run build.go -tags "${{env.TAGS}}" -goos windows -goarch arm64 -cc "zig cc -target aarch64-windows" zip $tgt
+            # go run build.go -tags "${{env.TAGS}}" -goos windows -goarch arm -cc "zig cc -target thumb-windows" zip $tgt # failes with linker errors
           done
         env:
           CGO_ENABLED: "1"
@@ -268,19 +270,19 @@ jobs:
         run: |
           sudo apt-get install -y gcc-mips64-linux-gnuabi64 gcc-mips64el-linux-gnuabi64
           for tgt in syncthing stdiscosrv strelaysrv ; do
-            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" tar "$tgt"
-            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch 386 -cc "zig cc -target x86-linux-musl" tar "$tgt"
-            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch arm -cc "zig cc -target arm-linux-musleabi" tar "$tgt"
-            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" tar "$tgt"
-            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch mips -cc "zig cc -target mips-linux-musleabi" tar "$tgt"
-            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch mipsle -cc "zig cc -target mipsel-linux-musleabi" tar "$tgt"
-            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch mips64 -cc mips64-linux-gnuabi64-gcc tar "$tgt"
-            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch mips64le -cc mips64el-linux-gnuabi64-gcc tar "$tgt"
-            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch riscv64 -cc "zig cc -target riscv64-linux-musl" tar "$tgt"
-            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch s390x -cc "zig cc -target s390x-linux-musl" tar "$tgt"
-            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch loong64 -cc "zig cc -target loongarch64-linux-musl" tar "$tgt"
-            # go run build.go -tags sqlite_omit_load_extension -goos linux -goarch ppc64 -cc "zig cc -target powerpc64-linux-musl" tar "$tgt" # fails with linkmode not supported
-            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch ppc64le -cc "zig cc -target powerpc64le-linux-musl" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch 386 -cc "zig cc -target x86-linux-musl" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch arm -cc "zig cc -target arm-linux-musleabi" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch mips -cc "zig cc -target mips-linux-musleabi" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch mipsle -cc "zig cc -target mipsel-linux-musleabi" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch mips64 -cc mips64-linux-gnuabi64-gcc tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch mips64le -cc mips64el-linux-gnuabi64-gcc tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch riscv64 -cc "zig cc -target riscv64-linux-musl" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch s390x -cc "zig cc -target s390x-linux-musl" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch loong64 -cc "zig cc -target loongarch64-linux-musl" tar "$tgt"
+            # go run build.go -tags "${{env.TAGS}}" -goos linux -goarch ppc64 -cc "zig cc -target powerpc64-linux-musl" tar "$tgt" # fails with linkmode not supported
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch ppc64le -cc "zig cc -target powerpc64le-linux-musl" tar "$tgt"
           done
         env:
           CGO_ENABLED: "1"
@@ -358,7 +360,7 @@ jobs:
       - name: Create package (amd64)
         run: |
           for tgt in syncthing stdiscosrv strelaysrv ; do
-            go run build.go -tags sqlite_omit_load_extension -goarch amd64 zip "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goarch amd64 zip "$tgt"
           done
         env:
           CGO_ENABLED: "1"
@@ -374,7 +376,7 @@ jobs:
           EOT
           chmod 755 xgo.sh
           for tgt in syncthing stdiscosrv strelaysrv ; do
-            go run build.go -tags sqlite_omit_load_extension -gocmd ./xgo.sh -goarch arm64 zip "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -gocmd ./xgo.sh -goarch arm64 zip "$tgt"
           done
         env:
           CGO_ENABLED: "1"
@@ -677,9 +679,9 @@ jobs:
       - name: Package for Debian (CGO)
         run: |
           for tgt in syncthing stdiscosrv strelaysrv ; do
-            go run build.go -no-upgrade -installsuffix=no-upgrade -tags sqlite_omit_load_extension -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" deb "$tgt"
-            go run build.go -no-upgrade -installsuffix=no-upgrade -tags sqlite_omit_load_extension -goos linux -goarch arm -cc "zig cc -target arm-linux-musleabi" deb "$tgt"
-            go run build.go -no-upgrade -installsuffix=no-upgrade -tags sqlite_omit_load_extension -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" deb "$tgt"
+            go run build.go -no-upgrade -installsuffix=no-upgrade -tags "${{env.TAGS}}" -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" deb "$tgt"
+            go run build.go -no-upgrade -installsuffix=no-upgrade -tags "${{env.TAGS}}" -goos linux -goarch arm -cc "zig cc -target arm-linux-musleabi" deb "$tgt"
+            go run build.go -no-upgrade -installsuffix=no-upgrade -tags "${{env.TAGS}}" -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" deb "$tgt"
           done
         env:
           BUILD_USER: debian
@@ -948,15 +950,15 @@ jobs:
       - name: Build binaries (CGO)
         run: |
           # amd64
-          go run build.go -goos linux -goarch amd64 -tags sqlite_omit_load_extension -cc "zig cc -target x86_64-linux-musl" -no-upgrade build ${{ matrix.pkg }}
+          go run build.go -goos linux -goarch amd64 -tags "${{env.TAGS}}" -cc "zig cc -target x86_64-linux-musl" -no-upgrade build ${{ matrix.pkg }}
           mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-amd64
 
           # arm64
-          go run build.go -goos linux -goarch arm64 -tags sqlite_omit_load_extension -cc "zig cc -target aarch64-linux-musl" -no-upgrade build ${{ matrix.pkg }}
+          go run build.go -goos linux -goarch arm64 -tags "${{env.TAGS}}" -cc "zig cc -target aarch64-linux-musl" -no-upgrade build ${{ matrix.pkg }}
           mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm64
 
           # arm
-          go run build.go -goos linux -goarch arm -tags sqlite_omit_load_extension -cc "zig cc -target arm-linux-musleabi" -no-upgrade build ${{ matrix.pkg }}
+          go run build.go -goos linux -goarch arm -tags "${{env.TAGS}}" -cc "zig cc -target arm-linux-musleabi" -no-upgrade build ${{ matrix.pkg }}
           mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm
         env:
           CGO_ENABLED: "1"
