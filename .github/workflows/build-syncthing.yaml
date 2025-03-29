@@ -842,7 +842,9 @@ jobs:
       - name: Prepare packages
         run: |
           kind=stable
-          if [[ $VERSION == *-rc.[0-9] ]] ; then
+          if [[ $VERSION == v2* ]] ; then
+            kind=v2
+          elif [[ $VERSION == *-rc.[0-9] ]] ; then
             kind=candidate
           elif [[ $VERSION == *-* ]] ; then
             kind=nightly
