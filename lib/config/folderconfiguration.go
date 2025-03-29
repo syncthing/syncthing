@@ -70,7 +70,6 @@ type FolderConfiguration struct {
 	DisableSparseFiles      bool                        `json:"disableSparseFiles" xml:"disableSparseFiles"`
 	DisableTempIndexes      bool                        `json:"disableTempIndexes" xml:"disableTempIndexes"`
 	Paused                  bool                        `json:"paused" xml:"paused"`
-	WeakHashThresholdPct    int                         `json:"weakHashThresholdPct" xml:"weakHashThresholdPct"`
 	MarkerName              string                      `json:"markerName" xml:"markerName"`
 	CopyOwnershipFromParent bool                        `json:"copyOwnershipFromParent" xml:"copyOwnershipFromParent"`
 	RawModTimeWindowS       int                         `json:"modTimeWindowS" xml:"modTimeWindowS"`
@@ -309,10 +308,6 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 		f.Versioning.CleanupIntervalS = MaxRescanIntervalS
 	} else if f.Versioning.CleanupIntervalS < 0 {
 		f.Versioning.CleanupIntervalS = 0
-	}
-
-	if f.WeakHashThresholdPct == 0 {
-		f.WeakHashThresholdPct = 25
 	}
 
 	if f.MarkerName == "" {
