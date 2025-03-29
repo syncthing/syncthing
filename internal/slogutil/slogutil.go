@@ -1,0 +1,116 @@
+package slogutil
+
+import (
+	"context"
+	"log/slog"
+	"runtime"
+	"strings"
+)
+
+type contextKey int
+
+const (
+	extraArgs contextKey = iota
+	callerOverride
+)
+
+type DecoratingHandler struct {
+	slog.Handler
+	json bool
+}
+
+func NewDecoratingHandler(h slog.Handler, json bool) DecoratingHandler {
+	return DecoratingHandler{Handler: h, json: json}
+}
+
+func (h DecoratingHandler) Handle(ctx context.Context, r slog.Record) error {
+	// Add any extra attrs from the context
+	if extra, ok := ctx.Value(extraArgs).([]slog.Attr); ok {
+		r.AddAttrs(extra...)
+	}
+
+	// Prefix the log message with the originating package/type name.
+	// In JSON, this becomes an attribute instead.
+	var caller string
+	if v, ok := ctx.Value(callerOverride).(string); ok && v != "" {
+		caller = v
+	} else {
+		fr := runtime.CallersFrames([]uintptr{r.PC})
+		if fram, _ := fr.Next(); fram.Function != "" {
+			caller = funcNameToPkg(fram.Function)
+		}
+	}
+	if h.json {
+		r.AddAttrs(slog.String("caller", caller))
+	} else if caller != "" {
+		r.Message = caller + ": " + r.Message
+	}
+
+	// Add a colon if there will be attributes printed after the message.
+	// This depends on this being the outermost handler, so that all attrs
+	// are known at this point.
+	if !h.json && r.NumAttrs() > 0 {
+		r.Message += ":"
+	}
+
+	return h.Handler.Handle(ctx, r)
+}
+
+func funcNameToPkg(fn string) string {
+	fn = strings.ToLower(fn)
+	fn = strings.TrimPrefix(fn, "safe-sky.dev/sync/internal/")
+
+	pkgTypFn := strings.Split(fn, ".") // [package, type, method] or [package, function]
+	if len(pkgTypFn) <= 2 {
+		return pkgTypFn[0]
+	}
+
+	pkg := pkgTypFn[0]
+	// Remove parenthesis and asterisk from the type name
+	typ := strings.TrimLeft(strings.TrimRight(pkgTypFn[1], ")"), "(*")
+	// Skip certain type names that add no value
+	typ = strings.TrimSuffix(typ, "service")
+	switch typ {
+	case pkg, "", "serveparams":
+		return pkg
+	default:
+		return pkg + "." + typ
+	}
+}
+
+// With returns a new context with added log attributes. Arguments should be
+// key and value pairs, or slog.Attr instances.
+func With(ctx context.Context, args ...any) context.Context {
+	extra, _ := ctx.Value(extraArgs).([]slog.Attr)
+
+	for len(args) > 0 {
+		var a slog.Attr
+		a, args = argsToAttr(args)
+		extra = append(extra, a)
+	}
+
+	return context.WithValue(ctx, extraArgs, extra)
+}
+
+// WithCaller overrides the computed caller name in the output
+func WithCaller(ctx context.Context, caller string) context.Context {
+	return context.WithValue(ctx, callerOverride, caller)
+}
+
+// copy of the unexported method in log/slog, lightly modified
+func argsToAttr(args []any) (slog.Attr, []any) {
+	const badKey = "!BADKEY"
+	switch x := args[0].(type) {
+	case string:
+		if len(args) == 1 {
+			return slog.String(badKey, x), nil
+		}
+		return slog.Any(x, args[1]), args[2:]
+
+	case slog.Attr:
+		return x, args[1:]
+
+	default:
+		return slog.Any(badKey, x), args[1:]
+	}
+}

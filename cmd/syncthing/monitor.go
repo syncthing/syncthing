@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -44,8 +45,7 @@ const (
 )
 
 func monitorMain(options serveOptions) {
-	l.SetPrefix("[monitor] ")
-
+	l := slog.With("component", "monitor")
 	var dst io.Writer = os.Stdout
 
 	logFile := locations.Get(locations.LogFile)
@@ -64,7 +64,7 @@ func monitorMain(options serveOptions) {
 			fileDst, err = open(logFile)
 		}
 		if err != nil {
-			l.Warnln("Failed to setup logging to file, proceeding with logging to stdout only:", err)
+			l.Warn("Failed to setup logging to file, proceeding with logging to stdout only", "error", err)
 		} else {
 			if build.IsWindows {
 				// Translate line breaks to Windows standard
@@ -78,14 +78,14 @@ func monitorMain(options serveOptions) {
 			// Log to both stdout and file.
 			dst = io.MultiWriter(dst, fileDst)
 
-			l.Infof(`Log output saved to file "%s"`, logFile)
+			l.Info("Log output saved to file", "path", logFile)
 		}
 	}
 
 	args := os.Args
 	binary, err := getBinary(args[0])
 	if err != nil {
-		l.Warnln("Error starting the main Syncthing process:", err)
+		l.Warn("Error starting the main Syncthing process", "error", err)
 		panic("Error starting the main Syncthing process")
 	}
 	var restarts [restartCounts]time.Time
@@ -102,7 +102,7 @@ func monitorMain(options serveOptions) {
 		maybeReportPanics()
 
 		if t := time.Since(restarts[0]); t < restartLoopThreshold {
-			l.Warnf("%d restarts in %v; not retrying further", restartCounts, t)
+			l.Warn("Too many restarts; not retrying further", "count", restartCounts, "interval", t)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 
@@ -122,10 +122,10 @@ func monitorMain(options serveOptions) {
 			panic(err)
 		}
 
-		l.Debugln("Starting syncthing")
+		l.Debug("Starting syncthing")
 		err = cmd.Start()
 		if err != nil {
-			l.Warnln("Error starting the main Syncthing process:", err)
+			l.Warn("Error starting the main Syncthing process", "error", err)
 			panic("Error starting the main Syncthing process")
 		}
 
@@ -138,7 +138,7 @@ func monitorMain(options serveOptions) {
 
 		wg.Add(1)
 		go func() {
-			copyStderr(stderr, dst)
+			copyStderr(l, stderr, dst)
 			wg.Done()
 		}()
 
@@ -158,13 +158,13 @@ func monitorMain(options serveOptions) {
 		stopped := false
 		select {
 		case s := <-stopSign:
-			l.Infof("Signal %d received; exiting", s)
+			l.Info("Signal received; exiting", "signal", s)
 			cmd.Process.Signal(sigTerm)
 			err = <-exit
 			stopped = true
 
 		case s := <-restartSign:
-			l.Infof("Signal %d received; restarting", s)
+			l.Info("Signal received; restarting", "signal", s)
 			cmd.Process.Signal(sigHup)
 			err = <-exit
 
@@ -184,9 +184,9 @@ func monitorMain(options serveOptions) {
 			if exitCode == svcutil.ExitUpgrade.AsInt() {
 				// Restart the monitor process to release the .old
 				// binary as part of the upgrade process.
-				l.Infoln("Restarting monitor...")
+				l.Info("Restarting monitor...")
 				if err = restartMonitor(binary, args); err != nil {
-					l.Warnln("Restart:", err)
+					l.Warn("Error restarting", "error", err)
 				}
 				os.Exit(exitCode)
 			}
@@ -196,7 +196,7 @@ func monitorMain(options serveOptions) {
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 
-		l.Infoln("Syncthing exited:", err)
+		l.Info("Syncthing exited", "error", err)
 		time.Sleep(restartPause)
 
 		if first {
@@ -221,7 +221,7 @@ func getBinary(args0 string) (string, error) {
 	return "", err
 }
 
-func copyStderr(stderr io.Reader, dst io.Writer) {
+func copyStderr(l *slog.Logger, stderr io.Reader, dst io.Writer) {
 	br := bufio.NewReader(stderr)
 
 	var panicFd *os.File
@@ -244,29 +244,13 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 			if strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") {
 				panicFd, err = os.Create(locations.GetTimestamped(locations.PanicLog))
 				if err != nil {
-					l.Warnln("Create panic log:", err)
+					l.Warn("Failed to create panic log", "error", err)
 					continue
 				}
 
-				l.Warnf("Panic detected, writing to \"%s\"", panicFd.Name())
-				if strings.Contains(line, "leveldb") && strings.Contains(line, "corrupt") {
-					l.Warnln(`
-*********************************************************************************
-* Crash due to corrupt database.                                                *
-*                                                                               *
-* This crash usually occurs due to one of the following reasons:                *
-*  - Syncthing being stopped abruptly (killed/loss of power)                    *
-*  - Bad hardware (memory/disk issues)                                          *
-*  - Software that affects disk writes (SSD caching software and similar)       *
-*                                                                               *
-* Please see the following URL for instructions on how to recover:              *
-*   https://docs.syncthing.net/users/faq.html#my-syncthing-database-is-corrupt  *
-*********************************************************************************
-`)
-				} else {
-					l.Warnln("Please check for existing issues with similar panic message at https://github.com/syncthing/syncthing/issues/")
-					l.Warnln("If no issue with similar panic message exists, please create a new issue with the panic log attached")
-				}
+				l.Warn("Panic detected, writing to log", "path", panicFd.Name())
+				l.Warn("Please check for existing issues with similar panic message at https://github.com/syncthing/syncthing/issues/")
+				l.Warn("If no issue with similar panic message exists, please create a new issue with the panic log attached")
 
 				stdoutMut.Lock()
 				for _, line := range stdoutFirstLines {
@@ -556,7 +540,7 @@ func maybeReportPanics() {
 	// Try to get a config to see if/where panics should be reported.
 	cfg, err := loadOrDefaultConfig()
 	if err != nil {
-		l.Warnln("Couldn't load config; not reporting crash")
+		slog.Warn("Couldn't load config; not reporting crash")
 		return
 	}
 
@@ -576,7 +560,7 @@ func maybeReportPanics() {
 		case <-ctx.Done():
 			return
 		case <-time.After(panicUploadNoticeWait):
-			l.Warnln("Uploading crash reports is taking a while, please wait...")
+			slog.Warn("Uploading crash reports is taking a while, please wait...")
 		}
 	}()
 
