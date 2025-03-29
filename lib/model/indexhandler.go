@@ -579,7 +579,7 @@ func (r *indexHandlerRegistry) AddIndexInfo(folder string, startInfo *clusterCon
 		r.startInfos[folder] = startInfo
 		return
 	}
-	r.startLocked(folderState.cfg, folderState.runner, startInfo)
+	_ = r.startLocked(folderState.cfg, folderState.runner, startInfo) // XXX error handling...
 }
 
 // Remove stops a running index handler or removes one pending to be started.
@@ -662,7 +662,7 @@ func (r *indexHandlerRegistry) folderRunningLocked(folder config.FolderConfigura
 			r.indexHandlers.RemoveAndWait(folder.ID, 0)
 			l.Debugf("Removed index handler for device %v and folder %v in resume", r.conn.DeviceID().Short(), folder.ID)
 		}
-		r.startLocked(folder, runner, info)
+		_ = r.startLocked(folder, runner, info) // XXX error handling...
 		delete(r.startInfos, folder.ID)
 		l.Debugf("Started index handler for device %v and folder %v in resume", r.conn.DeviceID().Short(), folder.ID)
 	} else if isOk {
