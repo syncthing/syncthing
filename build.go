@@ -288,10 +288,10 @@ func runCommand(cmd string, target target) {
 		build(target, tags)
 
 	case "test":
-		test(strings.Fields(extraTags), "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
+		test(strings.Fields(extraTags), "github.com/syncthing/syncthing/internal/...", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
 
 	case "bench":
-		bench(strings.Fields(extraTags), "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
+		bench(strings.Fields(extraTags), "github.com/syncthing/syncthing/internal/...", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
 
 	case "integration":
 		integration(false)
@@ -474,7 +474,7 @@ func install(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	args := []string{"install", "-v"}
+	args := []string{"install"}
 	args = appendParameters(args, tags, target.buildPkgs...)
 	runPrint(goCmd, args...)
 }
@@ -502,7 +502,7 @@ func build(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	args := []string{"build", "-v"}
+	args := []string{"build"}
 	if buildOut != "" {
 		args = append(args, "-o", buildOut)
 	}
@@ -514,13 +514,6 @@ func setBuildEnvVars() {
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
 	os.Setenv("CC", cc)
-	if os.Getenv("CGO_ENABLED") == "" {
-		switch goos {
-		case "darwin", "solaris":
-		default:
-			os.Setenv("CGO_ENABLED", "0")
-		}
-	}
 }
 
 func appendParameters(args []string, tags []string, pkgs ...string) []string {
@@ -736,12 +729,9 @@ func shouldBuildSyso(dir string) (string, error) {
 	sysoPath := filepath.Join(dir, "cmd", "syncthing", "resource.syso")
 
 	// See https://github.com/josephspurrier/goversioninfo#command-line-flags
-	armOption := ""
-	if strings.Contains(goarch, "arm") {
-		armOption = "-arm=true"
-	}
-
-	if _, err := runError("goversioninfo", "-o", sysoPath, armOption); err != nil {
+	arm := strings.HasPrefix(goarch, "arm")
+	a64 := strings.Contains(goarch, "64")
+	if _, err := runError("goversioninfo", "-o", sysoPath, fmt.Sprintf("-arm=%v", arm), fmt.Sprintf("-64=%v", a64)); err != nil {
 		return "", errors.New("failed to create " + sysoPath + ": " + err.Error())
 	}
 

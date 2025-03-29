@@ -22,6 +22,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"runtime/pprof"
 	"sort"
 	"strconv"
@@ -38,10 +39,10 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/cmd/syncthing/generate"
+	"github.com/syncthing/syncthing/internal/db"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -139,42 +140,41 @@ var entrypoint struct {
 // serveOptions are the options for the `syncthing serve` command.
 type serveOptions struct {
 	cmdutil.CommonOptions
-	AllowNewerConfig bool   `help:"Allow loading newer than current config version"`
-	Audit            bool   `help:"Write events to audit file"`
-	AuditFile        string `name:"auditfile" placeholder:"PATH" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)"`
-	BrowserOnly      bool   `help:"Open GUI in browser"`
-	DataDir          string `name:"data" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
-	DeviceID         bool   `help:"Show the device ID"`
-	GenerateDir      string `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"` // DEPRECATED: replaced by subcommand!
-	GUIAddress       string `name:"gui-address" placeholder:"URL" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")"`
-	GUIAPIKey        string `name:"gui-apikey" placeholder:"API-KEY" help:"Override GUI API key"`
-	LogFile          string `name:"logfile" default:"${logFile}" placeholder:"PATH" help:"Log file name (see below)"`
-	LogFlags         int    `name:"logflags" default:"${logFlags}" placeholder:"BITS" help:"Select information in log line prefix (see below)"`
-	LogMaxFiles      int    `placeholder:"N" default:"${logMaxFiles}" name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)"`
-	LogMaxSize       int    `placeholder:"BYTES" default:"${logMaxSize}" help:"Maximum size of any file (zero to disable log rotation)"`
-	NoBrowser        bool   `help:"Do not start browser"`
-	NoRestart        bool   `env:"STNORESTART" help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash"`
-	NoUpgrade        bool   `env:"STNOUPGRADE" help:"Disable automatic upgrades"`
-	Paths            bool   `help:"Show configuration paths"`
-	Paused           bool   `help:"Start with all devices and folders paused"`
-	Unpaused         bool   `help:"Start with all devices and folders unpaused"`
-	Upgrade          bool   `help:"Perform upgrade"`
-	UpgradeCheck     bool   `help:"Check for available upgrade"`
-	UpgradeTo        string `placeholder:"URL" help:"Force upgrade directly from specified URL"`
-	Verbose          bool   `help:"Print verbose log output"`
-	Version          bool   `help:"Show version"`
+	AllowNewerConfig      bool          `help:"Allow loading newer than current config version"`
+	Audit                 bool          `help:"Write events to audit file"`
+	AuditFile             string        `name:"auditfile" placeholder:"PATH" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)"`
+	BrowserOnly           bool          `help:"Open GUI in browser"`
+	DataDir               string        `name:"data" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
+	DeviceID              bool          `help:"Show the device ID"`
+	GenerateDir           string        `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"` // DEPRECATED: replaced by subcommand!
+	GUIAddress            string        `name:"gui-address" placeholder:"URL" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")"`
+	GUIAPIKey             string        `name:"gui-apikey" placeholder:"API-KEY" help:"Override GUI API key"`
+	LogFile               string        `name:"logfile" default:"${logFile}" placeholder:"PATH" help:"Log file name (see below)"`
+	LogFlags              int           `name:"logflags" default:"${logFlags}" placeholder:"BITS" help:"Select information in log line prefix (see below)"`
+	LogMaxFiles           int           `placeholder:"N" default:"${logMaxFiles}" name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)"`
+	LogMaxSize            int           `placeholder:"BYTES" default:"${logMaxSize}" help:"Maximum size of any file (zero to disable log rotation)"`
+	NoBrowser             bool          `help:"Do not start browser"`
+	NoRestart             bool          `env:"STNORESTART" help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash"`
+	NoUpgrade             bool          `env:"STNOUPGRADE" help:"Disable automatic upgrades"`
+	Paths                 bool          `help:"Show configuration paths"`
+	Paused                bool          `help:"Start with all devices and folders paused"`
+	Unpaused              bool          `help:"Start with all devices and folders unpaused"`
+	Upgrade               bool          `help:"Perform upgrade"`
+	UpgradeCheck          bool          `help:"Check for available upgrade"`
+	UpgradeTo             string        `placeholder:"URL" help:"Force upgrade directly from specified URL"`
+	Verbose               bool          `help:"Print verbose log output"`
+	Version               bool          `help:"Show version"`
+	DBMaintenanceInterval time.Duration `env:"STDBMAINTINTERVAL" help:"Database maintenance interval" default:"8h"`
 
 	// Debug options below
-	DebugDBIndirectGCInterval time.Duration `env:"STGCINDIRECTEVERY" help:"Database indirection GC interval"`
-	DebugDBRecheckInterval    time.Duration `env:"STRECHECKDBEVERY" help:"Database metadata recalculation interval"`
-	DebugGUIAssetsDir         string        `placeholder:"PATH" help:"Directory to load GUI assets from" env:"STGUIASSETS"`
-	DebugPerfStats            bool          `env:"STPERFSTATS" help:"Write running performance statistics to perf-$pid.csv (Unix only)"`
-	DebugProfileBlock         bool          `env:"STBLOCKPROFILE" help:"Write block profiles to block-$pid-$timestamp.pprof every 20 seconds"`
-	DebugProfileCPU           bool          `help:"Write a CPU profile to cpu-$pid.pprof on exit" env:"STCPUPROFILE"`
-	DebugProfileHeap          bool          `env:"STHEAPPROFILE" help:"Write heap profiles to heap-$pid-$timestamp.pprof each time heap usage increases"`
-	DebugProfilerListen       string        `placeholder:"ADDR" env:"STPROFILER" help:"Network profiler listen address"`
-	DebugResetDatabase        bool          `name:"reset-database" help:"Reset the database, forcing a full rescan and resync"`
-	DebugResetDeltaIdxs       bool          `name:"reset-deltas" help:"Reset delta index IDs, forcing a full index exchange"`
+	DebugGUIAssetsDir   string `placeholder:"PATH" help:"Directory to load GUI assets from" env:"STGUIASSETS"`
+	DebugPerfStats      bool   `env:"STPERFSTATS" help:"Write running performance statistics to perf-$pid.csv (Unix only)"`
+	DebugProfileBlock   bool   `env:"STBLOCKPROFILE" help:"Write block profiles to block-$pid-$timestamp.pprof every 20 seconds"`
+	DebugProfileCPU     bool   `help:"Write a CPU profile to cpu-$pid.pprof on exit" env:"STCPUPROFILE"`
+	DebugProfileHeap    bool   `env:"STHEAPPROFILE" help:"Write heap profiles to heap-$pid-$timestamp.pprof each time heap usage increases"`
+	DebugProfilerListen string `placeholder:"ADDR" env:"STPROFILER" help:"Network profiler listen address"`
+	DebugResetDatabase  bool   `name:"reset-database" help:"Reset the database, forcing a full rescan and resync"`
+	DebugResetDeltaIdxs bool   `name:"reset-deltas" help:"Reset delta index IDs, forcing a full index exchange"`
 
 	// Internal options, not shown to users
 	InternalRestarting   bool `env:"STRESTART" hidden:"1"`
@@ -592,8 +592,12 @@ func syncthingMain(options serveOptions) {
 		})
 	}
 
-	dbFile := locations.Get(locations.Database)
-	ldb, err := syncthing.OpenDBBackend(dbFile, cfgWrapper.Options().DatabaseTuning)
+	if err := syncthing.TryMigrateDatabase(); err != nil {
+		l.Warnln("Failed to migrate old-style database:", err)
+		os.Exit(1)
+	}
+
+	sdb, err := syncthing.OpenDatabase(locations.Get(locations.Database))
 	if err != nil {
 		l.Warnln("Error opening database:", err)
 		os.Exit(1)
@@ -602,11 +606,11 @@ func syncthingMain(options serveOptions) {
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial
 	// upgrade immediately. The auto-upgrade routine can only be started
 	// later after App is initialised.
-
 	autoUpgradePossible := autoUpgradePossible(options)
 	if autoUpgradePossible && cfgWrapper.Options().AutoUpgradeEnabled() {
 		// try to do upgrade directly and log the error if relevant.
-		release, err := initialAutoUpgradeCheck(db.NewMiscDataNamespace(ldb))
+		miscDB := db.NewMiscDB(sdb)
+		release, err := initialAutoUpgradeCheck(miscDB)
 		if err == nil {
 			err = upgrade.To(release)
 		}
@@ -617,7 +621,7 @@ func syncthingMain(options serveOptions) {
 				l.Infoln("Initial automatic upgrade:", err)
 			}
 		} else {
-			l.Infof("Upgraded to %q, exiting now.", release.Tag)
+			l.Infof("Upgraded to %q, should exit now.", release.Tag)
 			os.Exit(svcutil.ExitUpgrade.AsInt())
 		}
 	}
@@ -629,24 +633,17 @@ func syncthingMain(options serveOptions) {
 	}
 
 	appOpts := syncthing.Options{
-		NoUpgrade:            options.NoUpgrade,
-		ProfilerAddr:         options.DebugProfilerListen,
-		ResetDeltaIdxs:       options.DebugResetDeltaIdxs,
-		Verbose:              options.Verbose,
-		DBRecheckInterval:    options.DebugDBRecheckInterval,
-		DBIndirectGCInterval: options.DebugDBIndirectGCInterval,
+		NoUpgrade:             options.NoUpgrade,
+		ProfilerAddr:          options.DebugProfilerListen,
+		ResetDeltaIdxs:        options.DebugResetDeltaIdxs,
+		Verbose:               options.Verbose,
+		DBMaintenanceInterval: options.DBMaintenanceInterval,
 	}
 	if options.Audit {
 		appOpts.AuditWriter = auditWriter(options.AuditFile)
 	}
-	if dur, err := time.ParseDuration(os.Getenv("STRECHECKDBEVERY")); err == nil {
-		appOpts.DBRecheckInterval = dur
-	}
-	if dur, err := time.ParseDuration(os.Getenv("STGCINDIRECTEVERY")); err == nil {
-		appOpts.DBIndirectGCInterval = dur
-	}
 
-	app, err := syncthing.New(cfgWrapper, ldb, evLogger, cert, appOpts)
+	app, err := syncthing.New(cfgWrapper, sdb, evLogger, cert, appOpts)
 	if err != nil {
 		l.Warnln("Failed to start Syncthing:", err)
 		os.Exit(svcutil.ExitError.AsInt())
@@ -692,6 +689,7 @@ func syncthingMain(options serveOptions) {
 		pprof.StopCPUProfile()
 	}
 
+	runtime.KeepAlive(lf) // ensure lock is still held to this point
 	os.Exit(int(status))
 }
 
@@ -833,7 +831,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 	}
 }
 
-func initialAutoUpgradeCheck(misc *db.NamespacedKV) (upgrade.Release, error) {
+func initialAutoUpgradeCheck(misc *db.Typed) (upgrade.Release, error) {
 	if last, ok, err := misc.Time(upgradeCheckKey); err == nil && ok && time.Since(last) < upgradeCheckInterval {
 		return upgrade.Release{}, errTooEarlyUpgradeCheck
 	}

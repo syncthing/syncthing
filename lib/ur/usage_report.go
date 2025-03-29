@@ -22,10 +22,10 @@ import (
 	"time"
 
 	"github.com/shirou/gopsutil/v4/process"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -41,7 +41,7 @@ const Version = 3
 var StartTime = time.Now().Truncate(time.Second)
 
 type Model interface {
-	DBSnapshot(folder string) (*db.Snapshot, error)
+	GlobalSize(folder string) (db.Counts, error)
 	UsageReportingStats(report *contract.Report, version int, preview bool)
 }
 
@@ -83,12 +83,10 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 	var totFiles, maxFiles int
 	var totBytes, maxBytes int64
 	for folderID := range s.cfg.Folders() {
-		snap, err := s.model.DBSnapshot(folderID)
+		global, err := s.model.GlobalSize(folderID)
 		if err != nil {
-			continue
+			return nil, err
 		}
-		global := snap.GlobalSize()
-		snap.Release()
 		totFiles += int(global.Files)
 		totBytes += global.Bytes
 		if int(global.Files) > maxFiles {
