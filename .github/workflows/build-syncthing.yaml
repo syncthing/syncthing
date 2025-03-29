@@ -164,9 +164,10 @@ jobs:
       - name: Create packages
         run: |
           for tgt in syncthing stdiscosrv strelaysrv ; do
-            go run build.go -goos windows -goarch amd64 -cc "zig cc -target x86_64-windows" zip $tgt
-            go run build.go -goos windows -goarch 386 -cc "zig cc -target x86-windows" zip $tgt
-            go run build.go -goos windows -goarch arm64 -cc "zig cc -target aarch64-windows" zip $tgt
+            go run build.go -tags sqlite_omit_load_extension -goos windows -goarch amd64 -cc "zig cc -target x86_64-windows" zip $tgt
+            go run build.go -tags sqlite_omit_load_extension -goos windows -goarch 386 -cc "zig cc -target x86-windows" zip $tgt
+            go run build.go -tags sqlite_omit_load_extension -goos windows -goarch arm64 -cc "zig cc -target aarch64-windows" zip $tgt
+            # go run build.go -tags sqlite_omit_load_extension -goos windows -goarch arm -cc "zig cc -target thumb-windows" zip $tgt # failes with linker errors
           done
         env:
           CGO_ENABLED: "1"
@@ -278,8 +279,8 @@ jobs:
             go run build.go -tags sqlite_omit_load_extension -goos linux -goarch riscv64 -cc "zig cc -target riscv64-linux-musl" tar "$tgt"
             go run build.go -tags sqlite_omit_load_extension -goos linux -goarch s390x -cc "zig cc -target s390x-linux-musl" tar "$tgt"
             go run build.go -tags sqlite_omit_load_extension -goos linux -goarch loong64 -cc "zig cc -target loongarch64-linux-musl" tar "$tgt"
-            # go run build.go -goos linux -goarch ppc64 -cc "zig cc -target powerpc64-linux-musl" tar "$tgt" linkmode not supported
-            go run build.go -goos linux -goarch ppc64le -cc "zig cc -target powerpc64le-linux-musl" tar "$tgt"
+            # go run build.go -tags sqlite_omit_load_extension -goos linux -goarch ppc64 -cc "zig cc -target powerpc64-linux-musl" tar "$tgt" # fails with linkmode not supported
+            go run build.go -tags sqlite_omit_load_extension -goos linux -goarch ppc64le -cc "zig cc -target powerpc64le-linux-musl" tar "$tgt"
           done
         env:
           CGO_ENABLED: "1"
@@ -357,7 +358,7 @@ jobs:
       - name: Create package (amd64)
         run: |
           for tgt in syncthing stdiscosrv strelaysrv ; do
-            go run build.go -goarch amd64 zip "$tgt"
+            go run build.go -tags sqlite_omit_load_extension -goarch amd64 zip "$tgt"
           done
         env:
           CGO_ENABLED: "1"
@@ -373,7 +374,7 @@ jobs:
           EOT
           chmod 755 xgo.sh
           for tgt in syncthing stdiscosrv strelaysrv ; do
-            go run build.go -gocmd ./xgo.sh -goarch arm64 zip "$tgt"
+            go run build.go -tags sqlite_omit_load_extension -gocmd ./xgo.sh -goarch arm64 zip "$tgt"
           done
         env:
           CGO_ENABLED: "1"

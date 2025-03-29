@@ -46,6 +46,9 @@ var (
 		"STNORESTART",
 		"STNOUPGRADE",
 	}
+	replaceTags = map[string]string{
+		"sqlite_omit_load_extension": "",
+	}
 )
 
 const versionExtraAllowedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-. "
@@ -113,7 +116,21 @@ func TagsList() []string {
 	}
 	tags = append(tags, extraTags...)
 
+	// Replace any tag values we want to have more user friendly versions,
+	// or be removed
+	for i, tag := range tags {
+		if repl, ok := replaceTags[tag]; ok {
+			tags[i] = repl
+		}
+	}
+
 	sort.Strings(tags)
+
+	// Remove any empty tags, which will be at the front of the list now
+	for len(tags) > 0 && tags[0] == "" {
+		tags = tags[1:]
+	}
+
 	return tags
 }
 
