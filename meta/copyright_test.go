@@ -19,7 +19,8 @@ import (
 
 // File extensions to check
 var copyrightCheckExts = map[string]bool{
-	".go": true,
+	".go":  true,
+	".sql": true,
 }
 
 // Directories to search
