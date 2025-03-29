@@ -26,7 +26,6 @@ import (
 	"runtime/pprof"
 	"sort"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -130,51 +129,54 @@ var (
 // commands and options here are top level commands to syncthing.
 // Cli is just a placeholder for the help text (see main).
 var entrypoint struct {
-	Serve              serveOptions                 `cmd:"" help:"Run Syncthing"`
-	Generate           generate.CLI                 `cmd:"" help:"Generate key and config, then exit"`
-	Decrypt            decrypt.CLI                  `cmd:"" help:"Decrypt or verify an encrypted folder"`
-	Cli                cli.CLI                      `cmd:"" help:"Command line interface for Syncthing"`
+	Serve serveOptions `cmd:"" help:"Run Syncthing (default)" default:"withargs"`
+	CLI   cli.CLI      `cmd:"" help:"Command line interface for Syncthing"`
+
+	Browser  browserCmd   `cmd:"" help:"Open GUI in browser, then exit"`
+	Decrypt  decrypt.CLI  `cmd:"" help:"Decrypt or verify an encrypted folder"`
+	DeviceID deviceIDCmd  `cmd:"" help:"Show device ID, then exit"`
+	Generate generate.CLI `cmd:"" help:"Generate key and config, then exit"`
+	Paths    pathsCmd     `cmd:"" help:"Show configuration paths, then exit"`
+	Upgrade  upgradeCmd   `cmd:"" help:"Perform or check for upgrade, then exit"`
+	Version  versionCmd   `cmd:"" help:"Show current version, then exit"`
+	Debug    debugCmd     `cmd:"" help:"Various debugging commands"`
+
 	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Print commands to install shell completions"`
 }
 
 // serveOptions are the options for the `syncthing serve` command.
 type serveOptions struct {
-	cmdutil.CommonOptions
-	AllowNewerConfig      bool          `help:"Allow loading newer than current config version"`
-	Audit                 bool          `help:"Write events to audit file"`
-	AuditFile             string        `name:"auditfile" placeholder:"PATH" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)"`
-	BrowserOnly           bool          `help:"Open GUI in browser"`
-	DataDir               string        `name:"data" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
-	DeviceID              bool          `help:"Show the device ID"`
-	GenerateDir           string        `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"` // DEPRECATED: replaced by subcommand!
-	GUIAddress            string        `name:"gui-address" placeholder:"URL" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")"`
-	GUIAPIKey             string        `name:"gui-apikey" placeholder:"API-KEY" help:"Override GUI API key"`
-	LogFile               string        `name:"logfile" default:"${logFile}" placeholder:"PATH" help:"Log file name (see below)"`
-	LogFlags              int           `name:"logflags" default:"${logFlags}" placeholder:"BITS" help:"Select information in log line prefix (see below)"`
-	LogMaxFiles           int           `placeholder:"N" default:"${logMaxFiles}" name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)"`
-	LogMaxSize            int           `placeholder:"BYTES" default:"${logMaxSize}" help:"Maximum size of any file (zero to disable log rotation)"`
-	NoBrowser             bool          `help:"Do not start browser"`
-	NoRestart             bool          `env:"STNORESTART" help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash"`
-	NoUpgrade             bool          `env:"STNOUPGRADE" help:"Disable automatic upgrades"`
-	Paths                 bool          `help:"Show configuration paths"`
-	Paused                bool          `help:"Start with all devices and folders paused"`
-	Unpaused              bool          `help:"Start with all devices and folders unpaused"`
-	Upgrade               bool          `help:"Perform upgrade"`
-	UpgradeCheck          bool          `help:"Check for available upgrade"`
-	UpgradeTo             string        `placeholder:"URL" help:"Force upgrade directly from specified URL"`
-	Verbose               bool          `help:"Print verbose log output"`
-	Version               bool          `help:"Show version"`
-	DBMaintenanceInterval time.Duration `env:"STDBMAINTINTERVAL" help:"Database maintenance interval" default:"8h"`
+	cmdutil.DirOptions
+	cmdutil.BuildSpecificOptions
+
+	AllowNewerConfig      bool          `help:"Allow loading newer than current config version" env:"STALLOWNEWERCONFIG"`
+	Audit                 bool          `help:"Write events to audit file" env:"STAUDIT"`
+	AuditFile             string        `name:"auditfile" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)" placeholder:"PATH" env:"STAUDITFILE"`
+	DBMaintenanceInterval time.Duration `help:"Database maintenance interval" default:"8h" env:"STDBMAINTINTERVAL"`
+	GUIAddress            string        `name:"gui-address" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")" placeholder:"URL" env:"STGUIADDRESS"`
+	GUIAPIKey             string        `name:"gui-apikey" help:"Override GUI API key" placeholder:"API-KEY" env:"STGUIAPIKEY"`
+	HideConsole           bool          `name:"no-console" help:"Hide console window" env:"STHIDECONSOLE"`
+	LogFile               string        `name:"logfile" help:"Log file name (see below)" default:"${logFile}" placeholder:"PATH" env:"STLOGFILE"`
+	LogFlags              int           `name:"logflags" help:"Select information in log line prefix (see below)" default:"${logFlags}" placeholder:"BITS" env:"STLOGFLAGS"`
+	LogMaxFiles           int           `name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)" default:"${logMaxFiles}" placeholder:"N" env:"STNUMLOGFILES"`
+	LogMaxSize            int           `help:"Maximum size of any file (zero to disable log rotation)" default:"${logMaxSize}" placeholder:"BYTES" env:"STLOGMAXSIZE"`
+	NoBrowser             bool          `help:"Do not start browser" env:"STNOBROWSER"`
+	NoDefaultFolder       bool          `help:"Don't create the \"default\" folder on first startup" env:"STNODEFAULTFOLDER"`
+	NoPortProbing         bool          `help:"Don't try to find free ports for GUI and listen addresses on first startup" env:"STNOPORTPROBING"`
+	NoRestart             bool          `help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash" env:"STNORESTART"`
+	NoUpgrade             bool          `help:"Disable automatic upgrades" env:"STNOUPGRADE"`
+	Paused                bool          `help:"Start with all devices and folders paused" env:"STPAUSED"`
+	Unpaused              bool          `help:"Start with all devices and folders unpaused" env:"STUNPAUSED"`
+	Verbose               bool          `help:"Print verbose log output" env:"STVERBOSE"`
 
 	// Debug options below
-	DebugGUIAssetsDir   string `placeholder:"PATH" help:"Directory to load GUI assets from" env:"STGUIASSETS"`
-	DebugPerfStats      bool   `env:"STPERFSTATS" help:"Write running performance statistics to perf-$pid.csv (Unix only)"`
-	DebugProfileBlock   bool   `env:"STBLOCKPROFILE" help:"Write block profiles to block-$pid-$timestamp.pprof every 20 seconds"`
+	DebugGUIAssetsDir   string `help:"Directory to load GUI assets from" placeholder:"PATH" env:"STGUIASSETS"`
+	DebugPerfStats      bool   `help:"Write running performance statistics to perf-$pid.csv (Unix only)" env:"STPERFSTATS"`
+	DebugProfileBlock   bool   `help:"Write block profiles to block-$pid-$timestamp.pprof every 20 seconds" env:"STBLOCKPROFILE"`
 	DebugProfileCPU     bool   `help:"Write a CPU profile to cpu-$pid.pprof on exit" env:"STCPUPROFILE"`
-	DebugProfileHeap    bool   `env:"STHEAPPROFILE" help:"Write heap profiles to heap-$pid-$timestamp.pprof each time heap usage increases"`
-	DebugProfilerListen string `placeholder:"ADDR" env:"STPROFILER" help:"Network profiler listen address"`
-	DebugResetDatabase  bool   `name:"reset-database" help:"Reset the database, forcing a full rescan and resync"`
-	DebugResetDeltaIdxs bool   `name:"reset-deltas" help:"Reset delta index IDs, forcing a full index exchange"`
+	DebugProfileHeap    bool   `help:"Write heap profiles to heap-$pid-$timestamp.pprof each time heap usage increases" env:"STHEAPPROFILE"`
+	DebugProfilerListen string `help:"Network profiler listen address" placeholder:"ADDR" env:"STPROFILER" `
+	DebugResetDeltaIdxs bool   `help:"Reset delta index IDs, forcing a full index exchange"`
 
 	// Internal options, not shown to users
 	InternalRestarting   bool `env:"STRESTART" hidden:"1"`
@@ -206,29 +208,6 @@ func defaultVars() kong.Vars {
 }
 
 func main() {
-	// First some massaging of the raw command line to fit the new model.
-	// Basically this means adding the default command at the front, and
-	// converting -options to --options.
-
-	args := os.Args[1:]
-	switch {
-	case len(args) == 0:
-		// Empty command line is equivalent to just calling serve
-		args = []string{"serve"}
-	case args[0] == "-help":
-		// For consistency, we consider this equivalent with --help even
-		// though kong would otherwise consider it a bad flag.
-		args[0] = "--help"
-	case args[0] == "-h", args[0] == "--help":
-		// Top level request for help, let it pass as-is to be handled by
-		// kong to list commands.
-	case strings.HasPrefix(args[0], "-"):
-		// There are flags not preceded by a command, so we tack on the
-		// "serve" command and convert the old style arguments (single dash)
-		// to new style (double dash).
-		args = append([]string{"serve"}, convertLegacyArgs(args)...)
-	}
-
 	// Create a parser with an overridden help function to print our extra
 	// help info.
 	parser, err := kong.New(
@@ -245,7 +224,7 @@ func main() {
 	}
 
 	kongplete.Complete(parser)
-	ctx, err := parser.Parse(args)
+	ctx, err := parser.Parse(os.Args[1:])
 	parser.FatalIfErrorf(err)
 	ctx.BindTo(l, (*logger.Logger)(nil)) // main logger available to subcommands
 	err = ctx.Run()
@@ -309,99 +288,10 @@ func (options serveOptions) Run() error {
 		}
 	}
 
-	if options.Version {
-		fmt.Println(build.LongVersion)
-		return nil
-	}
-
-	if options.Paths {
-		fmt.Print(locations.PrettyPaths())
-		return nil
-	}
-
-	if options.DeviceID {
-		cert, err := tls.LoadX509KeyPair(
-			locations.Get(locations.CertFile),
-			locations.Get(locations.KeyFile),
-		)
-		if err != nil {
-			l.Warnln("Error reading device ID:", err)
-			os.Exit(svcutil.ExitError.AsInt())
-		}
-
-		fmt.Println(protocol.NewDeviceID(cert.Certificate[0]))
-		return nil
-	}
-
-	if options.BrowserOnly {
-		if err := openGUI(); err != nil {
-			l.Warnln("Failed to open web UI:", err)
-			os.Exit(svcutil.ExitError.AsInt())
-		}
-		return nil
-	}
-
-	if options.GenerateDir != "" {
-		if err := generate.Generate(l, options.GenerateDir, "", "", options.NoDefaultFolder, options.SkipPortProbing); err != nil {
-			l.Warnln("Failed to generate config and keys:", err)
-			os.Exit(svcutil.ExitError.AsInt())
-		}
-		return nil
-	}
-
 	// Ensure that our home directory exists.
 	if err := syncthing.EnsureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0o700); err != nil {
 		l.Warnln("Failure on home directory:", err)
 		os.Exit(svcutil.ExitError.AsInt())
-	}
-
-	if options.UpgradeTo != "" {
-		err := upgrade.ToURL(options.UpgradeTo)
-		if err != nil {
-			l.Warnln("Error while Upgrading:", err)
-			os.Exit(svcutil.ExitError.AsInt())
-		}
-		l.Infoln("Upgraded from", options.UpgradeTo)
-		return nil
-	}
-
-	if options.UpgradeCheck {
-		if _, err := checkUpgrade(); err != nil {
-			l.Warnln("Checking for upgrade:", err)
-			os.Exit(exitCodeForUpgrade(err))
-		}
-		return nil
-	}
-
-	if options.Upgrade {
-		release, err := checkUpgrade()
-		if err == nil {
-			lf := flock.New(locations.Get(locations.CertFile))
-			locked, err := lf.TryLock()
-			if err != nil {
-				l.Warnln("Upgrade:", err)
-				os.Exit(1)
-			} else if locked {
-				err = upgradeViaRest()
-			} else {
-				err = upgrade.To(release)
-			}
-		}
-		if err != nil {
-			l.Warnln("Upgrade:", err)
-			os.Exit(exitCodeForUpgrade(err))
-		}
-		l.Infof("Upgraded to %q", release.Tag)
-		os.Exit(svcutil.ExitUpgrade.AsInt())
-	}
-
-	if options.DebugResetDatabase {
-		if err := resetDB(); err != nil {
-			l.Warnln("Resetting database:", err)
-			os.Exit(svcutil.ExitError.AsInt())
-		}
-		l.Infoln("Successfully reset database - it will be rebuilt after next start.")
-		return nil
 	}
 
 	if options.InternalInnerProcess {
@@ -568,7 +458,7 @@ func syncthingMain(options serveOptions) {
 	evLogger := events.NewLogger()
 	earlyService.Add(evLogger)
 
-	cfgWrapper, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, options.AllowNewerConfig, options.NoDefaultFolder, options.SkipPortProbing)
+	cfgWrapper, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, options.AllowNewerConfig, options.NoDefaultFolder, options.NoPortProbing)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
 		os.Exit(svcutil.ExitError.AsInt())
@@ -937,4 +827,105 @@ func convertLegacyArgs(args []string) []string {
 	}
 
 	return res
+}
+
+type versionCmd struct{}
+
+func (versionCmd) Run() error {
+	fmt.Println(build.LongVersion)
+	return nil
+}
+
+type deviceIDCmd struct{}
+
+func (deviceIDCmd) Run() error {
+	cert, err := tls.LoadX509KeyPair(
+		locations.Get(locations.CertFile),
+		locations.Get(locations.KeyFile),
+	)
+	if err != nil {
+		l.Warnln("Error reading device ID:", err)
+		os.Exit(svcutil.ExitError.AsInt())
+	}
+
+	fmt.Println(protocol.NewDeviceID(cert.Certificate[0]))
+	return nil
+}
+
+type pathsCmd struct{}
+
+func (pathsCmd) Run() error {
+	fmt.Print(locations.PrettyPaths())
+	return nil
+}
+
+type upgradeCmd struct {
+	CheckOnly bool   `short:"c" help:"Check for available upgrade, then exit"`
+	From      string `short:"u" placeholder:"URL" help:"Force upgrade directly from specified URL"`
+}
+
+func (u upgradeCmd) Run() error {
+	if u.CheckOnly {
+		if _, err := checkUpgrade(); err != nil {
+			l.Warnln("Checking for upgrade:", err)
+			os.Exit(exitCodeForUpgrade(err))
+		}
+		return nil
+	}
+
+	if u.From != "" {
+		err := upgrade.ToURL(u.From)
+		if err != nil {
+			l.Warnln("Error while Upgrading:", err)
+			os.Exit(svcutil.ExitError.AsInt())
+		}
+		l.Infoln("Upgraded from", u.From)
+		return nil
+	}
+
+	release, err := checkUpgrade()
+	if err == nil {
+		lf := flock.New(locations.Get(locations.CertFile))
+		locked, err := lf.TryLock()
+		if err != nil {
+			l.Warnln("Upgrade:", err)
+			os.Exit(1)
+		} else if locked {
+			err = upgradeViaRest()
+		} else {
+			err = upgrade.To(release)
+		}
+	}
+	if err != nil {
+		l.Warnln("Upgrade:", err)
+		os.Exit(exitCodeForUpgrade(err))
+	}
+	l.Infof("Upgraded to %q", release.Tag)
+	os.Exit(svcutil.ExitUpgrade.AsInt())
+	return nil
+}
+
+type browserCmd struct{}
+
+func (browserCmd) Run() error {
+	if err := openGUI(); err != nil {
+		l.Warnln("Failed to open web UI:", err)
+		os.Exit(svcutil.ExitError.AsInt())
+	}
+	return nil
+}
+
+type debugCmd struct {
+	ResetDatabase resetDatabaseCmd `cmd:"" help:"Reset the database, forcing a full rescan and resync"`
+}
+
+type resetDatabaseCmd struct{}
+
+func (resetDatabaseCmd) Run() error {
+	if err := resetDB(); err != nil {
+		l.Warnln("Resetting database:", err)
+		os.Exit(svcutil.ExitError.AsInt())
+	}
+	l.Infoln("Successfully reset database - it will be rebuilt after next start.")
+	return nil
 }

@@ -6,11 +6,9 @@
 
 package cmdutil
 
-// CommonOptions are reused among several subcommands
-type CommonOptions struct {
-	buildCommonOptions
-	ConfDir         string `name:"config" placeholder:"PATH" env:"STCONFDIR" help:"Set configuration directory (config and keys)"`
-	HomeDir         string `name:"home" placeholder:"PATH" env:"STHOMEDIR" help:"Set configuration and data directory"`
-	NoDefaultFolder bool   `env:"STNODEFAULTFOLDER" help:"Don't create the \"default\" folder on first startup"`
-	SkipPortProbing bool   `help:"Don't try to find free ports for GUI and listen addresses on first startup"`
+// DirOptions are reused among several subcommands
+type DirOptions struct {
+	ConfDir string `name:"config" short:"C" placeholder:"PATH" env:"STCONFDIR" help:"Set configuration directory (config and keys)"`
+	HomeDir string `name:"home" short:"H" placeholder:"PATH" env:"STHOMEDIR" help:"Set configuration and data directory"`
+	DataDir string `name:"data" short:"D" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
 }

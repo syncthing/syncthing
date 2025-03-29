@@ -21,22 +21,19 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/logger"
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/syncthing"
 )
 
 type CLI struct {
-	cmdutil.CommonOptions
-	GUIUser     string `placeholder:"STRING" help:"Specify new GUI authentication user name"`
-	GUIPassword string `placeholder:"STRING" help:"Specify new GUI authentication password (use - to read from standard input)"`
+	cmdutil.DirOptions
+	GUIUser         string `placeholder:"STRING" help:"Specify new GUI authentication user name"`
+	GUIPassword     string `placeholder:"STRING" help:"Specify new GUI authentication password (use - to read from standard input)"`
+	NoDefaultFolder bool   `help:"Don't create the \"default\" folder on first startup" env:"STNODEFAULTFOLDER"`
+	NoPortProbing   bool   `help:"Don't try to find free ports for GUI and listen addresses on first startup" env:"STNOPORTPROBING"`
 }
 
 func (c *CLI) Run(l logger.Logger) error {
-	if c.HideConsole {
-		osutil.HideConsole()
-	}
-
 	if c.HomeDir != "" {
 		if c.ConfDir != "" {
 			return errors.New("--home must not be used together with --config")
@@ -57,7 +54,7 @@ func (c *CLI) Run(l logger.Logger) error {
 		c.GUIPassword = string(password)
 	}
 
-	if err := Generate(l, c.ConfDir, c.GUIUser, c.GUIPassword, c.NoDefaultFolder, c.SkipPortProbing); err != nil {
+	if err := Generate(l, c.ConfDir, c.GUIUser, c.GUIPassword, c.NoDefaultFolder, c.NoPortProbing); err != nil {
 		return fmt.Errorf("failed to generate config and keys: %w", err)
 	}
 	return nil

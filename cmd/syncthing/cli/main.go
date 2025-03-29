@@ -19,8 +19,8 @@ import (
 )
 
 type CLI struct {
-	cmdutil.CommonOptions
-	DataDir    string `name:"data" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
+	cmdutil.DirOptions
+
 	GUIAddress string `name:"gui-address"`
 	GUIAPIKey  string `name:"gui-apikey"`
 

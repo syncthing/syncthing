@@ -9,6 +9,6 @@
 
 package cmdutil
 
-type buildCommonOptions struct {
+type BuildSpecificOptions struct {
 	HideConsole bool `hidden:""`
 }
