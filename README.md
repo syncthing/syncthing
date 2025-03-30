@@ -25,7 +25,7 @@ Default Thingium QUICK/TCP listen port: [::]:22002
 - Sharding of files using ignore pattern based on hashed filename
 - TCP port tunneling through synchting network
 
-## Followig is original Syncthing Readme
+## Following is original Syncthing Readme
 
 ## Goals
 
