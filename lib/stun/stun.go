@@ -40,7 +40,7 @@ const (
 	NATSymmetricUDPFirewall = stun.NATSymmetricUDPFirewall
 )
 
-var errNotPuncheable = errors.New("not puncheable")
+var errNotPunchable = errors.New("not punchable")
 
 type Subscriber interface {
 	OnNATTypeChanged(natType NATType)
@@ -116,7 +116,7 @@ func (s *Service) Serve(ctx context.Context) error {
 		for _, addr := range s.cfg.Options().StunServers() {
 			// This blocks until we hit an exit condition or there are
 			// issues with the STUN server.
-			if err := s.runStunForServer(ctx, addr); errors.Is(err, errNotPuncheable) {
+			if err := s.runStunForServer(ctx, addr); errors.Is(err, errNotPunchable) {
 				break // we will sleep for a while
 			}
 
@@ -184,7 +184,7 @@ func (s *Service) runStunForServer(ctx context.Context, addr string) error {
 	// and such, just let the caller check the nat type and work it out themselves.
 	if !s.isCurrentNATTypePunchable() {
 		l.Debugf("%s cannot punch %s, skipping", s, natType)
-		return errNotPuncheable
+		return errNotPunchable
 	}
 
 	s.setExternalAddress(extAddr, addr)
