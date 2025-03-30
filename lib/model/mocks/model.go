@@ -3401,4 +3401,8 @@ func (fake *Model) recordInvocation(key string, args []interface{}) {
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
+func (fake *Model) TunnelStatus() []map[string]interface{} {
+	return nil
+}
+
 var _ model.Model = new(Model)

@@ -20,7 +20,7 @@ import (
 
 type GUIConfiguration struct {
 	Enabled                   bool     `json:"enabled" xml:"enabled,attr" default:"true"`
-	RawAddress                string   `json:"address" xml:"address" default:"127.0.0.1:8384"`
+	RawAddress                string   `json:"address" xml:"address" default:"127.0.0.1:8386"`
 	RawUnixSocketPermissions  string   `json:"unixSocketPermissions" xml:"unixSocketPermissions,omitempty"`
 	User                      string   `json:"user" xml:"user,omitempty"`
 	Password                  string   `json:"password" xml:"password,omitempty"`
