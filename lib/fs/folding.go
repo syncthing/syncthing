@@ -28,12 +28,11 @@ func UnicodeLowercaseNormalized(s string) string {
 
 func isASCII(s string) (bool, bool) {
 	isLower := true
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c > unicode.MaxASCII {
+	for _, b := range []byte(s) {
+		if b > unicode.MaxASCII {
 			return false, isLower
 		}
-		if 'A' <= c && c <= 'Z' {
+		if 'A' <= b && b <= 'Z' {
 			isLower = false
 		}
 	}
@@ -46,8 +45,7 @@ func toLowerASCII(s string) string {
 		pos int
 	)
 	b.Grow(len(s))
-	for i := 0; i < len(s); i++ {
-		c := s[i]
+	for i, c := range []byte(s) {
 		if c < 'A' || 'Z' < c {
 			continue
 		}
@@ -55,8 +53,7 @@ func toLowerASCII(s string) string {
 			b.WriteString(s[pos:i])
 		}
 		pos = i + 1
-		c += 'a' - 'A'
-		b.WriteByte(c)
+		b.WriteByte(c + 'a' - 'A')
 	}
 	if pos != len(s) {
 		b.WriteString(s[pos:])
