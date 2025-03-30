@@ -71,7 +71,7 @@ var (
 
 	// DefaultPrimaryStunServers are servers provided by us (to avoid causing the public servers burden)
 	DefaultPrimaryStunServers = []string{
-		// Discontinued because of misuse. See https://forum.syncthing.net/t/stun-server-misuse/23319?u=marbens
+		// Discontinued because of misuse. See https://forum.syncthing.net/t/stun-server-misuse/23319
 		//"stun.syncthing.net:3478",
 	}
 	DefaultSecondaryStunServers = []string{
