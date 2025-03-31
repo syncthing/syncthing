@@ -147,7 +147,7 @@ var entrypoint struct {
 // serveOptions are the options for the `syncthing serve` command.
 type serveOptions struct {
 	cmdutil.DirOptions
-	cmdutil.BuildSpecificOptions
+	buildSpecificOptions
 
 	AllowNewerConfig      bool          `help:"Allow loading newer than current config version" env:"STALLOWNEWERCONFIG"`
 	Audit                 bool          `help:"Write events to audit file" env:"STAUDIT"`
