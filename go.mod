@@ -2,6 +2,8 @@ module github.com/syncthing/syncthing
 
 go 1.23.0
 
+toolchain go1.24.1
+
 require (
 	github.com/AudriusButkevicius/recli v0.0.7-0.20220911121932-d000ce8fbf0f
 	github.com/alecthomas/kong v1.9.0
@@ -46,7 +48,7 @@ require (
 	golang.org/x/text v0.23.0
 	golang.org/x/time v0.11.0
 	golang.org/x/tools v0.31.0
-	google.golang.org/protobuf v1.36.5
+	google.golang.org/protobuf v1.36.6
 	sigs.k8s.io/yaml v1.4.0
 )
 
