@@ -2,6 +2,8 @@ module github.com/syncthing/syncthing
 
 go 1.23.0
 
+toolchain go1.24.1
+
 require (
 	github.com/AudriusButkevicius/recli v0.0.7-0.20220911121932-d000ce8fbf0f
 	github.com/alecthomas/kong v1.9.0
@@ -41,7 +43,7 @@ require (
 	github.com/willabides/kongplete v0.4.0
 	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/crypto v0.36.0
-	golang.org/x/net v0.37.0
+	golang.org/x/net v0.38.0
 	golang.org/x/sys v0.31.0
 	golang.org/x/text v0.23.0
 	golang.org/x/time v0.11.0
