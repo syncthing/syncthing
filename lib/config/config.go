@@ -71,22 +71,19 @@ var (
 
 	// DefaultPrimaryStunServers are servers provided by us (to avoid causing the public servers burden)
 	DefaultPrimaryStunServers = []string{
-		"stun.syncthing.net:3478",
+		// Discontinued because of misuse. See https://forum.syncthing.net/t/stun-server-misuse/23319
+		//"stun.syncthing.net:3478",
 	}
 	DefaultSecondaryStunServers = []string{
-		"stun.callwithus.com:3478",
 		"stun.counterpath.com:3478",
 		"stun.counterpath.net:3478",
 		"stun.ekiga.net:3478",
 		"stun.hitv.com:3478",
-		"stun.ideasip.com:3478",
 		"stun.internetcalls.com:3478",
 		"stun.miwifi.com:3478",
 		"stun.schlund.de:3478",
-		"stun.sipgate.net:10000",
 		"stun.sipgate.net:3478",
 		"stun.voip.aebc.com:3478",
-		"stun.voiparound.com:3478",
 		"stun.voipbuster.com:3478",
 		"stun.voipstunt.com:3478",
 		"stun.xten.com:3478",

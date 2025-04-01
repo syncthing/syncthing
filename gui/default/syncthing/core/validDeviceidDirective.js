@@ -5,18 +5,12 @@ angular.module('syncthing.core')
             link: function (scope, elm, attrs, ctrl) {
                 ctrl.$parsers.unshift(function (viewValue) {
                     $http.get(urlbase + '/svc/deviceid?id=' + viewValue).success(function (resp) {
-                        if (resp.error) {
-                            ctrl.$setValidity('validDeviceid', false);
-                        } else {
-                            ctrl.$setValidity('validDeviceid', true);
-                        }
+                        let isValid = !resp.error;
+                        let isUnique = !isValid || !scope.devices.hasOwnProperty(resp.id);
+
+                        ctrl.$setValidity('validDeviceid', isValid);
+                        ctrl.$setValidity('unique', isUnique);
                     });
-                    //Prevents user from adding a duplicate ID
-                    if (scope.devices.hasOwnProperty(viewValue)) {
-                        ctrl.$setValidity('unique', false);
-                    } else {
-                        ctrl.$setValidity('unique', true);
-                    }
                     return viewValue;
                 });
             }
