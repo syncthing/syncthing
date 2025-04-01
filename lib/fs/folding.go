@@ -9,6 +9,7 @@ package fs
 import (
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
 )
@@ -62,19 +63,40 @@ func toLowerASCII(s string) string {
 }
 
 func toLowerUnicode(s string) string {
-	s = strings.Map(toLower, s)
-	return norm.NFC.String(s)
+	i := firstCaseChange(s)
+	if i == -1 {
+		return norm.NFC.String(s)
+	}
+
+	var rs strings.Builder
+	// WriteRune always reserves utf8.UTFMax bytes for non-ASCII runes,
+	// even if it doesn't need all that space. Overallocate now to prevent
+	// it from ever triggering a reallocation.
+	rs.Grow(utf8.UTFMax - 1 + len(s))
+	rs.WriteString(s[:i])
+
+	for _, r := range s[i:] {
+		if r <= unicode.MaxLatin1 && r != 'µ' {
+			rs.WriteRune(unicode.ToLower(r))
+		} else {
+			rs.WriteRune(unicode.To(unicode.LowerCase, unicode.To(unicode.UpperCase, r)))
+		}
+	}
+	return norm.NFC.String(rs.String())
 }
 
-func toLower(r rune) rune {
-	if r <= unicode.MaxASCII {
-		if r < 'A' || 'Z' < r {
-			return r
+// Byte index of the first rune r s.t. lower(upper(r)) != r.
+func firstCaseChange(s string) int {
+	for i, r := range s {
+		if r <= unicode.MaxASCII {
+			if r < 'A' || r > 'Z' {
+				continue
+			}
+			return i
 		}
-		return r + 'a' - 'A'
+		if unicode.To(unicode.LowerCase, unicode.To(unicode.UpperCase, r)) != r {
+			return i
+		}
 	}
-	if r <= unicode.MaxLatin1 && r != 'µ' {
-		return unicode.To(unicode.LowerCase, r)
-	}
-	return unicode.To(unicode.LowerCase, unicode.To(unicode.UpperCase, r))
+	return -1
 }
