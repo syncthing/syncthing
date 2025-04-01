@@ -2,6 +2,8 @@ module github.com/syncthing/syncthing
 
 go 1.23.0
 
+toolchain go1.24.1
+
 require (
 	github.com/AudriusButkevicius/recli v0.0.7-0.20220911121932-d000ce8fbf0f
 	github.com/alecthomas/kong v1.9.0
@@ -32,7 +34,7 @@ require (
 	github.com/quic-go/quic-go v0.50.0
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
-	github.com/shirou/gopsutil/v4 v4.25.2
+	github.com/shirou/gopsutil/v4 v4.25.3
 	github.com/syncthing/notify v0.0.0-20250207082249-f0fa8f99c2bc
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d
 	github.com/thejerf/suture/v4 v4.0.6
