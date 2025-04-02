@@ -155,7 +155,6 @@ type serveOptions struct {
 	DBMaintenanceInterval time.Duration `help:"Database maintenance interval" default:"8h" env:"STDBMAINTINTERVAL"`
 	GUIAddress            string        `name:"gui-address" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")" placeholder:"URL" env:"STGUIADDRESS"`
 	GUIAPIKey             string        `name:"gui-apikey" help:"Override GUI API key" placeholder:"API-KEY" env:"STGUIAPIKEY"`
-	HideConsole           bool          `name:"no-console" help:"Hide console window" env:"STHIDECONSOLE"`
 	LogFile               string        `name:"logfile" help:"Log file name (see below)" default:"${logFile}" placeholder:"PATH" env:"STLOGFILE"`
 	LogFlags              int           `name:"logflags" help:"Select information in log line prefix (see below)" default:"${logFlags}" placeholder:"BITS" env:"STLOGFLAGS"`
 	LogMaxFiles           int           `name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)" default:"${logMaxFiles}" placeholder:"N" env:"STNUMLOGFILES"`
