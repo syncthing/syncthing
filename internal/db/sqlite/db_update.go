@@ -578,7 +578,15 @@ func (s *DB) periodicCheckpoint(fs []protocol.FileInfo) {
 	}
 	if s.updatePoints > updatePointsThreshold {
 		l.Debugln("checkpoint at", s.updatePoints)
-		if _, err := s.sql.Exec(`PRAGMA wal_checkpoint(RESTART)`); err != nil {
+		conn, err := s.sql.Conn(context.Background())
+		if err != nil {
+			l.Debugln("conn:", err)
+		}
+		defer conn.Close()
+		if _, err := conn.ExecContext(context.Background(), `PRAGMA journal_size_limit = 67108864`); err != nil {
+			l.Debugln("PRAGMA journal_size_limit(RESTART):", err)
+		}
+		if _, err := conn.ExecContext(context.Background(), `PRAGMA wal_checkpoint(RESTART)`); err != nil {
 			l.Debugln("PRAGMA wal_checkpoint(RESTART):", err)
 		}
 		s.updatePoints = 0
