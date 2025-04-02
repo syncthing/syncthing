@@ -147,6 +147,12 @@ type CLI struct {
 	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Print commands to install shell completions"`
 }
 
+func (c *CLI) AfterApply() error {
+	// Executed after parsing command line options but before running actual
+	// subcommands
+	return setConfigDataLocationsFromFlags(c.HomeDir, c.ConfDir, c.DataDir)
+}
+
 // serveCmd are the options for the `syncthing serve` command.
 type serveCmd struct {
 	buildSpecificOptions
@@ -182,12 +188,6 @@ type serveCmd struct {
 	// Internal options, not shown to users
 	InternalRestarting   bool `env:"STRESTART" hidden:"1"`
 	InternalInnerProcess bool `env:"STMONITORED" hidden:"1"`
-}
-
-func (e *CLI) AfterApply() error {
-	// Executed after parsing command line options but before running actual
-	// commands
-	return setConfigDataLocationsFromFlags(e.HomeDir, e.ConfDir, e.DataDir)
 }
 
 func defaultVars() kong.Vars {
