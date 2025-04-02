@@ -315,9 +315,9 @@ func (*DB) insertBlocksLocked(tx *txPreparedStmts, blocklistHash []byte, blocks 
 	// error. Chunk it to a reasonable size.
 	for chunk := range slices.Chunk(bs, 1000) {
 		if _, err := tx.NamedExec(`
-		INSERT OR IGNORE INTO blocks (hash, blocklist_hash, idx, offset, size)
-		VALUES (:hash, :blocklist_hash, :idx, :offset, :size)
-	`, chunk); err != nil {
+			INSERT OR IGNORE INTO blocks (hash, blocklist_hash, idx, offset, size)
+			VALUES (:hash, :blocklist_hash, :idx, :offset, :size)
+		`, chunk); err != nil {
 			return wrap(err)
 		}
 	}
