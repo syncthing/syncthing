@@ -96,7 +96,7 @@ func (s *Service) periodic(ctx context.Context) error {
 
 func (s *Service) garbageCollectOldDeletedLocked() error {
 	// Remove deleted files that are marked as not needed (we have processed
-	// them) and they were deleted more than deletedAgeCutoff ago.
+	// them) and they were deleted more than MaxDeletedFileAge ago.
 	res, err := s.sdb.stmt(`
 		DELETE FROM files
 		WHERE deleted AND modified < ? AND local_flags & {{.FlagLocalNeeded}} == 0
