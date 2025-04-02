@@ -154,7 +154,7 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 		return wrap(err)
 	}
 
-	s.periodicCheckpoint(fs)
+	s.periodicCheckpointLocked(fs)
 	return nil
 }
 
@@ -567,7 +567,7 @@ func (e fileRow) Compare(other fileRow) int {
 	}
 }
 
-func (s *DB) periodicCheckpoint(fs []protocol.FileInfo) {
+func (s *DB) periodicCheckpointLocked(fs []protocol.FileInfo) {
 	// Induce periodic checkpoints. We add points for each file and block,
 	// and checkpoint when we've written more than a threshold of points.
 	// This ensures we do not go too long without a checkpoint, while also
