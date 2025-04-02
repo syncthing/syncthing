@@ -1068,7 +1068,7 @@ func TestInsertLargeFile(t *testing.T) {
 		}
 	})
 
-	// Add a large files (many blocks)
+	// Add a large file (many blocks)
 
 	files := []protocol.FileInfo{genFile("test1", 16000, 1)}
 	if err := sdb.Update(folderID, protocol.LocalDeviceID, files); err != nil {
