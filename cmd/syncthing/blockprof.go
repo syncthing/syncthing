@@ -24,7 +24,7 @@ func startBlockProfiler() {
 	slog.Debug("Starting block profiling")
 	go func() {
 		err := saveBlockingProfiles(profiler) // Only returns on error
-		slog.Warn("Block profiler failed", "error", err)
+		slog.Error("Block profiler failed", "error", err)
 		panic("Block profiler failed")
 	}()
 }

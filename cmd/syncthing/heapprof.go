@@ -20,7 +20,7 @@ func startHeapProfiler() {
 	slog.Debug("Starting heap profiling")
 	go func() {
 		err := saveHeapProfiles(1) // Only returns on error
-		slog.Warn("Heap profiler failed", "error", err)
+		slog.Error("Heap profiler failed", "error", err)
 		panic("Heap profiler failed")
 	}()
 }

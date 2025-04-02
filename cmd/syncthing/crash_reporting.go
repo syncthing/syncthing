@@ -34,7 +34,7 @@ const (
 func uploadPanicLogs(ctx context.Context, urlBase, dir string) {
 	files, err := filepath.Glob(filepath.Join(dir, "panic-*.log"))
 	if err != nil {
-		slog.Warn("Failed to list panic logs", "error", err)
+		slog.Error("Failed to list panic logs", "error", err)
 		return
 	}
 
@@ -47,7 +47,7 @@ func uploadPanicLogs(ctx context.Context, urlBase, dir string) {
 		}
 
 		if err := uploadPanicLog(ctx, urlBase, file); err != nil {
-			slog.Warn("Reporting crash", "error", err)
+			slog.Error("Reporting crash", "error", err)
 		} else {
 			// Rename the log so we don't have to try to report it again. This
 			// succeeds, or it does not. There is no point complaining about it.

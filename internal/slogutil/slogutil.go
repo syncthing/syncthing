@@ -40,17 +40,8 @@ func (h DecoratingHandler) Handle(ctx context.Context, r slog.Record) error {
 			caller = funcNameToPkg(fram.Function)
 		}
 	}
-	if h.json {
+	if caller != "" {
 		r.AddAttrs(slog.String("caller", caller))
-	} else if caller != "" {
-		r.Message = caller + ": " + r.Message
-	}
-
-	// Add a colon if there will be attributes printed after the message.
-	// This depends on this being the outermost handler, so that all attrs
-	// are known at this point.
-	if !h.json && r.NumAttrs() > 0 {
-		r.Message += ":"
 	}
 
 	return h.Handler.Handle(ctx, r)
@@ -58,7 +49,7 @@ func (h DecoratingHandler) Handle(ctx context.Context, r slog.Record) error {
 
 func funcNameToPkg(fn string) string {
 	fn = strings.ToLower(fn)
-	fn = strings.TrimPrefix(fn, "safe-sky.dev/sync/internal/")
+	fn = strings.TrimPrefix(fn, "github.com/syncthing/syncthing/")
 
 	pkgTypFn := strings.Split(fn, ".") // [package, type, method] or [package, function]
 	if len(pkgTypFn) <= 2 {

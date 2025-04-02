@@ -540,7 +540,7 @@ func maybeReportPanics() {
 	// Try to get a config to see if/where panics should be reported.
 	cfg, err := loadOrDefaultConfig()
 	if err != nil {
-		slog.Warn("Couldn't load config; not reporting crash")
+		slog.Error("Couldn't load config; not reporting crash")
 		return
 	}
 
@@ -560,7 +560,7 @@ func maybeReportPanics() {
 		case <-ctx.Done():
 			return
 		case <-time.After(panicUploadNoticeWait):
-			slog.Warn("Uploading crash reports is taking a while, please wait...")
+			slog.Error("Uploading crash reports is taking a while, please wait...")
 		}
 	}()
 
