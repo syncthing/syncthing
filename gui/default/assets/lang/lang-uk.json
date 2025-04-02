@@ -154,7 +154,7 @@
     "Failed Items": "Невдалі",
     "Failed to load file versions.": "Не вдалося завантажити версії файлів.",
     "Failed to load ignore patterns.": "Не вдалося завантажити шаблони ігнорування.",
-    "Failed to setup, retrying": "Не вдалося налаштувати, повторна спроба",
+    "Failed to set up, retrying": "Не вдалося налаштувати, повторна спроба",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "За відсутності з'єднання IPv6 очікується неможливість під'єднання до серверів IPv6.",
     "File Pull Order": "Порядок витягнення файлів",
     "File Versioning": "Версіонування файлів",
