@@ -23,6 +23,13 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const (
+	// Arbitrarily chosen values for checkpoint frequency....
+	updatePointsPerFile   = 100
+	updatePointsPerBlock  = 1
+	updatePointsThreshold = 250_000
+)
+
 func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
@@ -143,7 +150,12 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 		}
 	}
 
-	return wrap(tx.Commit())
+	if err := tx.Commit(); err != nil {
+		return wrap(err)
+	}
+
+	s.periodicCheckpointLocked(fs)
+	return nil
 }
 
 func (s *DB) DropFolder(folder string) error {
@@ -552,5 +564,32 @@ func (e fileRow) Compare(other fileRow) int {
 		return 1 // they win
 	default:
 		return 0
+	}
+}
+
+func (s *DB) periodicCheckpointLocked(fs []protocol.FileInfo) {
+	// Induce periodic checkpoints. We add points for each file and block,
+	// and checkpoint when we've written more than a threshold of points.
+	// This ensures we do not go too long without a checkpoint, while also
+	// not doing it incessantly for every update.
+	s.updatePoints += updatePointsPerFile * len(fs)
+	for _, f := range fs {
+		s.updatePoints += len(f.Blocks) * updatePointsPerBlock
+	}
+	if s.updatePoints > updatePointsThreshold {
+		l.Debugln("checkpoint at", s.updatePoints)
+		conn, err := s.sql.Conn(context.Background())
+		if err != nil {
+			l.Debugln("conn:", err)
+			return
+		}
+		defer conn.Close()
+		if _, err := conn.ExecContext(context.Background(), `PRAGMA journal_size_limit = 67108864`); err != nil {
+			l.Debugln("PRAGMA journal_size_limit(RESTART):", err)
+		}
+		if _, err := conn.ExecContext(context.Background(), `PRAGMA wal_checkpoint(RESTART)`); err != nil {
+			l.Debugln("PRAGMA wal_checkpoint(RESTART):", err)
+		}
+		s.updatePoints = 0
 	}
 }

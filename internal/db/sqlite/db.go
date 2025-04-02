@@ -20,6 +20,7 @@ type DB struct {
 	sql            *sqlx.DB
 	localDeviceIdx int64
 	updateLock     sync.Mutex
+	updatePoints   int
 
 	statementsMut sync.RWMutex
 	statements    map[string]*sqlx.Stmt

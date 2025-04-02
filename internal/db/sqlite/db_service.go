@@ -86,10 +86,16 @@ func (s *Service) periodic(ctx context.Context) error {
 		return wrap(err)
 	}
 
-	_, _ = s.sdb.sql.ExecContext(ctx, `ANALYZE`)
-	_, _ = s.sdb.sql.ExecContext(ctx, `PRAGMA optimize`)
-	_, _ = s.sdb.sql.ExecContext(ctx, `PRAGMA incremental_vacuum`)
-	_, _ = s.sdb.sql.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)
+	conn, err := s.sdb.sql.Conn(ctx)
+	if err != nil {
+		return wrap(err)
+	}
+	defer conn.Close()
+	_, _ = conn.ExecContext(ctx, `ANALYZE`)
+	_, _ = conn.ExecContext(ctx, `PRAGMA optimize`)
+	_, _ = conn.ExecContext(ctx, `PRAGMA incremental_vacuum`)
+	_, _ = conn.ExecContext(ctx, `PRAGMA journal_size_limit = 67108864`)
+	_, _ = conn.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)
 
 	return nil
 }
