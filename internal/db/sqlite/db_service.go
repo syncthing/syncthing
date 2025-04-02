@@ -8,6 +8,7 @@ package sqlite
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
@@ -16,12 +17,17 @@ import (
 const (
 	internalMetaPrefix = "dbsvc"
 	lastMaintKey       = "lastMaint"
+	MaxDeletedFileAge  = 180 * 24 * time.Hour
 )
 
 type Service struct {
 	sdb                 *DB
 	maintenanceInterval time.Duration
 	internalMeta        *db.Typed
+}
+
+func (s *Service) String() string {
+	return fmt.Sprintf("sqlite.service@%p", s)
 }
 
 func newService(sdb *DB, maintenanceInterval time.Duration) *Service {
@@ -73,6 +79,9 @@ func (s *Service) periodic(ctx context.Context) error {
 	t1 := time.Now()
 	defer func() { l.Debugln("Periodic done in", time.Since(t1), "+", t1.Sub(t0)) }()
 
+	if err := s.garbageCollectOldDeletedLocked(); err != nil {
+		return wrap(err)
+	}
 	if err := s.garbageCollectBlocklistsAndBlocksLocked(ctx); err != nil {
 		return wrap(err)
 	}
@@ -82,6 +91,22 @@ func (s *Service) periodic(ctx context.Context) error {
 	_, _ = s.sdb.sql.ExecContext(ctx, `PRAGMA incremental_vacuum`)
 	_, _ = s.sdb.sql.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)
 
+	return nil
+}
+
+func (s *Service) garbageCollectOldDeletedLocked() error {
+	// Remove deleted files that are marked as not needed (we have processed
+	// them) and they were deleted more than deletedAgeCutoff ago.
+	res, err := s.sdb.stmt(`
+		DELETE FROM files
+		WHERE deleted AND modified < ? AND local_flags & {{.FlagLocalNeeded}} == 0
+	`).Exec(time.Now().Add(-MaxDeletedFileAge).UnixNano())
+	if err != nil {
+		return wrap(err)
+	}
+	if aff, err := res.RowsAffected(); err == nil {
+		l.Debugln("Removed old deleted file records:", aff)
+	}
 	return nil
 }
 

@@ -251,6 +251,11 @@ func TryMigrateDatabase() error {
 			return err
 		}
 		_ = snap.WithHaveSequence(0, func(fi protocol.FileInfo) bool {
+			if fi.Deleted && time.Since(fi.ModTime()) > sqlite.MaxDeletedFileAge {
+				// Skip deleted files that match the garbage collection
+				// criteria in the database
+				return true
+			}
 			fis <- fi
 			return true
 		})
