@@ -581,6 +581,7 @@ func (s *DB) periodicCheckpoint(fs []protocol.FileInfo) {
 		conn, err := s.sql.Conn(context.Background())
 		if err != nil {
 			l.Debugln("conn:", err)
+			return
 		}
 		defer conn.Close()
 		if _, err := conn.ExecContext(context.Background(), `PRAGMA journal_size_limit = 67108864`); err != nil {
