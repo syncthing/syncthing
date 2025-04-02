@@ -35,7 +35,6 @@ import (
 	"github.com/willabides/kongplete"
 
 	"github.com/syncthing/syncthing/cmd/syncthing/cli"
-	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/cmd/syncthing/generate"
 	"github.com/syncthing/syncthing/internal/db"
@@ -128,9 +127,13 @@ var (
 // The entrypoint struct is the main entry point for the command line parser. The
 // commands and options here are top level commands to syncthing.
 // Cli is just a placeholder for the help text (see main).
-var entrypoint struct {
-	Serve serveOptions `cmd:"" help:"Run Syncthing (default)" default:"withargs"`
-	CLI   cli.CLI      `cmd:"" help:"Command line interface for Syncthing"`
+type CLI struct {
+	ConfDir string `name:"config" short:"C" placeholder:"PATH" env:"STCONFDIR" help:"Set configuration directory (config and keys)"`
+	DataDir string `name:"data" short:"D" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
+	HomeDir string `name:"home" short:"H" placeholder:"PATH" env:"STHOMEDIR" help:"Set configuration and data directory"`
+
+	Serve serveCmd `cmd:"" help:"Run Syncthing (default)" default:"withargs"`
+	CLI   cli.CLI  `cmd:"" help:"Command line interface for Syncthing"`
 
 	Browser  browserCmd   `cmd:"" help:"Open GUI in browser, then exit"`
 	Decrypt  decrypt.CLI  `cmd:"" help:"Decrypt or verify an encrypted folder"`
@@ -144,9 +147,8 @@ var entrypoint struct {
 	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Print commands to install shell completions"`
 }
 
-// serveOptions are the options for the `syncthing serve` command.
-type serveOptions struct {
-	cmdutil.DirOptions
+// serveCmd are the options for the `syncthing serve` command.
+type serveCmd struct {
 	buildSpecificOptions
 
 	AllowNewerConfig      bool          `help:"Allow loading newer than current config version" env:"STALLOWNEWERCONFIG"`
@@ -182,6 +184,12 @@ type serveOptions struct {
 	InternalInnerProcess bool `env:"STMONITORED" hidden:"1"`
 }
 
+func (e *CLI) AfterApply() error {
+	// Executed after parsing command line options but before running actual
+	// commands
+	return setConfigDataLocationsFromFlags(e.HomeDir, e.ConfDir, e.DataDir)
+}
+
 func defaultVars() kong.Vars {
 	vars := kong.Vars{}
 
@@ -209,6 +217,7 @@ func defaultVars() kong.Vars {
 func main() {
 	// Create a parser with an overridden help function to print our extra
 	// help info.
+	var entrypoint CLI
 	parser, err := kong.New(
 		&entrypoint,
 		kong.ConfigureHelp(kong.HelpOptions{
@@ -242,46 +251,39 @@ func helpHandler(options kong.HelpOptions, ctx *kong.Context) error {
 	return nil
 }
 
-// serveOptions.Run() is the entrypoint for `syncthing serve`
-func (options serveOptions) Run() error {
-	l.SetFlags(options.LogFlags)
+// serveCmd.Run() is the entrypoint for `syncthing serve`
+func (c *serveCmd) Run() error {
+	l.SetFlags(c.LogFlags)
 
-	if options.GUIAddress != "" {
+	if c.GUIAddress != "" {
 		// The config picks this up from the environment.
-		os.Setenv("STGUIADDRESS", options.GUIAddress)
+		os.Setenv("STGUIADDRESS", c.GUIAddress)
 	}
-	if options.GUIAPIKey != "" {
+	if c.GUIAPIKey != "" {
 		// The config picks this up from the environment.
-		os.Setenv("STGUIAPIKEY", options.GUIAPIKey)
+		os.Setenv("STGUIAPIKEY", c.GUIAPIKey)
 	}
 
-	if options.HideConsole {
+	if c.HideConsole {
 		osutil.HideConsole()
 	}
 
-	// Not set as default above because the strings can be really long.
-	err := cmdutil.SetConfigDataLocationsFromFlags(options.HomeDir, options.ConfDir, options.DataDir)
-	if err != nil {
-		l.Warnln("Command line options:", err)
-		os.Exit(svcutil.ExitError.AsInt())
-	}
-
 	// Treat an explicitly empty log file name as no log file
-	if options.LogFile == "" {
-		options.LogFile = "-"
+	if c.LogFile == "" {
+		c.LogFile = "-"
 	}
-	if options.LogFile != "default" {
+	if c.LogFile != "default" {
 		// We must set this *after* expandLocations above.
-		if err := locations.Set(locations.LogFile, options.LogFile); err != nil {
+		if err := locations.Set(locations.LogFile, c.LogFile); err != nil {
 			l.Warnln("Setting log file path:", err)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 	}
 
-	if options.DebugGUIAssetsDir != "" {
+	if c.DebugGUIAssetsDir != "" {
 		// The asset dir is blank if STGUIASSETS wasn't set, in which case we
 		// should look for extra assets in the default place.
-		if err := locations.Set(locations.GUIAssets, options.DebugGUIAssetsDir); err != nil {
+		if err := locations.Set(locations.GUIAssets, c.DebugGUIAssetsDir); err != nil {
 			l.Warnln("Setting GUI assets path:", err)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
@@ -293,10 +295,10 @@ func (options serveOptions) Run() error {
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 
-	if options.InternalInnerProcess {
-		syncthingMain(options)
+	if c.InternalInnerProcess {
+		c.syncthingMain()
 	} else {
-		monitorMain(options)
+		c.monitorMain()
 	}
 	return nil
 }
@@ -405,14 +407,14 @@ func upgradeViaRest() error {
 	return err
 }
 
-func syncthingMain(options serveOptions) {
-	if options.DebugProfileBlock {
+func (c *serveCmd) syncthingMain() {
+	if c.DebugProfileBlock {
 		startBlockProfiler()
 	}
-	if options.DebugProfileHeap {
+	if c.DebugProfileHeap {
 		startHeapProfiler()
 	}
-	if options.DebugPerfStats {
+	if c.DebugPerfStats {
 		startPerfStats()
 	}
 
@@ -457,7 +459,7 @@ func syncthingMain(options serveOptions) {
 	evLogger := events.NewLogger()
 	earlyService.Add(evLogger)
 
-	cfgWrapper, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, options.AllowNewerConfig, options.NoDefaultFolder, options.NoPortProbing)
+	cfgWrapper, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, c.AllowNewerConfig, c.NoDefaultFolder, c.NoPortProbing)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
 		os.Exit(svcutil.ExitError.AsInt())
@@ -468,7 +470,7 @@ func syncthingMain(options serveOptions) {
 	// unless we are in a build where it's disabled or the STNOUPGRADE
 	// environment variable is set.
 
-	if build.IsCandidate && !upgrade.DisabledByCompilation && !options.NoUpgrade {
+	if build.IsCandidate && !upgrade.DisabledByCompilation && !c.NoUpgrade {
 		cfgWrapper.Modify(func(cfg *config.Configuration) {
 			l.Infoln("Automatic upgrade is always enabled for candidate releases.")
 			if cfg.Options.AutoUpgradeIntervalH == 0 || cfg.Options.AutoUpgradeIntervalH > 24 {
@@ -495,7 +497,7 @@ func syncthingMain(options serveOptions) {
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial
 	// upgrade immediately. The auto-upgrade routine can only be started
 	// later after App is initialised.
-	autoUpgradePossible := autoUpgradePossible(options)
+	autoUpgradePossible := c.autoUpgradePossible()
 	if autoUpgradePossible && cfgWrapper.Options().AutoUpgradeEnabled() {
 		// try to do upgrade directly and log the error if relevant.
 		miscDB := db.NewMiscDB(sdb)
@@ -515,21 +517,21 @@ func syncthingMain(options serveOptions) {
 		}
 	}
 
-	if options.Unpaused {
+	if c.Unpaused {
 		setPauseState(cfgWrapper, false)
-	} else if options.Paused {
+	} else if c.Paused {
 		setPauseState(cfgWrapper, true)
 	}
 
 	appOpts := syncthing.Options{
-		NoUpgrade:             options.NoUpgrade,
-		ProfilerAddr:          options.DebugProfilerListen,
-		ResetDeltaIdxs:        options.DebugResetDeltaIdxs,
-		Verbose:               options.Verbose,
-		DBMaintenanceInterval: options.DBMaintenanceInterval,
+		NoUpgrade:             c.NoUpgrade,
+		ProfilerAddr:          c.DebugProfilerListen,
+		ResetDeltaIdxs:        c.DebugResetDeltaIdxs,
+		Verbose:               c.Verbose,
+		DBMaintenanceInterval: c.DBMaintenanceInterval,
 	}
-	if options.Audit {
-		appOpts.AuditWriter = auditWriter(options.AuditFile)
+	if c.Audit {
+		appOpts.AuditWriter = auditWriter(c.AuditFile)
 	}
 
 	app, err := syncthing.New(cfgWrapper, sdb, evLogger, cert, appOpts)
@@ -544,7 +546,7 @@ func syncthingMain(options serveOptions) {
 
 	setupSignalHandling(app)
 
-	if options.DebugProfileCPU {
+	if c.DebugProfileCPU {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
 			l.Warnln("Creating profile:", err)
@@ -562,7 +564,7 @@ func syncthingMain(options serveOptions) {
 
 	cleanConfigDirectory()
 
-	if cfgWrapper.Options().StartBrowser && !options.NoBrowser && !options.InternalRestarting {
+	if cfgWrapper.Options().StartBrowser && !c.NoBrowser && !c.InternalRestarting {
 		// Can potentially block if the utility we are invoking doesn't
 		// fork, and just execs, hence keep it in its own routine.
 		go func() { _ = openURL(cfgWrapper.GUI().URL()) }()
@@ -574,7 +576,7 @@ func syncthingMain(options serveOptions) {
 		l.Warnln("Syncthing stopped with error:", app.Error())
 	}
 
-	if options.DebugProfileCPU {
+	if c.DebugProfileCPU {
 		pprof.StopCPUProfile()
 	}
 
@@ -652,11 +654,11 @@ func resetDB() error {
 	return os.RemoveAll(locations.Get(locations.Database))
 }
 
-func autoUpgradePossible(options serveOptions) bool {
+func (c *serveCmd) autoUpgradePossible() bool {
 	if upgrade.DisabledByCompilation {
 		return false
 	}
-	if options.NoUpgrade {
+	if c.NoUpgrade {
 		l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
 		return false
 	}
@@ -926,5 +928,27 @@ func (resetDatabaseCmd) Run() error {
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 	l.Infoln("Successfully reset database - it will be rebuilt after next start.")
+	return nil
+}
+
+func setConfigDataLocationsFromFlags(homeDir, confDir, dataDir string) error {
+	homeSet := homeDir != ""
+	confSet := confDir != ""
+	dataSet := dataDir != ""
+	switch {
+	case dataSet != confSet:
+		return errors.New("either both or none of --config and --data must be given, use --home to set both at once")
+	case homeSet && dataSet:
+		return errors.New("--home must not be used together with --config and --data")
+	case homeSet:
+		confDir = homeDir
+		dataDir = homeDir
+		fallthrough
+	case dataSet:
+		if err := locations.SetBaseDir(locations.ConfigBaseDir, confDir); err != nil {
+			return err
+		}
+		return locations.SetBaseDir(locations.DataBaseDir, dataDir)
+	}
 	return nil
 }
