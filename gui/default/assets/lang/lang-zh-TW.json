@@ -154,7 +154,7 @@
     "Failed Items": "失敗的項目",
     "Failed to load file versions.": "無法載入檔案版本。",
     "Failed to load ignore patterns.": "無法載入忽略模式。",
-    "Failed to setup, retrying": "無法設定，正在重試",
+    "Failed to set up, retrying": "無法設定，正在重試",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "若沒有 IPv6 連線能力，則無法連接 IPv6 伺服器為正常現象。",
     "File Pull Order": "提取檔案的順序",
     "File Versioning": "檔案版本控制",

@@ -154,7 +154,7 @@
     "Failed Items": "Nezdařené položky",
     "Failed to load file versions.": "Nepodařilo se nahrát verze souboru.",
     "Failed to load ignore patterns.": "Načtení vzorů ignorovaného se nezdařilo.",
-    "Failed to setup, retrying": "Nastavování se nezdařilo, zkouší se znovu",
+    "Failed to set up, retrying": "Nastavování se nezdařilo, zkouší se znovu",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Je v pořádku, když se připojení k IPv6 serverům nezdaří, pokud není k dispozici IPv6 konektivita.",
     "File Pull Order": "Pořadí stahování souborů",
     "File Versioning": "Správa verzí souborů",

@@ -130,7 +130,7 @@
     "External File Versioning": "Fitxategi bertsioen kanpoko kudeaketa",
     "Failed Items": "Huts egin duten fitxategiak",
     "Failed to load ignore patterns.": "Huts egin du baztertze ereduak kargatzean.",
-    "Failed to setup, retrying": "Konfigurazioan huts egitea, berriro saiatuz",
+    "Failed to set up, retrying": "Konfigurazioan huts egitea, berriro saiatuz",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "IPv6 zerbitzariei buruzko konexioak huts eginen du, IPv6 konektibitaterik ez bada",
     "File Pull Order": "Fitxategiak berreskuratzeko ordena",
     "File Versioning": "Fitxategiak zaintzeko metodoa",

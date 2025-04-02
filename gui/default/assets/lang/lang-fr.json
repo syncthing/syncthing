@@ -156,7 +156,7 @@
     "Failed Items": "Éléments en échec",
     "Failed to load file versions.": "Échec de chargement des versions de fichiers.",
     "Failed to load ignore patterns.": "Échec du chargement des masques d'exclusions.",
-    "Failed to setup, retrying": "Échec, nouvel essai",
+    "Failed to set up, retrying": "Échec, nouvel essai",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "La connexion aux serveurs en IPv6 va échouer s'il n'y a pas de connectivité IPv6.",
     "File Pull Order": "Ordre de récupération des fichiers",
     "File Versioning": "Préservation des fichiers",

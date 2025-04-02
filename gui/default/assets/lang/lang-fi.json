@@ -122,7 +122,7 @@
     "External": "Ulkoinen",
     "External File Versioning": "Ulkoinen tiedostoversionti",
     "Failed Items": "Epäonnistuneet kohteet",
-    "Failed to setup, retrying": "Käyttöönotto epäonnistui, Yritetään uudelleen",
+    "Failed to set up, retrying": "Käyttöönotto epäonnistui, Yritetään uudelleen",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Yhteys IPv6-palvelimiin todennäköisesti epäonnistuu, koska IPv6-yhteyksiä ei ole.",
     "File Pull Order": "Tiedostojen noutojärjestys",
     "File Versioning": "Tiedostoversiointi",
