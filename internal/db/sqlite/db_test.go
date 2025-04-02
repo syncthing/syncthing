@@ -1055,6 +1055,39 @@ func TestBlocklistGarbageCollection(t *testing.T) {
 	}
 }
 
+func TestInsertLargeFile(t *testing.T) {
+	t.Parallel()
+
+	sdb, err := OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := sdb.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// Add a large files (many blocks)
+
+	files := []protocol.FileInfo{genFile("test1", 16000, 1)}
+	if err := sdb.Update(folderID, protocol.LocalDeviceID, files); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify all the blocks are here
+
+	for i, block := range files[0].Blocks {
+		bs, err := itererr.Collect(sdb.AllLocalBlocksWithHash(block.Hash))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(bs) == 0 {
+			t.Error("missing blocks for", i)
+		}
+	}
+}
+
 func TestErrorWrap(t *testing.T) {
 	if wrap(nil, "foo") != nil {
 		t.Fatal("nil should wrap to nil")
