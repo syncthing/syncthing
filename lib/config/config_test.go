@@ -111,6 +111,7 @@ func TestDefaultValues(t *testing.T) {
 				AutoNormalize:    true,
 				MinDiskFree:      size,
 				Versioning: VersioningConfiguration{
+					FSType:           FilesystemTypeBasic,
 					CleanupIntervalS: 3600,
 					Params:           map[string]string{},
 				},
@@ -518,7 +519,8 @@ func TestIssue1750(t *testing.T) {
 
 func TestFolderPath(t *testing.T) {
 	folder := FolderConfiguration{
-		Path: "~/tmp",
+		FilesystemType: FilesystemTypeBasic,
+		Path:           "~/tmp",
 	}
 
 	realPath := folder.Filesystem().URI()
