@@ -8,6 +8,7 @@ package config
 
 import (
 	"fmt"
+	"maps"
 	"net"
 	"runtime"
 	"slices"
@@ -188,7 +189,6 @@ func (opts OptionsConfiguration) StunServers() []string {
 		case "default":
 			_, records, err := net.LookupSRV("stun", "udp", "syncthing.net")
 			if err == nil {
-				var priorities []uint16
 				priorityMap := make(map[uint16][]string)
 				for _, record := range records {
 					var priority = record.Priority
@@ -198,12 +198,10 @@ func (opts OptionsConfiguration) StunServers() []string {
 						priorityMap[priority] = append(priorityGroup, address)
 					} else {
 						priorityMap[priority] = []string{address}
-						priorities = append(priorities, priority)
 					}
 				}
-				slices.Sort(priorities)
-				for _, priority := range priorities {
-					var priorityGroup = priorityMap[priority]
+				for _, prio := range slices.Sorted(maps.Keys(priorityMap)) {
+					var priorityGroup = priorityMap[prio]
 					rand.Shuffle(priorityGroup)
 					addresses = append(addresses, priorityGroup...)
 				}
