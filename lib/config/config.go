@@ -68,7 +68,8 @@ var (
 	DefaultTheme = "default"
 	// Default stun servers should be substituted when the configuration
 	// contains <stunServer>default</stunServer>.
-
+	// The primary stun servers are provided by us and are resolved via an SRV record
+	// The fallback stun servers are used if the primary ones can't be resolved or are down.
 	FallbackStunServers = []string{
 		"stun.counterpath.com:3478",
 		"stun.counterpath.net:3478",
