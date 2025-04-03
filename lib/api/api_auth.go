@@ -27,15 +27,25 @@ const (
 	randomTokenLength  = 64
 )
 
-func emitLoginAttempt(success bool, username, address string, evLogger events.Logger) {
+func emitLoginAttempt(success bool, username string, r *http.Request, evLogger events.Logger) {
 	evLogger.Log(events.LoginAttempt, map[string]interface{}{
 		"success":       success,
 		"username":      username,
-		"remoteAddress": address,
+		"remoteAddress": r.RemoteAddr,
 	})
-	if !success {
-		l.Infof("Wrong credentials supplied during API authorization from %s", address)
+	if success {
+		return
 	}
+
+	var clientIP string
+	for _, ip := range strings.Split(r.Header.Get("X-Forwarded-For"), ",") {
+		clientIP = strings.TrimSpace(ip)
+		break
+	}
+	if clientIP != "" {
+		l.Infof("Wrong credentials supplied during API authorization from %s (X-Forwarded-For: %s)", r.RemoteAddr, clientIP)
+	}
+	l.Infof("Wrong credentials supplied during API authorization from %s", r.RemoteAddr)
 }
 
 func antiBruteForceSleep() {
@@ -148,7 +158,7 @@ func (m *basicAuthAndSessionMiddleware) passwordAuthHandler(w http.ResponseWrite
 		return
 	}
 
-	emitLoginAttempt(false, req.Username, r.RemoteAddr, m.evLogger)
+	emitLoginAttempt(false, req.Username, r, m.evLogger)
 	antiBruteForceSleep()
 	forbidden(w)
 }
@@ -171,7 +181,7 @@ func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg c
 		return usernameFromIso, true
 	}
 
-	emitLoginAttempt(false, username, r.RemoteAddr, evLogger)
+	emitLoginAttempt(false, username, r, evLogger)
 	antiBruteForceSleep()
 	return "", false
 }

@@ -189,7 +189,7 @@ func (m *tokenCookieManager) createSession(username string, persistent bool, w h
 		Path:   "/",
 	})
 
-	emitLoginAttempt(true, username, r.RemoteAddr, m.evLogger)
+	emitLoginAttempt(true, username, r, m.evLogger)
 }
 
 func (m *tokenCookieManager) hasValidSession(r *http.Request) bool {
