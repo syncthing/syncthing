@@ -9,10 +9,22 @@
 package sqlite
 
 import (
+	"database/sql"
+
+	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3" // register sqlite3 database driver
 )
 
 const (
-	dbDriver      = "sqlite3"
+	dbDriver      = "sqlite3noautocp"
 	commonOptions = "_fk=true&_rt=true&_cache_size=-65536&_sync=1&_txlock=immediate"
 )
+
+func init() {
+	sql.Register("sqlite3noautocp", &sqlite3.SQLiteDriver{
+		ConnectHook: func(conn *sqlite3.SQLiteConn) error {
+			_, err := conn.Exec(`PRAGMA wal_autocheckpoint = 0`, nil)
+			return err
+		},
+	})
+}
