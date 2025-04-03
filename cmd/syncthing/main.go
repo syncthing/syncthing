@@ -164,13 +164,13 @@ type serveCmd struct {
 	AllowNewerConfig          bool          `help:"Allow loading newer than current config version" env:"STALLOWNEWERCONFIG"`
 	Audit                     bool          `help:"Write events to audit file" env:"STAUDIT"`
 	AuditFile                 string        `name:"auditfile" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)" placeholder:"PATH" env:"STAUDITFILE"`
-	DBMaintenanceInterval     time.Duration `help:"Database maintenance interval" default:"8h" env:"STDBMAINTINTERVAL"`
-	DBDeleteRetentionInterval time.Duration `help:"Database deleted item retention interval" default:"4320h" env:"STDBDELETERETAININTERVAL"`
+	DBMaintenanceInterval     time.Duration `help:"Database maintenance interval" default:"8h" env:"STDBMAINTENANCEINTERVAL"`
+	DBDeleteRetentionInterval time.Duration `help:"Database deleted item retention interval" default:"4320h" env:"STDBDELETERETENTIONINTERVAL"`
 	GUIAddress                string        `name:"gui-address" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")" placeholder:"URL" env:"STGUIADDRESS"`
 	GUIAPIKey                 string        `name:"gui-apikey" help:"Override GUI API key" placeholder:"API-KEY" env:"STGUIAPIKEY"`
 	LogFile                   string        `name:"logfile" help:"Log file name (see below)" default:"${logFile}" placeholder:"PATH" env:"STLOGFILE"`
 	LogFlags                  int           `name:"logflags" help:"Select information in log line prefix (see below)" default:"${logFlags}" placeholder:"BITS" env:"STLOGFLAGS"`
-	LogMaxFiles               int           `name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)" default:"${logMaxFiles}" placeholder:"N" env:"STNUMLOGFILES"`
+	LogMaxFiles               int           `name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)" default:"${logMaxFiles}" placeholder:"N" env:"STLOGMAXOLDFILES"`
 	LogMaxSize                int           `help:"Maximum size of any file (zero to disable log rotation)" default:"${logMaxSize}" placeholder:"BYTES" env:"STLOGMAXSIZE"`
 	NoBrowser                 bool          `help:"Do not start browser" env:"STNOBROWSER"`
 	NoDefaultFolder           bool          `help:"Don't create the \"default\" folder on first startup" env:"STNODEFAULTFOLDER"`
