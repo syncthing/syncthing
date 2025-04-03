@@ -319,11 +319,12 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 	// Regular files to pull goes into the file queue, everything else
 	// (directories, symlinks and deletes) goes into the "process directly"
 	// pile.
+	files, err := itererr.Collect(f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, f.Order, 0, 0))
+	if err != nil {
+		return changed, nil, nil, err
+	}
 loop:
-	for file, err := range itererr.Zip(f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, f.Order, 0, 0)) {
-		if err != nil {
-			return changed, nil, nil, err
-		}
+	for _, file := range files {
 		select {
 		case <-f.ctx.Done():
 			break loop
