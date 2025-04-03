@@ -128,6 +128,10 @@ var (
 // commands and options here are top level commands to syncthing.
 // Cli is just a placeholder for the help text (see main).
 type CLI struct {
+	// The directory options are defined at top level and available for all
+	// subcommands. Their settings take effect on the `locations` package by
+	// way of the command line parser, so anything using `locations.Get` etc
+	// will be doing the right thing.
 	ConfDir string `name:"config" short:"C" placeholder:"PATH" env:"STCONFDIR" help:"Set configuration directory (config and keys)"`
 	DataDir string `name:"data" short:"D" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
 	HomeDir string `name:"home" short:"H" placeholder:"PATH" env:"STHOMEDIR" help:"Set configuration and data directory"`
