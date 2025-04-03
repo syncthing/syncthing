@@ -101,7 +101,7 @@ func TestDefaultValues(t *testing.T) {
 		Defaults: Defaults{
 			Folder: FolderConfiguration{
 				FilesystemType:   FilesystemTypeBasic,
-				Path:             "~",
+				Path:             "",
 				Type:             FolderTypeSendReceive,
 				Devices:          []FolderDeviceConfiguration{{DeviceID: device1}},
 				RescanIntervalS:  3600,
