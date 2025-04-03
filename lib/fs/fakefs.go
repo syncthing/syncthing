@@ -26,6 +26,14 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
+const FilesystemTypeFake FilesystemType = "fake"
+
+func init() {
+	RegisterFilesystemType(FilesystemTypeFake, func(root string, opts ...Option) (Filesystem, error) {
+		return newFakeFilesystem(root, opts...), nil
+	})
+}
+
 // see readShortAt()
 const randomBlockShift = 14 // 128k
 

@@ -8,47 +8,30 @@ package config
 
 import "github.com/syncthing/syncthing/lib/fs"
 
-type FilesystemType int32
+type FilesystemType string
 
 const (
-	FilesystemTypeBasic FilesystemType = 0
-	FilesystemTypeFake  FilesystemType = 1
+	FilesystemTypeBasic FilesystemType = "basic"
+	FilesystemTypeFake  FilesystemType = "fake"
 )
 
-func (t FilesystemType) String() string {
-	switch t {
-	case FilesystemTypeBasic:
-		return "basic"
-	case FilesystemTypeFake:
-		return "fake"
-	default:
-		return "unknown"
-	}
+func (t FilesystemType) ToFS() fs.FilesystemType {
+	return fs.FilesystemType(string(t))
 }
 
-func (t FilesystemType) ToFS() fs.FilesystemType {
-	switch t {
-	case FilesystemTypeBasic:
-		return fs.FilesystemTypeBasic
-	case FilesystemTypeFake:
-		return fs.FilesystemTypeFake
-	default:
-		return fs.FilesystemTypeBasic
-	}
+func (t FilesystemType) String() string {
+	return string(t)
 }
 
 func (t FilesystemType) MarshalText() ([]byte, error) {
-	return []byte(t.String()), nil
+	return []byte(t), nil
 }
 
 func (t *FilesystemType) UnmarshalText(bs []byte) error {
-	switch string(bs) {
-	case "basic":
-		*t = FilesystemTypeBasic
-	case "fake":
-		*t = FilesystemTypeFake
-	default:
-		*t = FilesystemTypeBasic
-	}
+	*t = FilesystemType(string(bs))
 	return nil
+}
+
+func (t *FilesystemType) ParseDefault(str string) error {
+	return t.UnmarshalText([]byte(str))
 }

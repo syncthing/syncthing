@@ -74,7 +74,7 @@ func (v external) Archive(filePath string) error {
 	}
 
 	context := map[string]string{
-		"%FOLDER_FILESYSTEM%": v.filesystem.Type().String(),
+		"%FOLDER_FILESYSTEM%": string(v.filesystem.Type()),
 		"%FOLDER_PATH%":       v.filesystem.URI(),
 		"%FILE_PATH%":         filePath,
 	}
