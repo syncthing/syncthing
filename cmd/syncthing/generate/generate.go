@@ -11,11 +11,9 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"os"
 
-	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -26,7 +24,6 @@ import (
 )
 
 type CLI struct {
-	cmdutil.DirOptions
 	GUIUser         string `placeholder:"STRING" help:"Specify new GUI authentication user name"`
 	GUIPassword     string `placeholder:"STRING" help:"Specify new GUI authentication password (use - to read from standard input)"`
 	NoDefaultFolder bool   `help:"Don't create the \"default\" folder on first startup" env:"STNODEFAULTFOLDER"`
@@ -34,16 +31,6 @@ type CLI struct {
 }
 
 func (c *CLI) Run(l logger.Logger) error {
-	if c.HomeDir != "" {
-		if c.ConfDir != "" {
-			return errors.New("--home must not be used together with --config")
-		}
-		c.ConfDir = c.HomeDir
-	}
-	if c.ConfDir == "" {
-		c.ConfDir = locations.GetBaseDir(locations.ConfigBaseDir)
-	}
-
 	// Support reading the password from a pipe or similar
 	if c.GUIPassword == "-" {
 		reader := bufio.NewReader(os.Stdin)
@@ -54,7 +41,7 @@ func (c *CLI) Run(l logger.Logger) error {
 		c.GUIPassword = string(password)
 	}
 
-	if err := Generate(l, c.ConfDir, c.GUIUser, c.GUIPassword, c.NoDefaultFolder, c.NoPortProbing); err != nil {
+	if err := Generate(l, locations.GetBaseDir(locations.ConfigBaseDir), c.GUIUser, c.GUIPassword, c.NoDefaultFolder, c.NoPortProbing); err != nil {
 		return fmt.Errorf("failed to generate config and keys: %w", err)
 	}
 	return nil
