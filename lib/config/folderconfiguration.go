@@ -9,6 +9,8 @@ package config
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"path"
@@ -23,6 +25,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/structutil"
 )
 
 var (
@@ -398,4 +401,24 @@ func (f XattrFilter) GetMaxSingleEntrySize() int {
 
 func (f XattrFilter) GetMaxTotalSize() int {
 	return f.MaxTotalSize
+}
+
+func (f *FolderConfiguration) UnmarshalJSON(data []byte) error {
+	structutil.SetDefaults(f)
+
+	// avoid recursing into this method
+	type noCustomUnmarshal FolderConfiguration
+	ptr := (*noCustomUnmarshal)(f)
+
+	return json.Unmarshal(data, ptr)
+}
+
+func (f *FolderConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	structutil.SetDefaults(f)
+
+	// avoid recursing into this method
+	type noCustomUnmarshal FolderConfiguration
+	ptr := (*noCustomUnmarshal)(f)
+
+	return d.DecodeElement(ptr, &start)
 }
