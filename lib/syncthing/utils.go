@@ -158,8 +158,8 @@ func copyFile(src, dst string) error {
 }
 
 // Opens a database
-func OpenDatabase(path string) (newdb.DB, error) {
-	sql, err := sqlite.Open(path)
+func OpenDatabase(path string, deleteRetention time.Duration) (newdb.DB, error) {
+	sql, err := sqlite.Open(path, sqlite.WithDeleteRetention(deleteRetention))
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func OpenDatabase(path string) (newdb.DB, error) {
 }
 
 // Attempts migration of the old (LevelDB-based) database type to the new (SQLite-based) type
-func TryMigrateDatabase() error {
+func TryMigrateDatabase(deleteRetention time.Duration) error {
 	oldDBDir := locations.Get(locations.LegacyDatabase)
 	if _, err := os.Lstat(oldDBDir); err != nil {
 		// No old database
@@ -251,7 +251,7 @@ func TryMigrateDatabase() error {
 			return err
 		}
 		_ = snap.WithHaveSequence(0, func(fi protocol.FileInfo) bool {
-			if fi.Deleted && time.Since(fi.ModTime()) > sqlite.MaxDeletedFileAge {
+			if deleteRetention > 0 && fi.Deleted && time.Since(fi.ModTime()) > deleteRetention {
 				// Skip deleted files that match the garbage collection
 				// criteria in the database
 				return true

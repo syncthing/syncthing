@@ -21,7 +21,7 @@ import (
 
 const maxDBConns = 128
 
-func Open(path string) (*DB, error) {
+func Open(path string, opts ...Option) (*DB, error) {
 	// Open the database with options to enable foreign keys and recursive
 	// triggers (needed for the delete+insert triggers on row replace).
 	sqlDB, err := sqlx.Open(dbDriver, "file:"+path+"?"+commonOptions)
@@ -36,7 +36,7 @@ func Open(path string) (*DB, error) {
 		// https://www.sqlite.org/pragma.html#pragma_optimize
 		return nil, wrap(err, "PRAGMA optimize")
 	}
-	return openCommon(sqlDB)
+	return openCommon(sqlDB, opts...)
 }
 
 // Open the database with options suitable for the migration inserts. This
@@ -73,7 +73,7 @@ func OpenTemp() (*DB, error) {
 	return Open(path)
 }
 
-func openCommon(sqlDB *sqlx.DB) (*DB, error) {
+func openCommon(sqlDB *sqlx.DB, opts ...Option) (*DB, error) {
 	if _, err := sqlDB.Exec(`PRAGMA auto_vacuum = INCREMENTAL`); err != nil {
 		return nil, wrap(err, "PRAGMA auto_vacuum")
 	}
@@ -85,8 +85,15 @@ func openCommon(sqlDB *sqlx.DB) (*DB, error) {
 	}
 
 	db := &DB{
-		sql:        sqlDB,
-		statements: make(map[string]*sqlx.Stmt),
+		sql:             sqlDB,
+		deleteRetention: defaultDeleteRetention,
+		statements:      make(map[string]*sqlx.Stmt),
+	}
+	for _, opt := range opts {
+		opt(db)
+	}
+	if db.deleteRetention > 0 && db.deleteRetention < minDeleteRetention {
+		db.deleteRetention = minDeleteRetention
 	}
 
 	if err := db.runScripts("sql/schema/*"); err != nil {

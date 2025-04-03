@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	internalMetaPrefix = "dbsvc"
-	lastMaintKey       = "lastMaint"
-	MaxDeletedFileAge  = 180 * 24 * time.Hour
+	internalMetaPrefix     = "dbsvc"
+	lastMaintKey           = "lastMaint"
+	defaultDeleteRetention = 180 * 24 * time.Hour
+	minDeleteRetention     = 24 * time.Hour
 )
 
 type Service struct {
@@ -101,12 +102,18 @@ func (s *Service) periodic(ctx context.Context) error {
 }
 
 func (s *Service) garbageCollectOldDeletedLocked() error {
+	if s.sdb.deleteRetention <= 0 {
+		l.Debugln("Delete retention is infinite, skipping cleanup")
+		return nil
+	}
+
 	// Remove deleted files that are marked as not needed (we have processed
 	// them) and they were deleted more than MaxDeletedFileAge ago.
+	l.Debugln("Forgetting deleted files older than", s.sdb.deleteRetention)
 	res, err := s.sdb.stmt(`
 		DELETE FROM files
 		WHERE deleted AND modified < ? AND local_flags & {{.FlagLocalNeeded}} == 0
-	`).Exec(time.Now().Add(-MaxDeletedFileAge).UnixNano())
+	`).Exec(time.Now().Add(-s.sdb.deleteRetention).UnixNano())
 	if err != nil {
 		return wrap(err)
 	}
