@@ -188,25 +188,26 @@ func (opts OptionsConfiguration) StunServers() []string {
 		switch addr {
 		case "default":
 			_, records, err := net.LookupSRV("stun", "udp", "syncthing.net")
-			if err == nil {
-				priorityMap := make(map[uint16][]string)
-				for _, record := range records {
-					var priority = record.Priority
-					var target, _ = strings.CutSuffix(record.Target, ".")
-					var address = fmt.Sprintf("%s:%d", target, record.Port)
-					if priorityGroup, ok := priorityMap[priority]; ok {
-						priorityMap[priority] = append(priorityGroup, address)
-					} else {
-						priorityMap[priority] = []string{address}
-					}
+			if err != nil {
+				l.Warnln("Unable to resolve primary STUN servers via DNS:", err)
+			}
+
+			priorityMap := make(map[uint16][]string)
+			for _, record := range records {
+				var priority = record.Priority
+				var target, _ = strings.CutSuffix(record.Target, ".")
+				var address = fmt.Sprintf("%s:%d", target, record.Port)
+				l.Debugf("Resolved primary STUN server %s with priority %d", address, priority)
+				if priorityGroup, ok := priorityMap[priority]; ok {
+					priorityMap[priority] = append(priorityGroup, address)
+				} else {
+					priorityMap[priority] = []string{address}
 				}
-				for _, prio := range slices.Sorted(maps.Keys(priorityMap)) {
-					var priorityGroup = priorityMap[prio]
-					rand.Shuffle(priorityGroup)
-					addresses = append(addresses, priorityGroup...)
-				}
-			} else {
-				l.Warnln("Unable to resolve primary STUN servers via DNS.")
+			}
+			for _, prio := range slices.Sorted(maps.Keys(priorityMap)) {
+				var priorityGroup = priorityMap[prio]
+				rand.Shuffle(priorityGroup)
+				addresses = append(addresses, priorityGroup...)
 			}
 
 			fallbackAddresses := make([]string, len(FallbackStunServers))
