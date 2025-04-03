@@ -69,12 +69,7 @@ var (
 	// Default stun servers should be substituted when the configuration
 	// contains <stunServer>default</stunServer>.
 
-	// DefaultPrimaryStunServers are servers provided by us (to avoid causing the public servers burden)
-	DefaultPrimaryStunServers = []string{
-		// Discontinued because of misuse. See https://forum.syncthing.net/t/stun-server-misuse/23319
-		//"stun.syncthing.net:3478",
-	}
-	DefaultSecondaryStunServers = []string{
+	FallbackStunServers = []string{
 		"stun.counterpath.com:3478",
 		"stun.counterpath.net:3478",
 		"stun.ekiga.net:3478",
