@@ -17,10 +17,12 @@ import (
 )
 
 type DB struct {
-	sql            *sqlx.DB
-	localDeviceIdx int64
-	updateLock     sync.Mutex
-	updatePoints   int
+	sql             *sqlx.DB
+	localDeviceIdx  int64
+	deleteRetention time.Duration
+
+	updateLock   sync.Mutex
+	updatePoints int
 
 	statementsMut sync.RWMutex
 	statements    map[string]*sqlx.Stmt
@@ -28,6 +30,14 @@ type DB struct {
 }
 
 var _ db.DB = (*DB)(nil)
+
+type Option func(*DB)
+
+func WithDeleteRetention(d time.Duration) Option {
+	return func(s *DB) {
+		s.deleteRetention = d
+	}
+}
 
 func (s *DB) Close() error {
 	s.updateLock.Lock()
