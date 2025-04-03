@@ -202,8 +202,8 @@ func (opts OptionsConfiguration) StunServers() []string {
 					}
 				}
 				slices.Sort(priorities)
-				for _, p := range priorities {
-					var priorityGroup = priorityMap[p]
+				for _, priority := range priorities {
+					var priorityGroup = priorityMap[priority]
 					rand.Shuffle(priorityGroup)
 					addresses = append(addresses, priorityGroup...)
 				}
