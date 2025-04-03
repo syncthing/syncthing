@@ -654,10 +654,6 @@ func auditWriter(auditFile string) io.Writer {
 	return fd
 }
 
-func resetDB() error {
-	return os.RemoveAll(locations.Get(locations.Database))
-}
-
 func (c *serveCmd) autoUpgradePossible() bool {
 	if upgrade.DisabledByCompilation {
 		return false
@@ -927,7 +923,8 @@ type debugCmd struct {
 type resetDatabaseCmd struct{}
 
 func (resetDatabaseCmd) Run() error {
-	if err := resetDB(); err != nil {
+	l.Infoln("Removing database in", locations.Get(locations.Database))
+	if err := os.RemoveAll(locations.Get(locations.Database)); err != nil {
 		l.Warnln("Resetting database:", err)
 		os.Exit(svcutil.ExitError.AsInt())
 	}
