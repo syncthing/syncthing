@@ -57,6 +57,13 @@ var (
 		Name:      "folder_processed_bytes_total",
 		Help:      "Total amount of data processed during folder syncing, per folder ID and data source (network/local_origin/local_other/skipped)",
 	}, []string{"folder", "source"})
+
+	metricFolderConflictsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "syncthing",
+		Subsystem: "model",
+		Name:      "folder_conflicts_total",
+		Help:      "Total number of conflicts",
+	}, []string{"folder"})
 )
 
 const (
@@ -88,4 +95,5 @@ func registerFolderMetrics(folderID string) {
 	metricFolderProcessedBytesTotal.WithLabelValues(folderID, metricSourceLocalOrigin)
 	metricFolderProcessedBytesTotal.WithLabelValues(folderID, metricSourceLocalOther)
 	metricFolderProcessedBytesTotal.WithLabelValues(folderID, metricSourceSkipped)
+	metricFolderConflictsTotal.WithLabelValues(folderID)
 }
