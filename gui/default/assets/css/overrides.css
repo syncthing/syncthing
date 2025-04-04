@@ -553,3 +553,9 @@ html[lang|="ko"] i {
     -webkit-user-select: all;
     user-select: all;
 }
+
+/* Folder Picker */
+.directory-list {
+    max-height: 400px;
+    overflow-y: auto;
+}

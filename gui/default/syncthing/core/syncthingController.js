@@ -2204,6 +2204,15 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         });
 
+        $scope.openFolderPicker = function() {
+            showModal('#folderPicker');
+        };
+
+        $rootScope.$on('folderPathSelected', function(event, selectedPath) {
+            $scope.currentFolder.path = selectedPath;
+            $scope.$applyAsync();
+        });
+
         $scope.$watch('currentFolder.label', function (newvalue) {
             if (!newvalue || !shouldSetDefaultFolderPath()) {
                 return;
