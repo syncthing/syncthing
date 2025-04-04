@@ -16,18 +16,31 @@ const (
 )
 
 func (t FilesystemType) ToFS() fs.FilesystemType {
+	if t == "" {
+		// legacy compat, zero value means basic
+		return fs.FilesystemTypeBasic
+	}
 	return fs.FilesystemType(string(t))
 }
 
 func (t FilesystemType) String() string {
+	if t == "" {
+		// legacy compat, zero value means basic
+		return string(FilesystemTypeBasic)
+	}
 	return string(t)
 }
 
 func (t FilesystemType) MarshalText() ([]byte, error) {
-	return []byte(t), nil
+	return []byte(t.String()), nil
 }
 
 func (t *FilesystemType) UnmarshalText(bs []byte) error {
+	if len(bs) == 0 {
+		// legacy compat, zero value means basic
+		*t = FilesystemTypeBasic
+		return nil
+	}
 	*t = FilesystemType(string(bs))
 	return nil
 }
