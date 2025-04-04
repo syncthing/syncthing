@@ -1854,6 +1854,7 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 		return nil
 	}
 
+	metricFolderConflictsTotal.WithLabelValues(f.ID).Inc()
 	newName := conflictName(name, lastModBy)
 	err := f.mtimefs.Rename(name, newName)
 	if fs.IsNotExist(err) {
@@ -1865,7 +1866,6 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 	}
 	if f.MaxConflicts > -1 {
 		matches := existingConflicts(name, f.mtimefs)
-		metricFolderConflictsTotal.WithLabelValues(f.ID).Inc()
 		if len(matches) > f.MaxConflicts {
 			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
 			for _, match := range matches[f.MaxConflicts:] {
