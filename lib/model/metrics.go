@@ -62,7 +62,7 @@ var (
 		Namespace: "syncthing",
 		Subsystem: "model",
 		Name:      "folder_conflicts_total",
-		Help:      "Total amount of conflicts occured",
+		Help:      "Total amount of conflicts occurred",
 	}, []string{"folder"})
 )
 
