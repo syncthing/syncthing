@@ -154,7 +154,7 @@
     "Failed Items": "Mga Nabigong Item",
     "Failed to load file versions.": "Nabigong i-load ang mga bersyon ng file.",
     "Failed to load ignore patterns.": "Nabigong i-load ang mga ignore pattern.",
-    "Failed to setup, retrying": "Nabigong i-set up, sinusubukan muli",
+    "Failed to set up, retrying": "Nabigong i-set up, sinusubukan muli",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Inaasahan ang pagbigo sa pagkonekta sa mga IPv6 na server kapag walang konektibidad sa IPv6.",
     "File Pull Order": "Order ng Pagkuha ng File",
     "File Versioning": "File Versioning",

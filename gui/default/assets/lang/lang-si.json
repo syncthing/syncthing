@@ -143,7 +143,7 @@
     "Failed Items": "අසාර්ථක අයිතම",
     "Failed to load file versions.": "ගොනු අනුවාද පූරණය කිරීමට අසමත් විය.",
     "Failed to load ignore patterns.": "නොසලකා හැරීමේ රටා පූරණය කිරීමට අසමත් විය.",
-    "Failed to setup, retrying": "පිහිටුවීමට අසමත් විය, උත්සාහ කරමින්",
+    "Failed to set up, retrying": "පිහිටුවීමට අසමත් විය, උත්සාහ කරමින්",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "IPv6 සම්බන්ධතාවක් නොමැති නම් IPv6 සේවාදායක වෙත සම්බන්ධ වීමට අසමත් වීම අපේක්ෂා කෙරේ.",
     "File Pull Order": "ගොනු ඇදීමේ නියෝගය",
     "File Versioning": "ගොනු අනුවාදය",

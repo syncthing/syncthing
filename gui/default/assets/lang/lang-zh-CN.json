@@ -156,7 +156,7 @@
     "Failed Items": "失败的项目",
     "Failed to load file versions.": "加载文件版本失败。",
     "Failed to load ignore patterns.": "加载忽略模式失败。",
-    "Failed to setup, retrying": "设置失败，正在重试",
+    "Failed to set up, retrying": "设置失败，正在重试",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "如果本机没有配置 IPv6，则无法连接 IPv6 服务器是正常的。",
     "File Pull Order": "文件拉取顺序",
     "File Versioning": "文件版本控制",

@@ -10,7 +10,7 @@ to NAT or firewall issues.
 
 There is very little reason why you'd want to run this yourself, as
 `relaypoolsrv` is just used for announcement and lookup of public relay
-servers. If you are looking to setup a private or a public relay, please
+servers. If you are looking to set up a private or a public relay, please
 check the documentation for
 [relaysrv](https://github.com/syncthing/relaysrv), which also explains how
 to join the default public pool.
