@@ -315,15 +315,23 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 	fileDeletions := map[string]protocol.FileInfo{}
 	buckets := map[string][]protocol.FileInfo{}
 
+	// Buffer the full list of needed files. This is somewhat wasteful and
+	// uses a lot of memory, but we need to keep the duration of the
+	// database read short and not do a bunch of file and data I/O inside
+	// the loop. If we forego the ability for users to repriorize the pull
+	// queue on the fly we could do this in batches, though that would also
+	// be a bit slower and less efficient in other ways.
+	files, err := itererr.Collect(f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, f.Order, 0, 0))
+	if err != nil {
+		return changed, nil, nil, err
+	}
+
 	// Iterate the list of items that we need and sort them into piles.
 	// Regular files to pull goes into the file queue, everything else
 	// (directories, symlinks and deletes) goes into the "process directly"
 	// pile.
 loop:
-	for file, err := range itererr.Zip(f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, f.Order, 0, 0)) {
-		if err != nil {
-			return changed, nil, nil, err
-		}
+	for _, file := range files {
 		select {
 		case <-f.ctx.Done():
 			break loop

@@ -295,7 +295,7 @@ func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 	var f protocol.FileInfo
 	previousWasDelete := false
 
-	for fi, err := range itererr.Zip(s.sdb.AllLocalFilesBySequence(s.folder, protocol.LocalDeviceID, s.localPrevSequence+1, 5000)) {
+	for fi, err := range itererr.Zip(s.sdb.AllLocalFilesBySequence(s.folder, protocol.LocalDeviceID, s.localPrevSequence+1, MaxBatchSizeFiles+1)) {
 		if err != nil {
 			return err
 		}

@@ -577,7 +577,6 @@ func (s *DB) periodicCheckpointLocked(fs []protocol.FileInfo) {
 		s.updatePoints += len(f.Blocks) * updatePointsPerBlock
 	}
 	if s.updatePoints > updatePointsThreshold {
-		l.Debugln("checkpoint at", s.updatePoints)
 		conn, err := s.sql.Conn(context.Background())
 		if err != nil {
 			l.Debugln("conn:", err)
@@ -587,8 +586,14 @@ func (s *DB) periodicCheckpointLocked(fs []protocol.FileInfo) {
 		if _, err := conn.ExecContext(context.Background(), `PRAGMA journal_size_limit = 67108864`); err != nil {
 			l.Debugln("PRAGMA journal_size_limit:", err)
 		}
-		if _, err := conn.ExecContext(context.Background(), `PRAGMA wal_checkpoint(RESTART)`); err != nil {
+		row := conn.QueryRowContext(context.Background(), `PRAGMA wal_checkpoint(RESTART)`)
+		var res, modified, moved int
+		if row.Err() != nil {
 			l.Debugln("PRAGMA wal_checkpoint(RESTART):", err)
+		} else if err := row.Scan(&res, &modified, &moved); err != nil {
+			l.Debugln("PRAGMA wal_checkpoint(RESTART) (scan):", err)
+		} else {
+			l.Debugln("checkpoint at", s.updatePoints, "returned", res, modified, moved)
 		}
 		s.updatePoints = 0
 	}
