@@ -7,18 +7,16 @@
 -- indexids holds the index ID and maximum sequence for a given device and folder
 CREATE TABLE IF NOT EXISTS indexids (
     device_idx INTEGER NOT NULL,
-    folder_idx INTEGER NOT NULL,
     index_id TEXT NOT NULL COLLATE BINARY,
     sequence INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY(device_idx, folder_idx),
-    FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE,
+    PRIMARY KEY(device_idx),
     FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE
 ) STRICT, WITHOUT ROWID
 ;
 CREATE TRIGGER IF NOT EXISTS indexids_seq AFTER INSERT ON files
 BEGIN
-    INSERT INTO indexids (folder_idx, device_idx, index_id, sequence)
-        VALUES (NEW.folder_idx, NEW.device_idx, "", COALESCE(NEW.remote_sequence, NEW.sequence))
+    INSERT INTO indexids (device_idx, index_id, sequence)
+        VALUES (NEW.device_idx, "", COALESCE(NEW.remote_sequence, NEW.sequence))
         ON CONFLICT DO UPDATE SET sequence = COALESCE(NEW.remote_sequence, NEW.sequence);
 END
 ;

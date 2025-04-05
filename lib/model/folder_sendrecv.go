@@ -315,23 +315,15 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 	fileDeletions := map[string]protocol.FileInfo{}
 	buckets := map[string][]protocol.FileInfo{}
 
-	// Buffer the full list of needed files. This is somewhat wasteful and
-	// uses a lot of memory, but we need to keep the duration of the
-	// database read short and not do a bunch of file and data I/O inside
-	// the loop. If we forego the ability for users to repriorize the pull
-	// queue on the fly we could do this in batches, though that would also
-	// be a bit slower and less efficient in other ways.
-	files, err := itererr.Collect(f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, f.Order, 0, 0))
-	if err != nil {
-		return changed, nil, nil, err
-	}
-
 	// Iterate the list of items that we need and sort them into piles.
 	// Regular files to pull goes into the file queue, everything else
 	// (directories, symlinks and deletes) goes into the "process directly"
 	// pile.
 loop:
-	for _, file := range files {
+	for file, err := range itererr.Zip(f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, f.Order, 0, 0)) {
+		if err != nil {
+			return changed, nil, nil, err
+		}
 		select {
 		case <-f.ctx.Done():
 			break loop
@@ -1353,58 +1345,58 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
 
 			found := false
-			for e, err := range itererr.Zip(f.model.sdb.AllLocalBlocksWithHash(block.Hash)) {
+			blocks, _ := f.model.sdb.AllLocalBlocksWithHash(block.Hash)
+			for _, e := range blocks {
+				res, err := f.model.sdb.AllLocalFilesWithBlocksHashAnyFolder(e.BlocklistHash)
 				if err != nil {
-					break
+					continue
 				}
-				it, errFn := f.model.sdb.AllLocalFilesWithBlocksHashAnyFolder(e.BlocklistHash)
-				for folderID, fi := range it {
+				for folderID, files := range res {
 					ffs := folderFilesystems[folderID]
-					fd, err := ffs.Open(fi.Name)
-					if err != nil {
-						continue
-					}
-					defer fd.Close()
-
-					_, err = fd.ReadAt(buf, e.Offset)
-					if err != nil {
-						fd.Close()
-						continue
-					}
-
-					// Hash is not SHA256 as it's an encrypted hash token. In that
-					// case we can't verify the block integrity so we'll take it on
-					// trust. (The other side can and will verify.)
-					if f.Type != config.FolderTypeReceiveEncrypted {
-						if err := f.verifyBuffer(buf, block); err != nil {
-							l.Debugln("Finder failed to verify buffer", err)
+					for _, fi := range files {
+						fd, err := ffs.Open(fi.Name)
+						if err != nil {
 							continue
 						}
-					}
+						defer fd.Close()
 
-					if f.CopyRangeMethod != config.CopyRangeMethodStandard {
-						err = f.withLimiter(func() error {
-							dstFd.mut.Lock()
-							defer dstFd.mut.Unlock()
-							return fs.CopyRange(f.CopyRangeMethod.ToFS(), fd, dstFd.fd, e.Offset, block.Offset, int64(block.Size))
-						})
-					} else {
-						err = f.limitedWriteAt(dstFd, buf, block.Offset)
-					}
-					if err != nil {
-						state.fail(fmt.Errorf("dst write: %w", err))
+						_, err = fd.ReadAt(buf, e.Offset)
+						if err != nil {
+							fd.Close()
+							continue
+						}
+
+						// Hash is not SHA256 as it's an encrypted hash token. In that
+						// case we can't verify the block integrity so we'll take it on
+						// trust. (The other side can and will verify.)
+						if f.Type != config.FolderTypeReceiveEncrypted {
+							if err := f.verifyBuffer(buf, block); err != nil {
+								l.Debugln("Finder failed to verify buffer", err)
+								continue
+							}
+						}
+
+						if f.CopyRangeMethod != config.CopyRangeMethodStandard {
+							err = f.withLimiter(func() error {
+								dstFd.mut.Lock()
+								defer dstFd.mut.Unlock()
+								return fs.CopyRange(f.CopyRangeMethod.ToFS(), fd, dstFd.fd, e.Offset, block.Offset, int64(block.Size))
+							})
+						} else {
+							err = f.limitedWriteAt(dstFd, buf, block.Offset)
+						}
+						if err != nil {
+							state.fail(fmt.Errorf("dst write: %w", err))
+							break
+						}
+						if fi.Name == state.file.Name {
+							state.copiedFromOrigin(block.Size)
+						} else {
+							state.copiedFromElsewhere(block.Size)
+						}
+						found = true
 						break
 					}
-					if fi.Name == state.file.Name {
-						state.copiedFromOrigin(block.Size)
-					} else {
-						state.copiedFromElsewhere(block.Size)
-					}
-					found = true
-					break
-				}
-				if err := errFn(); err != nil {
-					l.Warnln(err)
 				}
 			}
 
