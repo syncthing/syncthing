@@ -3,17 +3,23 @@ angular.module('syncthing.folder')
         'use strict';
 
         $scope.directories = [];
-        $scope.showHiddenFiles = false;
 
-        // Ensure path ends with a separator (e.g., "/")
-        function normalizePath(path) {
-            if (!path || path.endsWith($scope.pathSeparator)) return path;
-            return path + $scope.pathSeparator;
+        function addTrailingSeparator(path) {
+            if (path.length > 0 && !path.endsWith($scope.pathSeparator)) {
+                return path + $scope.pathSeparator;
+            }
+            return path;
+        }
+
+        function stripTrailingSeparator(path) {
+            if (path.length > $scope.pathSeparator.length && path.endsWith($scope.pathSeparator)) {
+                return path.slice(0, -$scope.pathSeparator.length);
+            }
+            return path;
         }
 
         function getParentPath(path) {
-            path = path.endsWith($scope.pathSeparator) ? path.slice(0, -$scope.pathSeparator.length) : path;
-            let parts = path.split($scope.pathSeparator);
+            let parts = stripTrailingSeparator(path).split($scope.pathSeparator);
             parts.pop();
 
             if (parts.length === 0) return '';
@@ -24,19 +30,13 @@ angular.module('syncthing.folder')
             return path.split($scope.pathSeparator).filter(Boolean).pop() || path;
         };
 
-        $scope.isHidden = function (path) {
-            return $scope.formatDirectoryName(path).startsWith('.');
-        };
-
         $scope.updateDirectoryList = function () {
             $http.get(urlbase + '/system/browse', {
                 params: {
                     current: $scope.currentPath
                 }
             }).success(function (data) {
-                $scope.directories = data.map(normalizePath).filter(dir =>
-                    $scope.showHiddenFiles || !$scope.isHidden(dir)
-                );
+                $scope.directories = data.map(addTrailingSeparator);
             }).error($scope.emitHTTPError);
         };
 
@@ -51,14 +51,14 @@ angular.module('syncthing.folder')
         };
 
         $scope.selectCurrentPath = function () {
-            $rootScope.$emit('folderPathSelected', $scope.currentPath);
+            $rootScope.$emit('folderPathSelected', stripTrailingSeparator($scope.currentPath));
             angular.element('#folderPicker').modal('hide');
         };
 
         angular.element("#folderPicker").on("shown.bs.modal", function () {
             $scope.$apply(() => {
                 $scope.pathSeparator = $scope.$parent.system.pathSeparator || '/';
-                $scope.currentPath = $scope.$parent.currentFolder.path || $scope.pathSeparator;
+                $scope.currentPath = $scope.$parent.currentFolder.path || '';
                 $scope.updateDirectoryList();
             });
         });

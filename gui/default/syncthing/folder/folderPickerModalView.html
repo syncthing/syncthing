@@ -1,4 +1,5 @@
-<modal id="folderPicker" status="default" icon="fas fa-folder-open" heading="{{'Select Folder' | translate}}" large="yes" closeable="yes">
+<modal id="folderPicker" status="default" icon="fa fa-folder-open" heading="{{'Select Folder' | translate}}" large="yes"
+       closeable="yes">
   <div class="modal-body" ng-controller="FolderPickerModalController">
     <div class="panel panel-default">
       <div class="panel-heading">
@@ -6,20 +7,17 @@
           <input class="form-control" type="text" ng-model="currentPath" ng-change="updateDirectoryList()">
           <span class="input-group-btn">
             <button class="btn btn-default" type="button" ng-click="navigateUp()">
-              <i class="fas fa-level-up-alt"></i>
+              <span class="fa fa-level-up"></span>
             </button>
           </span>
         </div>
-        <label>
-          <input type="checkbox" ng-model="showHiddenFiles" ng-click="updateDirectoryList()">&nbsp;<span translate>Show hidden files</span>
-        </label>
       </div>
 
-      <div class="panel-body ">
+      <div class="panel-body">
         <div class="list-group directory-list">
-          <a href="#" class="list-group-item" ng-repeat="directory in directories track by $index" 
+          <a href="#" class="list-group-item" ng-repeat="directory in directories track by $index"
              ng-click="navigateTo(directory)">
-            <i class="fas fa-folder"></i>
+            <span class="fa fa-folder"></span>
             <span>{{ formatDirectoryName(directory) }}</span>
           </a>
           <div class="list-group-item" ng-if="directories.length === 0">
@@ -29,11 +27,13 @@
       </div>
     </div>
   </div>
+
   <div class="modal-footer">
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
-      <span class="fas fa-times"></span>&nbsp;<span translate>Cancel</span>
+      <span class="fa fa-times"></span>&nbsp;<span translate>Cancel</span>
     </button>
     <button type="button" class="btn btn-primary btn-sm" id="folderPickerSelect">
-      <span class="fas fa-check"></span>&nbsp;<span translate>Select</span>
+      <span class="fa fa-check"></span>&nbsp;<span translate>Select</span>
     </button>
-  </div> 
+  </div>
+</modal>
