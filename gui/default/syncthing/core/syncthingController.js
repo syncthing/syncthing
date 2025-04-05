@@ -642,6 +642,53 @@ angular.module('syncthing.core')
             });
         }
 
+        $scope.stopTunnel = function (tunnel) {
+            $http.post(urlbase + '/system/tunnels-modify', { id: tunnel.id, action: "disable" })
+                .then(function () {
+                    refreshTunnels();
+                })
+                .catch(function (response) {
+                    console.error('Failed to stop tunnel:', response);
+                });
+        };
+
+        $scope.startTunnel = function (tunnel) {
+            $http.post(urlbase + '/system/tunnels-modify', { id: tunnel.id, action: "enable" })
+                .then(function () {
+                    refreshTunnels();
+                })
+                .catch(function (response) {
+                    console.error('Failed to start tunnel:', response);
+                });
+        };
+
+        $scope.deleteTunnel = function (tunnel) {
+            $http.post(urlbase + '/system/tunnels-modify', { id: tunnel.id, action: "delete" })
+                .then(function () {
+                    refreshTunnels();
+                })
+                .catch(function (response) {
+                    console.error('Failed to delete tunnel:', response);
+                });
+        };
+
+        $scope.acceptAndStartTunnel = function (tunnel) {
+            const payload = {
+                localListenAddress: tunnel.localListenAddress,
+                remoteDeviceID: tunnel.remoteDeviceID,
+                remoteServiceName: tunnel.serviceID,
+            };
+
+            $http.post(urlbase + '/system/tunnels-add-outbound', payload)
+                .then(function () {
+                    console.log('Tunnel added successfully');
+                    refreshTunnels();
+                })
+                .catch(function (error) {
+                    console.error('Failed to add tunnel:', error);
+                });
+        };
+
         function recalcLocalStateTotal() {
             $scope.localStateTotal = {
                 bytes: 0,

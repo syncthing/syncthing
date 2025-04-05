@@ -48,6 +48,7 @@ func TestTunnelManager_ServeLocalListener(t *testing.T) {
 				},
 			},
 		},
+		"no-file",
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -131,6 +132,7 @@ func TestTunnelManager_HandleOpenRemoteCommand(t *testing.T) {
 				},
 			},
 		},
+		"no-file",
 	)
 
 	// Mock device ID and addresses
@@ -168,13 +170,22 @@ func TestTunnelManager_HandleOpenRemoteCommand(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Wait for the TunnelData to be sent
-	select {
-	case data := <-tunnelDataChanOut:
-		assert.Equal(t, bep.TunnelCommand_TUNNEL_COMMAND_DATA, data.D.Command)
-		assert.Equal(t, msg_from_server, data.D.Data)
-		assert.Equal(t, tunnelID, data.D.TunnelId)
-	case <-time.After(1 * time.Second):
-		t.Fatal("Timed out waiting for TunnelData")
+
+loop1:
+	for {
+		select {
+		case data := <-tunnelDataChanOut:
+			if data.D.Command == bep.TunnelCommand_TUNNEL_COMMAND_OFFER {
+				// Ignore the offer
+				continue loop1
+			}
+			assert.Equal(t, bep.TunnelCommand_TUNNEL_COMMAND_DATA, data.D.Command)
+			assert.Equal(t, msg_from_server, data.D.Data)
+			assert.Equal(t, tunnelID, data.D.TunnelId)
+			break loop1
+		case <-time.After(1 * time.Second):
+			t.Fatal("Timed out waiting for TunnelData")
+		}
 	}
 
 	msg_from_client := []byte("hello from client")
@@ -225,6 +236,7 @@ func TestTunnelManager_HandleOpenRemoteCommand_NamedService(t *testing.T) {
 				},
 			},
 		},
+		"no-file",
 	)
 
 	// Create a channel to capture the TunnelData sent to the device
@@ -257,13 +269,21 @@ func TestTunnelManager_HandleOpenRemoteCommand_NamedService(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Wait for the TunnelData to be sent
-	select {
-	case data := <-tunnelDataChanOut:
-		assert.Equal(t, bep.TunnelCommand_TUNNEL_COMMAND_DATA, data.D.Command)
-		assert.Equal(t, msg_from_server, data.D.Data)
-		assert.Equal(t, tunnelID, data.D.TunnelId)
-	case <-time.After(1 * time.Second):
-		t.Fatal("Timed out waiting for TunnelData")
+loop1:
+	for {
+		select {
+		case data := <-tunnelDataChanOut:
+			if data.D.Command == bep.TunnelCommand_TUNNEL_COMMAND_OFFER {
+				// Ignore the offer
+				continue loop1
+			}
+			assert.Equal(t, bep.TunnelCommand_TUNNEL_COMMAND_DATA, data.D.Command)
+			assert.Equal(t, msg_from_server, data.D.Data)
+			assert.Equal(t, tunnelID, data.D.TunnelId)
+			break loop1
+		case <-time.After(1 * time.Second):
+			t.Fatal("Timed out waiting for TunnelData")
+		}
 	}
 
 	msg_from_client := []byte("hello from client")
@@ -315,6 +335,7 @@ func TestTunnelManager_HandleOpenRemoteCommand_DisallowedClient(t *testing.T) {
 				},
 			},
 		},
+		"no-file",
 	)
 
 	// Create a channel to capture the TunnelData sent to the device

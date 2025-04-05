@@ -121,6 +121,8 @@ type Model interface {
 	RequestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
 
 	TunnelStatus() []map[string]interface{}
+	ModifyTunnel(id string, action string) error
+	AddTunnelOutbound(localListenAddress string, remoteDeviceID protocol.DeviceID, remoteServiceName string) error
 }
 
 type model struct {
@@ -177,6 +179,16 @@ type model struct {
 // TunnelStatus implements Model.
 func (m *model) TunnelStatus() []map[string]interface{} {
 	return m.tunnelManager.Status()
+}
+
+// ModifyTunnel implements Model.
+func (m *model) ModifyTunnel(id string, action string) error {
+	return m.tunnelManager.ModifyTunnel(id, action)
+}
+
+// AddTunnelOutbound implements Model.
+func (m *model) AddTunnelOutbound(localListenAddress string, remoteDeviceID protocol.DeviceID, remoteServiceName string) error {
+	return m.tunnelManager.AddOutboundTunnel(localListenAddress, remoteDeviceID, remoteServiceName)
 }
 
 var _ config.Verifier = &model{}
