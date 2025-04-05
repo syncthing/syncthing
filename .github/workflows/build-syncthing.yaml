@@ -330,6 +330,7 @@ jobs:
           key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
 
       - name: Import signing certificate
+        if: false
         run: |
           # Set up a run-specific keychain, making it available for the
           # `codesign` tool.
@@ -402,7 +403,7 @@ jobs:
 
   notarize-macos:
     name: Notarize for macOS
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-') || startsWith(github.ref, 'refs/tags/v'))
+    if: false # (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/heads/release-') || startsWith(github.ref, 'refs/tags/v'))
     environment: release
     needs:
       - package-macos
@@ -551,7 +552,7 @@ jobs:
     needs:
       - codesign-windows
       - package-linux
-      #- package-macos
+      - package-macos
       - package-cross
       - package-source
     runs-on: ubuntu-latest
