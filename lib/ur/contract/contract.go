@@ -34,6 +34,7 @@ type Report struct {
 	SHA256Perf     float64 `json:"sha256Perf,omitempty" metric:"sha256_perf_mibps,summary" since:"1"`
 	HashPerf       float64 `json:"hashPerf,omitempty" metric:"hash_perf_mibps,summary" since:"1"`
 	MemorySize     int     `json:"memorySize,omitempty" metric:"memory_size_mib,summary" since:"1"`
+	ProcessRSSMiB  int     `json:"processRSSMiB,omitempty" metric:"process_rss_mib,summary" since:"1"`
 
 	// v2 fields
 

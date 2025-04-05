@@ -15,6 +15,7 @@ require (
 	github.com/getsentry/raven-go v0.2.0
 	github.com/go-ldap/ldap/v3 v3.4.10
 	github.com/gobwas/glob v0.2.3
+	github.com/gofrs/flock v0.12.1
 	github.com/greatroar/blobloom v0.8.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/hitoshi44/go-uid64 v0.2.0
@@ -70,7 +71,6 @@ require (
 	github.com/go-asn1-ber/asn1-ber v1.5.7 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
-	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/pprof v0.0.0-20241009165004-a3522334989c // indirect
 	github.com/google/uuid v1.6.0 // indirect
