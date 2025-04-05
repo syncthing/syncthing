@@ -1,4 +1,8 @@
-// Copyright (C) 2016 The Protocol Authors.
+// Copyright (C) 2016 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package protocol
 
@@ -66,8 +70,8 @@ func benchmarkRequestsConnPair(b *testing.B, conn0, conn1 net.Conn) {
 	c1.Start()
 
 	// Satisfy the assertions in the protocol by sending an initial cluster config
-	c0.ClusterConfig(ClusterConfig{})
-	c1.ClusterConfig(ClusterConfig{})
+	c0.ClusterConfig(&ClusterConfig{})
+	c1.ClusterConfig(&ClusterConfig{})
 
 	// Report some useful stats and reset the timer for the actual test
 	b.ReportAllocs()
@@ -82,9 +86,9 @@ func benchmarkRequestsConnPair(b *testing.B, conn0, conn1 net.Conn) {
 		// Use c0 and c1 for each alternating request, so we get as much
 		// data flowing in both directions.
 		if i%2 == 0 {
-			buf, err = c0.Request(context.Background(), "folder", "file", i, int64(i), 128<<10, nil, 0, false)
+			buf, err = c0.Request(context.Background(), &Request{Folder: "folder", Name: "file", BlockNo: i, Offset: int64(i), Size: 128 << 10})
 		} else {
-			buf, err = c1.Request(context.Background(), "folder", "file", i, int64(i), 128<<10, nil, 0, false)
+			buf, err = c1.Request(context.Background(), &Request{Folder: "folder", Name: "file", BlockNo: i, Offset: int64(i), Size: 128 << 10})
 		}
 
 		if err != nil {

@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+package dbproto;
+
+import "bep/bep.proto";
+import "google/protobuf/timestamp.proto";
+
+
+// Same as bep.FileInfo, but without blocks
+message FileInfoTruncated {
+  string name = 1;
+  int64 size = 3;
+  int64 modified_s = 5;
+  uint64 modified_by = 12;
+  bep.Vector version = 9;
+  int64 sequence = 10;
+  reserved 16; // blocks
+  bytes symlink_target = 17;
+  bytes blocks_hash = 18;
+  bytes encrypted = 19;
+  bep.FileInfoType type = 2;
+  uint32 permissions = 4;
+  int32 modified_ns = 11;
+  int32 block_size = 13;
+  bep.PlatformData platform = 14;
+
+  // The local_flags fields stores flags that are relevant to the local
+  // host only. It is not part of the protocol, doesn't get sent or
+  // received (we make sure to zero it), nonetheless we need it on our
+  // struct and to be able to serialize it to/from the database.
+  uint32 local_flags = 1000;
+
+  // The version_hash is an implementation detail and not part of the wire
+  // format.
+  bytes version_hash = 1001;
+
+  // The time when the inode was last changed (i.e., permissions, xattrs
+  // etc changed). This is host-local, not sent over the wire.
+  int64 inode_change_ns = 1002;
+
+  // The size of the data appended to the encrypted file on disk. This is
+  // host-local, not sent over the wire.
+  int32 encryption_trailer_size = 1003;
+
+  bool deleted = 6;
+  bool invalid = 7;
+  bool no_permissions = 8;
+}
+
+
+message FileVersion {
+  bep.Vector version = 1;
+  bool deleted = 2;
+  repeated bytes devices = 3;
+  repeated bytes invalid_devices = 4;
+}
+
+message VersionList {
+  repeated FileVersion versions = 1;
+}
+
+// BlockList is the structure used to store block lists
+message BlockList {
+  repeated bep.BlockInfo blocks = 1;
+}
+
+// IndirectionHashesOnly is used to only unmarshal the indirection hashes
+// from a FileInfo
+message IndirectionHashesOnly {
+  bytes blocks_hash = 18;
+  bytes version_hash = 1001;
+}
+
+// For each folder and device we keep one of these to track the current
+// counts and sequence. We also keep one for the global state of the folder.
+message Counts {
+  int32 files = 1;
+  int32 directories = 2;
+  int32 symlinks = 3;
+  int32 deleted = 4;
+  int64 bytes = 5;
+  int64 sequence = 6; // zero for the global state
+  bytes device_id = 17; // device ID for remote devices, or special values for local/global
+  uint32 local_flags = 18; // the local flag for this count bucket
+}
+
+message CountsSet {
+  repeated Counts counts = 1;
+  int64 created = 2; // unix nanos
+}
+
+message ObservedFolder {
+  google.protobuf.Timestamp time = 1;
+  string label = 2;
+  bool receive_encrypted = 3;
+  bool remote_encrypted = 4;
+}
+
+message ObservedDevice {
+  google.protobuf.Timestamp time = 1;
+  string name = 2;
+  string address = 3;
+}

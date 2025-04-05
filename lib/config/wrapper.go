@@ -17,12 +17,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/thejerf/suture/v4"
+
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sliceutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/thejerf/suture/v4"
 )
 
 const (

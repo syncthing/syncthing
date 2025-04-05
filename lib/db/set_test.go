@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/d4l3k/messagediff"
+
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
@@ -48,20 +49,19 @@ func globalList(t testing.TB, s *db.FileSet) []protocol.FileInfo {
 	var fs []protocol.FileInfo
 	snap := snapshot(t, s)
 	defer snap.Release()
-	snap.WithGlobal(func(fi protocol.FileIntf) bool {
-		f := fi.(protocol.FileInfo)
-		fs = append(fs, f)
+	snap.WithGlobal(func(fi protocol.FileInfo) bool {
+		fs = append(fs, fi)
 		return true
 	})
 	return fs
 }
-func globalListPrefixed(t testing.TB, s *db.FileSet, prefix string) []db.FileInfoTruncated {
-	var fs []db.FileInfoTruncated
+
+func globalListPrefixed(t testing.TB, s *db.FileSet, prefix string) []protocol.FileInfo {
+	var fs []protocol.FileInfo
 	snap := snapshot(t, s)
 	defer snap.Release()
-	snap.WithPrefixedGlobalTruncated(prefix, func(fi protocol.FileIntf) bool {
-		f := fi.(db.FileInfoTruncated)
-		fs = append(fs, f)
+	snap.WithPrefixedGlobalTruncated(prefix, func(fi protocol.FileInfo) bool {
+		fs = append(fs, fi)
 		return true
 	})
 	return fs
@@ -71,21 +71,19 @@ func haveList(t testing.TB, s *db.FileSet, n protocol.DeviceID) []protocol.FileI
 	var fs []protocol.FileInfo
 	snap := snapshot(t, s)
 	defer snap.Release()
-	snap.WithHave(n, func(fi protocol.FileIntf) bool {
-		f := fi.(protocol.FileInfo)
-		fs = append(fs, f)
+	snap.WithHave(n, func(fi protocol.FileInfo) bool {
+		fs = append(fs, fi)
 		return true
 	})
 	return fs
 }
 
-func haveListPrefixed(t testing.TB, s *db.FileSet, n protocol.DeviceID, prefix string) []db.FileInfoTruncated {
-	var fs []db.FileInfoTruncated
+func haveListPrefixed(t testing.TB, s *db.FileSet, n protocol.DeviceID, prefix string) []protocol.FileInfo {
+	var fs []protocol.FileInfo
 	snap := snapshot(t, s)
 	defer snap.Release()
-	snap.WithPrefixedHaveTruncated(n, prefix, func(fi protocol.FileIntf) bool {
-		f := fi.(db.FileInfoTruncated)
-		fs = append(fs, f)
+	snap.WithPrefixedHaveTruncated(n, prefix, func(fi protocol.FileInfo) bool {
+		fs = append(fs, fi)
 		return true
 	})
 	return fs
@@ -95,9 +93,8 @@ func needList(t testing.TB, s *db.FileSet, n protocol.DeviceID) []protocol.FileI
 	var fs []protocol.FileInfo
 	snap := snapshot(t, s)
 	defer snap.Release()
-	snap.WithNeed(n, func(fi protocol.FileIntf) bool {
-		f := fi.(protocol.FileInfo)
-		fs = append(fs, f)
+	snap.WithNeed(n, func(fi protocol.FileInfo) bool {
+		fs = append(fs, fi)
 		return true
 	})
 	return fs
@@ -1010,9 +1007,9 @@ func TestWithHaveSequence(t *testing.T) {
 	i := 2
 	snap := snapshot(t, s)
 	defer snap.Release()
-	snap.WithHaveSequence(int64(i), func(fi protocol.FileIntf) bool {
-		if f := fi.(protocol.FileInfo); !f.IsEquivalent(localHave[i-1], 0) {
-			t.Fatalf("Got %v\nExpected %v", f, localHave[i-1])
+	snap.WithHaveSequence(int64(i), func(fi protocol.FileInfo) bool {
+		if !fi.IsEquivalent(localHave[i-1], 0) {
+			t.Fatalf("Got %v\nExpected %v", fi, localHave[i-1])
 		}
 		i++
 		return true
@@ -1061,7 +1058,7 @@ loop:
 		default:
 		}
 		snap := snapshot(t, s)
-		snap.WithHaveSequence(prevSeq+1, func(fi protocol.FileIntf) bool {
+		snap.WithHaveSequence(prevSeq+1, func(fi protocol.FileInfo) bool {
 			if fi.SequenceNo() < prevSeq+1 {
 				t.Fatal("Skipped ", prevSeq+1, fi.SequenceNo())
 			}
@@ -1539,8 +1536,8 @@ func TestSequenceIndex(t *testing.T) {
 
 	// Start a routine to walk the sequence index and inspect the result.
 
-	seen := make(map[string]protocol.FileIntf)
-	latest := make([]protocol.FileIntf, 0, len(local))
+	seen := make(map[string]protocol.FileInfo)
+	latest := make([]protocol.FileInfo, 0, len(local))
 	var seq int64
 	t0 := time.Now()
 
@@ -1551,7 +1548,7 @@ func TestSequenceIndex(t *testing.T) {
 		// update has happened since our last iteration.
 		latest = latest[:0]
 		snap := snapshot(t, s)
-		snap.WithHaveSequence(seq+1, func(f protocol.FileIntf) bool {
+		snap.WithHaveSequence(seq+1, func(f protocol.FileInfo) bool {
 			seen[f.FileName()] = f
 			latest = append(latest, f)
 			seq = f.SequenceNo()
@@ -1656,7 +1653,7 @@ func TestUpdateWithOneFileTwice(t *testing.T) {
 	snap := snapshot(t, s)
 	defer snap.Release()
 	count := 0
-	snap.WithHaveSequence(0, func(f protocol.FileIntf) bool {
+	snap.WithHaveSequence(0, func(_ protocol.FileInfo) bool {
 		count++
 		return true
 	})

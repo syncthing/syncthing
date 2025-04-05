@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package discoproto;
+
+message Announce {
+  bytes id = 1;
+  repeated string addresses = 2;
+  int64 instance_id = 3;
+}

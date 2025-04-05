@@ -7,12 +7,14 @@
 package db
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"math/bits"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
+	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -56,24 +58,35 @@ func newMetadataTracker(keyer keyer, evLogger events.Logger) *metadataTracker {
 // Unmarshal loads a metadataTracker from the corresponding protobuf
 // representation
 func (m *metadataTracker) Unmarshal(bs []byte) error {
-	if err := m.counts.Unmarshal(bs); err != nil {
+	var dbc dbproto.CountsSet
+	if err := proto.Unmarshal(bs, &dbc); err != nil {
 		return err
+	}
+	m.counts.Created = dbc.Created
+	m.counts.Counts = make([]Counts, len(dbc.Counts))
+	for i, c := range dbc.Counts {
+		m.counts.Counts[i] = countsFromWire(c)
 	}
 
 	// Initialize the index map
+	m.indexes = make(map[metaKey]int)
 	for i, c := range m.counts.Counts {
-		dev, err := protocol.DeviceIDFromBytes(c.DeviceID)
-		if err != nil {
-			return err
-		}
-		m.indexes[metaKey{dev, c.LocalFlags}] = i
+		m.indexes[metaKey{c.DeviceID, c.LocalFlags}] = i
 	}
 	return nil
 }
 
-// Marshal returns the protobuf representation of the metadataTracker
-func (m *metadataTracker) Marshal() ([]byte, error) {
-	return m.counts.Marshal()
+// protoMarshal returns the protobuf representation of the metadataTracker.
+// Must be called with the read lock held.
+func (m *metadataTracker) protoMarshal() ([]byte, error) {
+	dbc := &dbproto.CountsSet{
+		Counts:  make([]*dbproto.Counts, len(m.counts.Counts)),
+		Created: m.counts.Created,
+	}
+	for i, c := range m.counts.Counts {
+		dbc.Counts[i] = c.toWire()
+	}
+	return proto.Marshal(dbc)
 }
 
 func (m *metadataTracker) CommitHook(folder []byte) backend.CommitHook {
@@ -97,7 +110,7 @@ func (m *metadataTracker) toDB(t backend.WriteTransaction, folder []byte) error 
 		return nil
 	}
 
-	bs, err := m.Marshal()
+	bs, err := m.protoMarshal()
 	if err != nil {
 		return err
 	}
@@ -142,7 +155,7 @@ func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flag uint32) *Counts 
 	idx, ok := m.indexes[key]
 	if !ok {
 		idx = len(m.counts.Counts)
-		m.counts.Counts = append(m.counts.Counts, Counts{DeviceID: dev[:], LocalFlags: flag})
+		m.counts.Counts = append(m.counts.Counts, Counts{DeviceID: dev, LocalFlags: flag})
 		m.indexes[key] = idx
 		// Need bucket must be initialized when a device first occurs in
 		// the metadatatracker, even if there's no change to the need
@@ -160,19 +173,19 @@ func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flag uint32) *Counts 
 
 // allNeeded makes sure there is a counts in case the device needs everything.
 func (m *countsMap) allNeededCounts(dev protocol.DeviceID) Counts {
-	counts := Counts{}
+	var counts Counts
 	if idx, ok := m.indexes[metaKey{protocol.GlobalDeviceID, 0}]; ok {
 		counts = m.counts.Counts[idx]
 		counts.Deleted = 0 // Don't need deletes if having nothing
 	}
-	counts.DeviceID = dev[:]
+	counts.DeviceID = dev
 	counts.LocalFlags = needFlag
 	return counts
 }
 
 // addFile adds a file to the counts, adjusting the sequence number as
 // appropriate
-func (m *metadataTracker) addFile(dev protocol.DeviceID, f protocol.FileIntf) {
+func (m *metadataTracker) addFile(dev protocol.DeviceID, f protocol.FileInfo) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -181,7 +194,7 @@ func (m *metadataTracker) addFile(dev protocol.DeviceID, f protocol.FileIntf) {
 	m.updateFileLocked(dev, f, m.addFileLocked)
 }
 
-func (m *metadataTracker) updateFileLocked(dev protocol.DeviceID, f protocol.FileIntf, fn func(protocol.DeviceID, uint32, protocol.FileIntf)) {
+func (m *metadataTracker) updateFileLocked(dev protocol.DeviceID, f protocol.FileInfo, fn func(protocol.DeviceID, uint32, protocol.FileInfo)) {
 	m.dirty = true
 
 	if f.IsInvalid() && (f.FileLocalFlags() == 0 || dev == protocol.GlobalDeviceID) {
@@ -209,7 +222,7 @@ func (m *metadataTracker) emptyNeeded(dev protocol.DeviceID) {
 	m.dirty = true
 
 	empty := Counts{
-		DeviceID:   dev[:],
+		DeviceID:   dev,
 		LocalFlags: needFlag,
 	}
 	key := metaKey{dev, needFlag}
@@ -222,7 +235,7 @@ func (m *metadataTracker) emptyNeeded(dev protocol.DeviceID) {
 }
 
 // addNeeded adds a file to the needed counts
-func (m *metadataTracker) addNeeded(dev protocol.DeviceID, f protocol.FileIntf) {
+func (m *metadataTracker) addNeeded(dev protocol.DeviceID, f protocol.FileInfo) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -237,7 +250,7 @@ func (m *metadataTracker) Sequence(dev protocol.DeviceID) int64 {
 	return m.countsPtr(dev, 0).Sequence
 }
 
-func (m *metadataTracker) updateSeqLocked(dev protocol.DeviceID, f protocol.FileIntf) {
+func (m *metadataTracker) updateSeqLocked(dev protocol.DeviceID, f protocol.FileInfo) {
 	if dev == protocol.GlobalDeviceID {
 		return
 	}
@@ -246,7 +259,7 @@ func (m *metadataTracker) updateSeqLocked(dev protocol.DeviceID, f protocol.File
 	}
 }
 
-func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flag uint32, f protocol.FileIntf) {
+func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flag uint32, f protocol.FileInfo) {
 	cp := m.countsPtr(dev, flag)
 
 	switch {
@@ -263,7 +276,7 @@ func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flag uint32, f pr
 }
 
 // removeFile removes a file from the counts
-func (m *metadataTracker) removeFile(dev protocol.DeviceID, f protocol.FileIntf) {
+func (m *metadataTracker) removeFile(dev protocol.DeviceID, f protocol.FileInfo) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -271,7 +284,7 @@ func (m *metadataTracker) removeFile(dev protocol.DeviceID, f protocol.FileIntf)
 }
 
 // removeNeeded removes a file from the needed counts
-func (m *metadataTracker) removeNeeded(dev protocol.DeviceID, f protocol.FileIntf) {
+func (m *metadataTracker) removeNeeded(dev protocol.DeviceID, f protocol.FileInfo) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -280,7 +293,7 @@ func (m *metadataTracker) removeNeeded(dev protocol.DeviceID, f protocol.FileInt
 	m.removeFileLocked(dev, needFlag, f)
 }
 
-func (m *metadataTracker) removeFileLocked(dev protocol.DeviceID, flag uint32, f protocol.FileIntf) {
+func (m *metadataTracker) removeFileLocked(dev protocol.DeviceID, flag uint32, f protocol.FileInfo) {
 	cp := m.countsPtr(dev, flag)
 
 	switch {
@@ -325,7 +338,7 @@ func (m *metadataTracker) resetAll(dev protocol.DeviceID) {
 	m.mut.Lock()
 	m.dirty = true
 	for i, c := range m.counts.Counts {
-		if bytes.Equal(c.DeviceID, dev[:]) {
+		if c.DeviceID == dev {
 			if c.LocalFlags != needFlag {
 				m.counts.Counts[i] = Counts{
 					DeviceID:   c.DeviceID,
@@ -346,7 +359,7 @@ func (m *metadataTracker) resetCounts(dev protocol.DeviceID) {
 	m.dirty = true
 
 	for i, c := range m.counts.Counts {
-		if bytes.Equal(c.DeviceID, dev[:]) {
+		if c.DeviceID == dev {
 			m.counts.Counts[i] = Counts{
 				DeviceID:   c.DeviceID,
 				Sequence:   c.Sequence,
@@ -419,14 +432,10 @@ func (m *countsMap) devices() []protocol.DeviceID {
 
 	for _, dev := range m.counts.Counts {
 		if dev.Sequence > 0 {
-			id, err := protocol.DeviceIDFromBytes(dev.DeviceID)
-			if err != nil {
-				panic(err)
-			}
-			if id == protocol.GlobalDeviceID || id == protocol.LocalDeviceID {
+			if dev.DeviceID == protocol.GlobalDeviceID || dev.DeviceID == protocol.LocalDeviceID {
 				continue
 			}
-			devs = append(devs, id)
+			devs = append(devs, dev.DeviceID)
 		}
 	}
 

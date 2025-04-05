@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "Jan 15, 2024" "v1.27.3" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Mar 19, 2025" "v1.29.3" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -209,7 +209,7 @@ Syncthing uses an open and documented protocol, and likewise the security
 mechanisms in use are well defined and visible in the source code. Resilio
 Sync uses an undocumented, closed protocol with unknown security properties.
 .IP [1] 5
-\fI\%https://en.wikipedia.org/wiki/Resilio_Sync\fP
+\X'tty: link https://en.wikipedia.org/wiki/Resilio_Sync'\fI\%https://en.wikipedia.org/wiki/Resilio_Sync\fP\X'tty: link'
 .SS Is there an iOS client?
 .sp
 There are no plans by the current Syncthing team to officially support iOS in the foreseeable future.
@@ -217,9 +217,17 @@ There are no plans by the current Syncthing team to officially support iOS in th
 iOS has significant restrictions on background processing that make it very hard to
 run Syncthing reliably and integrate it into the system.
 .sp
-However, there is a commercial packaging of Syncthing for iOS that attempts to work within these limitations. [2]
+However, there is an open source app for iOS, incorporating Syncthing, that attempts to work within
+these limitations. It provides a native UI and features for selective synchronization as well as
+on\-demand access to files. Most Syncthing features are available, but the native UI is simplified
+compared to the official client. [2]
+.sp
+There is also a commercial packaging of Syncthing. It provides access to all Syncthing functionalities
+through the original UI. [3]
 .IP [2] 5
-\fI\%https://www.mobiussync.com\fP
+\X'tty: link https://github.com/pixelspark/sushitrain'\fI\%https://github.com/pixelspark/sushitrain\fP\X'tty: link'
+.IP [3] 5
+\X'tty: link https://www.mobiussync.com'\fI\%https://www.mobiussync.com\fP\X'tty: link'
 .SS Should I keep my device IDs secret?
 .sp
 No. The IDs are not sensitive. Given a device ID it’s possible to find the IP
@@ -256,8 +264,10 @@ using a GUI wrapper integration, it may keep the logs for you.
 When troubleshooting a slow sync, there are a number of things to check.
 .sp
 First of all, verify that you are not connected via a relay. In the “Remote
-Devices” list on the right side of the GUI, double check that you see
-“Address: <some address>” and \fInot\fP “Relay: <some address>”.
+Devices” list on the right side of the GUI, double check that the Connection
+Type does \fInot\fP start with “Relay”.
+.sp
+Here is an example of a device connected via a relay:
 [image]
 .sp
 If you are connected via a relay, this is because a direct connection could
@@ -315,7 +325,7 @@ This is an area that we are working to improve in the long term.
 .sp
 Since version 0.14.6 Syncthing does an extra security check when the GUI/API
 is bound to localhost \- namely that the browser is talking to localhost.
-This protects against most forms of \fI\%DNS rebinding attack\fP <\fBhttps://en.wikipedia.org/wiki/DNS_rebinding\fP> against the GUI.
+This protects against most forms of \X'tty: link https://en.wikipedia.org/wiki/DNS_rebinding'\fI\%DNS rebinding attack\fP <\fBhttps://en.wikipedia.org/wiki/DNS_rebinding\fP>\X'tty: link' against the GUI.
 .sp
 To pass this test, ensure that you are accessing the GUI using an URL that
 begins with \fBhttp://localhost\fP, \fBhttp://127.0.0.1\fP or \fBhttp://[::1]\fP\&. HTTPS
@@ -377,7 +387,7 @@ If you see outgoing connections to odd and unexpected addresses these are
 most likely connections to \fI\%relay servers\fP\&. Relay servers
 are run by volunteers all over the world. They usually listen on ports 443 or
 22067, though this is controlled by the user running it. You can compare the
-address you are concerned about with \fI\%the current list of active relays\fP <\fBhttps://relays.syncthing.net\fP>\&. Relays do not and can not see the data
+address you are concerned about with \X'tty: link https://relays.syncthing.net'\fI\%the current list of active relays\fP <\fBhttps://relays.syncthing.net\fP>\X'tty: link'\&. Relays do not and can not see the data
 transmitted via them.
 .SS I am seeing the error message “folder marker missing”. What do I do?
 .sp
@@ -468,8 +478,8 @@ to configure listening ports such that they do not overlap (see \fI\%Syncthing C
 .sp
 No. Syncthing is not designed to sync locally and the overhead involved in
 doing so using Syncthing’s method would be wasteful. There are better
-programs to achieve this such as \fI\%rsync\fP <\fBhttps://rsync.samba.org/\fP> or
-\fI\%Unison\fP <\fBhttps://www.cis.upenn.edu/~bcpierce/unison\fP>\&.
+programs to achieve this such as \X'tty: link https://rsync.samba.org/'\fI\%rsync\fP <\fBhttps://rsync.samba.org/\fP>\X'tty: link' or
+\X'tty: link https://www.cis.upenn.edu/~bcpierce/unison'\fI\%Unison\fP <\fBhttps://www.cis.upenn.edu/~bcpierce/unison\fP>\X'tty: link'\&.
 .SS When I do have two distinct Syncthing\-managed folders on two hosts, how does Syncthing handle moving files between them?
 .sp
 Syncthing does not specially handle this case, and most files will most likely get
@@ -526,12 +536,10 @@ computer, change the \fBGUI listen address\fP option in the web GUI from
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <gui enabled=\(dqtrue\(dq tls=\(dqfalse\(dq>
   <address>127.0.0.1:8384</address>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -539,12 +547,10 @@ to
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <gui enabled=\(dqtrue\(dq tls=\(dqtrue\(dq>
   <address>0.0.0.0:8384</address>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -557,33 +563,29 @@ GUI settings at default and use an SSH port forward to access it.  For example,
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ ssh \-L 9090:127.0.0.1:8384 user@othercomputer.example.com
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
 will log you into \fBothercomputer.example.com\fP, and present the \fIremote\fP
-Syncthing GUI on \fI\%http://localhost:9090\fP on your \fIlocal\fP computer.
+Syncthing GUI on \X'tty: link http://localhost:9090'\fI\%http://localhost:9090\fP\X'tty: link' on your \fIlocal\fP computer.
 .sp
 If you only want to access the remote GUI and don’t want the terminal session,
 use this example:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 $ ssh \-N \-L 9090:127.0.0.1:8384 user@othercomputer.example.com
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
 If only your remote computer is Unix\-like, you can still access it with SSH from
 Windows.  Under Windows 10 or later you can use the same \fBssh\fP command if you
-\fI\%install the OpenSSH Client\fP <\fBhttps://learn.microsoft.com/windows-server/administration/openssh/openssh_install_firstuse\fP>\&.
+\X'tty: link https://learn.microsoft.com/windows-server/administration/openssh/openssh_install_firstuse'\fI\%install the OpenSSH Client\fP <\fBhttps://learn.microsoft.com/windows-server/administration/openssh/openssh_install_firstuse\fP>\X'tty: link'\&.
 .SS I don’t like the GUI or the theme. Can it be changed?
 .sp
 You can change the theme in the settings. Syncthing ships with other themes
@@ -601,7 +603,7 @@ To add e.g. a red theme, you can create the file \fBred/assets/css/theme.css\fP
 inside the GUI override directory to override the default CSS styles.
 .sp
 To create a whole new GUI, you should checkout the files at
-\fI\%https://github.com/syncthing/syncthing/tree/main/gui/default\fP
+\X'tty: link https://github.com/syncthing/syncthing/tree/main/gui/default'\fI\%https://github.com/syncthing/syncthing/tree/main/gui/default\fP\X'tty: link'
 to get an idea how to do that.
 .SS How do I upgrade Syncthing?
 .sp
@@ -626,13 +628,13 @@ so should Syncthing.
 .SS Where do I find the latest release?
 .sp
 We release new versions through GitHub. The latest release is always found
-\fI\%on the release page\fP <\fBhttps://github.com/syncthing/syncthing/releases/latest\fP>\&. Unfortunately
+\X'tty: link https://github.com/syncthing/syncthing/releases/latest'\fI\%on the release page\fP <\fBhttps://github.com/syncthing/syncthing/releases/latest\fP>\X'tty: link'\&. Unfortunately
 GitHub does not provide a single URL to automatically download the latest
-version. We suggest to use the \fI\%GitHub API\fP <\fBhttps://api.github.com/repos/syncthing/syncthing/releases/latest\fP> and parsing
+version. We suggest to use the \X'tty: link https://api.github.com/repos/syncthing/syncthing/releases/latest'\fI\%GitHub API\fP <\fBhttps://api.github.com/repos/syncthing/syncthing/releases/latest\fP>\X'tty: link' and parsing
 the JSON response.
 .SS How do I run Syncthing as a daemon process on Linux?
 .sp
-If you’re using systemd, runit, or upstart, we ship \fI\%example configurations\fP <\fBhttps://github.com/syncthing/syncthing/tree/main/etc\fP>\&.
+If you’re using systemd, runit, or upstart, we ship \X'tty: link https://github.com/syncthing/syncthing/tree/main/etc'\fI\%example configurations\fP <\fBhttps://github.com/syncthing/syncthing/tree/main/etc\fP>\X'tty: link'\&.
 .sp
 If however you’re not using one of these tools, you have a couple of options.
 If your system has a tool called \fBstart\-stop\-daemon\fP installed (that’s the name
@@ -650,22 +652,20 @@ the filesystem watcher on linux:
 .INDENT 0.0
 .INDENT 3.5
 Failed to start filesystem watcher for folder yourLabel (yourID): failed to
-setup inotify handler. Please increase inotify limits, see \fI\%https://docs.syncthing.net/users/faq.html#inotify\-limits\fP
+setup inotify handler. Please increase inotify limits, see \X'tty: link https://docs.syncthing.net/users/faq.html#inotify-limits'\fI\%https://docs.syncthing.net/users/faq.html#inotify\-limits\fP\X'tty: link'
 .UNINDENT
 .UNINDENT
 .sp
-Linux typically restricts the amount of watches per user (usually 8192). When
-you have more directories you need to adjust that number.
+Linux typically restricts the number of watches per user (usually 8192). If
+you have many directories, you will need to adjust that number.
 .sp
 On many Linux distributions you can run the following to fix it:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 echo \(dqfs.inotify.max_user_watches=204800\(dq | sudo tee \-a /etc/sysctl.conf
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -674,11 +674,9 @@ separate file, i.e. you should run:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 echo \(dqfs.inotify.max_user_watches=204800\(dq | sudo tee \-a /etc/sysctl.d/90\-override.conf
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .sp
@@ -686,11 +684,9 @@ This only takes effect after a reboot. To adjust the limit immediately, run:
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 echo 204800 | sudo tee /proc/sys/fs/inotify/max_user_watches
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SS How do I reset the GUI password?
@@ -716,8 +712,7 @@ For example, the two emphasized lines below would be removed from the file.
 .INDENT 0.0
 .INDENT 3.5
 .sp
-.nf
-.ft C
+.EX
 <gui enabled=\(dqtrue\(dq tls=\(dqfalse\(dq debugging=\(dqfalse\(dq>
    <address>127.0.0.1:8384</address>
    <user>syncguy</user>
@@ -725,8 +720,7 @@ For example, the two emphasized lines below would be removed from the file.
    <apikey>9RCKohqCAyrj5RjpyZdR2wXmQ9PyQFeN</apikey>
    <theme>default</theme>
 </gui>
-.ft P
-.fi
+.EE
 .UNINDENT
 .UNINDENT
 .SH AUTHOR

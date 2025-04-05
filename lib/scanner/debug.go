@@ -10,6 +10,4 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-var (
-	l = logger.DefaultLogger.NewFacility("scanner", "File change detection and hashing")
-)
+var l = logger.DefaultLogger.NewFacility("scanner", "File change detection and hashing")

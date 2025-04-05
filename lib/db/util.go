@@ -6,7 +6,10 @@
 
 package db
 
-import "github.com/syncthing/syncthing/lib/protocol"
+import (
+	"github.com/syncthing/syncthing/lib/protocol"
+	"google.golang.org/protobuf/proto"
+)
 
 // How many files to send in each Index/IndexUpdate message.
 const (
@@ -20,13 +23,16 @@ type FileInfoBatch struct {
 	infos   []protocol.FileInfo
 	size    int
 	flushFn func([]protocol.FileInfo) error
+	error   error
 }
 
+// NewFileInfoBatch returns a new FileInfoBatch that calls fn when it's time
+// to flush. Errors from the flush function are considered non-recoverable;
+// once an error is returned the flush function wil not be called again, and
+// any further calls to Flush will return the same error (unless Reset is
+// called).
 func NewFileInfoBatch(fn func([]protocol.FileInfo) error) *FileInfoBatch {
-	return &FileInfoBatch{
-		infos:   make([]protocol.FileInfo, 0, MaxBatchSizeFiles),
-		flushFn: fn,
-	}
+	return &FileInfoBatch{flushFn: fn}
 }
 
 func (b *FileInfoBatch) SetFlushFunc(fn func([]protocol.FileInfo) error) {
@@ -34,8 +40,14 @@ func (b *FileInfoBatch) SetFlushFunc(fn func([]protocol.FileInfo) error) {
 }
 
 func (b *FileInfoBatch) Append(f protocol.FileInfo) {
+	if b.error != nil {
+		panic("bug: calling append on a failed batch")
+	}
+	if b.infos == nil {
+		b.infos = make([]protocol.FileInfo, 0, MaxBatchSizeFiles)
+	}
 	b.infos = append(b.infos, f)
-	b.size += f.ProtoSize()
+	b.size += proto.Size(f.ToWire(true))
 }
 
 func (b *FileInfoBatch) Full() bool {
@@ -43,6 +55,9 @@ func (b *FileInfoBatch) Full() bool {
 }
 
 func (b *FileInfoBatch) FlushIfFull() error {
+	if b.error != nil {
+		return b.error
+	}
 	if b.Full() {
 		return b.Flush()
 	}
@@ -50,10 +65,14 @@ func (b *FileInfoBatch) FlushIfFull() error {
 }
 
 func (b *FileInfoBatch) Flush() error {
+	if b.error != nil {
+		return b.error
+	}
 	if len(b.infos) == 0 {
 		return nil
 	}
 	if err := b.flushFn(b.infos); err != nil {
+		b.error = err
 		return err
 	}
 	b.Reset()
@@ -61,7 +80,8 @@ func (b *FileInfoBatch) Flush() error {
 }
 
 func (b *FileInfoBatch) Reset() {
-	b.infos = b.infos[:0]
+	b.infos = nil
+	b.error = nil
 	b.size = 0
 }
 

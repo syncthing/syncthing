@@ -12,6 +12,7 @@ import (
 	"hash/fnv"
 	"math/rand"
 	"net"
+	"slices"
 	stdsync "sync"
 	"time"
 
@@ -232,9 +233,8 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 		default:
 		}
 
-		// Delete addresses for NATDevice's that do not exist anymore
-		nat, ok := nats[id]
-		if !ok {
+		if nat, ok := nats[id]; !ok || len(extAddrs) == 0 {
+			// Delete addresses for NATDevice's that do not exist anymore
 			mapping.removeAddressLocked(id)
 			change = true
 			continue
@@ -259,7 +259,7 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 			// entry always has the external port.
 			responseAddrs, err := s.tryNATDevice(ctx, nat, mapping.address, extAddrs[0].Port, leaseTime)
 			if err != nil {
-				l.Debugf("Failed to renew %s -> %v open port on %s", mapping, extAddrs, id)
+				l.Infof("Failed to renew %s -> %v open port on %s: %s", mapping, extAddrs, id, err)
 				mapping.removeAddressLocked(id)
 				change = true
 				continue
@@ -311,7 +311,7 @@ func (s *Service) acquireNewLocked(ctx context.Context, mapping *Mapping, nats m
 
 		addrs, err := s.tryNATDevice(ctx, nat, mapping.address, 0, leaseTime)
 		if err != nil {
-			l.Debugf("Failed to acquire %s open port on %s", mapping, id)
+			l.Infof("Failed to acquire %s open port on %s: %s", mapping, id, err)
 			continue
 		}
 
@@ -359,7 +359,7 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intAddr Address
 			extPort = port
 			goto findIP
 		}
-		l.Debugln("Error extending lease on", natd.ID(), err)
+		l.Debugf("Error extending lease on %v (external port %d -> internal port %d): %v", natd.ID(), extPort, intAddr.Port, err)
 	}
 
 	for i := 0; i < 10; i++ {
@@ -377,7 +377,8 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intAddr Address
 			extPort = port
 			goto findIP
 		}
-		l.Debugf("Error getting new lease on %s: %s", natd.ID(), err)
+		err = fmt.Errorf("getting new lease on %s (external port %d -> internal port %d): %w", natd.ID(), extPort, intAddr.Port, err)
+		l.Debugf("Error %s", err)
 	}
 
 	return nil, err
@@ -411,21 +412,11 @@ func addrSetsEqual(a []Address, b []Address) bool {
 		return false
 	}
 
-	// TODO: Rewrite this using slice.Contains once Go 1.21 is the minimum Go version.
-	for _, aElem := range a {
-		aElemFound := false
-		for _, bElem := range b {
-			if bElem.Equal(aElem) {
-				aElemFound = true
-				break
-			}
-		}
-		if !aElemFound {
-			// Found element in a that is not in b.
+	for _, v := range a {
+		if !slices.ContainsFunc(b, v.Equal) {
 			return false
 		}
 	}
 
-	// b contains all elements of a and their lengths are equal, so the sets are equal.
 	return true
 }

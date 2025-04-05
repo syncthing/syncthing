@@ -15,9 +15,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/syncthing/syncthing/lib/build"
 )
+
+const FilesystemTypeBasic FilesystemType = "basic"
 
 var (
 	errInvalidFilenameEmpty               = errors.New("name is invalid, must not be empty")
@@ -56,6 +58,12 @@ type (
 	userCache  = valueCache[string, *user.User]
 	groupCache = valueCache[string, *user.Group]
 )
+
+func init() {
+	RegisterFilesystemType(FilesystemTypeBasic, func(root string, opts ...Option) (Filesystem, error) {
+		return newBasicFilesystem(root, opts...), nil
+	})
+}
 
 func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	if root == "" {

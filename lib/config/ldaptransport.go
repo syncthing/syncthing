@@ -6,6 +6,14 @@
 
 package config
 
+type LDAPTransport int32
+
+const (
+	LDAPTransportPlain    LDAPTransport = 0
+	LDAPTransportTLS      LDAPTransport = 2
+	LDAPTransportStartTLS LDAPTransport = 3
+)
+
 func (t LDAPTransport) String() string {
 	switch t {
 	case LDAPTransportPlain:

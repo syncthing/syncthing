@@ -148,7 +148,7 @@ func readBroadcasts(ctx context.Context, outbox chan<- recv, port int) error {
 }
 
 func bcast(ip *net.IPNet) *net.IPNet {
-	var bc = &net.IPNet{}
+	bc := &net.IPNet{}
 	bc.IP = make([]byte, len(ip.IP))
 	copy(bc.IP, ip.IP)
 	bc.Mask = ip.Mask

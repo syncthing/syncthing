@@ -9,6 +9,7 @@ package ignore
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -17,11 +18,12 @@ import (
 	"time"
 
 	"github.com/gobwas/glob"
+	"golang.org/x/text/unicode/norm"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore/ignoreresult"
 	"github.com/syncthing/syncthing/lib/osutil"
-	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -205,13 +207,18 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 	m.curHash = newHash
 	m.patterns = patterns
 	if m.withCache {
-		m.matches = newCache(patterns)
+		m.matches = newCache()
 	}
 
 	return err
 }
 
 // Match matches the patterns plus temporary and internal files.
+//
+// The "file" parameter must be in the OS' native unicode format (NFD on macos,
+// NFC everywhere else). This is always the case in real usage in syncthing, as
+// we ensure native unicode normalisation on all entry points (scanning and from
+// protocol) - so no need to normalize when calling this, except e.g. in tests.
 func (m *Matcher) Match(file string) (result ignoreresult.R) {
 	switch {
 	case fs.IsTemporary(file):
@@ -231,6 +238,8 @@ func (m *Matcher) Match(file string) (result ignoreresult.R) {
 		return ignoreresult.NotIgnored
 	}
 
+	file = filepath.ToSlash(file)
+
 	if m.matches != nil {
 		// Check the cache for a known result.
 		res, ok := m.matches.get(file)
@@ -248,7 +257,6 @@ func (m *Matcher) Match(file string) (result ignoreresult.R) {
 	// allow skipping matched directories or not. As soon as we hit an
 	// exclude pattern (with some exceptions), we can't skip directories
 	// anymore.
-	file = filepath.ToSlash(file)
 	var lowercaseFile string
 	canSkipDir := true
 	for _, pattern := range m.patterns {
@@ -386,6 +394,10 @@ func loadParseIncludeFile(filesystem fs.Filesystem, file string, cd ChangeDetect
 }
 
 func parseLine(line string) ([]Pattern, error) {
+	// We use native normalization internally, thus the patterns must match
+	// that to avoid false negative matches.
+	line = nativeUnicodeNorm(line)
+
 	pattern := Pattern{
 		result: ignoreresult.Ignored,
 	}
@@ -461,6 +473,13 @@ func parseLine(line string) ([]Pattern, error) {
 	}
 	patterns[1] = pattern
 	return patterns, nil
+}
+
+func nativeUnicodeNorm(s string) string {
+	if build.IsDarwin || build.IsIOS {
+		return norm.NFD.String(s)
+	}
+	return norm.NFC.String(s)
 }
 
 func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd ChangeDetector, linesSeen map[string]struct{}) ([]string, []Pattern, error) {

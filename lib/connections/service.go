@@ -22,13 +22,14 @@ import (
 	"math"
 	"net"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	stdsync "sync"
 	"time"
 
-	"golang.org/x/exp/constraints"
-	"golang.org/x/exp/slices"
+	"github.com/thejerf/suture/v4"
+	"golang.org/x/time/rate"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -47,9 +48,6 @@ import (
 	// Registers NAT service providers
 	_ "github.com/syncthing/syncthing/lib/pmp"
 	_ "github.com/syncthing/syncthing/lib/upnp"
-
-	"github.com/thejerf/suture/v4"
-	"golang.org/x/time/rate"
 )
 
 var (
@@ -285,7 +283,11 @@ func (s *service) handleConns(ctx context.Context) error {
 		}
 
 		if err := s.connectionCheckEarly(remoteID, c); err != nil {
-			l.Infof("Connection from %s at %s (%s) rejected: %v", remoteID, c.RemoteAddr(), c.Type(), err)
+			if errors.Is(err, errDeviceAlreadyConnected) {
+				l.Debugf("Connection from %s at %s (%s) rejected: %v", remoteID, c.RemoteAddr(), c.Type(), err)
+			} else {
+				l.Infof("Connection from %s at %s (%s) rejected: %v", remoteID, c.RemoteAddr(), c.Type(), err)
+			}
 			c.Close()
 			continue
 		}
@@ -443,7 +445,7 @@ func (s *service) handleHellos(ctx context.Context) error {
 		// connections are limited.
 		rd, wr := s.limiter.getLimiters(remoteID, c, c.IsLocal())
 
-		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression, s.cfg.FolderPasswords(remoteID), s.keyGen)
+		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression.ToProtocol(), s.cfg.FolderPasswords(remoteID), s.keyGen)
 		s.accountAddedConnection(protoConn, hello, s.cfg.Options().ConnectionPriorityUpgradeThreshold)
 		go func() {
 			<-protoConn.Closed()
@@ -797,7 +799,7 @@ func (s *lanChecker) isLAN(addr net.Addr) bool {
 		}
 	}
 
-	lans, err := osutil.GetLans()
+	lans, err := osutil.GetInterfaceAddrs(false)
 	if err != nil {
 		l.Debugln("Failed to retrieve interface IPs:", err)
 		priv := ip.IsPrivate()
@@ -848,6 +850,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	newDevices := make(map[protocol.DeviceID]bool, len(to.Devices))
 	for _, dev := range to.Devices {
 		newDevices[dev.DeviceID] = true
+		registerDeviceMetrics(dev.DeviceID.String())
 	}
 
 	for _, dev := range from.Devices {
@@ -855,6 +858,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 			warningLimitersMut.Lock()
 			delete(warningLimiters, dev.DeviceID)
 			warningLimitersMut.Unlock()
+			metricDeviceActiveConnections.DeleteLabelValues(dev.DeviceID.String())
 		}
 	}
 
@@ -1280,6 +1284,7 @@ func (r nextDialRegistry) redialDevice(device protocol.DeviceID, now time.Time) 
 		}
 		dev.attempts++
 		dev.nextDial = make(map[string]time.Time)
+		r[device] = dev
 		return
 	}
 	if dev.attempts >= dialCoolDownMaxAttempts && now.Before(dev.coolDownIntervalStart.Add(dialCoolDownDelay)) {
@@ -1380,6 +1385,9 @@ func (c *deviceConnectionTracker) accountAddedConnection(conn protocol.Connectio
 	c.wantConnections[d] = int(h.NumConnections)
 	l.Debugf("Added connection for %s (now %d), they want %d connections", d.Short(), len(c.connections[d]), h.NumConnections)
 
+	// Update active connections metric
+	metricDeviceActiveConnections.WithLabelValues(d.String()).Inc()
+
 	// Close any connections we no longer want to retain.
 	c.closeWorsePriorityConnectionsLocked(d, conn.Priority()-upgradeThreshold)
 }
@@ -1401,6 +1409,10 @@ func (c *deviceConnectionTracker) accountRemovedConnection(conn protocol.Connect
 		delete(c.connections, d)
 		delete(c.wantConnections, d)
 	}
+
+	// Update active connections metric
+	metricDeviceActiveConnections.WithLabelValues(d.String()).Dec()
+
 	l.Debugf("Removed connection for %s (now %d)", d.Short(), c.connections[d])
 }
 
@@ -1467,21 +1479,4 @@ func newConnectionID(t0, t1 int64) string {
 	// character in the middle that is a mix of bits from the timestamp and
 	// from the random. We want the timestamp part deterministic.
 	return enc.EncodeToString(buf[:8]) + enc.EncodeToString(buf[8:])
-}
-
-// temporary implementations of min and max, to be removed once we can use
-// Go 1.21 builtins. :)
-
-func min[T constraints.Ordered](a, b T) T {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max[T constraints.Ordered](a, b T) T {
-	if a > b {
-		return a
-	}
-	return b
 }

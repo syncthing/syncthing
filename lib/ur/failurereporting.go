@@ -20,6 +20,7 @@ import (
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/svcutil"
+	"github.com/syncthing/syncthing/lib/tlsutil"
 
 	"github.com/thejerf/suture/v4"
 )
@@ -208,8 +209,9 @@ func sendFailureReports(ctx context.Context, reports []FailureReport, url string
 
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext: dialer.DialContext,
-			Proxy:       http.ProxyFromEnvironment,
+			DialContext:     dialer.DialContext,
+			Proxy:           http.ProxyFromEnvironment,
+			TLSClientConfig: tlsutil.SecureDefaultWithTLS12(),
 		},
 	}
 

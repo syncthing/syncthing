@@ -18,12 +18,15 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/d4l3k/messagediff"
+	"github.com/thejerf/suture/v4"
+
 	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -45,8 +48,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/ur"
-	"github.com/thejerf/suture/v4"
-	"golang.org/x/exp/slices"
 )
 
 var (
@@ -225,10 +226,11 @@ func TestAPIServiceRequests(t *testing.T) {
 	cases := []httpTestCase{
 		// /rest/db
 		{
-			URL:    "/rest/db/completion?device=" + protocol.LocalDeviceID.String() + "&folder=default",
-			Code:   200,
-			Type:   "application/json",
-			Prefix: "{",
+			URL:     "/rest/db/completion?device=" + protocol.LocalDeviceID.String() + "&folder=default",
+			Code:    200,
+			Type:    "application/json",
+			Prefix:  "{",
+			Timeout: 15 * time.Second,
 		},
 		{
 			URL:  "/rest/db/file?folder=default&file=something",
@@ -433,7 +435,7 @@ func TestAPIServiceRequests(t *testing.T) {
 
 	for _, tc := range cases {
 		tc := tc
-		t.Run(cases[0].URL, func(t *testing.T) {
+		t.Run(tc.URL, func(t *testing.T) {
 			t.Parallel()
 			testHTTPRequest(t, baseURL, tc, testAPIKey)
 		})
@@ -443,9 +445,9 @@ func TestAPIServiceRequests(t *testing.T) {
 // testHTTPRequest tries the given test case, comparing the result code,
 // content type, and result prefix.
 func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey string) {
-	// Should not be parallelized, as that just causes timeouts eventually with more test-cases
-
-	timeout := time.Second
+	// Since running tests in parallel, the previous 1s timeout proved to be too short.
+	// https://github.com/syncthing/syncthing/issues/9455
+	timeout := 10 * time.Second
 	if tc.Timeout > 0 {
 		timeout = tc.Timeout
 	}
@@ -490,20 +492,42 @@ func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey strin
 	}
 }
 
-func hasSessionCookie(cookies []*http.Cookie) bool {
+func getSessionCookie(cookies []*http.Cookie) (*http.Cookie, bool) {
 	for _, cookie := range cookies {
 		if cookie.MaxAge >= 0 && strings.HasPrefix(cookie.Name, "sessionid") {
+			return cookie, true
+		}
+	}
+	return nil, false
+}
+
+func hasSessionCookie(cookies []*http.Cookie) bool {
+	_, ok := getSessionCookie(cookies)
+	return ok
+}
+
+func hasDeleteSessionCookie(cookies []*http.Cookie) bool {
+	for _, cookie := range cookies {
+		if cookie.MaxAge < 0 && strings.HasPrefix(cookie.Name, "sessionid") {
 			return true
 		}
 	}
 	return false
 }
 
-func httpGet(url string, basicAuthUsername string, basicAuthPassword string, xapikeyHeader string, authorizationBearer string, cookies []*http.Cookie, t *testing.T) *http.Response {
-	req, err := http.NewRequest("GET", url, nil)
-	for _, cookie := range cookies {
-		req.AddCookie(cookie)
+func httpRequest(method string, url string, body any, basicAuthUsername, basicAuthPassword, xapikeyHeader, authorizationBearer, csrfTokenName, csrfTokenValue string, cookies []*http.Cookie, t *testing.T) *http.Response {
+	t.Helper()
+
+	var bodyReader io.Reader = nil
+	if body != nil {
+		bodyBytes, err := json.Marshal(body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bodyReader = bytes.NewReader(bodyBytes)
 	}
+
+	req, err := http.NewRequest(method, url, bodyReader)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -520,7 +544,16 @@ func httpGet(url string, basicAuthUsername string, basicAuthPassword string, xap
 		req.Header.Set("Authorization", "Bearer "+authorizationBearer)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	if csrfTokenName != "" && csrfTokenValue != "" {
+		req.Header.Set("X-"+csrfTokenName, csrfTokenValue)
+	}
+
+	for _, cookie := range cookies {
+		req.AddCookie(cookie)
+	}
+
+	client := http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -528,37 +561,31 @@ func httpGet(url string, basicAuthUsername string, basicAuthPassword string, xap
 	return resp
 }
 
-func httpPost(url string, body map[string]string, t *testing.T) *http.Response {
-	bodyBytes, err := json.Marshal(body)
-	if err != nil {
-		t.Fatal(err)
-	}
+func httpGet(url string, basicAuthUsername, basicAuthPassword, xapikeyHeader, authorizationBearer string, cookies []*http.Cookie, t *testing.T) *http.Response {
+	t.Helper()
+	return httpRequest(http.MethodGet, url, nil, basicAuthUsername, basicAuthPassword, xapikeyHeader, authorizationBearer, "", "", cookies, t)
+}
 
-	req, err := http.NewRequest("POST", url, bytes.NewReader(bodyBytes))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return resp
+func httpPost(url string, body map[string]string, cookies []*http.Cookie, t *testing.T) *http.Response {
+	t.Helper()
+	return httpRequest(http.MethodPost, url, body, "", "", "", "", "", "", cookies, t)
 }
 
 func TestHTTPLogin(t *testing.T) {
 	t.Parallel()
 
 	httpGetBasicAuth := func(url string, username string, password string) *http.Response {
+		t.Helper()
 		return httpGet(url, username, password, "", "", nil, t)
 	}
 
 	httpGetXapikey := func(url string, xapikeyHeader string) *http.Response {
+		t.Helper()
 		return httpGet(url, "", "", xapikeyHeader, "", nil, t)
 	}
 
 	httpGetAuthorizationBearer := func(url string, bearer string) *http.Response {
+		t.Helper()
 		return httpGet(url, "", "", "", bearer, nil, t)
 	}
 
@@ -620,6 +647,43 @@ func TestHTTPLogin(t *testing.T) {
 				}
 				if !hasSessionCookie(resp.Cookies()) {
 					t.Errorf("Expected session cookie for authed request (UTF-8)")
+				}
+			})
+
+			t.Run("Logout removes the session cookie", func(t *testing.T) {
+				t.Parallel()
+				resp := httpGetBasicAuth(url, "üser", "räksmörgås") // string literals in Go source code are in UTF-8
+				if resp.StatusCode != expectedOkStatus {
+					t.Errorf("Unexpected non-%d return code %d for authed request (UTF-8)", expectedOkStatus, resp.StatusCode)
+				}
+				if !hasSessionCookie(resp.Cookies()) {
+					t.Errorf("Expected session cookie for authed request (UTF-8)")
+				}
+				logoutResp := httpPost(baseURL+"/rest/noauth/auth/logout", nil, resp.Cookies(), t)
+				if !hasDeleteSessionCookie(logoutResp.Cookies()) {
+					t.Errorf("Expected session cookie to be deleted for logout request")
+				}
+			})
+
+			t.Run("Session cookie is invalid after logout", func(t *testing.T) {
+				t.Parallel()
+				loginResp := httpGetBasicAuth(url, "üser", "räksmörgås") // string literals in Go source code are in UTF-8
+				if loginResp.StatusCode != expectedOkStatus {
+					t.Errorf("Unexpected non-%d return code %d for authed request (UTF-8)", expectedOkStatus, loginResp.StatusCode)
+				}
+				if !hasSessionCookie(loginResp.Cookies()) {
+					t.Errorf("Expected session cookie for authed request (UTF-8)")
+				}
+
+				resp := httpGet(url, "", "", "", "", loginResp.Cookies(), t)
+				if resp.StatusCode != expectedOkStatus {
+					t.Errorf("Unexpected non-%d return code %d for cookie-authed request (UTF-8)", expectedOkStatus, resp.StatusCode)
+				}
+
+				httpPost(baseURL+"/rest/noauth/auth/logout", nil, loginResp.Cookies(), t)
+				resp = httpGet(url, "", "", "", "", loginResp.Cookies(), t)
+				if resp.StatusCode != expectedFailStatus {
+					t.Errorf("Expected session to be invalid (status %d) after logout, got status: %d", expectedFailStatus, resp.StatusCode)
 				}
 			})
 
@@ -687,6 +751,129 @@ func TestHTTPLogin(t *testing.T) {
 	testWith(false, http.StatusOK, http.StatusOK, "/")
 	testWith(false, http.StatusOK, http.StatusForbidden, "/meta.js")
 	testWith(false, http.StatusNotFound, http.StatusForbidden, "/any-path/that/does/nooooooot/match-any/noauth-pattern")
+
+	t.Run("Password change invalidates old and enables new password", func(t *testing.T) {
+		t.Parallel()
+
+		// This test needs a longer-than-default shutdown timeout to finish saving
+		// config changes when running on GitHub Actions
+		shutdownTimeout := time.Second
+
+		initConfig := func(password string, t *testing.T) config.Wrapper {
+			gui := config.GUIConfiguration{
+				RawAddress: "127.0.0.1:0",
+				APIKey:     testAPIKey,
+				User:       "user",
+			}
+			if err := gui.SetPassword(password); err != nil {
+				t.Fatal(err, "Failed to set initial password")
+			}
+			cfg := config.Configuration{
+				GUI: gui,
+			}
+
+			tmpFile, err := os.CreateTemp("", "syncthing-testConfig-Password-*")
+			if err != nil {
+				t.Fatal(err, "Failed to create tmpfile for test")
+			}
+			w := config.Wrap(tmpFile.Name(), cfg, protocol.LocalDeviceID, events.NoopLogger)
+			tmpFile.Close()
+			cfgCtx, cfgCancel := context.WithCancel(context.Background())
+			go w.Serve(cfgCtx)
+			t.Cleanup(func() {
+				os.Remove(tmpFile.Name())
+				cfgCancel()
+			})
+			return w
+		}
+
+		initialPassword := "Asdf123!"
+		newPassword := "123!asdF"
+
+		t.Run("when done via /rest/config", func(t *testing.T) {
+			t.Parallel()
+
+			w := initConfig(initialPassword, t)
+			{
+				baseURL, cancel, err := startHTTPWithShutdownTimeout(w, shutdownTimeout)
+				cfgPath := baseURL + "/rest/config"
+				path := baseURL + "/meta.js"
+				t.Cleanup(cancel)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				resp := httpGetBasicAuth(path, "user", initialPassword)
+				if resp.StatusCode != http.StatusOK {
+					t.Fatalf("Unexpected non-200 return code %d for auth with initial password", resp.StatusCode)
+				}
+
+				cfg := w.RawCopy()
+				cfg.GUI.Password = newPassword
+				httpRequest(http.MethodPut, cfgPath, cfg, "", "", testAPIKey, "", "", "", nil, t)
+			}
+			{
+				baseURL, cancel, err := startHTTP(w)
+				path := baseURL + "/meta.js"
+				t.Cleanup(cancel)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				resp := httpGetBasicAuth(path, "user", initialPassword)
+				if resp.StatusCode != http.StatusForbidden {
+					t.Errorf("Unexpected non-403 return code %d for request authed with old password", resp.StatusCode)
+				}
+
+				resp2 := httpGetBasicAuth(path, "user", newPassword)
+				if resp2.StatusCode != http.StatusOK {
+					t.Errorf("Unexpected non-200 return code %d for request authed with new password", resp2.StatusCode)
+				}
+			}
+		})
+
+		t.Run("when done via /rest/config/gui", func(t *testing.T) {
+			t.Parallel()
+
+			w := initConfig(initialPassword, t)
+			{
+				baseURL, cancel, err := startHTTPWithShutdownTimeout(w, shutdownTimeout)
+				cfgPath := baseURL + "/rest/config/gui"
+				path := baseURL + "/meta.js"
+				t.Cleanup(cancel)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				resp := httpGetBasicAuth(path, "user", initialPassword)
+				if resp.StatusCode != http.StatusOK {
+					t.Fatalf("Unexpected non-200 return code %d for auth with initial password", resp.StatusCode)
+				}
+
+				cfg := w.RawCopy()
+				cfg.GUI.Password = newPassword
+				httpRequest(http.MethodPut, cfgPath, cfg.GUI, "", "", testAPIKey, "", "", "", nil, t)
+			}
+			{
+				baseURL, cancel, err := startHTTP(w)
+				path := baseURL + "/meta.js"
+				t.Cleanup(cancel)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				resp := httpGetBasicAuth(path, "user", initialPassword)
+				if resp.StatusCode != http.StatusForbidden {
+					t.Errorf("Unexpected non-403 return code %d for request authed with old password", resp.StatusCode)
+				}
+
+				resp2 := httpGetBasicAuth(path, "user", newPassword)
+				if resp2.StatusCode != http.StatusOK {
+					t.Errorf("Unexpected non-200 return code %d for request authed with new password", resp2.StatusCode)
+				}
+			}
+		})
+	})
 }
 
 func TestHtmlFormLogin(t *testing.T) {
@@ -709,10 +896,12 @@ func TestHtmlFormLogin(t *testing.T) {
 	resourceUrl404 := baseURL + "/any-path/that/does/nooooooot/match-any/noauth-pattern"
 
 	performLogin := func(username string, password string) *http.Response {
-		return httpPost(loginUrl, map[string]string{"username": username, "password": password}, t)
+		t.Helper()
+		return httpPost(loginUrl, map[string]string{"username": username, "password": password}, nil, t)
 	}
 
 	performResourceRequest := func(url string, cookies []*http.Cookie) *http.Response {
+		t.Helper()
 		return httpGet(url, "", "", "", "", cookies, t)
 	}
 
@@ -774,9 +963,40 @@ func TestHtmlFormLogin(t *testing.T) {
 		}
 	})
 
+	t.Run("Logout removes the session cookie", func(t *testing.T) {
+		t.Parallel()
+		// JSON is always UTF-8, so ISO-8859-1 case is not applicable
+		resp := performLogin("üser", "räksmörgås") // string literals in Go source code are in UTF-8
+		if resp.StatusCode != http.StatusNoContent {
+			t.Errorf("Unexpected non-204 return code %d for authed request (UTF-8)", resp.StatusCode)
+		}
+		logoutResp := httpPost(baseURL+"/rest/noauth/auth/logout", nil, resp.Cookies(), t)
+		if !hasDeleteSessionCookie(logoutResp.Cookies()) {
+			t.Errorf("Expected session cookie to be deleted for logout request")
+		}
+	})
+
+	t.Run("Session cookie is invalid after logout", func(t *testing.T) {
+		t.Parallel()
+		// JSON is always UTF-8, so ISO-8859-1 case is not applicable
+		loginResp := performLogin("üser", "räksmörgås") // string literals in Go source code are in UTF-8
+		if loginResp.StatusCode != http.StatusNoContent {
+			t.Errorf("Unexpected non-204 return code %d for authed request (UTF-8)", loginResp.StatusCode)
+		}
+		resp := performResourceRequest(resourceUrl, loginResp.Cookies())
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
+		}
+		httpPost(baseURL+"/rest/noauth/auth/logout", nil, loginResp.Cookies(), t)
+		resp = performResourceRequest(resourceUrl, loginResp.Cookies())
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Expected session to be invalid (status 403) after logout, got status: %d", resp.StatusCode)
+		}
+	})
+
 	t.Run("form login is not applicable to other URLs", func(t *testing.T) {
 		t.Parallel()
-		resp := httpPost(baseURL+"/meta.js", map[string]string{"username": "üser", "password": "räksmörgås"}, t)
+		resp := httpPost(baseURL+"/meta.js", map[string]string{"username": "üser", "password": "räksmörgås"}, nil, t)
 		if resp.StatusCode != http.StatusForbidden {
 			t.Errorf("Unexpected non-403 return code %d for incorrect form login URL", resp.StatusCode)
 		}
@@ -840,6 +1060,10 @@ func TestApiCache(t *testing.T) {
 }
 
 func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, error) {
+	return startHTTPWithShutdownTimeout(cfg, 0)
+}
+
+func startHTTPWithShutdownTimeout(cfg config.Wrapper, shutdownTimeout time.Duration) (string, context.CancelFunc, error) {
 	m := new(modelmocks.Model)
 	assetDir := "../../gui"
 	eventSub := new(eventmocks.BufferedSubscription)
@@ -866,6 +1090,10 @@ func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, error) {
 	kdb := db.NewMiscDataNamespace(mdb)
 	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, mockedSummary, errorLog, systemLog, false, kdb).(*service)
 	svc.started = addrChan
+
+	if shutdownTimeout > 0*time.Millisecond {
+		svc.shutdownTimeout = shutdownTimeout
+	}
 
 	// Actually start the API service
 	supervisor := suture.New("API test", suture.Spec{

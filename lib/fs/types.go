@@ -6,29 +6,34 @@
 
 package fs
 
-func (t FilesystemType) String() string {
-	switch t {
-	case FilesystemTypeBasic:
-		return "basic"
-	case FilesystemTypeFake:
-		return "fake"
-	default:
-		return "unknown"
-	}
+import "sync"
+
+type FilesystemType string
+
+// Option modifies a filesystem at creation. An option might be specific
+// to a filesystem-type.
+//
+// String is used to detect options with the same effect, i.e. must be different
+// for options with different effects. Meaning if an option has parameters, a
+// representation of those must be part of the returned string.
+type Option interface {
+	String() string
+	apply(Filesystem) Filesystem
 }
 
-func (t FilesystemType) MarshalText() ([]byte, error) {
-	return []byte(t.String()), nil
-}
+// Factory function type for constructing a custom file system. It takes the URI
+// and options as its parameters.
+type FilesystemFactory func(string, ...Option) (Filesystem, error)
 
-func (t *FilesystemType) UnmarshalText(bs []byte) error {
-	switch string(bs) {
-	case "basic":
-		*t = FilesystemTypeBasic
-	case "fake":
-		*t = FilesystemTypeFake
-	default:
-		*t = FilesystemTypeBasic
-	}
-	return nil
+// For each registered file system type, a function to construct a file system.
+var filesystemFactories map[FilesystemType]FilesystemFactory = make(map[FilesystemType]FilesystemFactory)
+var filesystemFactoriesMutex sync.Mutex = sync.Mutex{}
+
+// Register a function to be called when a filesystem is to be constructed with
+// the specified fsType. The function will receive the URI for the file system as well
+// as all options.
+func RegisterFilesystemType(fsType FilesystemType, fn FilesystemFactory) {
+	filesystemFactoriesMutex.Lock()
+	defer filesystemFactoriesMutex.Unlock()
+	filesystemFactories[fsType] = fn
 }

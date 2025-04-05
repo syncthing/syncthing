@@ -4,8 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:build !noupgrade
-// +build !noupgrade
+//go:build !noupgrade && !ios
+// +build !noupgrade,!ios
 
 package upgrade
 
@@ -14,7 +14,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,8 +27,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shirou/gopsutil/v4/host"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/signature"
+	"github.com/syncthing/syncthing/lib/tlsutil"
 	"golang.org/x/net/http2"
 )
 
@@ -60,40 +61,40 @@ const (
 	maxMetadataSize = 10 << 20 // 10 MiB
 )
 
-// This is an HTTP/HTTPS client that does *not* perform certificate
-// validation. We do this because some systems where Syncthing runs have
-// issues with old or missing CA roots. It doesn't actually matter that we
-// load the upgrade insecurely as we verify an ECDSA signature of the actual
-// binary contents before accepting the upgrade.
-var insecureHTTP = &http.Client{
+var upgradeClient = &http.Client{
 	Timeout: readTimeout,
 	Transport: &http.Transport{
-		DialContext: dialer.DialContext,
-		Proxy:       http.ProxyFromEnvironment,
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
+		DialContext:     dialer.DialContext,
+		Proxy:           http.ProxyFromEnvironment,
+		TLSClientConfig: tlsutil.SecureDefaultWithTLS12(),
 	},
 }
 
+var osVersion string
+
 func init() {
-	_ = http2.ConfigureTransport(insecureHTTP.Transport.(*http.Transport))
+	_ = http2.ConfigureTransport(upgradeClient.Transport.(*http.Transport))
+	osVersion, _ = host.KernelVersion()
+	osVersion = strings.TrimSpace(osVersion)
 }
 
-func insecureGet(url, version string) (*http.Response, error) {
+func upgradeClientGet(url, version string) (*http.Response, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("User-Agent", fmt.Sprintf(`syncthing %s (%s %s-%s)`, version, runtime.Version(), runtime.GOOS, runtime.GOARCH))
-	return insecureHTTP.Do(req)
+	if osVersion != "" {
+		req.Header.Set("Syncthing-Os-Version", osVersion)
+	}
+	return upgradeClient.Do(req)
 }
 
 // FetchLatestReleases returns the latest releases. The "current" parameter
 // is used for setting the User-Agent only.
 func FetchLatestReleases(releasesURL, current string) []Release {
-	resp, err := insecureGet(releasesURL, current)
+	resp, err := upgradeClientGet(releasesURL, current)
 	if err != nil {
 		l.Infoln("Couldn't fetch release information:", err)
 		return nil
@@ -118,9 +119,11 @@ type SortByRelease []Release
 func (s SortByRelease) Len() int {
 	return len(s)
 }
+
 func (s SortByRelease) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
+
 func (s SortByRelease) Less(i, j int) bool {
 	return CompareVersions(s[i].Tag, s[j].Tag) > 0
 }
@@ -223,7 +226,7 @@ func readRelease(archiveName, dir, url string) (string, error) {
 	}
 
 	req.Header.Add("Accept", "application/octet-stream")
-	resp, err := insecureHTTP.Do(req)
+	resp, err := upgradeClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -428,7 +431,7 @@ func writeBinary(dir string, inFile io.Reader) (filename string, err error) {
 		return "", err
 	}
 
-	err = os.Chmod(outFile.Name(), os.FileMode(0755))
+	err = os.Chmod(outFile.Name(), os.FileMode(0o755))
 	if err != nil {
 		os.Remove(outFile.Name())
 		return "", err

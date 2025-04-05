@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/d4l3k/messagediff"
+
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/fs"
 )
 
 func TestStaggeredVersioningVersionCount(t *testing.T) {
@@ -100,7 +100,7 @@ func TestStaggeredVersioningVersionCount(t *testing.T) {
 	sort.Strings(delete)
 
 	cfg := config.FolderConfiguration{
-		FilesystemType: fs.FilesystemTypeBasic,
+		FilesystemType: config.FilesystemTypeBasic,
 		Path:           "testdata",
 		Versioning: config.VersioningConfiguration{
 			Params: map[string]string{
@@ -134,15 +134,17 @@ func TestCreateVersionPath(t *testing.T) {
 
 	// Create a test dir and file
 	tmpDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tmpDir, archiveFile), []byte("sup"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, archiveFile), []byte("sup"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	folderCfg := config.FolderConfiguration{
-		ID:   "default",
-		Path: tmpDir,
+		ID:             "default",
+		FilesystemType: config.FilesystemTypeBasic,
+		Path:           tmpDir,
 		Versioning: config.VersioningConfiguration{
 			Type:   "staggered",
+			FSType: config.FilesystemTypeBasic,
 			FSPath: versionsDir,
 		},
 	}

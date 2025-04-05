@@ -10,6 +10,4 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-var (
-	l = logger.DefaultLogger.NewFacility("connections", "Connection handling")
-)
+var l = logger.DefaultLogger.NewFacility("connections", "Connection handling")

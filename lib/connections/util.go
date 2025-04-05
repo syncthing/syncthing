@@ -60,7 +60,7 @@ func getURLsForAllAdaptersIfUnspecified(network string, uri *url.URL) []*url.URL
 }
 
 func getHostPortsForAllAdapters(port int) []string {
-	nets, err := osutil.GetLans()
+	nets, err := osutil.GetInterfaceAddrs(true)
 	if err != nil {
 		// Ignore failure.
 		return nil

@@ -14,3 +14,11 @@ func RemoveAndZero[E any, S ~[]E](s S, i int) S {
 	s[len(s)-1] = *new(E)
 	return s[:len(s)-1]
 }
+
+func Map[E, R any, S ~[]E](s S, f func(E) R) []R {
+	r := make([]R, len(s))
+	for i, v := range s {
+		r[i] = f(v)
+	}
+	return r
+}

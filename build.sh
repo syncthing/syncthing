@@ -26,7 +26,7 @@ case "${1:-default}" in
 		build weblate
 		pushd man ; ./refresh.sh ; popd
 		git add -A gui man AUTHORS
-		git commit -m 'gui, man, authors: Update docs, translations, and contributors'
+		git commit -m 'chore(gui, man, authors): update docs, translations, and contributors'
 		;;
 
 	*)

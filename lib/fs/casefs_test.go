@@ -40,7 +40,7 @@ func testRealCase(t *testing.T, fsys Filesystem) {
 	testFs := newCaseFilesystem(fsys)
 	comps := []string{"Foo", "bar", "BAZ", "bAs"}
 	path := filepath.Join(comps...)
-	testFs.MkdirAll(filepath.Join(comps[:len(comps)-1]...), 0777)
+	testFs.MkdirAll(filepath.Join(comps[:len(comps)-1]...), 0o777)
 	fd, err := testFs.Create(path)
 	if err != nil {
 		t.Fatal(err)
@@ -93,7 +93,7 @@ func testRealCaseSensitive(t *testing.T, fsys Filesystem) {
 	names[0] = "foo"
 	names[1] = strings.ToUpper(names[0])
 	for _, n := range names {
-		if err := testFs.MkdirAll(n, 0777); err != nil {
+		if err := testFs.MkdirAll(n, 0o777); err != nil {
 			if IsErrCaseConflict(err) {
 				t.Skip("Filesystem is case-insensitive")
 			}
@@ -175,7 +175,10 @@ func BenchmarkWalkCaseFakeFS100k(b *testing.B) {
 		// Construct the casefs manually or it will get cached and the benchmark is invalid.
 		casefs := &caseFilesystem{
 			Filesystem: fsys,
-			realCaser:  newDefaultRealCaser(fsys),
+			realCaser: &defaultRealCaser{
+				fs:    fsys,
+				cache: newCaseCache(),
+			},
 		}
 		var fakefs *fakeFS
 		if ffs, ok := unwrapFilesystem(fsys, filesystemWrapperTypeNone); ok {
@@ -201,7 +204,10 @@ func BenchmarkWalkCaseFakeFS100k(b *testing.B) {
 		// Construct the casefs manually or it will get cached and the benchmark is invalid.
 		casefs := &caseFilesystem{
 			Filesystem: fsys,
-			realCaser:  newDefaultRealCaser(fsys),
+			realCaser: &defaultRealCaser{
+				fs:    fsys,
+				cache: newCaseCache(),
+			},
 		}
 		var fakefs *fakeFS
 		if ffs, ok := unwrapFilesystem(fsys, filesystemWrapperTypeNone); ok {

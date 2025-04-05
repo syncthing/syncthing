@@ -33,55 +33,56 @@ func TestDeviceDownloadState(t *testing.T) {
 		shouldHaveIndexesFrom    []protocol.FileDownloadProgressUpdate
 		shouldNotHaveIndexesFrom []protocol.FileDownloadProgressUpdate
 	}{
-		{ //1
+		{ // 1
 			[]protocol.FileDownloadProgressUpdate{f1v1p1},
 			[]protocol.FileDownloadProgressUpdate{f1v1p1},
 			[]protocol.FileDownloadProgressUpdate{f1v1p2, f1v2p1, f1v2p2},
 		},
-		{ //2
+		{ // 2
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f1v1p2},
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f1v1p2},
 			[]protocol.FileDownloadProgressUpdate{f1v2p1, f1v2p2},
 		},
-		{ //3
+		{ // 3
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f1v1p2, f1v1del},
 			nil,
-			[]protocol.FileDownloadProgressUpdate{f1v1p1, f1v1p2, f1v2p1, f1v2p2}},
-		{ //4
+			[]protocol.FileDownloadProgressUpdate{f1v1p1, f1v1p2, f1v2p1, f1v2p2},
+		},
+		{ // 4
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f1v1p2, f1v2del},
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f1v1p2},
 			[]protocol.FileDownloadProgressUpdate{f1v2p1, f1v2p2},
 		},
-		{ //5
+		{ // 5
 			// v2 replaces old v1 data
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f1v1p2, f1v2p1},
 			[]protocol.FileDownloadProgressUpdate{f1v2p1},
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f1v1p2, f1v2p2},
 		},
-		{ //6
+		{ // 6
 			// v1 delete on v2 data does nothing
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f1v1p2, f1v2p1, f1v1del},
 			[]protocol.FileDownloadProgressUpdate{f1v2p1},
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f1v1p2, f1v2p2},
 		},
-		{ //7
+		{ // 7
 			// v2 replacees v1, v2 gets deleted, and v2 part 2 gets added.
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f1v1p2, f1v2p1, f1v2del, f1v2p2},
 			[]protocol.FileDownloadProgressUpdate{f1v2p2},
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f1v1p2, f1v2p1},
 		},
 		// Multiple files in one go
-		{ //8
+		{ // 8
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f2v1p1},
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f2v1p1},
 			[]protocol.FileDownloadProgressUpdate{f1v1p2, f2v1p2},
 		},
-		{ //9
+		{ // 9
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f2v1p1, f2v1del},
 			[]protocol.FileDownloadProgressUpdate{f1v1p1},
 			[]protocol.FileDownloadProgressUpdate{f2v1p1, f2v1p1},
 		},
-		{ //10
+		{ // 10
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f2v1del, f2v1p1},
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f2v1p1},
 			[]protocol.FileDownloadProgressUpdate{f1v1p2, f2v1p2},

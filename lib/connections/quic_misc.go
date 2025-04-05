@@ -4,8 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-//go:build go1.15 && !noquic
-// +build go1.15,!noquic
+//go:build !noquic
+// +build !noquic
 
 package connections
 
@@ -85,7 +85,7 @@ func (t *writeTrackingTracer) loggingTracer() *logging.Tracer {
 		SentPacket: func(net.Addr, *logging.Header, logging.ByteCount, []logging.Frame) {
 			t.lastWrite.Store(time.Now().UnixNano())
 		},
-		SentVersionNegotiationPacket: func(net.Addr, logging.ArbitraryLenConnectionID, logging.ArbitraryLenConnectionID, []logging.VersionNumber) {
+		SentVersionNegotiationPacket: func(net.Addr, logging.ArbitraryLenConnectionID, logging.ArbitraryLenConnectionID, []logging.Version) {
 			t.lastWrite.Store(time.Now().UnixNano())
 		},
 	}
