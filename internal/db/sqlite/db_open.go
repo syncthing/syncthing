@@ -7,57 +7,104 @@
 package sqlite
 
 import (
-	"database/sql"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
-	"text/template"
+	"sync"
+	"time"
 
-	"github.com/jmoiron/sqlx"
-	"github.com/syncthing/syncthing/lib/build"
-	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/internal/db"
 )
 
-const maxDBConns = 128
+const maxDBConns = 16
+
+type DB struct {
+	pathBase        string
+	deleteRetention time.Duration
+
+	*baseDB
+
+	folderDBsMut   sync.RWMutex
+	folderDBs      map[string]*folderDB
+	folderDBOpener func(folder, path string, deleteRetention time.Duration) (*folderDB, error)
+}
+
+var _ db.DB = (*DB)(nil)
+
+type Option func(*DB)
+
+func WithDeleteRetention(d time.Duration) Option {
+	return func(s *DB) {
+		s.deleteRetention = d
+	}
+}
 
 func Open(path string, opts ...Option) (*DB, error) {
-	// Open the database with options to enable foreign keys and recursive
-	// triggers (needed for the delete+insert triggers on row replace).
-	sqlDB, err := sqlx.Open(dbDriver, "file:"+path+"?"+commonOptions)
+	pragmas := []string{
+		"journal_mode = WAL",
+		"optimize = 0x10002",
+		"auto_vacuum = INCREMENTAL",
+		"default_temp_store = MEMORY",
+		"temp_store = MEMORY",
+	}
+	schemas := []string{
+		"sql/schema/common/*",
+		"sql/schema/main/*",
+	}
+
+	os.MkdirAll(path, 0o700)
+	mainPath := filepath.Join(path, "main.db")
+	mainBase, err := openBase(mainPath, maxDBConns, pragmas, schemas, nil)
 	if err != nil {
-		return nil, wrap(err)
+		return nil, err
 	}
-	sqlDB.SetMaxOpenConns(maxDBConns)
-	if _, err := sqlDB.Exec(`PRAGMA journal_mode = WAL`); err != nil {
-		return nil, wrap(err, "PRAGMA journal_mode")
+
+	db := &DB{
+		pathBase:       path,
+		baseDB:         mainBase,
+		folderDBs:      make(map[string]*folderDB),
+		folderDBOpener: openFolderDB,
 	}
-	if _, err := sqlDB.Exec(`PRAGMA optimize = 0x10002`); err != nil {
-		// https://www.sqlite.org/pragma.html#pragma_optimize
-		return nil, wrap(err, "PRAGMA optimize")
-	}
-	return openCommon(sqlDB, opts...)
+
+	return db, nil
 }
 
 // Open the database with options suitable for the migration inserts. This
 // is not a safe mode of operation for normal processing, use only for bulk
 // inserts with a close afterwards.
 func OpenForMigration(path string) (*DB, error) {
-	sqlDB, err := sqlx.Open(dbDriver, "file:"+path+"?"+commonOptions)
+	pragmas := []string{
+		"journal_mode = OFF",
+		"default_temp_store = MEMORY",
+		"temp_store = MEMORY",
+		"foreign_keys = 0",
+		"synchronous = 0",
+		"locking_mode = EXCLUSIVE",
+	}
+	schemas := []string{
+		"sql/schema/common/*",
+		"sql/schema/main/*",
+	}
+
+	os.MkdirAll(path, 0o700)
+	mainPath := filepath.Join(path, "main.db")
+	mainBase, err := openBase(mainPath, 1, pragmas, schemas, nil)
 	if err != nil {
-		return nil, wrap(err, "open")
+		return nil, err
 	}
-	sqlDB.SetMaxOpenConns(1)
-	if _, err := sqlDB.Exec(`PRAGMA foreign_keys = 0`); err != nil {
-		return nil, wrap(err, "PRAGMA foreign_keys")
+
+	db := &DB{
+		pathBase:       path,
+		baseDB:         mainBase,
+		folderDBs:      make(map[string]*folderDB),
+		folderDBOpener: openFolderDBForMigration,
 	}
-	if _, err := sqlDB.Exec(`PRAGMA journal_mode = OFF`); err != nil {
-		return nil, wrap(err, "PRAGMA journal_mode")
-	}
-	if _, err := sqlDB.Exec(`PRAGMA synchronous = 0`); err != nil {
-		return nil, wrap(err, "PRAGMA synchronous")
-	}
-	return openCommon(sqlDB)
+
+	// // Touch device IDs that should always exist and have a low index
+	// // numbers, and will never change
+	// db.localDeviceIdx, _ = db.deviceIdxLocked(protocol.LocalDeviceID)
+	// db.tplInput["LocalDeviceIdx"] = db.localDeviceIdx
+
+	return db, nil
 }
 
 func OpenTemp() (*DB, error) {
@@ -73,134 +120,12 @@ func OpenTemp() (*DB, error) {
 	return Open(path)
 }
 
-func openCommon(sqlDB *sqlx.DB, opts ...Option) (*DB, error) {
-	if _, err := sqlDB.Exec(`PRAGMA auto_vacuum = INCREMENTAL`); err != nil {
-		return nil, wrap(err, "PRAGMA auto_vacuum")
+func (s *DB) Close() error {
+	s.folderDBsMut.Lock()
+	defer s.folderDBsMut.Unlock()
+	for folder, fdb := range s.folderDBs {
+		fdb.Close()
+		delete(s.folderDBs, folder)
 	}
-	if _, err := sqlDB.Exec(`PRAGMA default_temp_store = MEMORY`); err != nil {
-		return nil, wrap(err, "PRAGMA default_temp_store")
-	}
-	if _, err := sqlDB.Exec(`PRAGMA temp_store = MEMORY`); err != nil {
-		return nil, wrap(err, "PRAGMA temp_store")
-	}
-
-	db := &DB{
-		sql:             sqlDB,
-		deleteRetention: defaultDeleteRetention,
-		statements:      make(map[string]*sqlx.Stmt),
-	}
-	for _, opt := range opts {
-		opt(db)
-	}
-	if db.deleteRetention > 0 && db.deleteRetention < minDeleteRetention {
-		db.deleteRetention = minDeleteRetention
-	}
-
-	if err := db.runScripts("sql/schema/*"); err != nil {
-		return nil, wrap(err)
-	}
-
-	ver, _ := db.getAppliedSchemaVersion()
-	if ver.SchemaVersion > 0 {
-		filter := func(scr string) bool {
-			scr = filepath.Base(scr)
-			nstr, _, ok := strings.Cut(scr, "-")
-			if !ok {
-				return false
-			}
-			n, err := strconv.ParseInt(nstr, 10, 32)
-			if err != nil {
-				return false
-			}
-			return int(n) > ver.SchemaVersion
-		}
-		if err := db.runScripts("sql/migrations/*", filter); err != nil {
-			return nil, wrap(err)
-		}
-	}
-
-	// Touch device IDs that should always exist and have a low index
-	// numbers, and will never change
-	db.localDeviceIdx, _ = db.deviceIdxLocked(protocol.LocalDeviceID)
-
-	// Set the current schema version, if not already set
-	if err := db.setAppliedSchemaVersion(currentSchemaVersion); err != nil {
-		return nil, wrap(err)
-	}
-
-	db.tplInput = map[string]any{
-		"FlagLocalUnsupported": protocol.FlagLocalUnsupported,
-		"FlagLocalIgnored":     protocol.FlagLocalIgnored,
-		"FlagLocalMustRescan":  protocol.FlagLocalMustRescan,
-		"FlagLocalReceiveOnly": protocol.FlagLocalReceiveOnly,
-		"FlagLocalGlobal":      protocol.FlagLocalGlobal,
-		"FlagLocalNeeded":      protocol.FlagLocalNeeded,
-		"LocalDeviceIdx":       db.localDeviceIdx,
-		"SyncthingVersion":     build.LongVersion,
-	}
-
-	return db, nil
+	return wrap(s.baseDB.Close())
 }
-
-var tplFuncs = template.FuncMap{
-	"or": func(vs ...int) int {
-		v := vs[0]
-		for _, ov := range vs[1:] {
-			v |= ov
-		}
-		return v
-	},
-}
-
-// stmt returns a prepared statement for the given SQL string, after
-// applying local template expansions. The statement is cached.
-func (s *DB) stmt(tpl string) stmt {
-	tpl = strings.TrimSpace(tpl)
-
-	// Fast concurrent lookup of cached statement
-	s.statementsMut.RLock()
-	stmt, ok := s.statements[tpl]
-	s.statementsMut.RUnlock()
-	if ok {
-		return stmt
-	}
-
-	// On miss, take the full lock, check again
-	s.statementsMut.Lock()
-	defer s.statementsMut.Unlock()
-	stmt, ok = s.statements[tpl]
-	if ok {
-		return stmt
-	}
-
-	// Apply template expansions
-	var sb strings.Builder
-	compTpl := template.Must(template.New("tpl").Funcs(tplFuncs).Parse(tpl))
-	if err := compTpl.Execute(&sb, s.tplInput); err != nil {
-		panic("bug: bad template: " + err.Error())
-	}
-
-	// Prepare and cache
-	stmt, err := s.sql.Preparex(sb.String())
-	if err != nil {
-		return failedStmt{err}
-	}
-	s.statements[tpl] = stmt
-	return stmt
-}
-
-type stmt interface {
-	Exec(args ...any) (sql.Result, error)
-	Get(dest any, args ...any) error
-	Queryx(args ...any) (*sqlx.Rows, error)
-	Select(dest any, args ...any) error
-}
-
-type failedStmt struct {
-	err error
-}
-
-func (f failedStmt) Exec(_ ...any) (sql.Result, error)   { return nil, f.err }
-func (f failedStmt) Get(_ any, _ ...any) error           { return f.err }
-func (f failedStmt) Queryx(_ ...any) (*sqlx.Rows, error) { return nil, f.err }
-func (f failedStmt) Select(_ any, _ ...any) error        { return f.err }

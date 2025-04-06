@@ -19,95 +19,89 @@ type countsRow struct {
 	LocalFlags int64 `db:"local_flags"`
 }
 
-func (s *DB) CountLocal(folder string, device protocol.DeviceID) (db.Counts, error) {
+func (s *folderDB) CountLocal(device protocol.DeviceID) (db.Counts, error) {
 	var res []countsRow
 	if err := s.stmt(`
 		SELECT s.type, s.count, s.size, s.local_flags, s.deleted FROM counts s
-		INNER JOIN folders o ON o.idx = s.folder_idx
 		INNER JOIN devices d ON d.idx = s.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ? AND s.local_flags & {{.FlagLocalIgnored}} = 0
-	`).Select(&res, folder, device.String()); err != nil {
+		WHERE d.device_id = ? AND s.local_flags & {{.FlagLocalIgnored}} = 0
+	`).Select(&res, device.String()); err != nil {
 		return db.Counts{}, wrap(err)
 	}
 	return summarizeCounts(res), nil
 }
 
-func (s *DB) CountNeed(folder string, device protocol.DeviceID) (db.Counts, error) {
+func (s *folderDB) CountNeed(device protocol.DeviceID) (db.Counts, error) {
 	if device == protocol.LocalDeviceID {
-		return s.needSizeLocal(folder)
+		return s.needSizeLocal()
 	}
-	return s.needSizeRemote(folder, device)
+	return s.needSizeRemote(device)
 }
 
-func (s *DB) CountGlobal(folder string) (db.Counts, error) {
+func (s *folderDB) CountGlobal() (db.Counts, error) {
 	// Exclude ignored and receive-only changed files from the global count
 	// (legacy expectation? it's a bit weird since those files can in fact
 	// be global and you can get them with GetGlobal etc.)
 	var res []countsRow
 	err := s.stmt(`
 		SELECT s.type, s.count, s.size, s.local_flags, s.deleted FROM counts s
-		INNER JOIN folders o ON o.idx = s.folder_idx
-		WHERE o.folder_id = ? AND s.local_flags & {{.FlagLocalGlobal}} != 0 AND s.local_flags & {{or .FlagLocalReceiveOnly .FlagLocalIgnored}} = 0
-	`).Select(&res, folder)
+		WHERE s.local_flags & {{.FlagLocalGlobal}} != 0 AND s.local_flags & {{or .FlagLocalReceiveOnly .FlagLocalIgnored}} = 0
+	`).Select(&res)
 	if err != nil {
 		return db.Counts{}, wrap(err)
 	}
 	return summarizeCounts(res), nil
 }
 
-func (s *DB) CountReceiveOnlyChanged(folder string) (db.Counts, error) {
+func (s *folderDB) CountReceiveOnlyChanged() (db.Counts, error) {
 	var res []countsRow
 	err := s.stmt(`
 		SELECT s.type, s.count, s.size, s.local_flags, s.deleted FROM counts s
-		INNER JOIN folders o ON o.idx = s.folder_idx
-		WHERE o.folder_id = ? AND local_flags & {{.FlagLocalReceiveOnly}} != 0
-	`).Select(&res, folder)
+		WHERE local_flags & {{.FlagLocalReceiveOnly}} != 0
+	`).Select(&res)
 	if err != nil {
 		return db.Counts{}, wrap(err)
 	}
 	return summarizeCounts(res), nil
 }
 
-func (s *DB) needSizeLocal(folder string) (db.Counts, error) {
+func (s *folderDB) needSizeLocal() (db.Counts, error) {
 	// The need size for the local device is the sum of entries with the
 	// need bit set.
 	var res []countsRow
 	err := s.stmt(`
 		SELECT s.type, s.count, s.size, s.local_flags, s.deleted FROM counts s
-		INNER JOIN folders o ON o.idx = s.folder_idx
-		WHERE o.folder_id = ? AND s.local_flags & {{.FlagLocalNeeded}} != 0
-	`).Select(&res, folder)
+		WHERE s.local_flags & {{.FlagLocalNeeded}} != 0
+	`).Select(&res)
 	if err != nil {
 		return db.Counts{}, wrap(err)
 	}
 	return summarizeCounts(res), nil
 }
 
-func (s *DB) needSizeRemote(folder string, device protocol.DeviceID) (db.Counts, error) {
+func (s *folderDB) needSizeRemote(device protocol.DeviceID) (db.Counts, error) {
 	var res []countsRow
 	// See neededGlobalFilesRemote for commentary as that is the same query without summing
 	if err := s.stmt(`
 		SELECT g.type, count(*) as count, sum(g.size) as size, g.local_flags, g.deleted FROM files g
-		INNER JOIN folders o ON o.idx = g.folder_idx
-		WHERE o.folder_id = ? AND g.local_flags & {{.FlagLocalGlobal}} != 0 AND NOT g.deleted AND NOT g.invalid AND NOT EXISTS (
+		WHERE g.local_flags & {{.FlagLocalGlobal}} != 0 AND NOT g.deleted AND NOT g.invalid AND NOT EXISTS (
 			SELECT 1 FROM FILES f
 			INNER JOIN devices d ON d.idx = f.device_idx
-			WHERE f.name = g.name AND f.version = g.version AND f.folder_idx = g.folder_idx AND d.device_id = ?
+			WHERE f.name = g.name AND f.version = g.version AND d.device_id = ?
 		)
 		GROUP BY g.type, g.local_flags, g.deleted
 
 		UNION ALL
 
 		SELECT g.type, count(*) as count, sum(g.size) as size, g.local_flags, g.deleted FROM files g
-		INNER JOIN folders o ON o.idx = g.folder_idx
-		WHERE o.folder_id = ? AND g.local_flags & {{.FlagLocalGlobal}} != 0 AND g.deleted AND NOT g.invalid AND EXISTS (
+		WHERE g.local_flags & {{.FlagLocalGlobal}} != 0 AND g.deleted AND NOT g.invalid AND EXISTS (
 			SELECT 1 FROM FILES f
 			INNER JOIN devices d ON d.idx = f.device_idx
-			WHERE f.name = g.name AND f.folder_idx = g.folder_idx AND d.device_id = ? AND NOT f.deleted
+			WHERE f.name = g.name AND d.device_id = ? AND NOT f.deleted
 		)
 		GROUP BY g.type, g.local_flags, g.deleted
-	`).Select(&res, folder, device.String(),
-		folder, device.String()); err != nil {
+	`).Select(&res, device.String(),
+		device.String()); err != nil {
 		return db.Counts{}, wrap(err)
 	}
 

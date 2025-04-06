@@ -36,13 +36,13 @@ type DB interface {
 	// required.
 	AllGlobalFiles(folder string) (iter.Seq[FileMetadata], func() error)
 	AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[FileMetadata], func() error)
-	AllLocalBlocksWithHash(hash []byte) (iter.Seq[BlockMapEntry], func() error)
 	AllLocalFiles(folder string, device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocalFilesBySequence(folder string, device protocol.DeviceID, startSeq int64, limit int) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocalFilesWithPrefix(folder string, device protocol.DeviceID, prefix string) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocalFilesWithBlocksHash(folder string, h []byte) (iter.Seq[FileMetadata], func() error)
-	AllLocalFilesWithBlocksHashAnyFolder(h []byte) (iter.Seq2[string, FileMetadata], func() error)
 	AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit, offset int) (iter.Seq[protocol.FileInfo], func() error)
+	AllLocalBlocksWithHash(hash []byte) ([]BlockMapEntry, error)
+	AllLocalFilesWithBlocksHashAnyFolder(hash []byte) (map[string][]FileMetadata, error)
 
 	// Cleanup
 	DropAllFiles(folder string, device protocol.DeviceID) error

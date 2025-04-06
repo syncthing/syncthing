@@ -16,16 +16,15 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func (s *DB) GetIndexID(folder string, device protocol.DeviceID) (protocol.IndexID, error) {
+func (s *folderDB) GetIndexID(device protocol.DeviceID) (protocol.IndexID, error) {
 	// Try a fast read-only query to begin with. If it does not find the ID
 	// we'll do the full thing under a lock.
 	var indexID string
 	if err := s.stmt(`
 		SELECT i.index_id FROM indexids i
-		INNER JOIN folders o ON o.idx  = i.folder_idx
 		INNER JOIN devices d ON d.idx  = i.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ?
-	`).Get(&indexID, folder, device.String()); err == nil && indexID != "" {
+		WHERE d.device_id = ?
+	`).Get(&indexID, device.String()); err == nil && indexID != "" {
 		idx, err := indexIDFromHex(indexID)
 		return idx, wrap(err, "select")
 	}
@@ -40,14 +39,9 @@ func (s *DB) GetIndexID(folder string, device protocol.DeviceID) (protocol.Index
 
 	// We are now operating only for the local device ID
 
-	folderIdx, err := s.folderIdxLocked(folder)
-	if err != nil {
-		return 0, wrap(err)
-	}
-
 	if err := s.stmt(`
-		SELECT index_id FROM indexids WHERE folder_idx = ? AND device_idx = {{.LocalDeviceIdx}}
-	`).Get(&indexID, folderIdx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		SELECT index_id FROM indexids WHERE device_idx = {{.LocalDeviceIdx}}
+	`).Get(&indexID); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return 0, wrap(err, "select local")
 	}
 
@@ -57,11 +51,11 @@ func (s *DB) GetIndexID(folder string, device protocol.DeviceID) (protocol.Index
 		// any.
 		id := protocol.NewIndexID()
 		if _, err := s.stmt(`
-			INSERT INTO indexids (folder_idx, device_idx, index_id, sequence)
-				SELECT ?, {{.LocalDeviceIdx}}, ?, COALESCE(MAX(sequence), 0) FROM files
-				WHERE folder_idx = ? AND device_idx = {{.LocalDeviceIdx}}
+			INSERT INTO indexids (device_idx, index_id, sequence)
+				SELECT {{.LocalDeviceIdx}}, ?, COALESCE(MAX(sequence), 0) FROM files
+				WHERE device_idx = {{.LocalDeviceIdx}}
 			ON CONFLICT DO UPDATE SET index_id = ?
-		`).Exec(folderIdx, indexIDToHex(id), folderIdx, indexIDToHex(id)); err != nil {
+		`).Exec(indexIDToHex(id), indexIDToHex(id)); err != nil {
 			return 0, wrap(err, "insert")
 		}
 		return id, nil
@@ -70,42 +64,37 @@ func (s *DB) GetIndexID(folder string, device protocol.DeviceID) (protocol.Index
 	return indexIDFromHex(indexID)
 }
 
-func (s *DB) SetIndexID(folder string, device protocol.DeviceID, id protocol.IndexID) error {
+func (s *folderDB) SetIndexID(device protocol.DeviceID, id protocol.IndexID) error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
 
-	folderIdx, err := s.folderIdxLocked(folder)
-	if err != nil {
-		return wrap(err, "folder idx")
-	}
 	deviceIdx, err := s.deviceIdxLocked(device)
 	if err != nil {
 		return wrap(err, "device idx")
 	}
 
 	if _, err := s.stmt(`
-		INSERT OR REPLACE INTO indexids (folder_idx, device_idx, index_id, sequence) values (?, ?, ?, 0)
-	`).Exec(folderIdx, deviceIdx, indexIDToHex(id)); err != nil {
+		INSERT OR REPLACE INTO indexids (device_idx, index_id, sequence) values (?, ?, 0)
+	`).Exec(deviceIdx, indexIDToHex(id)); err != nil {
 		return wrap(err, "insert")
 	}
 	return nil
 }
 
-func (s *DB) DropAllIndexIDs() error {
+func (s *folderDB) DropAllIndexIDs() error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
 	_, err := s.stmt(`DELETE FROM indexids`).Exec()
 	return wrap(err)
 }
 
-func (s *DB) GetDeviceSequence(folder string, device protocol.DeviceID) (int64, error) {
+func (s *folderDB) GetDeviceSequence(device protocol.DeviceID) (int64, error) {
 	var res sql.NullInt64
 	err := s.stmt(`
 		SELECT sequence FROM indexids i
-		INNER JOIN folders o ON o.idx = i.folder_idx
 		INNER JOIN devices d ON d.idx = i.device_idx
-		WHERE o.folder_id = ? AND d.device_id = ?
-	`).Get(&res, folder, device.String())
+		WHERE d.device_id = ?
+	`).Get(&res, device.String())
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, nil
 	}
@@ -118,7 +107,7 @@ func (s *DB) GetDeviceSequence(folder string, device protocol.DeviceID) (int64, 
 	return res.Int64, nil
 }
 
-func (s *DB) RemoteSequences(folder string) (map[protocol.DeviceID]int64, error) {
+func (s *folderDB) RemoteSequences() (map[protocol.DeviceID]int64, error) {
 	type row struct {
 		Device string
 		Seq    int64
@@ -126,10 +115,9 @@ func (s *DB) RemoteSequences(folder string) (map[protocol.DeviceID]int64, error)
 
 	it, errFn := iterStructs[row](s.stmt(`
 		SELECT d.device_id AS device, i.sequence AS seq FROM indexids i
-		INNER JOIN folders o ON o.idx = i.folder_idx
 		INNER JOIN devices d ON d.idx = i.device_idx
-		WHERE o.folder_id = ? AND i.device_idx != {{.LocalDeviceIdx}}
-	`).Queryx(folder))
+		WHERE i.device_idx != {{.LocalDeviceIdx}}
+	`).Queryx())
 
 	res := make(map[protocol.DeviceID]int64)
 	for row, err := range itererr.Zip(it, errFn) {

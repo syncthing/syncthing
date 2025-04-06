@@ -298,6 +298,7 @@ func TestBasics(t *testing.T) {
 			t.Fatal(err)
 		}
 		if len(folders) != 1 || folders[0] != folderID {
+			t.Log(folders)
 			t.Error("expected one folder")
 		}
 	})
@@ -1009,15 +1010,20 @@ func TestBlocklistGarbageCollection(t *testing.T) {
 
 	// There should exist three blockslists and six blocks
 
+	fdb, err := sdb.getFolderDB(folderID, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	var count int
-	if err := sdb.sql.Get(&count, `SELECT count(*) FROM blocklists`); err != nil {
+	if err := fdb.sql.Get(&count, `SELECT count(*) FROM blocklists`); err != nil {
 		t.Fatal(err)
 	}
 	if count != 3 {
 		t.Log(count)
 		t.Fatal("expected 3 blocklists")
 	}
-	if err := sdb.sql.Get(&count, `SELECT count(*) FROM blocks`); err != nil {
+	if err := fdb.sql.Get(&count, `SELECT count(*) FROM blocks`); err != nil {
 		t.Fatal(err)
 	}
 	if count != 6 {
@@ -1039,14 +1045,14 @@ func TestBlocklistGarbageCollection(t *testing.T) {
 
 	// There should exist two blockslists and four blocks
 
-	if err := sdb.sql.Get(&count, `SELECT count(*) FROM blocklists`); err != nil {
+	if err := fdb.sql.Get(&count, `SELECT count(*) FROM blocklists`); err != nil {
 		t.Fatal(err)
 	}
 	if count != 2 {
 		t.Log(count)
 		t.Error("expected 2 blocklists")
 	}
-	if err := sdb.sql.Get(&count, `SELECT count(*) FROM blocks`); err != nil {
+	if err := fdb.sql.Get(&count, `SELECT count(*) FROM blocks`); err != nil {
 		t.Fatal(err)
 	}
 	if count != 3 {
@@ -1078,7 +1084,7 @@ func TestInsertLargeFile(t *testing.T) {
 	// Verify all the blocks are here
 
 	for i, block := range files[0].Blocks {
-		bs, err := itererr.Collect(sdb.AllLocalBlocksWithHash(block.Hash))
+		bs, err := sdb.AllLocalBlocksWithHash(block.Hash)
 		if err != nil {
 			t.Fatal(err)
 		}
