@@ -108,10 +108,9 @@ func (s *folderDB) AllLocalBlocksWithHash(hash []byte) (iter.Seq[db.BlockMapEntr
 func (s *folderDB) ListDevicesForFolder() ([]protocol.DeviceID, error) {
 	var res []string
 	err := s.stmt(`
-		SELECT d.device_id FROM counts s
+		SELECT DISTINCT d.device_id FROM counts s
 		INNER JOIN devices d ON d.idx = s.device_idx
 		WHERE s.count > 0 AND s.device_idx != {{.LocalDeviceIdx}}
-		GROUP BY d.device_id
 		ORDER BY d.device_id
 	`).Select(&res)
 	if err != nil {
