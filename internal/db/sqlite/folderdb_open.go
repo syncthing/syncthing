@@ -64,6 +64,7 @@ func openFolderDBForMigration(folder, path string, deleteRetention time.Duration
 		"temp_store = MEMORY",
 		"foreign_keys = 0",
 		"synchronous = 0",
+		"locking_mode = EXCLUSIVE",
 	}
 	schemas := []string{
 		"sql/schema/common/*",
