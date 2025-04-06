@@ -595,7 +595,7 @@ func (m *TunnelManager) AddOutboundTunnel(localListenAddress string, remoteDevic
 
 		if localListenAddress == "127.0.0.1:0" {
 			suggestedPort := getRandomFreePort()
-			localListenAddress = fmt.Sprintln("127.0.0.1:", suggestedPort)
+			localListenAddress = fmt.Sprintf("127.0.0.1:%d", suggestedPort)
 		}
 
 		newConfig := &bep.TunnelOutbound{
