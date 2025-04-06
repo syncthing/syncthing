@@ -103,6 +103,7 @@ func newDefaultCfgWrapper() (config.Wrapper, config.FolderConfiguration, context
 func newFolderConfig() config.FolderConfiguration {
 	cfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", config.FilesystemTypeFake, rand.String(32)+"?content=true")
 	cfg.FSWatcherEnabled = false
+	cfg.PullerDelayS = 0
 	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
 	return cfg
 }

@@ -108,6 +108,7 @@ func TestDefaultValues(t *testing.T) {
 				FSWatcherEnabled: true,
 				FSWatcherDelayS:  10,
 				IgnorePerms:      false,
+				PullerDelayS:     1,
 				AutoNormalize:    true,
 				MinDiskFree:      size,
 				Versioning: VersioningConfiguration{
@@ -184,6 +185,7 @@ func TestDeviceConfig(t *testing.T) {
 				FSWatcherDelayS:  10,
 				Copiers:          0,
 				Hashers:          0,
+				PullerDelayS:     1,
 				AutoNormalize:    true,
 				MinDiskFree:      Size{1, "%"},
 				MaxConflicts:     -1,
