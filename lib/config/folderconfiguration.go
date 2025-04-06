@@ -68,6 +68,7 @@ type FolderConfiguration struct {
 	IgnoreDelete            bool                        `json:"ignoreDelete" xml:"ignoreDelete"`
 	ScanProgressIntervalS   int                         `json:"scanProgressIntervalS" xml:"scanProgressIntervalS"`
 	PullerPauseS            int                         `json:"pullerPauseS" xml:"pullerPauseS"`
+	PullerDelayS            float64                     `json:"pullerDelayS" xml:"pullerDelayS" default:"1"`
 	MaxConflicts            int                         `json:"maxConflicts" xml:"maxConflicts" default:"10"`
 	DisableSparseFiles      bool                        `json:"disableSparseFiles" xml:"disableSparseFiles"`
 	DisableTempIndexes      bool                        `json:"disableTempIndexes" xml:"disableTempIndexes"`
