@@ -346,37 +346,8 @@ ul.three-columns li, ul.two-columns li {
 }
 
 /*
- * Restore Versions tweaks
+ * Specific tweaks for restoreTree component
  */
-
-#restoreTree-container {
-    overflow-y: scroll;
-    resize: vertical;
-    /* Limit height to prevent vertical screen overflow. */
-    max-height: calc(100vh - 390px);
-    /* Always fit at least one folder with dropdown open. */
-    min-height: 136px;
-}
-@media (min-width: 768px) {
-    #restoreTree-container {
-        max-height: calc(100vh - 401px);
-    }
-}
-@media (min-width: 992px) {
-    #restoreTree-container {
-        max-height: calc(100vh - 333px);
-    }
-}
-
-/* Ignore fixed height when manually resized. */
-#restoreTree-container[style*="height"] {
-    max-height: none;
-}
-
-/* Remove table outline as rows have own focus style already. */
-#restoreTree:focus {
-    outline: 0;
-}
 
 /* Align dropdown with title first line. */
 #restoreTree td + td {
@@ -399,6 +370,15 @@ ul.three-columns li, ul.two-columns li {
 #restoreVersions .form-group,
 #restoreVersions .form-control {
     width: 100%;
+}
+
+/*
+ * Specific tweaks for folderTree component
+ */
+
+/* Maintain consistent padding with the restoreTree component */
+#folderTree td {
+    padding: 2px 0;
 }
 
 @media (max-width: 768px) {

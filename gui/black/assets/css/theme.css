@@ -291,21 +291,3 @@ code.ng-binding{
 .checkbox[disabled] .help-block {
     color: #666666 !important;
 }
-
-/* List groups */
-.list-group {
-    background-color: #111;
-    border-color: #222;
-}
-
-.list-group-item {
-    background-color: #222;
-    color: #aaa !important;
-    border-color: #333;
-}
-
-.list-group-item:hover,
-.list-group-item:focus {
-    background-color: #333 !important;
-    color: #fff !important;
-}

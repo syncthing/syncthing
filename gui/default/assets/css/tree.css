@@ -56,3 +56,41 @@
     white-space: normal;
     word-break: break-all;
 }
+
+.fancytree-temp .fancytree-title {
+    opacity: 0.6;
+    font-style: italic;
+}
+
+/*
+ * Shared container style for scrollable, resizable trees containers
+ */
+
+.tree-container {
+    overflow-y: scroll;
+    resize: vertical;
+    /* Limit height to prevent vertical screen overflow. */
+    max-height: calc(100vh - 390px);
+    /* Always fit at least one folder with dropdown open. */
+    min-height: 136px;
+}
+@media (min-width: 768px) {
+    .tree-container {
+        max-height: calc(100vh - 401px);
+    }
+}
+@media (min-width: 992px) {
+    .tree-container {
+        max-height: calc(100vh - 333px);
+    }
+}
+
+/* Ignore fixed height when manually resized. */
+.tree-container[style*="height"] {
+    max-height: none;
+}
+
+/* Remove table outline as rows have own focus style already. */
+.tree:focus {
+    outline: 0;
+}
