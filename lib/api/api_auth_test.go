@@ -200,6 +200,8 @@ func TestExtractIP(t *testing.T) {
 		{"fe80::20c:29ff:fe9a:46d2", "fe80::20c:29ff:fe9a:46d2"},
 		{"[fe80::20c:29ff:fe9a:46d2]:8384", "fe80::20c:29ff:fe9a:46d2"},
 		{"[fe80::20c:29ff:fe9a:46d2%eno1]:8384", "fe80::20c:29ff:fe9a:46d2"},
+		{"google.com", ""},
+		{"1.1.1.1.1", ""},
 		{"", ""},
 	}
 
