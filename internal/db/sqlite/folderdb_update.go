@@ -374,7 +374,7 @@ func (s *folderDB) recalcGlobalForFile(txp *txPreparedStmts, file string) error 
 		global.LocalFlags |= protocol.FlagLocalNeeded
 	}
 	//nolint:sqlclosecheck
-	upStmt, err := txp.Prepare(`
+	upStmt, err := txp.Preparex(`
 		UPDATE files SET local_flags = ?
 		WHERE device_idx = ? AND sequence = ?
 	`)
@@ -387,7 +387,7 @@ func (s *folderDB) recalcGlobalForFile(txp *txPreparedStmts, file string) error 
 
 	// Clear the need and global flags on all other entries
 	//nolint:sqlclosecheck
-	upStmt, err = txp.Prepare(`
+	upStmt, err = txp.Preparex(`
 		UPDATE files SET local_flags = local_flags & ?
 		WHERE name = ? AND sequence != ? AND local_flags & ? != 0
 	`)
