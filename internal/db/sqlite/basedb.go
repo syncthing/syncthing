@@ -199,11 +199,9 @@ nextScript:
 	for _, scr := range scripts {
 		for _, fn := range filter {
 			if !fn(scr) {
-				l.Debugln(s.baseName, "skipping script", scr)
 				continue nextScript
 			}
 		}
-		l.Debugln(s.baseName, "executing script", scr)
 		bs, err := fs.ReadFile(embedded, scr)
 		if err != nil {
 			return wrap(err, scr)

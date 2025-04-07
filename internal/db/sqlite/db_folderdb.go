@@ -12,12 +12,14 @@ import (
 	"fmt"
 	"iter"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 )
 
 var errNoSuchFolder = errors.New("no such folder")
@@ -31,16 +33,16 @@ func (s *DB) getFolderDB(folder string, create bool) (*folderDB, error) {
 		return fdb, nil
 	}
 
-	// Check for an existing folder. If we're not supposed to create the
-	// folder, we don't move on if it doesn't already have an ID.
-	var idx int64
+	// Check for an existing database. If we're not supposed to create the
+	// folder, we don't move on if it doesn't already have a database name.
+	var dbName string
 	if err := s.stmt(`
-		SELECT idx FROM folders
+		SELECT database_name FROM folders
 		WHERE folder_id = ?
-	`).Get(&idx, folder); err != nil && !errors.Is(err, sql.ErrNoRows) {
+	`).Get(&dbName, folder); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, wrap(err)
 	}
-	if idx == 0 && !create {
+	if dbName == "" && !create {
 		return nil, errNoSuchFolder
 	}
 
@@ -51,21 +53,30 @@ func (s *DB) getFolderDB(folder string, create bool) (*folderDB, error) {
 		return fdb, nil
 	}
 
-	var err error
-	if idx == 0 {
+	if dbName == "" {
 		// First time we want to access this folder, need to create a new
 		// folder ID
-		idx, err = s.folderIdxLocked(folder)
+		idx, err := s.folderIdxLocked(folder)
 		if err != nil {
-			return nil, err
+			return nil, wrap(err)
+		}
+
+		// The database name is the folder index ID and a random slug.
+		slug := strings.ToLower(rand.String(8))
+		dbName = fmt.Sprintf("folder.%04x-%s.db", idx, slug)
+		if _, err := s.stmt(`UPDATE folders SET database_name = ? WHERE idx = ?`).Exec(dbName, idx); err != nil {
+			return nil, wrap(err, "set name")
 		}
 	}
 
-	name := fmt.Sprintf("folder.%04x.db", idx)
-	path := filepath.Join(s.pathBase, name)
-	fdb, err = s.folderDBOpener(folder, path, s.deleteRetention)
+	l.Debugf("Folder %s in database %s", folder, dbName)
+	path := dbName
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(s.pathBase, dbName)
+	}
+	fdb, err := s.folderDBOpener(folder, path, s.deleteRetention)
 	if err != nil {
-		return nil, err
+		return nil, wrap(err)
 	}
 	s.folderDBs[folder] = fdb
 	return fdb, nil

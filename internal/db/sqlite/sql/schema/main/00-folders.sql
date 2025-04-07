@@ -7,6 +7,10 @@
 -- folders map folder IDs as used by Syncthing to database folder indexes
 CREATE TABLE IF NOT EXISTS folders (
     idx INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    folder_id TEXT NOT NULL UNIQUE COLLATE BINARY
+    folder_id TEXT NOT NULL UNIQUE COLLATE BINARY,
+    database_name TEXT COLLATE BINARY -- initially null
 ) STRICT
+;
+-- The database_name is unique, when set
+CREATE INDEX IF NOT EXISTS folders_database_name ON folders (database_name) WHERE database_name IS NOT NULL
 ;
