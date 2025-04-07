@@ -74,16 +74,16 @@ func newInMemoryStore(dir string, flushInterval time.Duration, s3sess *s3.Sessio
 		// Try to read from AWS
 		latestKey, cerr := s3sess.LatestKey()
 		if cerr != nil {
-			log.Println("Error reading database from S3:", err)
+			log.Println("Error finding database from S3:", cerr)
 			return s
 		}
 		fd, cerr := os.Create(path.Join(s.dir, "records.db"))
 		if cerr != nil {
-			log.Println("Error creating database file:", err)
+			log.Println("Error creating database file:", cerr)
 			return s
 		}
 		if cerr := s3sess.Download(fd, latestKey); cerr != nil {
-			log.Printf("Error reading database from S3: %v", err)
+			log.Printf("Error downloading database from S3: %v", cerr)
 		}
 		_ = fd.Close()
 		nr, err = s.read()

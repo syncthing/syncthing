@@ -26,9 +26,10 @@ type Object = s3.Object
 
 func NewSession(endpoint, region, bucket, accessKeyID, secretKey string) (*Session, error) {
 	sess, err := session.NewSession(&aws.Config{
-		Region:      aws.String(region),
-		Endpoint:    aws.String(endpoint),
-		Credentials: credentials.NewStaticCredentials(accessKeyID, secretKey, ""),
+		Region:           aws.String(region),
+		Endpoint:         aws.String(endpoint),
+		Credentials:      credentials.NewStaticCredentials(accessKeyID, secretKey, ""),
+		S3ForcePathStyle: aws.Bool(true),
 	})
 	if err != nil {
 		return nil, err
