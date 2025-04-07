@@ -210,8 +210,8 @@ func (opts OptionsConfiguration) StunServers() []string {
 				addresses = append(addresses, priorityGroup...)
 			}
 
-			fallbackAddresses := make([]string, len(FallbackStunServers))
-			copy(fallbackAddresses, FallbackStunServers)
+			fallbackAddresses := make([]string, len(DefaultFallbackStunServers))
+			copy(fallbackAddresses, DefaultFallbackStunServers)
 			rand.Shuffle(fallbackAddresses)
 			addresses = append(addresses, fallbackAddresses...)
 		default:
