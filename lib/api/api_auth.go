@@ -28,24 +28,46 @@ const (
 )
 
 func emitLoginAttempt(success bool, username string, r *http.Request, evLogger events.Logger) {
+	remoteIP := extractIP(r.RemoteAddr)
+	var forwardedIP net.IP
+	for _, headerAddress := range strings.Split(r.Header.Get("X-Forwarded-For"), ",") {
+		headerAddress = strings.TrimSpace(headerAddress)
+		forwardedIP = extractIP(headerAddress)
+		break
+	}
+
+	var remoteAddress string
+	if forwardedIP != nil && remoteIP.IsLoopback() {
+		// only trust X-Forwarded-For if the proxy is on the same host
+		remoteAddress = forwardedIP.String()
+	} else {
+		remoteAddress = r.RemoteAddr
+	}
+
 	evLogger.Log(events.LoginAttempt, map[string]interface{}{
 		"success":       success,
 		"username":      username,
-		"remoteAddress": r.RemoteAddr,
+		"remoteAddress": remoteAddress,
 	})
 	if success {
 		return
 	}
-
-	var clientIP string
-	for _, ip := range strings.Split(r.Header.Get("X-Forwarded-For"), ",") {
-		clientIP = strings.TrimSpace(ip)
-		break
-	}
-	if clientIP != "" {
-		l.Infof("Wrong credentials supplied during API authorization from %s (X-Forwarded-For: %s)", r.RemoteAddr, clientIP)
+	if forwardedIP != nil && (remoteIP.IsLoopback() || remoteIP.IsPrivate() || remoteIP.IsLinkLocalUnicast()) {
+		// log the X-Forwarded-For if the proxy is in the same LAN
+		l.Infof("Wrong credentials supplied during API authorization from %s forwarded from %s", forwardedIP, remoteIP)
 	}
 	l.Infof("Wrong credentials supplied during API authorization from %s", r.RemoteAddr)
+}
+
+func extractIP(address string) net.IP {
+	// strip the port
+	ip, _, err := net.SplitHostPort(address)
+	if err != nil {
+		ip = address
+	}
+	// strip IPv6 zone identifier
+	ip, _, _ = strings.Cut(ip, "%")
+	return net.ParseIP(ip)
 }
 
 func antiBruteForceSleep() {
