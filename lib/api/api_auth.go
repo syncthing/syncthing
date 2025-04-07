@@ -41,7 +41,7 @@ func emitLoginAttempt(success bool, username string, r *http.Request, evLogger e
 		// only trust X-Forwarded-For if the proxy is on the same host
 		remoteAddress = forwardedIP.String()
 	} else {
-		remoteAddress = r.RemoteAddr
+		remoteAddress = remoteIP.String()
 	}
 
 	evLogger.Log(events.LoginAttempt, map[string]interface{}{
@@ -56,7 +56,7 @@ func emitLoginAttempt(success bool, username string, r *http.Request, evLogger e
 		// log the X-Forwarded-For if the proxy is in the same LAN
 		l.Infof("Wrong credentials supplied during API authorization from %s forwarded from %s", forwardedIP, remoteIP)
 	}
-	l.Infof("Wrong credentials supplied during API authorization from %s", r.RemoteAddr)
+	l.Infof("Wrong credentials supplied during API authorization from %s", remoteIP)
 }
 
 func extractIP(address string) net.IP {
