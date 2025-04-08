@@ -345,42 +345,6 @@ ul.three-columns li, ul.two-columns li {
     z-index: 980;
 }
 
-/*
- * Specific tweaks for restoreTree component
- */
-
-/* Align dropdown with title first line. */
-#restoreTree td + td {
-    padding-top: 4px;
-    vertical-align: top;
-}
-
-/* Reduce space between toggle and menu on mobile. */
-#restoreTree .dropdown-toggle {
-    margin-bottom: 0;
-}
-
-/* Change direction to remain on screen on mobile. */
-#restoreTree .dropdown-menu {
-    left: auto;
-    right: 0;
-}
-
-/* Ensure maximum space for filtering and date range. */
-#restoreVersions .form-group,
-#restoreVersions .form-control {
-    width: 100%;
-}
-
-/*
- * Specific tweaks for folderTree component
- */
-
-/* Maintain consistent padding with the restoreTree component */
-#folderTree td {
-    padding: 2px 0;
-}
-
 @media (max-width: 768px) {
     /* Layout after the normal contents, as this is when the footer switches
     to a vertical layout. */
@@ -532,10 +496,4 @@ html[lang|="ko"] i {
 .select-on-click {
     -webkit-user-select: all;
     user-select: all;
-}
-
-/* Folder Picker */
-.directory-list {
-    max-height: 400px;
-    overflow-y: auto;
 }

@@ -1,1 +1,1 @@
-angular.module('syncthing.folder', ['syncthing.core']); 
+angular.module('syncthing.folder', ['syncthing.core']);
