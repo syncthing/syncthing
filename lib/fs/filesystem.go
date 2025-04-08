@@ -21,18 +21,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-type filesystemWrapperType int32
-
-const (
-	filesystemWrapperTypeNone filesystemWrapperType = iota
-	filesystemWrapperTypeMtime
-	filesystemWrapperTypeCase
-	filesystemWrapperTypeError
-	filesystemWrapperTypeWalk
-	filesystemWrapperTypeLog
-	filesystemWrapperTypeMetrics
-)
-
 type XattrFilter interface {
 	Permit(string) bool
 	GetMaxSingleEntrySize() int
@@ -75,10 +63,11 @@ type Filesystem interface {
 	PlatformData(name string, withOwnership, withXattrs bool, xattrFilter XattrFilter) (protocol.PlatformData, error)
 	GetXattr(name string, xattrFilter XattrFilter) ([]protocol.Xattr, error)
 	SetXattr(path string, xattrs []protocol.Xattr, xattrFilter XattrFilter) error
+}
 
+type wrappingFilesystem interface {
 	// Used for unwrapping things
 	underlying() (Filesystem, bool)
-	wrapperType() filesystemWrapperType
 }
 
 // The File interface abstracts access to a regular file, being a somewhat
@@ -353,16 +342,23 @@ func Canonicalize(file string) (string, error) {
 	return file, nil
 }
 
-// unwrapFilesystem removes "wrapping" filesystems to expose the filesystem of the requested wrapperType, if it exists.
-func unwrapFilesystem(fs Filesystem, wrapperType filesystemWrapperType) (Filesystem, bool) {
-	var ok bool
+// unwrapFilesystem removes "wrapping" filesystems to expose the filesystem of the requested wrapper type T, if it exists.
+func unwrapFilesystem[T Filesystem](fs Filesystem) (T, bool) {
 	for {
-		if fs.wrapperType() == wrapperType {
-			return fs, true
+		if unwrapped, ok := fs.(T); ok {
+			return unwrapped, true
 		}
-		fs, ok = fs.underlying()
+
+		wrappingFs, ok := fs.(wrappingFilesystem)
 		if !ok {
-			return nil, false
+			var x T
+			return x, false
+		}
+
+		fs, ok = wrappingFs.underlying()
+		if !ok {
+			var x T
+			return x, false
 		}
 	}
 }
