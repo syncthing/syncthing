@@ -51,13 +51,17 @@ func forbidden(w http.ResponseWriter) {
 	http.Error(w, "Forbidden", http.StatusForbidden)
 }
 
-func isNoAuthPath(path string) bool {
+func isNoAuthPath(path string, promMetricsNoAuth bool) bool {
 	// Local variable instead of module var to prevent accidental mutation
 	noAuthPaths := []string{
 		"/",
 		"/index.html",
 		"/modal.html",
 		"/rest/svc/lang", // Required to load language settings on login page
+	}
+
+	if promMetricsNoAuth {  // 'Prom Metrics No Auth' GUI option
+		noAuthPaths = append(noAuthPaths, "/metrics")
 	}
 
 	// Local variable instead of module var to prevent accidental mutation
@@ -115,7 +119,7 @@ func (m *basicAuthAndSessionMiddleware) ServeHTTP(w http.ResponseWriter, r *http
 	}
 
 	// Exception for static assets and REST calls that don't require authentication.
-	if isNoAuthPath(r.URL.Path) {
+	if isNoAuthPath(r.URL.Path, m.guiCfg.MetricsNoAuth()) {
 		m.next.ServeHTTP(w, r)
 		return
 	}
