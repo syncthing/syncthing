@@ -101,7 +101,7 @@ func TestDefaultValues(t *testing.T) {
 		Defaults: Defaults{
 			Folder: FolderConfiguration{
 				FilesystemType:   FilesystemTypeBasic,
-				Path:             "~",
+				Path:             "",
 				Type:             FolderTypeSendReceive,
 				Devices:          []FolderDeviceConfiguration{{DeviceID: device1}},
 				RescanIntervalS:  3600,
@@ -181,7 +181,7 @@ func TestDeviceConfig(t *testing.T) {
 				Devices:          []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
 				Type:             FolderTypeSendOnly,
 				RescanIntervalS:  600,
-				FSWatcherEnabled: false,
+				FSWatcherEnabled: true,
 				FSWatcherDelayS:  10,
 				Copiers:          0,
 				Hashers:          0,
@@ -189,14 +189,18 @@ func TestDeviceConfig(t *testing.T) {
 				MinDiskFree:      Size{1, "%"},
 				MaxConflicts:     -1,
 				Versioning: VersioningConfiguration{
-					Params: map[string]string{},
+					CleanupIntervalS: 3600,
+					FSType:           FilesystemTypeBasic,
+					Params:           map[string]string{},
 				},
 				WeakHashThresholdPct: 25,
 				MarkerName:           DefaultMarkerName,
 				JunctionsAsDirs:      true,
 				MaxConcurrentWrites:  maxConcurrentWritesDefault,
 				XattrFilter: XattrFilter{
-					Entries: []XattrFilterEntry{},
+					MaxSingleEntrySize: 1024,
+					MaxTotalSize:       4096,
+					Entries:            []XattrFilterEntry{},
 				},
 			},
 		}
