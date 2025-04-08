@@ -60,7 +60,7 @@ func isNoAuthPath(path string, promMetricsNoAuth bool) bool {
 		"/rest/svc/lang", // Required to load language settings on login page
 	}
 
-	if promMetricsNoAuth {  // 'Prom Metrics No Auth' GUI option
+	if promMetricsNoAuth { // 'Prom Metrics No Auth' GUI option
 		noAuthPaths = append(noAuthPaths, "/metrics")
 	}
 
