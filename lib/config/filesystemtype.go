@@ -8,33 +8,27 @@ package config
 
 import "github.com/syncthing/syncthing/lib/fs"
 
-type FilesystemType int32
+type FilesystemType string
 
 const (
-	FilesystemTypeBasic FilesystemType = 0
-	FilesystemTypeFake  FilesystemType = 1
+	FilesystemTypeBasic FilesystemType = "basic"
+	FilesystemTypeFake  FilesystemType = "fake"
 )
 
-func (t FilesystemType) String() string {
-	switch t {
-	case FilesystemTypeBasic:
-		return "basic"
-	case FilesystemTypeFake:
-		return "fake"
-	default:
-		return "unknown"
+func (t FilesystemType) ToFS() fs.FilesystemType {
+	if t == "" {
+		// legacy compat, zero value means basic
+		return fs.FilesystemTypeBasic
 	}
+	return fs.FilesystemType(string(t))
 }
 
-func (t FilesystemType) ToFS() fs.FilesystemType {
-	switch t {
-	case FilesystemTypeBasic:
-		return fs.FilesystemTypeBasic
-	case FilesystemTypeFake:
-		return fs.FilesystemTypeFake
-	default:
-		return fs.FilesystemTypeBasic
+func (t FilesystemType) String() string {
+	if t == "" {
+		// legacy compat, zero value means basic
+		return string(FilesystemTypeBasic)
 	}
+	return string(t)
 }
 
 func (t FilesystemType) MarshalText() ([]byte, error) {
@@ -42,13 +36,15 @@ func (t FilesystemType) MarshalText() ([]byte, error) {
 }
 
 func (t *FilesystemType) UnmarshalText(bs []byte) error {
-	switch string(bs) {
-	case "basic":
+	if len(bs) == 0 {
+		// legacy compat, zero value means basic
 		*t = FilesystemTypeBasic
-	case "fake":
-		*t = FilesystemTypeFake
-	default:
-		*t = FilesystemTypeBasic
+		return nil
 	}
+	*t = FilesystemType(string(bs))
 	return nil
+}
+
+func (t *FilesystemType) ParseDefault(str string) error {
+	return t.UnmarshalText([]byte(str))
 }
