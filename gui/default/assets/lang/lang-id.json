@@ -146,7 +146,7 @@
     "Failed Items": "Berkas yang gagal",
     "Failed to load file versions.": "Gagal memuat versi berkas.",
     "Failed to load ignore patterns.": "Gagal memuat pola pengabaian.",
-    "Failed to setup, retrying": "Gagal menyiapkan, mengulang",
+    "Failed to set up, retrying": "Gagal menyiapkan, mengulang",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Gagal untuk menyambung ke server IPv6 itu disangka apabila tidak ada konektivitas IPv6.",
     "File Pull Order": "Urutan Penarikan Berkas",
     "File Versioning": "Pemversian Berkas",

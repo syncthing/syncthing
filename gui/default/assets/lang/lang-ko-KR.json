@@ -156,7 +156,7 @@
     "Failed Items": "실패 항목",
     "Failed to load file versions.": "파일 버전을 불러오기에 실패했습니다.",
     "Failed to load ignore patterns.": "무시 양식을 불러오기에 실패했습니다.",
-    "Failed to setup, retrying": "설정 적용 실패; 재시도 중",
+    "Failed to set up, retrying": "설정 적용 실패; 재시도 중",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "IPv6에 연결되어 있지 않을 때는 IPv6 서버에 접속하지 못하는 것이 정상입니다.",
     "File Pull Order": "파일 수신 순서",
     "File Versioning": "파일 버전 관리",

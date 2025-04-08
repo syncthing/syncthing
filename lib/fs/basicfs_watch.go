@@ -54,7 +54,7 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 	if err != nil {
 		notify.Stop(backendChan)
 		if reachedMaxUserWatches(err) {
-			err = errors.New("failed to setup inotify handler. Please increase inotify limits, see https://docs.syncthing.net/users/faq.html#inotify-limits")
+			err = errors.New("failed to set up inotify handler. Please increase inotify limits, see https://docs.syncthing.net/users/faq.html#inotify-limits")
 		}
 		return nil, nil, err
 	}
