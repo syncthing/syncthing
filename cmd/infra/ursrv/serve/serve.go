@@ -26,9 +26,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/puzpuzpuz/xsync/v3"
+	"github.com/syncthing/syncthing/internal/blob"
+	"github.com/syncthing/syncthing/internal/blob/azureblob"
+	"github.com/syncthing/syncthing/internal/blob/s3"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/geoip"
-	"github.com/syncthing/syncthing/lib/s3"
 	"github.com/syncthing/syncthing/lib/ur/contract"
 )
 
@@ -40,11 +42,15 @@ type CLI struct {
 	DumpFile        string        `env:"UR_DUMP_FILE" default:"reports.jsons.gz"`
 	DumpInterval    time.Duration `env:"UR_DUMP_INTERVAL" default:"5m"`
 
-	S3Endpoint    string `name:"s3-endpoint" hidden:"true" env:"UR_S3_ENDPOINT"`
-	S3Region      string `name:"s3-region" hidden:"true" env:"UR_S3_REGION"`
-	S3Bucket      string `name:"s3-bucket" hidden:"true" env:"UR_S3_BUCKET"`
-	S3AccessKeyID string `name:"s3-access-key-id" hidden:"true" env:"UR_S3_ACCESS_KEY_ID"`
-	S3SecretKey   string `name:"s3-secret-key" hidden:"true" env:"UR_S3_SECRET_KEY"`
+	S3Endpoint    string `name:"s3-endpoint" env:"UR_S3_ENDPOINT"`
+	S3Region      string `name:"s3-region" env:"UR_S3_REGION"`
+	S3Bucket      string `name:"s3-bucket" env:"UR_S3_BUCKET"`
+	S3AccessKeyID string `name:"s3-access-key-id" env:"UR_S3_ACCESS_KEY_ID"`
+	S3SecretKey   string `name:"s3-secret-key" env:"UR_S3_SECRET_KEY"`
+
+	AzureBlobAccount   string `name:"azure-blob-account" env:"UR_AZUREBLOB_ACCOUNT"`
+	AzureBlobKey       string `name:"azure-blob-key" env:"UR_AZUREBLOB_KEY"`
+	AzureBlobContainer string `name:"azure-blob-container" env:"UR_AZUREBLOB_CONTAINER"`
 }
 
 var (
@@ -120,19 +126,25 @@ func (cli *CLI) Run() error {
 		go geo.Serve(context.TODO())
 	}
 
-	// s3
+	// Blob storage
 
-	var s3sess *s3.Session
+	var blobs blob.Store
 	if cli.S3Endpoint != "" {
-		s3sess, err = s3.NewSession(cli.S3Endpoint, cli.S3Region, cli.S3Bucket, cli.S3AccessKeyID, cli.S3SecretKey)
+		blobs, err = s3.NewSession(cli.S3Endpoint, cli.S3Region, cli.S3Bucket, cli.S3AccessKeyID, cli.S3SecretKey)
 		if err != nil {
 			slog.Error("Failed to create S3 session", "error", err)
 			return err
 		}
+	} else if cli.AzureBlobAccount != "" {
+		blobs, err = azureblob.NewBlobStore(cli.AzureBlobAccount, cli.AzureBlobKey, cli.AzureBlobContainer)
+		if err != nil {
+			slog.Error("Failed to create Azure blob store", "error", err)
+			return err
+		}
 	}
 
-	if _, err := os.Stat(cli.DumpFile); err != nil && s3sess != nil {
-		if err := cli.downloadDumpFile(s3sess); err != nil {
+	if _, err := os.Stat(cli.DumpFile); err != nil && blobs != nil {
+		if err := cli.downloadDumpFile(blobs); err != nil {
 			slog.Error("Failed to download dump file", "error", err)
 		}
 	}
@@ -154,7 +166,7 @@ func (cli *CLI) Run() error {
 
 	go func() {
 		for range time.Tick(cli.DumpInterval) {
-			if err := cli.saveDumpFile(srv, s3sess); err != nil {
+			if err := cli.saveDumpFile(srv, blobs); err != nil {
 				slog.Error("Failed to write dump file", "error", err)
 			}
 		}
@@ -193,8 +205,8 @@ func (cli *CLI) Run() error {
 	return metricsSrv.Serve(urListener)
 }
 
-func (cli *CLI) downloadDumpFile(s3sess *s3.Session) error {
-	latestKey, err := s3sess.LatestKey()
+func (cli *CLI) downloadDumpFile(blobs blob.Store) error {
+	latestKey, err := blobs.LatestKey(context.Background())
 	if err != nil {
 		return fmt.Errorf("list latest S3 key: %w", err)
 	}
@@ -202,7 +214,7 @@ func (cli *CLI) downloadDumpFile(s3sess *s3.Session) error {
 	if err != nil {
 		return fmt.Errorf("create dump file: %w", err)
 	}
-	if err := s3sess.Download(fd, latestKey); err != nil {
+	if err := blobs.Download(context.Background(), latestKey, fd); err != nil {
 		_ = fd.Close()
 		return fmt.Errorf("download dump file: %w", err)
 	}
@@ -213,7 +225,7 @@ func (cli *CLI) downloadDumpFile(s3sess *s3.Session) error {
 	return nil
 }
 
-func (cli *CLI) saveDumpFile(srv *server, s3sess *s3.Session) error {
+func (cli *CLI) saveDumpFile(srv *server, blobs blob.Store) error {
 	fd, err := os.Create(cli.DumpFile + ".tmp")
 	if err != nil {
 		return fmt.Errorf("creating dump file: %w", err)
@@ -234,13 +246,13 @@ func (cli *CLI) saveDumpFile(srv *server, s3sess *s3.Session) error {
 	}
 	slog.Info("Dump file saved")
 
-	if s3sess != nil {
+	if blobs != nil {
 		key := fmt.Sprintf("reports-%s.jsons.gz", time.Now().UTC().Format("2006-01-02"))
 		fd, err := os.Open(cli.DumpFile)
 		if err != nil {
 			return fmt.Errorf("opening dump file: %w", err)
 		}
-		if err := s3sess.Upload(fd, key); err != nil {
+		if err := blobs.Upload(context.Background(), key, fd); err != nil {
 			return fmt.Errorf("uploading dump file: %w", err)
 		}
 		_ = fd.Close()

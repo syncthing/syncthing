@@ -21,11 +21,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/blob"
+	"github.com/syncthing/syncthing/internal/blob/azureblob"
+	"github.com/syncthing/syncthing/internal/blob/s3"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/s3"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 )
 
@@ -74,6 +76,10 @@ type CLI struct {
 	DBS3AccessKeyID string `name:"db-s3-access-key-id" group:"Database (S3 backup)" hidden:"true" help:"S3 access key ID for database" env:"DISCOVERY_DB_S3_ACCESS_KEY_ID"`
 	DBS3SecretKey   string `name:"db-s3-secret-key" group:"Database (S3 backup)" hidden:"true" help:"S3 secret key for database" env:"DISCOVERY_DB_S3_SECRET_KEY"`
 
+	DBAzureBlobAccount   string `name:"db-azure-blob-account" env:"DISCOVERY_DB_AZUREBLOB_ACCOUNT"`
+	DBAzureBlobKey       string `name:"db-azure-blob-key" env:"DISCOVERY_DB_AZUREBLOB_KEY"`
+	DBAzureBlobContainer string `name:"db-azure-blob-container" env:"DISCOVERY_DB_AZUREBLOB_CONTAINER"`
+
 	AMQPAddress string `group:"AMQP replication" hidden:"true" help:"Address to AMQP broker" env:"DISCOVERY_AMQP_ADDRESS"`
 
 	Debug   bool `short:"d" help:"Print debug output" env:"DISCOVERY_DEBUG"`
@@ -117,18 +123,20 @@ func main() {
 		Timeout:           2 * time.Minute,
 	})
 
-	// If configured, use S3 for database backups.
-	var s3c *s3.Session
+	// If configured, use blob storage for database backups.
+	var blobs blob.Store
+	var err error
 	if cli.DBS3Endpoint != "" {
-		var err error
-		s3c, err = s3.NewSession(cli.DBS3Endpoint, cli.DBS3Region, cli.DBS3Bucket, cli.DBS3AccessKeyID, cli.DBS3SecretKey)
-		if err != nil {
-			log.Fatalf("Failed to create S3 session: %v", err)
-		}
+		blobs, err = s3.NewSession(cli.DBS3Endpoint, cli.DBS3Region, cli.DBS3Bucket, cli.DBS3AccessKeyID, cli.DBS3SecretKey)
+	} else if cli.DBAzureBlobAccount != "" {
+		blobs, err = azureblob.NewBlobStore(cli.DBAzureBlobAccount, cli.DBAzureBlobKey, cli.DBAzureBlobContainer)
+	}
+	if err != nil {
+		log.Fatalf("Failed to create blob store: %v", err)
 	}
 
 	// Start the database.
-	db := newInMemoryStore(cli.DBDir, cli.DBFlushInterval, s3c)
+	db := newInMemoryStore(cli.DBDir, cli.DBFlushInterval, blobs)
 	main.Add(db)
 
 	// If we have an AMQP broker for replication, start that

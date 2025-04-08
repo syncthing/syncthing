@@ -7,6 +7,7 @@
 package s3
 
 import (
+	"context"
 	"io"
 	"time"
 
@@ -15,7 +16,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/syncthing/syncthing/internal/blob"
 )
+
+var _ blob.Store = (*Session)(nil)
 
 type Session struct {
 	bucket string
@@ -40,7 +44,7 @@ func NewSession(endpoint, region, bucket, accessKeyID, secretKey string) (*Sessi
 	}, nil
 }
 
-func (s *Session) Upload(r io.Reader, key string) error {
+func (s *Session) Upload(_ context.Context, key string, r io.Reader) error {
 	uploader := s3manager.NewUploader(s.s3sess)
 	_, err := uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(s.bucket),
@@ -50,7 +54,31 @@ func (s *Session) Upload(r io.Reader, key string) error {
 	return err
 }
 
-func (s *Session) List(fn func(*Object) bool) error {
+func (s *Session) Download(_ context.Context, key string, w blob.Writer) error {
+	downloader := s3manager.NewDownloader(s.s3sess)
+	_, err := downloader.Download(w, &s3.GetObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
+	return err
+}
+
+func (s *Session) LatestKey(_ context.Context) (string, error) {
+	var latestKey string
+	var lastModified time.Time
+	if err := s.list(func(obj *Object) bool {
+		if latestKey == "" || obj.LastModified.After(lastModified) {
+			latestKey = *obj.Key
+			lastModified = *obj.LastModified
+		}
+		return true
+	}); err != nil {
+		return "", err
+	}
+	return latestKey, nil
+}
+
+func (s *Session) list(fn func(*Object) bool) error {
 	svc := s3.New(s.s3sess)
 
 	opts := &s3.ListObjectsV2Input{
@@ -75,28 +103,4 @@ func (s *Session) List(fn func(*Object) bool) error {
 	}
 
 	return nil
-}
-
-func (s *Session) LatestKey() (string, error) {
-	var latestKey string
-	var lastModified time.Time
-	if err := s.List(func(obj *Object) bool {
-		if latestKey == "" || obj.LastModified.After(lastModified) {
-			latestKey = *obj.Key
-			lastModified = *obj.LastModified
-		}
-		return true
-	}); err != nil {
-		return "", err
-	}
-	return latestKey, nil
-}
-
-func (s *Session) Download(w io.WriterAt, key string) error {
-	downloader := s3manager.NewDownloader(s.s3sess)
-	_, err := downloader.Download(w, &s3.GetObjectInput{
-		Bucket: aws.String(s.bucket),
-		Key:    aws.String(key),
-	})
-	return err
 }
