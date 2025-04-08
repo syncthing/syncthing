@@ -192,9 +192,9 @@ func (opts OptionsConfiguration) StunServers() []string {
 			}
 
 			for _, record := range records {
-				var priority = record.Priority
-				var target, _ = strings.CutSuffix(record.Target, ".")
-				var address = fmt.Sprintf("%s:%d", target, record.Port)
+				priority := record.Priority
+				target := strings.TrimSuffix(record.Target, ".")
+				address := fmt.Sprintf("%s:%d", target, record.Port)
 				l.Debugf("Resolved primary STUN server %s with priority %d", address, priority)
 				addresses = append(addresses, address)
 			}
