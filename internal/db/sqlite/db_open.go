@@ -65,6 +65,10 @@ func Open(path string, opts ...Option) (*DB, error) {
 		folderDBOpener: openFolderDB,
 	}
 
+	for _, opt := range opts {
+		opt(db)
+	}
+
 	return db, nil
 }
 
