@@ -57,11 +57,6 @@
     word-break: break-all;
 }
 
-.fancytree-temp .fancytree-title {
-    opacity: 0.6;
-    font-style: italic;
-}
-
 /*
  * Shared container style for scrollable, resizable trees containers
  */
@@ -91,20 +86,26 @@
  * If you add/remove elements in the modal, you may need to adjust these values.
  */
 
-#restoreTree-container,
-#folderTree-container {
+#restoreTree-container {
     max-height: calc(100vh - 390px);
 }
 
+#folderTree-container {
+    max-height: calc(100vh - 293px);
+}
+
 @media (min-width: 768px) {
-    #restoreTree-container,
-    #folderTree-container {
+    #restoreTree-container {
         max-height: calc(100vh - 401px);
     }
-}
-@media (min-width: 992px) {
-    #restoreTree-container,
+
     #folderTree-container {
+        max-height: calc(100vh - 333px);
+    }
+}
+
+@media (min-width: 992px) {
+    #restoreTree-container {
         max-height: calc(100vh - 333px);
     }
 }
@@ -139,6 +140,17 @@
 /*
  * Specific tweaks for folderTree component
  */
+
+.folderTree-new-folder {
+    color: #626262;
+    font-style: italic;
+}
+
+html[lang|="zh"] .folderTree-new-folder,
+html[lang="ja"] .folderTree-new-folder,
+html[lang|="ko"] .folderTree-new-folder {
+    font-style: normal;
+}
 
 /* Maintain consistent padding with the restoreTree component */
 #folderTree td {

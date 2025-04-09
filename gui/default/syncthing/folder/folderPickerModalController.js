@@ -86,7 +86,7 @@ angular.module('syncthing.folder')
                 nextNode = currentNode.addChildren({
                     title: key,
                     key: joinPath(currentNode.key, key),
-                    extraClasses: "fancytree-temp",
+                    extraClasses: "folderTree-new-folder",
                     folder: true,
                     tooltip: $translate.instant('Folder will be created')
                 });
