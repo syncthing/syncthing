@@ -45,7 +45,7 @@ angular.module('syncthing.folder')
         }
 
         function formatDirectoryName(path) {
-            return splitPath(path).pop() || path
+            return splitPath(path).pop() || path;
         }
 
         async function fetchSubdirectories(path) {
@@ -132,7 +132,7 @@ angular.module('syncthing.folder')
                 activate: (event, data) => handleNodeActivation(data.node),
                 enhanceTitle: function (event, data) {
                     if (data.node.extraClasses?.includes("folderTree-new-folder")) {
-                        data.$title.attr("data-original-title", $translate.instant("Folder will be created"))
+                        data.$title.attr("data-original-title", $translate.instant("Folder will be created"));
                         data.$title.tooltip();
                     }
                 }
@@ -172,5 +172,5 @@ angular.module('syncthing.folder')
         angular.element("#folderPickerSelect").on("click", () => {
             $rootScope.$emit('folderPathSelected', stripTrailingSeparator($scope.currentPath));
             angular.element('#folderPicker').modal('hide');
-        }) ;
+        });
     });
