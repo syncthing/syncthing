@@ -88,7 +88,6 @@ angular.module('syncthing.folder')
                     key: joinPath(currentNode.key, key),
                     extraClasses: "folderTree-new-folder",
                     folder: true,
-                    tooltip: $translate.instant('Folder will be created')
                 });
                 currentNode.sortChildren();
                 $scope.tempNodes.push(nextNode);
@@ -131,6 +130,12 @@ angular.module('syncthing.folder')
                     data.result = fetchSubdirectories(data.node.key);
                 },
                 activate: (event, data) => handleNodeActivation(data.node),
+                enhanceTitle: function (event, data) {
+                    if (data.node.extraClasses?.includes("folderTree-new-folder")) {
+                        data.$title.attr("data-original-title", $translate.instant("Folder will be created"))
+                        data.$title.tooltip();
+                    }
+                }
             });
 
             $scope.tree = $.ui.fancytree.getTree("#folderTree");
