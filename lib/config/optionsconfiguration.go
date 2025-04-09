@@ -8,8 +8,10 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"runtime"
 	"slices"
+	"strings"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -183,15 +185,22 @@ func (opts OptionsConfiguration) StunServers() []string {
 	for _, addr := range opts.RawStunServers {
 		switch addr {
 		case "default":
-			defaultPrimaryAddresses := make([]string, len(DefaultPrimaryStunServers))
-			copy(defaultPrimaryAddresses, DefaultPrimaryStunServers)
-			rand.Shuffle(defaultPrimaryAddresses)
-			addresses = append(addresses, defaultPrimaryAddresses...)
+			_, records, err := net.LookupSRV("stun", "udp", "syncthing.net")
+			if err != nil {
+				l.Warnln("Unable to resolve primary STUN servers via DNS:", err)
+			}
 
-			defaultSecondaryAddresses := make([]string, len(DefaultSecondaryStunServers))
-			copy(defaultSecondaryAddresses, DefaultSecondaryStunServers)
-			rand.Shuffle(defaultSecondaryAddresses)
-			addresses = append(addresses, defaultSecondaryAddresses...)
+			for _, record := range records {
+				priority := record.Priority
+				target := strings.TrimSuffix(record.Target, ".")
+				address := fmt.Sprintf("%s:%d", target, record.Port)
+				l.Debugf("Resolved primary STUN server %s with priority %d", address, priority)
+				addresses = append(addresses, address)
+			}
+
+			fallbackAddresses := slices.Clone(DefaultFallbackStunServers)
+			rand.Shuffle(fallbackAddresses)
+			addresses = append(addresses, fallbackAddresses...)
 		default:
 			addresses = append(addresses, addr)
 		}

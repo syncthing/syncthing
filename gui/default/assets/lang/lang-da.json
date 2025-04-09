@@ -154,7 +154,7 @@
     "Failed Items": "Mislykkede filer",
     "Failed to load file versions.": "Fil versioner kunne ikke indlæses.",
     "Failed to load ignore patterns.": "Ignorerings-mønstre kunne ikke indlæses.",
-    "Failed to setup, retrying": "Opsætning mislykkedes; prøver igen",
+    "Failed to set up, retrying": "Opsætning mislykkedes; prøver igen",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Fejl i forbindelse med opkobling til IPv6-servere skal forventes, hvis der ikke er IPv6-forbindelse.",
     "File Pull Order": "Hentningsrækkefølge for filer",
     "File Versioning": "Filversionering",

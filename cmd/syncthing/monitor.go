@@ -64,7 +64,7 @@ func (c *serveCmd) monitorMain() {
 			fileDst, err = open(logFile)
 		}
 		if err != nil {
-			l.Warnln("Failed to setup logging to file, proceeding with logging to stdout only:", err)
+			l.Warnln("Failed to set up logging to file, proceeding with logging to stdout only:", err)
 		} else {
 			if build.IsWindows {
 				// Translate line breaks to Windows standard

@@ -203,7 +203,7 @@ func TestClusterConfigFirst(t *testing.T) {
 	case c.outbox <- asyncMessage{&bep.Ping{}, nil}:
 		t.Fatal("able to send ping before cluster config")
 	case <-time.After(100 * time.Millisecond):
-		// Allow some time for c.writerLoop to setup after c.Start
+		// Allow some time for c.writerLoop to set up after c.Start
 	}
 
 	c.ClusterConfig(&ClusterConfig{})

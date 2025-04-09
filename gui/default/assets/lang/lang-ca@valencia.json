@@ -150,7 +150,7 @@
     "Failed Items": "Objectes fallits",
     "Failed to load file versions.": "No s'han pogut carregar les versions dels fitxers.",
     "Failed to load ignore patterns.": "No s'han pogut carregar els patrons ignorats.",
-    "Failed to setup, retrying": "Errada en la configuració, reintentant",
+    "Failed to set up, retrying": "Errada en la configuració, reintentant",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "És possible que es produïsca una fallada al connectar als servidors IPv6 si no hi ha connectivitat IPv6.",
     "File Pull Order": "Ordre de fitxers del pull",
     "File Versioning": "Versionat de fitxer",
