@@ -74,6 +74,8 @@ func (v *dbVector) Scan(value any) error {
 		return wrap(err)
 	}
 
+	// This is only necessary because I messed up counter serialisation and
+	// thereby ordering in 2.0.0 betas, and can be removed in the future.
 	slices.SortFunc(vec.Counters, func(a, b protocol.Counter) int { return cmp.Compare(a.ID, b.ID) })
 
 	v.Vector = vec
