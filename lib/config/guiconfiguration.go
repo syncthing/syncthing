@@ -25,6 +25,7 @@ type GUIConfiguration struct {
 	User                      string   `json:"user" xml:"user,omitempty"`
 	Password                  string   `json:"password" xml:"password,omitempty"`
 	AuthMode                  AuthMode `json:"authMode" xml:"authMode,omitempty"`
+	PromMetricsNoAuth         bool     `json:"promMetricsNoAuth" xml:"promMetricsNoAuth" default:"false"`
 	RawUseTLS                 bool     `json:"useTLS" xml:"tls,attr"`
 	APIKey                    string   `json:"apiKey" xml:"apikey,omitempty"`
 	InsecureAdminAccess       bool     `json:"insecureAdminAccess" xml:"insecureAdminAccess,omitempty"`
@@ -180,4 +181,8 @@ func (c *GUIConfiguration) prepare() {
 
 func (c GUIConfiguration) Copy() GUIConfiguration {
 	return c
+}
+
+func (c GUIConfiguration) MetricsNoAuth() bool {
+	return c.PromMetricsNoAuth
 }
