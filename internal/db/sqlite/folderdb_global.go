@@ -148,11 +148,11 @@ func (s *folderDB) neededGlobalFilesLocal(selectOpts string) (iter.Seq[protocol.
 func (s *folderDB) neededGlobalFilesRemote(device protocol.DeviceID, selectOpts string) (iter.Seq[protocol.FileInfo], func() error) {
 	// Select:
 	//
-	// - all the valid, non-deleted global files that don't have a corresponding
-	//   remote file with the same version.
+	// - all the valid, non-deleted global files that don't have a
+	//   corresponding remote file with the same version.
 	//
-	// - all the valid, deleted global files that have a corresponding non-deleted
-	//   remote file (of any version)
+	// - all the valid, deleted global files that have a corresponding
+	//   non-deleted and valid remote file (of any version)
 
 	it, errFn := iterStructs[indirectFI](s.stmt(`
 		SELECT fi.fiprotobuf, bl.blprotobuf, g.name, g.size, g.modified FROM fileinfos fi
@@ -172,7 +172,7 @@ func (s *folderDB) neededGlobalFilesRemote(device protocol.DeviceID, selectOpts 
 		WHERE g.local_flags & {{.FlagLocalGlobal}} != 0 AND g.deleted AND NOT g.invalid AND EXISTS (
 			SELECT 1 FROM FILES f
 			INNER JOIN devices d ON d.idx = f.device_idx
-			WHERE f.name = g.name AND d.device_id = ? AND NOT f.deleted
+			WHERE f.name = g.name AND d.device_id = ? AND NOT f.deleted AND NOT f.invalid
 		)
 	`+selectOpts).Queryx(
 		device.String(),
