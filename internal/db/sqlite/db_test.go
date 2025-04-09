@@ -1109,6 +1109,54 @@ func TestErrorWrap(t *testing.T) {
 	}
 }
 
+func TestStrangeDeletedGlobalBug(t *testing.T) {
+	// This exercises an edge case with serialisation and ordering of
+	// version vectors. It does not need to make sense, it just needs to
+	// pass.
+
+	t.Parallel()
+
+	sdb, err := OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := sdb.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// One remote device announces the original version of the file
+
+	file := genFile("test", 1, 1)
+	file.Version = protocol.Vector{Counters: []protocol.Counter{{ID: 35494436325452, Value: 1742900373}}}
+	t.Log("orig", file.Version)
+	sdb.Update(folderID, protocol.DeviceID{42}, []protocol.FileInfo{file})
+
+	// Another one announces a newer one that is deleted
+
+	del := file
+	del.SetDeleted(43)
+	del.Version = protocol.Vector{Counters: []protocol.Counter{{ID: 55445057455644, Value: 1742918457}, {ID: 35494436325452, Value: 1742900373}}}
+	t.Log("del", del.Version)
+	sdb.Update(folderID, protocol.DeviceID{43}, []protocol.FileInfo{del})
+
+	// We have an instance of the original file
+
+	sdb.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{file})
+
+	// Which one is the global? It should be the deleted one, clearly.
+
+	g, _, err := sdb.GetGlobalFile(folderID, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !g.Deleted {
+		t.Log(g)
+		t.Fatal("should be deleted")
+	}
+}
+
 func mustCollect[T any](t *testing.T) func(it iter.Seq[T], errFn func() error) []T {
 	t.Helper()
 	return func(it iter.Seq[T], errFn func() error) []T {

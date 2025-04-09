@@ -7,9 +7,11 @@
 package sqlite
 
 import (
+	"cmp"
 	"database/sql/driver"
 	"errors"
 	"iter"
+	"slices"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/gen/bep"
@@ -71,6 +73,9 @@ func (v *dbVector) Scan(value any) error {
 	if err != nil {
 		return wrap(err)
 	}
+
+	slices.SortFunc(vec.Counters, func(a, b protocol.Counter) int { return cmp.Compare(a.ID, b.ID) })
+
 	v.Vector = vec
 
 	return nil
