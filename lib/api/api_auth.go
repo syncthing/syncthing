@@ -61,13 +61,13 @@ func emitLoginAttempt(success bool, username string, r *http.Request, evLogger e
 
 func extractIP(address string) net.IP {
 	// strip the port
-	ip, _, err := net.SplitHostPort(address)
-	if err != nil {
-		ip = address
+	host, _, err := net.SplitHostPort(address)
+	if err == nil {
+		address = host
 	}
 	// strip IPv6 zone identifier
-	ip, _, _ = strings.Cut(ip, "%")
-	return net.ParseIP(ip)
+	address, _, _ = strings.Cut(address, "%")
+	return net.ParseIP(address)
 }
 
 func antiBruteForceSleep() {
