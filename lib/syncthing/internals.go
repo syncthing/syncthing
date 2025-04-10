@@ -84,3 +84,21 @@ func (m *Internals) DBSnapshot(folderID string) (*db.Snapshot, error) {
 func (m *Internals) ScanFolderSubdirs(folderID string, paths []string) error {
 	return m.model.ScanFolderSubdirs(folderID, paths)
 }
+
+func (m *Internals) FolderProgressBytesCompleted(folder string) int64 {
+	return m.model.FolderProgressBytesCompleted(folder)
+}
+
+// NeedFolderFiles returns paginated list of currently needed files in
+// progress, queued, and to be queued on next puller iteration.
+func (m *Internals) NeedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error) {
+	return m.model.NeedFolderFiles(folder, page, perpage)
+}
+
+func (m *Internals) RemoteNeedFolderFiles(folder string, device protocol.DeviceID, page, perpage int) ([]protocol.FileInfo, error) {
+	return m.model.RemoteNeedFolderFiles(folder, device, page, perpage)
+}
+
+func (m *Internals) LocalChangedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, error) {
+	return m.model.LocalChangedFolderFiles(folder, page, perpage)
+}

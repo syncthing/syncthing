@@ -1,0 +1,18 @@
+name: Build Syncthing (Nightly)
+
+on:
+  schedule:
+    # Run nightly build at 05:00 UTC
+    - cron: '00 05 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-syncthing:
+    uses: ./.github/workflows/build-syncthing.yaml
+    # if we only want nightlies to run for specific users:
+    # if: contains(fromJSON('["syncthing", "calmh"]'), github.repository_owner)
+    secrets: inherit

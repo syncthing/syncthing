@@ -154,7 +154,7 @@
     "Failed Items": "Misslyckade objekt",
     "Failed to load file versions.": "Det gick inte att läsa in filversioner.",
     "Failed to load ignore patterns.": "Det gick inte att läsa in ignoreringsmönster.",
-    "Failed to setup, retrying": "Det gick inte att ställa in, försöker igen",
+    "Failed to set up, retrying": "Det gick inte att ställa in, försöker igen",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Det går inte att ansluta till IPv6-servrar om det inte finns någon IPv6-anslutning.",
     "File Pull Order": "Filhämtningsprioritering",
     "File Versioning": "Filversionshantering",

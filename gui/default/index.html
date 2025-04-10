@@ -581,7 +581,7 @@
                             </span>
                             <span ng-if="folder.fsWatcherEnabled && !folder.paused && folderStatus(folder) !== 'stopped' && model[folder.id].watchError" tooltip data-original-title="{{'Periodic scanning at given interval and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
                               <span class="far fa-clock"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
-                              <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Failed to setup, retrying</span>
+                              <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Failed to set up, retrying</span>
                             </span>
                           </div>
                           <div ng-if="folder.rescanIntervalS <= 0">
@@ -595,7 +595,7 @@
                             </span>
                             <span ng-if="folder.fsWatcherEnabled && !folder.paused && folderStatus(folder) !== 'stopped' && model[folder.id].watchError" tooltip data-original-title="{{'Disabled periodic scanning and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
                               <span class="far fa-clock"></span>&nbsp;<span translate>Disabled</span>&ensp;
-                              <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Failed to setup, retrying</span>
+                              <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Failed to set up, retrying</span>
                             </span>
                           </div>
                         </td>

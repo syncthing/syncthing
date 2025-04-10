@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Mar 13, 2025" "v1.29.3" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Apr 04, 2025" "v1.29.3" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -1430,15 +1430,7 @@ ECN bits into account.
 .TP
 .B stunServer
 Server to be used for STUN, given as ip:port. The keyword \fBdefault\fP gets
-expanded to
-\fBstun.callwithus.com:3478\fP, \fBstun.counterpath.com:3478\fP,
-\fBstun.counterpath.net:3478\fP, \fBstun.ekiga.net:3478\fP,
-\fBstun.hitv.com:3478\fP, \fBstun.ideasip.com:3478\fP,
-\fBstun.internetcalls.com:3478\fP, \fBstun.miwifi.com:3478\fP,
-\fBstun.schlund.de:3478\fP,\(ga\(gastun.sipgate.net:10000\(ga\(ga,
-\fBstun.sipgate.net:3478\fP, \fBstun.voip.aebc.com:3478\fP,
-\fBstun.voiparound.com:3478\fP, \fBstun.voipbuster.com:3478\fP,
-\fBstun.voipstunt.com:3478\fP and \fBstun.xten.com:3478\fP (this is the default).
+expanded to a set of public STUN servers.
 .sp
 To configure multiple servers, you can either: repeat \fB<stunServer>\fP tags
 in the configuration file or enter several servers separated by commas in
@@ -1448,7 +1440,7 @@ the GUI.
 .TP
 .B stunKeepaliveStartS
 Interval in seconds between contacting a STUN server to maintain NAT
-mapping. Default is \fB24\fP and you can set it to \fB0\fP to disable contacting
+mapping. Default is \fB180\fP and you can set it to \fB0\fP to disable contacting
 STUN servers.  The interval is automatically reduced if needed, down to a
 minimum of \fI\%stunKeepaliveMinS\fP\&.
 .UNINDENT

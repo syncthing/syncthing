@@ -146,7 +146,7 @@
     "Failed Items": "Hibás elemek",
     "Failed to load file versions.": "Nem sikerült betölteni a fájlverziókat.",
     "Failed to load ignore patterns.": "Nem sikerült betölteni a mellőzési mintákat.",
-    "Failed to setup, retrying": "Telepítés nem sikerült, újrapróbálkozás",
+    "Failed to set up, retrying": "Telepítés nem sikerült, újrapróbálkozás",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Mivel nincs IPv6 kapcsolat, ezért várhatóan nem fog sikerülni IPv6-os szerverekhez csatlakozni.",
     "File Pull Order": "Fájlküldési sorrend",
     "File Versioning": "Fájlverzió-követés",
