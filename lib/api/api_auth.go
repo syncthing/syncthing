@@ -18,6 +18,7 @@ import (
 	ldap "github.com/go-ldap/ldap/v3"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
@@ -28,11 +29,11 @@ const (
 )
 
 func emitLoginAttempt(success bool, username string, r *http.Request, evLogger events.Logger) {
-	remoteIP := extractIP(r.RemoteAddr)
+	remoteIP := osutil.IPFromString(r.RemoteAddr)
 	var forwardedIP net.IP
 	for _, headerAddress := range strings.Split(r.Header.Get("X-Forwarded-For"), ",") {
 		headerAddress = strings.TrimSpace(headerAddress)
-		forwardedIP = extractIP(headerAddress)
+		forwardedIP = osutil.IPFromString(headerAddress)
 		break
 	}
 
@@ -57,17 +58,6 @@ func emitLoginAttempt(success bool, username string, r *http.Request, evLogger e
 		l.Infof("Wrong credentials supplied during API authorization from %s forwarded from %s", forwardedIP, remoteIP)
 	}
 	l.Infof("Wrong credentials supplied during API authorization from %s", remoteIP)
-}
-
-func extractIP(address string) net.IP {
-	// strip the port
-	host, _, err := net.SplitHostPort(address)
-	if err != nil {
-		host = address
-	}
-	// strip IPv6 zone identifier
-	host, _, _ = strings.Cut(host, "%")
-	return net.ParseIP(host)
 }
 
 func antiBruteForceSleep() {

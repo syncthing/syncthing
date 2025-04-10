@@ -187,35 +187,3 @@ func TestTokenManager(t *testing.T) {
 		t.Errorf("token %q should be invalid", t3)
 	}
 }
-
-func TestExtractIP(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		in  string
-		out string
-	}{
-		{"192.168.178.1", "192.168.178.1"},
-		{"192.168.178.1:8384", "192.168.178.1"},
-		{"fe80::20c:29ff:fe9a:46d2", "fe80::20c:29ff:fe9a:46d2"},
-		{"[fe80::20c:29ff:fe9a:46d2]:8384", "fe80::20c:29ff:fe9a:46d2"},
-		{"[fe80::20c:29ff:fe9a:46d2%eno1]:8384", "fe80::20c:29ff:fe9a:46d2"},
-		{"google.com", ""},
-		{"1.1.1.1.1", ""},
-		{"", ""},
-	}
-
-	for _, c := range cases {
-		ip := extractIP(c.in)
-		var address string
-		if ip != nil {
-			address = ip.String()
-		} else {
-			address = ""
-		}
-
-		if c.out != address {
-			t.Fatalf("result should be %s != %s", c.out, address)
-		}
-	}
-}
