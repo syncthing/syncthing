@@ -742,21 +742,31 @@
                       <tr ng-if="tunnel.type == 'inbound'">
                         <th><span class="fas fa-fw fa-server"></span>&nbsp;<span translate>Allowed Remote Devices</span></th>
                         <td class="text-right no-overflow-ellipse overflow-break-word">
-                          <!-- Display each allowed remote device ID -->
                           <span ng-repeat="deviceID in tunnel.allowedRemoteDeviceIDs">
-                            <!-- If the remote device ID matches a known device, show the device name with link -->
                             <span ng-if="devices[deviceID]">
                               <a href="" ng-click="editDeviceExisting(devices[deviceID])">{{deviceName(devices[deviceID])}}</a>
                             </span>
-                            <!-- If the device is not known, show the raw ID -->
                             <span ng-if="!devices[deviceID]">
                               {{deviceID}}
                             </span>
-                            <!-- Add comma separator between devices -->
-                            <span ng-if="!$last">, </span>
+                            <button type="button" class="btn btn-sm btn-danger" ng-click="removeAllowedDevice(tunnel, deviceID)">
+                              <span class="fas fa-minus"></span>
+                            </button>
+                          </br>
                           </span>
-                          <!-- If the list is empty, show a message -->
-                          <span ng-if="!tunnel.allowedRemoteDeviceIDs || tunnel.allowedRemoteDeviceIDs.length === 0" translate>Any Device</span>
+                          <div class="form-inline">
+                            <input type="text" ng-model="newAllowedDeviceID" placeholder="Device ID" class="form-control input-sm small-input" list="deviceProposals" />
+                            <datalist id="deviceProposals">
+                              <option ng-repeat="(deviceID, device) in devices" 
+                                      ng-if="deviceID !== thisDevice().deviceID && !tunnel.allowedRemoteDeviceIDs.includes(deviceID)" 
+                                      value="{{deviceID}}">
+                                {{deviceName(device)}}
+                              </option>
+                            </datalist>
+                            <button type="button" class="btn btn-sm btn-success" ng-click="addAllowedDevice(tunnel, newAllowedDeviceID); newAllowedDeviceID=''">
+                              <span class="fas fa-plus"></span>&nbsp;<span translate>Add</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     </tbody>

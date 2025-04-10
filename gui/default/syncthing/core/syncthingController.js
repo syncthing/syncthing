@@ -689,6 +689,38 @@ angular.module('syncthing.core')
                 });
         };
 
+        $scope.addAllowedDevice = function (tunnel, deviceID) {
+            const payload = {
+                id: tunnel.id,
+                action: "add-allowed-device",
+                deviceID: deviceID,
+            };
+            $http.post(urlbase + '/system/tunnels-modify', payload)
+                .then(function () {
+                    console.log("Device added to allowed list for tunnel:", tunnel.id);
+                    refreshTunnels();
+                })
+                .catch(function (error) {
+                    console.error("Failed to add allowed device:", error);
+                });
+        };
+
+        $scope.removeAllowedDevice = function (tunnel, deviceID) {
+            const payload = {
+                id: tunnel.id,
+                action: "remove-allowed-device",
+                deviceID: deviceID,
+            };
+            $http.post(urlbase + '/system/tunnels-modify', payload)
+                .then(function () {
+                    console.log("Device removed from allowed list for tunnel:", tunnel.id);
+                    refreshTunnels();
+                })
+                .catch(function (error) {
+                    console.error("Failed to remove allowed device:", error);
+                });
+        };
+
         function recalcLocalStateTotal() {
             $scope.localStateTotal = {
                 bytes: 0,

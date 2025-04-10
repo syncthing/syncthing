@@ -2103,17 +2103,25 @@ func (s *service) getTunnels(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) postTunnelsModify(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Action string `json:"action"`
-		Id     string `json:"id"`
-	}
+	var req map[string]string
 
+	// Decode the request body into a map
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	if err := s.model.ModifyTunnel(req.Id, req.Action); err != nil {
+	// Extract required fields
+	id, idOk := req["id"]
+	action, actionOk := req["action"]
+
+	if !idOk || !actionOk {
+		http.Error(w, "Missing 'id' or 'action' in request body", http.StatusBadRequest)
+		return
+	}
+
+	// Forward to ModifyTunnel
+	if err := s.model.ModifyTunnel(id, action, req); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

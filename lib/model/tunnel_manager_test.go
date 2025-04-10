@@ -363,3 +363,104 @@ func TestTunnelManager_HandleOpenRemoteCommand_DisallowedClient(t *testing.T) {
 	_, err = listener.Accept()
 	assert.ErrorIs(t, err, os.ErrDeadlineExceeded)
 }
+
+func TestTunnelManagerConfigUpdate_addAllowedDevice_removeAllowedDevice(t *testing.T) {
+	clientDeviceID1 := repeatedDeviceID(0x33)
+	clientDeviceID2 := repeatedDeviceID(0x44)
+	// Mock device ID and addresses
+	localDestinationAddress := "127.0.0.1:64780"
+	localServiceName := "http"
+
+	// reserve a temporary file:
+	tmpFile, err := os.CreateTemp("", "syncthing-tunnel-manager-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.Close()
+
+	// Create a new TunnelManager
+	tm := NewTunnelManagerFromConfig(
+		&bep.TunnelConfig{
+			TunnelsIn: []*bep.TunnelInbound{
+				{
+					LocalServiceName:       localServiceName,
+					LocalDialAddress:       localDestinationAddress,
+					AllowedRemoteDeviceIds: []string{},
+				},
+			},
+		},
+		tmpFile.Name(),
+	)
+
+	status := tm.Status()
+	assert.Equal(t, 1, len(status))
+	assert.Equal(t, localServiceName, status[0]["serviceID"])
+	allowedDevices := status[0]["allowedRemoteDeviceIDs"].([]string)
+	assert.Equal(t, 0, len(allowedDevices))
+
+	err = tm.ModifyTunnel(status[0]["id"].(string), "add-allowed-device",
+		map[string]string{
+			"deviceID": clientDeviceID1.String(),
+		},
+	)
+	assert.NoError(t, err)
+
+	status = tm.Status()
+
+	assert.Equal(t, 1, len(status))
+	assert.Equal(t, localServiceName, status[0]["serviceID"])
+	assert.Equal(t, localDestinationAddress, status[0]["localDialAddress"])
+	allowedDevices = status[0]["allowedRemoteDeviceIDs"].([]string)
+	assert.Equal(t, 1, len(allowedDevices))
+	assert.Equal(t, clientDeviceID1.String(), allowedDevices[0])
+
+	err = tm.ModifyTunnel(status[0]["id"].(string), "add-allowed-device",
+		map[string]string{
+			"deviceID": clientDeviceID2.String(),
+		},
+	)
+	assert.NoError(t, err)
+
+	status = tm.Status()
+
+	assert.Equal(t, 1, len(status))
+	assert.Equal(t, localServiceName, status[0]["serviceID"])
+	assert.Equal(t, localDestinationAddress, status[0]["localDialAddress"])
+	allowedDevices = status[0]["allowedRemoteDeviceIDs"].([]string)
+	assert.Equal(t, 2, len(allowedDevices))
+	assert.Equal(t, clientDeviceID1.String(), allowedDevices[0])
+	assert.Equal(t, clientDeviceID2.String(), allowedDevices[1])
+
+	err = tm.ModifyTunnel(status[0]["id"].(string), "remove-allowed-device",
+		map[string]string{
+			"deviceID": clientDeviceID2.String(),
+		},
+	)
+	assert.NoError(t, err)
+
+	status = tm.Status()
+
+	assert.Equal(t, 1, len(status))
+	assert.Equal(t, localServiceName, status[0]["serviceID"])
+	assert.Equal(t, localDestinationAddress, status[0]["localDialAddress"])
+	allowedDevices = status[0]["allowedRemoteDeviceIDs"].([]string)
+	assert.Equal(t, 1, len(allowedDevices))
+	assert.Equal(t, clientDeviceID1.String(), allowedDevices[0])
+
+	err = tm.ModifyTunnel(status[0]["id"].(string), "remove-allowed-device",
+		map[string]string{
+			"deviceID": clientDeviceID1.String(),
+		},
+	)
+	assert.NoError(t, err)
+
+	status = tm.Status()
+
+	assert.Equal(t, 1, len(status))
+	assert.Equal(t, 0, len(status[0]["allowedRemoteDeviceIDs"].([]string)))
+	assert.Equal(t, localServiceName, status[0]["serviceID"])
+	assert.Equal(t, localDestinationAddress, status[0]["localDialAddress"])
+	allowedDevices = status[0]["allowedRemoteDeviceIDs"].([]string)
+	assert.Equal(t, 0, len(allowedDevices))
+}
