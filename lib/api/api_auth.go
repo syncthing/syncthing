@@ -44,7 +44,7 @@ func emitLoginAttempt(success bool, username string, r *http.Request, evLogger e
 		remoteAddress = remoteIP.String()
 	}
 
-	evLogger.Log(events.LoginAttempt, map[string]interface{}{
+	evLogger.Log(events.LoginAttempt, map[string]any{
 		"success":       success,
 		"username":      username,
 		"remoteAddress": remoteAddress,
