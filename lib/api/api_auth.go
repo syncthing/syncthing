@@ -18,6 +18,7 @@ import (
 	ldap "github.com/go-ldap/ldap/v3"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
@@ -27,14 +28,38 @@ const (
 	randomTokenLength  = 64
 )
 
-func emitLoginAttempt(success bool, username, address string, evLogger events.Logger) {
-	evLogger.Log(events.LoginAttempt, map[string]interface{}{
+func emitLoginAttempt(success bool, username string, r *http.Request, evLogger events.Logger) {
+	remoteIP := osutil.IPFromString(r.RemoteAddr)
+	remoteAddress := remoteIP.String()
+	var forwardedIP net.IP
+	for _, headerAddress := range strings.SplitN(r.Header.Get("X-Forwarded-For"), ",", 2) {
+		headerAddress = strings.TrimSpace(headerAddress)
+		forwardedIP = osutil.IPFromString(headerAddress)
+		break
+	}
+
+	// log the X-Forwarded-For address only if the proxy is on localhost or on the same LAN
+	proxied := forwardedIP != nil && (remoteIP.IsLoopback() || remoteIP.IsPrivate() || remoteIP.IsLinkLocalUnicast())
+	if proxied {
+		remoteAddress = forwardedIP.String()
+	}
+	evData := map[string]any{
 		"success":       success,
 		"username":      username,
-		"remoteAddress": address,
-	})
-	if !success {
-		l.Infof("Wrong credentials supplied during API authorization from %s", address)
+		"remoteAddress": remoteAddress,
+	}
+	if proxied {
+		evData["proxy"] = remoteIP.String()
+	}
+	evLogger.Log(events.LoginAttempt, evData)
+
+	if success {
+		return
+	}
+	if proxied {
+		l.Infof("Wrong credentials supplied during API authorization from %s proxied by %s", forwardedIP, remoteIP)
+	} else {
+		l.Infof("Wrong credentials supplied during API authorization from %s", remoteIP)
 	}
 }
 
@@ -148,7 +173,7 @@ func (m *basicAuthAndSessionMiddleware) passwordAuthHandler(w http.ResponseWrite
 		return
 	}
 
-	emitLoginAttempt(false, req.Username, r.RemoteAddr, m.evLogger)
+	emitLoginAttempt(false, req.Username, r, m.evLogger)
 	antiBruteForceSleep()
 	forbidden(w)
 }
@@ -171,7 +196,7 @@ func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg c
 		return usernameFromIso, true
 	}
 
-	emitLoginAttempt(false, username, r.RemoteAddr, evLogger)
+	emitLoginAttempt(false, username, r, evLogger)
 	antiBruteForceSleep()
 	return "", false
 }
