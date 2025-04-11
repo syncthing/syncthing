@@ -107,6 +107,14 @@ type TunnelManager struct {
 	deviceConnections    map[protocol.DeviceID]*DeviceConnection
 }
 
+func (m *TunnelManager) TunnelStatus() []map[string]interface{} {
+	return m.Status()
+}
+
+func (m *TunnelManager) AddTunnelOutbound(localListenAddress string, remoteDeviceID protocol.DeviceID, remoteServiceName string) error {
+	return m.AddOutboundTunnel(localListenAddress, remoteDeviceID, remoteServiceName)
+}
+
 func NewTunnelManager(configFile string) *TunnelManager {
 	// Replace the filename with "tunnels.json"
 	configFile = fmt.Sprintf("%s/tunnels.json", filepath.Dir(configFile))
@@ -895,4 +903,16 @@ func (tm *TunnelManager) saveFullConfig_no_lock() error {
 	}
 
 	return saveTunnelConfig(tm.configFile, config)
+}
+
+func (tm *TunnelManager) ReloadConfig() error {
+	config, err := loadTunnelConfig(tm.configFile)
+	if err != nil {
+		return fmt.Errorf("failed to reload tunnel config: %w", err)
+	}
+
+	tm.updateInConfig(config.TunnelsIn)
+	tm.updateOutConfig(config.TunnelsOut)
+
+	return nil
 }

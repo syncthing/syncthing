@@ -303,6 +303,7 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/debug", s.postSystemDebug)                // [enable] [disable]
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/tunnels-modify", s.postTunnelsModify)
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/tunnels-add-outbound", s.postTunnelsAddOutbound)
+	restMux.HandlerFunc(http.MethodPost, "/rest/system/tunnels-reload-config", s.postTunnelsReload)
 
 	// The DELETE handlers
 	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/devices", s.deletePendingDevices) // device
@@ -2099,7 +2100,7 @@ func (w bufferedResponseWriter) Header() http.Header {
 }
 
 func (s *service) getTunnels(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, s.model.TunnelStatus())
+	sendJSON(w, s.model.GetTunnelManager().TunnelStatus())
 }
 
 func (s *service) postTunnelsModify(w http.ResponseWriter, r *http.Request) {
@@ -2121,7 +2122,7 @@ func (s *service) postTunnelsModify(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Forward to ModifyTunnel
-	if err := s.model.ModifyTunnel(id, action, req); err != nil {
+	if err := s.model.GetTunnelManager().ModifyTunnel(id, action, req); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -2147,9 +2148,19 @@ func (s *service) postTunnelsAddOutbound(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err = s.model.AddTunnelOutbound(req.LocalListenAddress, deviceId, req.RemoteServiceName)
+	err = s.model.GetTunnelManager().AddTunnelOutbound(req.LocalListenAddress, deviceId, req.RemoteServiceName)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sendJSON(w, map[string]string{"status": "success"})
+}
+
+func (s *service) postTunnelsReload(w http.ResponseWriter, r *http.Request) {
+	err := s.model.GetTunnelManager().ReloadConfig()
+	if err != nil {
+		http.Error(w, fmt.Errorf("failed to reload tunnel configuration: %w", err).Error(), http.StatusInternalServerError)
 		return
 	}
 

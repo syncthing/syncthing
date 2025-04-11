@@ -70,6 +70,13 @@ type Availability struct {
 	FromTemporary bool              `json:"fromTemporary"`
 }
 
+type TunnelManagerInterface interface {
+	TunnelStatus() []map[string]interface{}
+	ModifyTunnel(id string, action string, params map[string]string) error
+	AddTunnelOutbound(localListenAddress string, remoteDeviceID protocol.DeviceID, remoteServiceName string) error
+	ReloadConfig() error
+}
+
 type Model interface {
 	suture.Service
 
@@ -120,9 +127,7 @@ type Model interface {
 
 	RequestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, blockNo int, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
 
-	TunnelStatus() []map[string]interface{}
-	ModifyTunnel(id string, action string, params map[string]string) error
-	AddTunnelOutbound(localListenAddress string, remoteDeviceID protocol.DeviceID, remoteServiceName string) error
+	GetTunnelManager() TunnelManagerInterface
 }
 
 type model struct {
@@ -176,19 +181,8 @@ type model struct {
 	foldersRunning atomic.Int32
 }
 
-// TunnelStatus implements Model.
-func (m *model) TunnelStatus() []map[string]interface{} {
-	return m.tunnelManager.Status()
-}
-
-// ModifyTunnel implements Model.
-func (m *model) ModifyTunnel(id string, action string, params map[string]string) error {
-	return m.tunnelManager.ModifyTunnel(id, action, params)
-}
-
-// AddTunnelOutbound implements Model.
-func (m *model) AddTunnelOutbound(localListenAddress string, remoteDeviceID protocol.DeviceID, remoteServiceName string) error {
-	return m.tunnelManager.AddOutboundTunnel(localListenAddress, remoteDeviceID, remoteServiceName)
+func (m *model) GetTunnelManager() TunnelManagerInterface {
+	return m.tunnelManager
 }
 
 var _ config.Verifier = &model{}

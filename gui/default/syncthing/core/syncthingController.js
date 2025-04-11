@@ -721,6 +721,17 @@ angular.module('syncthing.core')
                 });
         };
 
+        $scope.reloadTunnelConfig = function () {
+            $http.post(urlbase + '/system/tunnels-reload-config')
+                .then(function () {
+                    console.log('Tunnel configuration reloaded successfully');
+                    refreshTunnels();
+                })
+                .catch(function (error) {
+                    console.error('Failed to reload tunnel configuration:', error);
+                });
+        };
+
         function recalcLocalStateTotal() {
             $scope.localStateTotal = {
                 bytes: 0,
