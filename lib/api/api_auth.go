@@ -37,27 +37,33 @@ func emitLoginAttempt(success bool, username string, r *http.Request, evLogger e
 		break
 	}
 
-	var remoteAddress string
-	if forwardedIP != nil && remoteIP.IsLoopback() {
-		// only trust X-Forwarded-For if the proxy is on the same host
-		remoteAddress = forwardedIP.String()
+	// log the X-Forwarded-For address only if the proxy is on localhost or on the same LAN
+	proxied := forwardedIP != nil && (remoteIP.IsLoopback() || remoteIP.IsPrivate() || remoteIP.IsLinkLocalUnicast())
+	var evData map[string]any
+	if proxied {
+		evData = map[string]any{
+			"success":       success,
+			"username":      username,
+			"remoteAddress": forwardedIP.String(),
+			"proxy":         remoteIP.String(),
+		}
 	} else {
-		remoteAddress = remoteIP.String()
+		evData = map[string]any{
+			"success":       success,
+			"username":      username,
+			"remoteAddress": remoteIP.String(),
+		}
 	}
+	evLogger.Log(events.LoginAttempt, evData)
 
-	evLogger.Log(events.LoginAttempt, map[string]any{
-		"success":       success,
-		"username":      username,
-		"remoteAddress": remoteAddress,
-	})
 	if success {
 		return
 	}
-	if forwardedIP != nil && (remoteIP.IsLoopback() || remoteIP.IsPrivate() || remoteIP.IsLinkLocalUnicast()) {
-		// log the X-Forwarded-For if the proxy is in the same LAN
-		l.Infof("Wrong credentials supplied during API authorization from %s forwarded from %s", forwardedIP, remoteIP)
+	if proxied {
+		l.Infof("Wrong credentials supplied during API authorization from %s proxied by %s", forwardedIP, remoteIP)
+	} else {
+		l.Infof("Wrong credentials supplied during API authorization from %s", remoteIP)
 	}
-	l.Infof("Wrong credentials supplied during API authorization from %s", remoteIP)
 }
 
 func antiBruteForceSleep() {
