@@ -30,6 +30,7 @@ const (
 
 func emitLoginAttempt(success bool, username string, r *http.Request, evLogger events.Logger) {
 	remoteIP := osutil.IPFromString(r.RemoteAddr)
+	remoteAddress := remoteIP.String()
 	var forwardedIP net.IP
 	for _, headerAddress := range strings.Split(r.Header.Get("X-Forwarded-For"), ",") {
 		headerAddress = strings.TrimSpace(headerAddress)
@@ -39,20 +40,16 @@ func emitLoginAttempt(success bool, username string, r *http.Request, evLogger e
 
 	// log the X-Forwarded-For address only if the proxy is on localhost or on the same LAN
 	proxied := forwardedIP != nil && (remoteIP.IsLoopback() || remoteIP.IsPrivate() || remoteIP.IsLinkLocalUnicast())
-	var evData map[string]any
 	if proxied {
-		evData = map[string]any{
-			"success":       success,
-			"username":      username,
-			"remoteAddress": forwardedIP.String(),
-			"proxy":         remoteIP.String(),
-		}
-	} else {
-		evData = map[string]any{
-			"success":       success,
-			"username":      username,
-			"remoteAddress": remoteIP.String(),
-		}
+		remoteAddress = forwardedIP.String()
+	}
+	evData := map[string]any{
+		"success":       success,
+		"username":      username,
+		"remoteAddress": remoteAddress,
+	}
+	if proxied {
+		evData["proxy"] = remoteIP.String()
 	}
 	evLogger.Log(events.LoginAttempt, evData)
 
