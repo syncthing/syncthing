@@ -32,9 +32,10 @@ func emitLoginAttempt(success bool, username string, r *http.Request, evLogger e
 	remoteIP := osutil.IPFromString(r.RemoteAddr)
 	remoteAddress := remoteIP.String()
 	var forwardedIP net.IP
-	if headerAddress, _, ok := strings.Cut(r.Header.Get("X-Forwarded-For"), ","); ok {
+	for _, headerAddress := range strings.SplitN(r.Header.Get("X-Forwarded-For"), ",", 2) {
 		headerAddress = strings.TrimSpace(headerAddress)
 		forwardedIP = osutil.IPFromString(headerAddress)
+		break
 	}
 
 	// log the X-Forwarded-For address only if the proxy is on localhost or on the same LAN
