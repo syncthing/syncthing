@@ -12,26 +12,11 @@ angular.module('syncthing.folder')
             return path;
         }
 
-        function stripTrailingSeparator(path) {
-            if (path.length > $scope.pathSeparator.length && path.endsWith($scope.pathSeparator)) {
-                return path.slice(0, -$scope.pathSeparator.length);
-            }
-            return path;
-        }
-
-        function expandTilde(path) {
-            if (path.startsWith('~')) {
-                return path.replace('~', $scope.$parent.system.tilde);
-            }
-            return path;
-        }
-
         function splitPath(path) {
-            const trimmedPath = expandTilde(stripTrailingSeparator(path));
             // Keep the leading separator if it exists
-            let parts = trimmedPath.startsWith($scope.pathSeparator)
-                ? [$scope.pathSeparator, ...trimmedPath.slice($scope.pathSeparator.length).split($scope.pathSeparator)]
-                : trimmedPath.split($scope.pathSeparator);
+            let parts = path.startsWith($scope.pathSeparator)
+                ? [$scope.pathSeparator, ...path.slice($scope.pathSeparator.length).split($scope.pathSeparator)]
+                : path.split($scope.pathSeparator);
 
             return parts.filter(Boolean);
         }
@@ -44,8 +29,38 @@ angular.module('syncthing.folder')
             return parts.join($scope.pathSeparator);
         }
 
+        function splitAndNormalize(path) {
+            if ($scope.$parent.version.os.toLowerCase() === "windows") {
+                // Since both '/' and '\' are valid path separators on Windows
+                path = path.replaceAll("/", "\\");
+            }
+
+            let parts = splitPath(path);
+
+            if (parts[0] === "~") {
+                parts.shift();
+                parts.unshift(...splitPath($scope.$parent.system.tilde));
+            }
+
+            return parts.reduce((normalized, part) => {
+                if (part === "." || part === "") return normalized;
+                if (part === "..") {
+                    // Ensure we don't go above the root
+                    if (normalized.length > 1) normalized.pop();
+                    return normalized;
+                }
+
+                normalized.push(part);
+                return normalized;
+            }, []);
+        }
+
+        function normalizePath(path) {
+            return joinPath(...splitAndNormalize(path));
+        }
+
         function formatDirectoryName(path) {
-            return splitPath(path).pop() || path;
+            return splitAndNormalize(path).pop() || path;
         }
 
         async function fetchSubdirectories(path) {
@@ -54,7 +69,7 @@ angular.module('syncthing.folder')
             });
             return res.data.map(dir => ({
                 title: formatDirectoryName(dir),
-                key: stripTrailingSeparator(dir),
+                key: normalizePath(dir),
                 folder: true,
                 lazy: true
             }));
@@ -76,9 +91,8 @@ angular.module('syncthing.folder')
             if (currentNode.isLazy()) {
                 await currentNode.load();
             }
-            if (!currentNode.children) {
-                currentNode.children = [];
-            }
+
+            currentNode.children ||= [];
 
             let nextNode = currentNode.children.find(child => child.title === key);
             // Prevent creating temp nodes at the root of the tree
@@ -97,7 +111,7 @@ angular.module('syncthing.folder')
 
         function handleNodeActivation(node) {
             clearTemporaryNodes(node);
-            if (node.key === expandTilde(stripTrailingSeparator($scope.currentPath))) return;
+            if (node.key === normalizePath($scope.currentPath)) return;
 
             $scope.$apply(() => {
                 $scope.currentPath = node.key;
@@ -144,7 +158,8 @@ angular.module('syncthing.folder')
         $scope.selectNodeByCurrentPath = async function () {
             if (!$scope.tree || !$scope.currentPath) return;
 
-            const parts = splitPath($scope.currentPath);
+            const parts = splitAndNormalize($scope.currentPath);
+            if (parts.length === 0) return;
 
             let currentNode = $scope.tree.getRootNode();
             for (let part of parts) {
@@ -170,7 +185,7 @@ angular.module('syncthing.folder')
         });
 
         angular.element("#folderPickerSelect").on("click", () => {
-            $rootScope.$emit('folderPathSelected', stripTrailingSeparator($scope.currentPath));
+            $rootScope.$emit('folderPathSelected', normalizePath($scope.currentPath));
             angular.element('#folderPicker').modal('hide');
         });
     });
