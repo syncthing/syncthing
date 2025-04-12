@@ -22,7 +22,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"runtime/pprof"
 	"sort"
 	"strconv"
@@ -442,7 +441,7 @@ func (c *serveCmd) syncthingMain() {
 	}
 
 	// Ensure we are the only running instance
-	lf := flock.New(locations.Get(locations.CertFile))
+	lf := flock.New(locations.Get(locations.LockFile))
 	locked, err := lf.TryLock()
 	if err != nil {
 		l.Warnln("Failed to acquire lock:", err)
@@ -585,7 +584,10 @@ func (c *serveCmd) syncthingMain() {
 		pprof.StopCPUProfile()
 	}
 
-	runtime.KeepAlive(lf) // ensure lock is still held to this point
+	// Best effort remove lockfile, doesn't matter if it succeeds
+	_ = lf.Unlock()
+	_ = os.Remove(locations.Get(locations.LockFile))
+
 	os.Exit(int(status))
 }
 
@@ -887,7 +889,7 @@ func (u upgradeCmd) Run() error {
 
 	release, err := checkUpgrade()
 	if err == nil {
-		lf := flock.New(locations.Get(locations.CertFile))
+		lf := flock.New(locations.Get(locations.LockFile))
 		locked, err := lf.TryLock()
 		if err != nil {
 			l.Warnln("Upgrade:", err)
