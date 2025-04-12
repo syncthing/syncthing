@@ -60,12 +60,13 @@ const (
 var debug = false
 
 type CLI struct {
-	Cert          string `group:"Listen" help:"Certificate file" default:"./cert.pem" env:"DISCOVERY_CERT_FILE"`
-	Key           string `group:"Listen" help:"Key file" default:"./key.pem" env:"DISCOVERY_KEY_FILE"`
-	HTTP          bool   `group:"Listen" help:"Listen on HTTP (behind an HTTPS proxy)" env:"DISCOVERY_HTTP"`
-	Compression   bool   `group:"Listen" help:"Enable GZIP compression of responses" env:"DISCOVERY_COMPRESSION"`
-	Listen        string `group:"Listen" help:"Listen address" default:":8443" env:"DISCOVERY_LISTEN"`
-	MetricsListen string `group:"Listen" help:"Metrics listen address" env:"DISCOVERY_METRICS_LISTEN"`
+	Cert                string  `group:"Listen" help:"Certificate file" default:"./cert.pem" env:"DISCOVERY_CERT_FILE"`
+	Key                 string  `group:"Listen" help:"Key file" default:"./key.pem" env:"DISCOVERY_KEY_FILE"`
+	HTTP                bool    `group:"Listen" help:"Listen on HTTP (behind an HTTPS proxy)" env:"DISCOVERY_HTTP"`
+	Compression         bool    `group:"Listen" help:"Enable GZIP compression of responses" env:"DISCOVERY_COMPRESSION"`
+	Listen              string  `group:"Listen" help:"Listen address" default:":8443" env:"DISCOVERY_LISTEN"`
+	MetricsListen       string  `group:"Listen" help:"Metrics listen address" env:"DISCOVERY_METRICS_LISTEN"`
+	DesiredNotFoundRate float64 `group:"Listen" help:"Desired maximum rate of not-found replies (/s)" default:"1000"`
 
 	DBDir           string        `group:"Database" help:"Database directory" default:"." env:"DISCOVERY_DB_DIR"`
 	DBFlushInterval time.Duration `group:"Database" help:"Interval between database flushes" default:"5m" env:"DISCOVERY_DB_FLUSH_INTERVAL"`
@@ -149,7 +150,7 @@ func main() {
 	}
 
 	// Start the main API server.
-	qs := newAPISrv(cli.Listen, cert, db, repl, cli.HTTP, cli.Compression)
+	qs := newAPISrv(cli.Listen, cert, db, repl, cli.HTTP, cli.Compression, cli.DesiredNotFoundRate)
 	main.Add(qs)
 
 	// If we have a metrics port configured, start a metrics handler.
