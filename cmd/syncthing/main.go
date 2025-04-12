@@ -386,6 +386,8 @@ func (options serveOptions) Run() error {
 			} else {
 				err = upgrade.To(release)
 			}
+			_ = lf.Unlock()
+			_ = os.Remove(locations.Get(locations.LockFile))
 		}
 		if err != nil {
 			l.Warnln("Upgrade:", err)
