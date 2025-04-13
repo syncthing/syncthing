@@ -156,7 +156,7 @@
     "Failed Items": "Elementi Errati",
     "Failed to load file versions.": "Impossibile caricare le versioni dei file.",
     "Failed to load ignore patterns.": "Impossibile caricare gli schemi di esclusione.",
-    "Failed to setup, retrying": "Configurazione fallita, riprovo",
+    "Failed to set up, retrying": "Configurazione fallita, riprovo",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "La connessione a server IPv6 fallisce se non c'è connettività IPv6.",
     "File Pull Order": "Ordine Prelievo File",
     "File Versioning": "Controllo Versione File",

@@ -724,10 +724,6 @@ func (*fakeFS) underlying() (Filesystem, bool) {
 	return nil, false
 }
 
-func (*fakeFS) wrapperType() filesystemWrapperType {
-	return filesystemWrapperTypeNone
-}
-
 func (fs *fakeFS) resetCounters() {
 	fs.mut.Lock()
 	fs.counters = fakeFSCounters{}

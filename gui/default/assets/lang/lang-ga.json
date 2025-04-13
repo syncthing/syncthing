@@ -156,7 +156,7 @@
     "Failed Items": "Míreanna Teipthe",
     "Failed to load file versions.": "Theip ar luchtú leaganacha comhaid.",
     "Failed to load ignore patterns.": "Theip ar phatrúin neamhairde a luchtú.",
-    "Failed to setup, retrying": "Theip ar thus, ag triail arís",
+    "Failed to set up, retrying": "Theip ar thus, ag triail arís",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Táthar ag súil le mainneachtain ceangal le freastalaithe IPv6 mura bhfuil nascacht IPv6 ann.",
     "File Pull Order": "Ordú Tarraingthe Comhad",
     "File Versioning": "Leagan Comhaid",
