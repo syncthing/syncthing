@@ -1492,7 +1492,7 @@ func TestEscapePipe(t *testing.T) {
 	testEscape(t, pipeTests)
 }
 
-// overrideBackslashTests same wants as the pipeTests tests.
+// overrideBackslashTests has the same wants as the pipeTests tests.
 // The only difference in the tests is the pipe symbol in the pattern has been
 // changed to a backslash. This could be done programatically, if desired.
 var overrideBackslashTests = []escapeTest{
