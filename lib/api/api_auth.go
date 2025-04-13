@@ -119,7 +119,7 @@ func (m *basicAuthAndSessionMiddleware) ServeHTTP(w http.ResponseWriter, r *http
 	}
 
 	// Exception for static assets and REST calls that don't require authentication.
-	if isNoAuthPath(r.URL.Path, m.guiCfg.MetricsNoAuth()) {
+	if isNoAuthPath(r.URL.Path, m.guiCfg.MetricsWithoutAuth) {
 		m.next.ServeHTTP(w, r)
 		return
 	}
