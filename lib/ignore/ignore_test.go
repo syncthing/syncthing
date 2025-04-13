@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -1343,5 +1344,275 @@ func TestWindowsLineEndings(t *testing.T) {
 	windowsLineEndings := bytes.Count(bs, []byte("\r\n"))
 	if unixLineEndings == 0 || windowsLineEndings != unixLineEndings {
 		t.Error("expected there to be a non-zero number of Windows line endings")
+	}
+}
+
+type escapeTest struct {
+	pattern string
+	match   string
+	want    bool
+}
+
+// pathSepIsBackslash could also be set to !build.IsWindows, but this will work
+// on any platform where the os.PathSeparator is a backslash (which is
+// currently only Windows).
+const pathSepIsBackslash = os.PathSeparator == '\\'
+
+var backslashTests = []escapeTest{
+	{`a`, `a`, true},
+
+	{`a*`, `a`, true},
+	{`a*b`, `ab`, true},
+	{`*a`, `a`, true},
+	{`*a*`, `a`, true},
+
+	{`a?`, `ab`, true},
+	{`a?b`, `acb`, true},
+	{`?a`, `ba`, true},
+	{`?a?`, `bac`, true},
+
+	{`a[bc]`, `ab`, true},
+	{`a[bc]d`, `abd`, true},
+	{`[ab]c`, `ac`, true},
+	{`[ab]c[de]`, `acd`, true},
+
+	{`a{b,c}`, `ab`, true},
+	{`a{b,c}d`, `abd`, true},
+	{`{a,b}c`, `ac`, true},
+	{`{a,b}c{d,e}`, `acd`, true},
+
+	{`a/**`, `a/b/c`, true},
+	{`a**c`, `a/b/c`, true},
+	{`**/c`, `a/b/c`, true},
+	{`a**b**c`, `a/b/c`, true},
+	{`**/c/**`, `a/b/c/d/e`, true},
+
+	{`a]b`, `a]b`, true},
+	{`a}b`, `a}b`, true},
+
+	{`a\*`, `a*`, !pathSepIsBackslash},
+	{`a\*b`, `a*b`, !pathSepIsBackslash},
+	{`\*a`, `*a`, true}, // backslash is first character
+	{`\*a\*`, `*a*`, !pathSepIsBackslash},
+
+	{`a\?`, `a?`, !pathSepIsBackslash},
+	{`a\?b`, `a?b`, !pathSepIsBackslash},
+	{`\?a`, `?a`, true}, // backslash is first character
+	{`\?a\?`, `?a?`, !pathSepIsBackslash},
+
+	{`a\[bc\]`, `a[bc]`, !pathSepIsBackslash},
+	{`a\[bc\]d`, `a[bc]d`, !pathSepIsBackslash},
+	{`\[ab\]c`, `[ab]c`, !pathSepIsBackslash},
+	{`\[ab\]c\[de\]`, `[ab]c[de]`, !pathSepIsBackslash},
+
+	{`a\{b,c\}`, `a{b,c}`, !pathSepIsBackslash},
+	{`a\{b,c\}d`, `a{b,c}d`, !pathSepIsBackslash},
+	{`\{a,b\}c`, `{a,b}c`, !pathSepIsBackslash},
+	{`\{a,b\}c\{d,e\}`, `{a,b}c{d,e}`, !pathSepIsBackslash},
+
+	{`a/\*\*`, `a/**`, !pathSepIsBackslash},
+	{`a\*\*c`, `a**c`, !pathSepIsBackslash},
+	{`\*\*/c`, `**/c`, !pathSepIsBackslash},
+	{`a\*\*b\*\*c`, `a**b**c`, !pathSepIsBackslash},
+	{`\*\*/c/\*\*`, `**/c/**`, !pathSepIsBackslash},
+
+	{`a]b`, `a]b`, true},
+	{`a}b`, `a}b`, true},
+
+	{`\a`, `a`, true}, // backslash is first character
+
+	{`\a\b`, `ab`, !pathSepIsBackslash},
+	{`\a\b`, `a/b`, pathSepIsBackslash},
+
+	{`a\r\n`, `arn`, !pathSepIsBackslash},
+	{`a\r\n`, `a/r/n`, pathSepIsBackslash},
+
+	{`\a\r\n`, `arn`, !pathSepIsBackslash},
+	{`\a\r\n`, `a/r/n`, pathSepIsBackslash},
+	{`\a\r\n`, `/a/r/n`, false}, // leading backslash is stripped off
+}
+
+// TestEscapeBackslash tests backslash (\) as the escape character
+func TestEscapeBackslash(t *testing.T) {
+	testEscape(t, backslashTests)
+}
+
+// pipeTests contains the same wants as backslashTests, but
+// !pathSepIsBackslash is changed to true and
+// pathSepIsBackslash is changed to false.
+var pipeTests = []escapeTest{
+	{`a|*`, `a*`, true},
+	{`a|*b`, `a*b`, true},
+	{`|*a`, `*a`, true}, // backslash is first character
+	{`|*a|*`, `*a*`, true},
+
+	{`a|?`, `a?`, true},
+	{`a|?b`, `a?b`, true},
+	{`|?a`, `?a`, true}, // backslash is first character
+	{`|?a|?`, `?a?`, true},
+
+	{`a|[bc|]`, `a[bc]`, true},
+	{`a|[bc|]d`, `a[bc]d`, true},
+	{`|[ab|]c`, `[ab]c`, true},
+	{`|[ab|]c|[de|]`, `[ab]c[de]`, true},
+
+	{`a|{b,c|}`, `a{b,c}`, true},
+	{`a|{b,c|}d`, `a{b,c}d`, true},
+	{`|{a,b|}c`, `{a,b}c`, true},
+	{`|{a,b|}c|{d,e|}`, `{a,b}c{d,e}`, true},
+
+	{`a/|*|*`, `a/**`, true},
+	{`a|*|*c`, `a**c`, true},
+	{`|*|*/c`, `**/c`, true},
+	{`a|*|*b|*|*c`, `a**b**c`, true},
+	{`|*|*/c/|*|*`, `**/c/**`, true},
+
+	{`a]b`, `a]b`, true},
+	{`a}b`, `a}b`, true},
+
+	{`|a`, `a`, true}, // backslash is first character
+
+	{`|a|b`, `ab`, true},
+	{`|a|b`, `a/b`, false},
+
+	{`a|r|n`, `arn`, true},
+	{`a|r|n`, `a/r/n`, false},
+
+	{`|a|r|n`, `arn`, true},
+	{`|a|r|n`, `a/r/n`, false},
+	{`|a|r|n`, `/a/r/n`, false}, // leading backslash is stripped off
+}
+
+// TestEscapeBackslash tests pipe (|) as the escape character
+func TestEscapePipe(t *testing.T) {
+	if defaultEscapeChar == '\\' {
+		t.Skip("Skipping test as defaultEscapeChar=\\ (as we're not on Windows)")
+	}
+
+	testEscape(t, pipeTests)
+}
+
+// overrideBackslashTests same wants as the pipeTests tests.
+// The only difference in the tests is the pipe symbol in the pattern has been
+// changed to a backslash. This could be done programatically, if desired.
+var overrideBackslashTests = []escapeTest{
+	{`a\*`, `a*`, true},
+	{`a\*b`, `a*b`, true},
+	{`\*a`, `*a`, true}, // backslash is first character
+	{`\*a\*`, `*a*`, true},
+
+	{`a\?`, `a?`, true},
+	{`a\?b`, `a?b`, true},
+	{`\?a`, `?a`, true}, // backslash is first character
+	{`\?a\?`, `?a?`, true},
+
+	{`a\[bc\]`, `a[bc]`, true},
+	{`a\[bc\]d`, `a[bc]d`, true},
+	{`\[ab\]c`, `[ab]c`, true},
+	{`\[ab\]c\[de\]`, `[ab]c[de]`, true},
+
+	{`a\{b,c\}`, `a{b,c}`, true},
+	{`a\{b,c\}d`, `a{b,c}d`, true},
+	{`\{a,b\}c`, `{a,b}c`, true},
+	{`\{a,b\}c\{d,e\}`, `{a,b}c{d,e}`, true},
+
+	{`a/\*\*`, `a/**`, true},
+	{`a\*\*c`, `a**c`, true},
+	{`\*\*/c`, `**/c`, true},
+	{`a\*\*b\*\*c`, `a**b**c`, true},
+	{`\*\*/c/\*\*`, `**/c/**`, true},
+
+	{`a]b`, `a]b`, true},
+	{`a}b`, `a}b`, true},
+
+	{`\a`, `a`, true}, // backslash is first character
+
+	{`\a\b`, `ab`, true},
+	{`\a\b`, `a/b`, false},
+
+	{`a\r\n`, `arn`, true},
+	{`a\r\n`, `a/r/n`, false},
+
+	{`\a\r\n`, `arn`, true},
+	{`\a\r\n`, `a/r/n`, false},
+	{`\a\r\n`, `/a/r/n`, false}, // leading backslash is stripped off
+}
+
+// TestEscapeOverrideBackslash tests when #escape=\ is in the .stignore file
+func TestEscapeOverrideBackslash(t *testing.T) {
+	for i, test := range overrideBackslashTests {
+		overrideBackslashTests[i].pattern = escapePrefix + "\\\n" + test.pattern
+	}
+
+	testEscape(t, overrideBackslashTests)
+}
+
+// TestEscapeOverridePipe tests when #escape=| (or another character) is in the
+// .stignore file
+func TestEscapeOverridePipe(t *testing.T) {
+	escapeChars := []string{
+		"|",
+		">",
+		"\u241B", // ␛
+	}
+
+	suffixes := []string{
+		"",
+		" ",
+		"x",
+		" x",
+	}
+	var tests = make([]escapeTest, 0, len(pipeTests)*len(suffixes))
+
+	for _, test := range pipeTests {
+		for _, escapeChar := range escapeChars {
+			for _, suffix := range suffixes {
+				tests = append(tests, escapeTest{
+					escapePrefix + escapeChar + suffix + "\n" + strings.ReplaceAll(test.pattern, "|", escapeChar),
+					test.match,
+					test.want,
+				})
+			}
+		}
+	}
+
+	testEscape(t, tests)
+}
+
+// TestEscapeOverrideEmpty tests when #escape= (no char) is in the .stignore file
+func TestEscapeOverrideEmpty(t *testing.T) {
+	suffixes := []string{"", " "}
+
+	var tests = make([]escapeTest, 0, len(backslashTests)*len(suffixes))
+
+	for _, test := range backslashTests {
+		for _, suffix := range suffixes {
+			tests = append(tests, escapeTest{
+				escapePrefix + suffix + "\n" + test.pattern,
+				test.match,
+				test.want,
+			})
+		}
+	}
+
+	testEscape(t, tests)
+}
+
+func testEscape(t *testing.T, tests []escapeTest) {
+	t.Helper()
+
+	fs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32)+"?content=true")
+	pats := New(fs, WithCache(true))
+
+	for _, test := range tests {
+		err := pats.Parse(bytes.NewBufferString(test.pattern), ".stignore")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		got := pats.Match(test.match).IsIgnored()
+		if got != test.want {
+			t.Errorf("%-20q: %-20q: got %v, want %v", test.pattern, test.match, got, test.want)
+		}
 	}
 }
