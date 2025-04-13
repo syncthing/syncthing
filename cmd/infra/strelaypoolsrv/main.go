@@ -29,6 +29,7 @@ import (
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/geoip"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/relay/client"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -110,6 +111,7 @@ var (
 	requestProcessors = 8
 	geoipLicenseKey   = os.Getenv("GEOIP_LICENSE_KEY")
 	geoipAccountID, _ = strconv.Atoi(os.Getenv("GEOIP_ACCOUNT_ID"))
+	maxRelaysReturned = 100
 
 	requests chan request
 
@@ -141,6 +143,7 @@ func main() {
 	flag.IntVar(&requestQueueLen, "request-queue", requestQueueLen, "Queue length for incoming test requests")
 	flag.IntVar(&requestProcessors, "request-processors", requestProcessors, "Number of request processor routines")
 	flag.StringVar(&geoipLicenseKey, "geoip-license-key", geoipLicenseKey, "License key for GeoIP database")
+	flag.IntVar(&maxRelaysReturned, "max-relays-returned", maxRelaysReturned, "Maximum number of relays returned for a normal endpoint query")
 
 	flag.Parse()
 
@@ -331,6 +334,10 @@ func handleEndpointShort(rw http.ResponseWriter, r *http.Request) {
 		relays = append(relays, relayShort{URL: slimURL(r.URL)})
 	}
 	mut.RUnlock()
+	if len(relays) > maxRelaysReturned {
+		rand.Shuffle(relays)
+		relays = relays[:maxRelaysReturned]
+	}
 
 	_ = json.NewEncoder(rw).Encode(map[string][]relayShort{
 		"relays": relays,
