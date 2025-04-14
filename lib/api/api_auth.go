@@ -29,38 +29,46 @@ const (
 )
 
 func emitLoginAttempt(success bool, username string, r *http.Request, evLogger events.Logger) {
-	remoteIP := osutil.IPFromString(r.RemoteAddr)
-	remoteAddress := remoteIP.String()
-	var forwardedIP net.IP
-	for _, headerAddress := range strings.SplitN(r.Header.Get("X-Forwarded-For"), ",", 2) {
-		headerAddress = strings.TrimSpace(headerAddress)
-		forwardedIP = osutil.IPFromString(headerAddress)
-		break
-	}
-
-	// log the X-Forwarded-For address only if the proxy is on localhost or on the same LAN
-	proxied := forwardedIP != nil && (remoteIP.IsLoopback() || remoteIP.IsPrivate() || remoteIP.IsLinkLocalUnicast())
-	if proxied {
-		remoteAddress = forwardedIP.String()
-	}
+	remoteAddress, proxy := remoteAddress(r)
 	evData := map[string]any{
 		"success":       success,
 		"username":      username,
 		"remoteAddress": remoteAddress,
 	}
-	if proxied {
-		evData["proxy"] = remoteIP.String()
+	if proxy != "" {
+		evData["proxy"] = proxy
 	}
 	evLogger.Log(events.LoginAttempt, evData)
 
 	if success {
 		return
 	}
-	if proxied {
-		l.Infof("Wrong credentials supplied during API authorization from %s proxied by %s", forwardedIP, remoteIP)
+	if proxy != "" {
+		l.Infof("Wrong credentials supplied during API authorization from %s proxied by %s", remoteAddress, proxy)
 	} else {
-		l.Infof("Wrong credentials supplied during API authorization from %s", remoteIP)
+		l.Infof("Wrong credentials supplied during API authorization from %s", remoteAddress)
 	}
+}
+
+func remoteAddress(r *http.Request) (remoteAddr, proxy string) {
+	remoteAddr = r.RemoteAddr
+	remoteIP := osutil.IPFromString(r.RemoteAddr)
+	if remoteIP == nil {
+		return
+	}
+	remoteAddr = remoteIP.String()
+	if !(remoteIP.IsLoopback() || remoteIP.IsPrivate() || remoteIP.IsLinkLocalUnicast()) {
+		return
+	}
+	forwardedAddr, _, _ := strings.Cut(r.Header.Get("X-Forwarded-For"), ",")
+	forwardedAddr = strings.TrimSpace(forwardedAddr)
+	forwardedIP := osutil.IPFromString(forwardedAddr)
+	if forwardedIP == nil {
+		return
+	}
+	proxy = remoteAddr
+	remoteAddr = forwardedIP.String()
+	return
 }
 
 func antiBruteForceSleep() {
