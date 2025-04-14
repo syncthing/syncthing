@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Apr 04, 2025" "v1.29.3" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Apr 13, 2025" "v1.29.3" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -1076,6 +1076,11 @@ header do not need this setting.
 .sp
 When this setting is disabled, the GUI will not send 401 responses so users
 won’t see browser popups prompting for username and password.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B metricsWithoutAuth
+If true, this allows access to the ‘/metrics’ without authentication.
 .UNINDENT
 .SH LDAP ELEMENT
 .INDENT 0.0
