@@ -378,7 +378,7 @@ func (options serveOptions) Run() error {
 	if options.Upgrade {
 		release, err := checkUpgrade()
 		if err == nil {
-			lf := flock.New(locations.Get(locations.CertFile))
+			lf := flock.New(locations.Get(locations.LockFile))
 			locked, err := lf.TryLock()
 			if err != nil {
 				l.Warnln("Upgrade:", err)
@@ -388,6 +388,8 @@ func (options serveOptions) Run() error {
 			} else {
 				err = upgrade.To(release)
 			}
+			_ = lf.Unlock()
+			_ = os.Remove(locations.Get(locations.LockFile))
 		}
 		if err != nil {
 			l.Warnln("Upgrade:", err)
@@ -548,7 +550,7 @@ func syncthingMain(options serveOptions) {
 	}
 
 	// Ensure we are the only running instance
-	lf := flock.New(locations.Get(locations.CertFile))
+	lf := flock.New(locations.Get(locations.LockFile))
 	locked, err := lf.TryLock()
 	if err != nil {
 		l.Warnln("Failed to acquire lock:", err)
@@ -693,6 +695,10 @@ func syncthingMain(options serveOptions) {
 	if options.DebugProfileCPU {
 		pprof.StopCPUProfile()
 	}
+
+	// Best effort remove lockfile, doesn't matter if it succeeds
+	_ = lf.Unlock()
+	_ = os.Remove(locations.Get(locations.LockFile))
 
 	os.Exit(int(status))
 }
