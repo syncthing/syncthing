@@ -53,11 +53,12 @@ func emitLoginAttempt(success bool, username string, r *http.Request, evLogger e
 func remoteAddress(r *http.Request) (remoteAddr, proxy string) {
 	remoteAddr = r.RemoteAddr
 	remoteIP := osutil.IPFromString(r.RemoteAddr)
-	if remoteIP == nil {
-		return
+	if remoteIP != nil {
+		remoteAddr = remoteIP.String()
 	}
-	remoteAddr = remoteIP.String()
-	if !(remoteIP.IsLoopback() || remoteIP.IsPrivate() || remoteIP.IsLinkLocalUnicast()) {
+
+	// parse X-Forwarded-For only if the proxy is connecting via unix socket, localhost or from the same LAN
+	if remoteAddr != "@" && !(remoteIP.IsLoopback() || remoteIP.IsPrivate() || remoteIP.IsLinkLocalUnicast()) {
 		return
 	}
 	forwardedAddr, _, _ := strings.Cut(r.Header.Get("X-Forwarded-For"), ",")
