@@ -188,7 +188,7 @@ func (opts OptionsConfiguration) StunServers() []string {
 		case "default":
 			_, records, err := net.LookupSRV("stun", "udp", "syncthing.net")
 			if err != nil {
-				l.Warnln("Unable to resolve primary STUN servers via DNS:", err)
+				l.Debugf("Unable to resolve primary STUN servers via DNS:", err)
 			}
 
 			for _, record := range records {
