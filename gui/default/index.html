@@ -667,6 +667,7 @@
           <!-- Tunnel list -->
 
           <h3 id="tunnel_list">
+            <span>⇌</span>
             <span translate>Tunnels</span>
             <span ng-if="tunnelList().length > 0"> ({{tunnelList().length}})</span>
             <button type="button" class="btn btn-sm btn-default pull-right" ng-click="reloadTunnelConfig()">
@@ -677,8 +678,8 @@
             <div class="panel panel-default" ng-repeat="tunnel in tunnelList() track by tunnel.uiID">
               <button class="btn panel-heading" data-toggle="collapse" data-parent="#tunnels" data-target="#tunnel-{{$index}}" aria-expanded="false">
                 <h4 class="panel-title">
-                  <div class="panel-icon hidden-xs">
-                    <span class="fas fa-fw fa-route">
+                  <div class="panel-icon panel-icon-tunnel hidden-xs">
+                    <span class="fas fa-fw fa-tunnel-{{tunnel.type}}"></span>
                       <!-- <img src="assets/img/tunnel.svg" height="50px"/> -->
                       </span>
                   </div>
@@ -699,8 +700,21 @@
                       <span translate>Offered</span>
                     </span>
                   </div>
-                  <div class="panel-title-text">
-                    <span>{{tunnel.type}} - {{tunnel.serviceID}}</span>
+                  <div class="panel-title-text" ng-if="tunnel.type == 'outbound'">
+                    <!-- If the remote device ID matches a known device, show the device name with link -->
+                    <span ng-if="devices[tunnel.remoteDeviceID]">
+                      out - {{tunnel.serviceID}} - {{deviceName(devices[tunnel.remoteDeviceID])}}
+                    </span>
+                    <!-- If the device is not known, show the raw ID -->
+                    <span ng-if="!devices[tunnel.remoteDeviceID]">
+                      out - {{tunnel.serviceID}} - {{tunnel.remoteDeviceID}}
+                    </span>
+                    <span ng-if="tunnel.remoteAddress"> - {{tunnel.remoteAddress}}</span>
+                  </div>
+                  <div class="panel-title-text" ng-if="tunnel.type == 'inbound'">
+                    <span>
+                      in - {{tunnel.serviceID}}
+                    </span>
                   </div>
                 </h4>
               </button>
