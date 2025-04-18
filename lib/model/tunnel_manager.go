@@ -503,6 +503,7 @@ func (tm *TunnelManager) handleLocalTunnelEndpoint(ctx context.Context, tunnelID
 			buffer := make([]byte, 1024*4)
 			n, err := conn.Read(buffer)
 			if err != nil {
+				tl.Debugf("Error reading from connection: %v", err)
 				return
 			}
 			// Forward data to the destination

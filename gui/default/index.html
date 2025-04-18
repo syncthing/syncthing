@@ -709,6 +709,7 @@
                     <span ng-if="!devices[tunnel.remoteDeviceID]">
                       out - {{tunnel.serviceID}} - {{tunnel.remoteDeviceID}}
                     </span>
+                    <span ng-if="tunnel.remoteAddress"> - {{tunnel.remoteAddress}}</span>
                   </div>
                   <div class="panel-title-text" ng-if="tunnel.type == 'inbound'">
                     <span>
