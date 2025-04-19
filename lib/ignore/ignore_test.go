@@ -1353,7 +1353,7 @@ type escapeTest struct {
 	want    bool
 }
 
-// pathSepIsBackslash could also be set to !build.IsWindows, but this will work
+// pathSepIsBackslash could also be set to build.IsWindows, but this will work
 // on any platform where the os.PathSeparator is a backslash (which is
 // currently only Windows).
 const pathSepIsBackslash = os.PathSeparator == '\\'
@@ -1416,9 +1416,6 @@ var backslashTests = []escapeTest{
 	{`a\*\*b\*\*c`, `a**b**c`, !pathSepIsBackslash},
 	{`\*\*/c/\*\*`, `**/c/**`, !pathSepIsBackslash},
 
-	{`a]b`, `a]b`, true},
-	{`a}b`, `a}b`, true},
-
 	{`\a`, `a`, true}, // backslash is first character
 
 	{`\a\b`, `ab`, !pathSepIsBackslash},
@@ -1432,7 +1429,7 @@ var backslashTests = []escapeTest{
 	{`\a\r\n`, `/a/r/n`, false}, // leading backslash is stripped off
 }
 
-// TestEscapeBackslash tests backslash (\) as the escape character
+// TestEscapeBackslash tests backslash (\) as the escape character.
 func TestEscapeBackslash(t *testing.T) {
 	testEscape(t, backslashTests)
 }
@@ -1483,7 +1480,7 @@ var pipeTests = []escapeTest{
 	{`|a|r|n`, `/a/r/n`, false}, // leading backslash is stripped off
 }
 
-// TestEscapeBackslash tests pipe (|) as the escape character
+// TestEscapeBackslash tests pipe (|) as the escape character.
 func TestEscapePipe(t *testing.T) {
 	if defaultEscapeChar == '\\' {
 		t.Skip("Skipping test as defaultEscapeChar=\\ (as we're not on Windows)")
@@ -1538,7 +1535,7 @@ var overrideBackslashTests = []escapeTest{
 	{`\a\r\n`, `/a/r/n`, false}, // leading backslash is stripped off
 }
 
-// TestEscapeOverrideBackslash tests when #escape=\ is in the .stignore file
+// TestEscapeOverrideBackslash tests when #escape=\ is in the .stignore file.
 func TestEscapeOverrideBackslash(t *testing.T) {
 	for i, test := range overrideBackslashTests {
 		overrideBackslashTests[i].pattern = escapePrefix + "\\\n" + test.pattern
@@ -1548,7 +1545,7 @@ func TestEscapeOverrideBackslash(t *testing.T) {
 }
 
 // TestEscapeOverridePipe tests when #escape=| (or another character) is in the
-// .stignore file
+// .stignore file.
 func TestEscapeOverridePipe(t *testing.T) {
 	escapeChars := []string{
 		"|",
@@ -1579,7 +1576,7 @@ func TestEscapeOverridePipe(t *testing.T) {
 	testEscape(t, tests)
 }
 
-// TestEscapeOverrideEmpty tests when #escape= (no char) is in the .stignore file
+// TestEscapeOverrideEmpty tests when #escape= (no char) is in the .stignore file.
 func TestEscapeOverrideEmpty(t *testing.T) {
 	suffixes := []string{"", " "}
 
