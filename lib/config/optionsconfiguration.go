@@ -68,6 +68,8 @@ type OptionsConfiguration struct {
 	AnnounceLANAddresses        bool     `json:"announceLANAddresses" xml:"announceLANAddresses" default:"true"`
 	SendFullIndexOnUpgrade      bool     `json:"sendFullIndexOnUpgrade" xml:"sendFullIndexOnUpgrade"`
 	FeatureFlags                []string `json:"featureFlags" xml:"featureFlag"`
+	AuditEnabled                bool     `json:"auditEnabled" xml:"auditEnabled" default:"false"`
+	AuditFile                   string   `json:"auditFile" xml:"auditFile"`
 	// The number of connections at which we stop trying to connect to more
 	// devices, zero meaning no limit. Does not affect incoming connections.
 	ConnectionLimitEnough int `json:"connectionLimitEnough" xml:"connectionLimitEnough"`
