@@ -646,11 +646,11 @@ func syncthingMain(options serveOptions) {
 
 		// Ignore config option if command-line option is set
 		if options.AuditFile != "" {
-			l.Debugln("Chose the audit file from the command-line parameter.")
+			l.Debugln("Using the audit file from the command-line parameter.")
 			auditFile = options.AuditFile
 		}
 
-		appOpts.AuditWriter = auditWriter(ChosenAuditFile)
+		appOpts.AuditWriter = auditWriter(auditFile)
 	}
 
 	if dur, err := time.ParseDuration(os.Getenv("STRECHECKDBEVERY")); err == nil {
