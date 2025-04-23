@@ -30,7 +30,7 @@ import (
 
 const escapePrefix = "#escape="
 
-var defaultEscapeChar = `\`
+var defaultEscapeChar = '\\'
 
 func init() {
 	if os.PathSeparator == defaultEscapeChar {
