@@ -24,10 +24,9 @@ import (
 )
 
 type CLI struct {
-	GUIUser         string `placeholder:"STRING" help:"Specify new GUI authentication user name"`
-	GUIPassword     string `placeholder:"STRING" help:"Specify new GUI authentication password (use - to read from standard input)"`
-	NoDefaultFolder bool   `help:"Don't create the \"default\" folder on first startup" env:"STNODEFAULTFOLDER"`
-	NoPortProbing   bool   `help:"Don't try to find free ports for GUI and listen addresses on first startup" env:"STNOPORTPROBING"`
+	GUIUser       string `placeholder:"STRING" help:"Specify new GUI authentication user name"`
+	GUIPassword   string `placeholder:"STRING" help:"Specify new GUI authentication password (use - to read from standard input)"`
+	NoPortProbing bool   `help:"Don't try to find free ports for GUI and listen addresses on first startup" env:"STNOPORTPROBING"`
 }
 
 func (c *CLI) Run(l logger.Logger) error {
@@ -41,13 +40,13 @@ func (c *CLI) Run(l logger.Logger) error {
 		c.GUIPassword = string(password)
 	}
 
-	if err := Generate(l, locations.GetBaseDir(locations.ConfigBaseDir), c.GUIUser, c.GUIPassword, c.NoDefaultFolder, c.NoPortProbing); err != nil {
+	if err := Generate(l, locations.GetBaseDir(locations.ConfigBaseDir), c.GUIUser, c.GUIPassword, c.NoPortProbing); err != nil {
 		return fmt.Errorf("failed to generate config and keys: %w", err)
 	}
 	return nil
 }
 
-func Generate(l logger.Logger, confDir, guiUser, guiPassword string, noDefaultFolder, skipPortProbing bool) error {
+func Generate(l logger.Logger, confDir, guiUser, guiPassword string, skipPortProbing bool) error {
 	dir, err := fs.ExpandTilde(confDir)
 	if err != nil {
 		return err
@@ -75,7 +74,7 @@ func Generate(l logger.Logger, confDir, guiUser, guiPassword string, noDefaultFo
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, _, err := config.Load(cfgFile, myID, events.NoopLogger)
 	if fs.IsNotExist(err) {
-		if cfg, err = syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, noDefaultFolder, skipPortProbing); err != nil {
+		if cfg, err = syncthing.DefaultConfig(cfgFile, myID, events.NoopLogger, skipPortProbing); err != nil {
 			return fmt.Errorf("create config: %w", err)
 		}
 	} else if err != nil {

@@ -172,7 +172,6 @@ type serveCmd struct {
 	LogMaxFiles               int           `name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)" default:"${logMaxFiles}" placeholder:"N" env:"STLOGMAXOLDFILES"`
 	LogMaxSize                int           `help:"Maximum size of any file (zero to disable log rotation)" default:"${logMaxSize}" placeholder:"BYTES" env:"STLOGMAXSIZE"`
 	NoBrowser                 bool          `help:"Do not start browser" env:"STNOBROWSER"`
-	NoDefaultFolder           bool          `help:"Don't create the \"default\" folder on first startup" env:"STNODEFAULTFOLDER"`
 	NoPortProbing             bool          `help:"Don't try to find free ports for GUI and listen addresses on first startup" env:"STNOPORTPROBING"`
 	NoRestart                 bool          `help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash" env:"STNORESTART"`
 	NoUpgrade                 bool          `help:"Disable automatic upgrades" env:"STNOUPGRADE"`
@@ -463,7 +462,7 @@ func (c *serveCmd) syncthingMain() {
 	evLogger := events.NewLogger()
 	earlyService.Add(evLogger)
 
-	cfgWrapper, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, c.AllowNewerConfig, c.NoDefaultFolder, c.NoPortProbing)
+	cfgWrapper, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, c.AllowNewerConfig,  c.NoPortProbing)
 	if err != nil {
 		l.Warnln("Failed to initialize config:", err)
 		os.Exit(svcutil.ExitError.AsInt())
