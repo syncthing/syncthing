@@ -15,32 +15,6 @@ import (
 	"syscall"
 )
 
-const ioprioClassShift = 13
-
-type ioprioClass int
-
-const (
-	ioprioClassRT ioprioClass = iota + 1
-	ioprioClassBE
-	ioprioClassIdle
-)
-
-const (
-	ioprioWhoProcess = iota + 1
-	ioprioWhoPGRP
-	ioprioWhoUser
-)
-
-func ioprioSet(class ioprioClass, value int) error {
-	res, _, err := syscall.Syscall(syscall.SYS_IOPRIO_SET,
-		uintptr(ioprioWhoProcess), 0,
-		uintptr(class)<<ioprioClassShift|uintptr(value))
-	if res == 0 {
-		return nil
-	}
-	return err
-}
-
 // SetLowPriority lowers the process CPU scheduling priority, and possibly
 // I/O priority depending on the platform and OS.
 func SetLowPriority() error {
@@ -89,14 +63,13 @@ func SetLowPriority() error {
 		}
 	}
 
+	// For any new process, the default is to be assigned the IOPRIO_CLASS_BE
+	// scheduling class. This class directly maps the BE prio level to the
+	// niceness of a process, determined as: io_nice = (cpu_nice + 20) / 5.
+	// For example, a niceness of 11 results in an I/O priority of B6.
+	// https://www.kernel.org/doc/Documentation/block/ioprio.txt
 	if err := syscall.Setpriority(syscall.PRIO_PGRP, pidSelf, wantNiceLevel); err != nil {
 		return fmt.Errorf("set niceness: %w", err)
-	}
-
-	// Best effort, somewhere to the end of the scale (0 through 7 being the
-	// range).
-	if err := ioprioSet(ioprioClassBE, 5); err != nil {
-		return fmt.Errorf("set I/O priority: %w", err)
 	}
 	return nil
 }
