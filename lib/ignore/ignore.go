@@ -520,6 +520,7 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 	escapeChar := defaultEscapeChar
 
 	var err error
+	var escaping = true
 	for _, line := range lines {
 		if _, ok := linesSeen[line]; ok {
 			continue
@@ -534,10 +535,15 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 
 		trimmed := strings.ReplaceAll(strings.ReplaceAll(line, " ", ""), "\t", "")
 		if strings.HasPrefix(trimmed, escapePrefix) {
-			if len(trimmed) > 8 {
-				escapeChar = []rune(trimmed)[len(escapePrefix)]
+			// Silently ignore multiple #escape='s in a file.
+			if escaping {
+				trimmed = strings.TrimPrefix(trimmed, escapePrefix)
+				if len(trimmed) == 0 {
+					return nil, nil, fmt.Errorf("failed to parse #escape= line in ignore file: %q", line)
+				}
+				escapeChar = []rune(trimmed)[0]
+				escaping = false
 			}
-
 			continue
 		}
 
@@ -580,13 +586,16 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			}
 		case strings.HasSuffix(line, "/**"):
 			err = addPattern(line)
+			escaping = false
 		case strings.HasSuffix(line, "/"):
 			err = addPattern(line + "**")
+			escaping = false
 		default:
 			err = addPattern(line)
 			if err == nil {
 				err = addPattern(line + "/**")
 			}
+			escaping = false
 		}
 		if err != nil {
 			return lines, nil, err

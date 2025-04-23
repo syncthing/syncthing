@@ -1587,6 +1587,45 @@ func TestEscapeOverrideEmpty(t *testing.T) {
 			tests = append(tests, escapeTest{
 				escapePrefix + suffix + "\n" + test.pattern,
 				test.match,
+				false,
+			})
+		}
+	}
+
+	fs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32)+"?content=true")
+	pats := New(fs, WithCache(true))
+
+	for _, test := range tests {
+		err := pats.Parse(bytes.NewBufferString(test.pattern), ".stignore")
+		if err == nil {
+			t.Fatal("got nil, want err")
+		}
+	}
+}
+
+var escapePrefixes = []string{
+	"",
+	"\n",
+	"// comment\n",
+	"\n// comment\n",
+	"#include escape-excludes\n",
+	"// comment\n#include escape-excludes\n",
+	"#include escape-excludes\n//comment\n",
+	"// comment\n#include escape-excludes\n//comment\n",
+}
+
+// TestEscapeBeforePattern tests when #escape= is found before a pattern in the
+// .stignore file.
+func TestEscapeBeforePattern(t *testing.T) {
+	var tests = make([]escapeTest, 0, len(overrideBackslashTests)*len(escapePrefixes))
+
+	for _, test := range overrideBackslashTests {
+		for _, prefix := range escapePrefixes {
+			tests = append(tests, escapeTest{
+				// Use backslash, as it should not be ignored,
+				// so test against the overrideBackslashTests.
+				prefix + escapePrefix + "\\\n" + test.pattern,
+				test.match,
 				test.want,
 			})
 		}
@@ -1595,13 +1634,49 @@ func TestEscapeOverrideEmpty(t *testing.T) {
 	testEscape(t, tests)
 }
 
+// TestEscapeAfterPattern tests when #escape= is found after a pattern in the
+// .stignore file.
+func TestEscapeAfterPattern(t *testing.T) {
+	var tests = make([]escapeTest, 0, len(backslashTests)*len(escapePrefixes))
+
+	var suffixes = []string{
+		"pattern\n",
+		"pattern/\n",
+		"pattern/**\n",
+	}
+
+	for _, test := range backslashTests {
+		for _, prefix := range escapePrefixes {
+			for _, suffix := range suffixes {
+				tests = append(tests, escapeTest{
+					// Use a different character, as it should be ignored,
+					// so test against the backslashTests.
+					prefix + suffix + escapePrefix + "\u241B\n" + test.pattern,
+					test.match,
+					test.want,
+				})
+			}
+		}
+	}
+
+	testEscape(t, tests)
+}
+
+var testEscapeFiles = map[string]string{
+	"escape-excludes": "dir4\n",
+}
+
 func testEscape(t *testing.T, tests []escapeTest) {
 	t.Helper()
 
-	fs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32)+"?content=true")
-	pats := New(fs, WithCache(true))
-
 	for _, test := range tests {
+		testFS := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32)+"?content=true&nostfolder=true")
+
+		for name, content := range testEscapeFiles {
+			fs.WriteFile(testFS, name, []byte(content), 0o666)
+		}
+		pats := New(testFS, WithCache(true))
+
 		err := pats.Parse(bytes.NewBufferString(test.pattern), ".stignore")
 		if err != nil {
 			t.Fatal(err)
