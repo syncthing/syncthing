@@ -642,15 +642,12 @@ func syncthingMain(options serveOptions) {
 	if options.Audit || cfgWrapper.Options().AuditEnabled {
 		l.Infoln("Auditing is enabled.")
 
-		var ChosenAuditFile string
+		auditFile := cfgWrapper.Options().AuditFile
 
 		// Ignore config option if command-line option is set
 		if options.AuditFile != "" {
 			l.Debugln("Chose the audit file from the command-line parameter.")
-			ChosenAuditFile = options.AuditFile
-		} else {
-			l.Debugln("Chose the audit file from the config.")
-			ChosenAuditFile = cfgWrapper.Options().AuditFile
+			auditFile = options.AuditFile
 		}
 
 		appOpts.AuditWriter = auditWriter(ChosenAuditFile)
