@@ -45,6 +45,8 @@
         <unackedNotificationID>asdfasdf</unackedNotificationID>
         <announceLANAddresses>false</announceLANAddresses>
         <featureFlag>feature</featureFlag>
+        <auditEnabled>true</auditEnabled>
+        <auditFile>nggyu</auditFile>
         <connectionPriorityTcpLan>40</connectionPriorityTcpLan>
         <connectionPriorityQuicLan>45</connectionPriorityQuicLan>
         <connectionPriorityTcpWan>50</connectionPriorityTcpWan>

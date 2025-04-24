@@ -533,8 +533,19 @@ func (c *serveCmd) syncthingMain() {
 		Verbose:               c.Verbose,
 		DBMaintenanceInterval: c.DBMaintenanceInterval,
 	}
-	if c.Audit {
-		appOpts.AuditWriter = auditWriter(c.AuditFile)
+
+	if c.Audit || cfgWrapper.Options().AuditEnabled {
+		l.Infoln("Auditing is enabled.")
+
+		auditFile := cfgWrapper.Options().AuditFile
+
+		// Ignore config option if command-line option is set
+		if c.AuditFile != "" {
+			l.Debugln("Using the audit file from the command-line parameter.")
+			auditFile = c.AuditFile
+		}
+
+		appOpts.AuditWriter = auditWriter(auditFile)
 	}
 
 	app, err := syncthing.New(cfgWrapper, sdb, evLogger, cert, appOpts)
