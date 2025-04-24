@@ -1346,6 +1346,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 			found := false
 			blocks, _ := f.model.sdb.AllLocalBlocksWithHash(block.Hash)
+		innerBlocks:
 			for _, e := range blocks {
 				res, err := f.model.sdb.AllLocalFilesWithBlocksHashAnyFolder(e.BlocklistHash)
 				if err != nil {
@@ -1387,7 +1388,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 						}
 						if err != nil {
 							state.fail(fmt.Errorf("dst write: %w", err))
-							break
+							break innerBlocks
 						}
 						if fi.Name == state.file.Name {
 							state.copiedFromOrigin(block.Size)
@@ -1395,7 +1396,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 							state.copiedFromElsewhere(block.Size)
 						}
 						found = true
-						break
+						break innerBlocks
 					}
 				}
 			}
