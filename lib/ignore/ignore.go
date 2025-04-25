@@ -28,7 +28,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-const escapePrefix = "#escape="
+const escapePrefix = "#escape"
 
 var defaultEscapeChar = '\\'
 
@@ -538,10 +538,11 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			// Silently ignore multiple #escape='s in a file.
 			if escaping {
 				trimmed = strings.TrimPrefix(trimmed, escapePrefix)
-				if len(trimmed) == 0 {
+				runes := []rune(trimmed)
+				if len(runes) != 2 || runes[0] != '=' {
 					return nil, nil, fmt.Errorf("failed to parse #escape= line in ignore file: %q", line)
 				}
-				escapeChar = []rune(trimmed)[0]
+				escapeChar = runes[1]
 				escaping = false
 			}
 			continue

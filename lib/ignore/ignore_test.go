@@ -23,6 +23,8 @@ import (
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
+const escapePrefixEqual = escapePrefix + "="
+
 var testFiles = map[string]string{
 	".stignore": `#include excludes
 bfile
@@ -1483,7 +1485,7 @@ var pipeTests = []escapeTest{
 // TestEscapeBackslash tests pipe (|) as the escape character.
 func TestEscapePipe(t *testing.T) {
 	if defaultEscapeChar == '\\' {
-		t.Skip("Skipping test as defaultEscapeChar=\\ (as we're not on Windows)")
+		t.Skip("Skipping Windows only test")
 	}
 
 	testEscape(t, pipeTests)
@@ -1538,7 +1540,7 @@ var overrideBackslashTests = []escapeTest{
 // TestEscapeOverrideBackslash tests when #escape=\ is in the .stignore file.
 func TestEscapeOverrideBackslash(t *testing.T) {
 	for i, test := range overrideBackslashTests {
-		overrideBackslashTests[i].pattern = escapePrefix + "\\\n" + test.pattern
+		overrideBackslashTests[i].pattern = escapePrefixEqual + "\\\n" + test.pattern
 	}
 
 	testEscape(t, overrideBackslashTests)
@@ -1553,23 +1555,15 @@ func TestEscapeOverridePipe(t *testing.T) {
 		"\u241B", // ␛
 	}
 
-	suffixes := []string{
-		"",
-		" ",
-		"x",
-		" x",
-	}
-	var tests = make([]escapeTest, 0, len(pipeTests)*len(suffixes))
+	var tests = make([]escapeTest, 0, len(pipeTests))
 
 	for _, test := range pipeTests {
 		for _, escapeChar := range escapeChars {
-			for _, suffix := range suffixes {
-				tests = append(tests, escapeTest{
-					escapePrefix + escapeChar + suffix + "\n" + strings.ReplaceAll(test.pattern, "|", escapeChar),
-					test.match,
-					test.want,
-				})
-			}
+			tests = append(tests, escapeTest{
+				escapePrefixEqual + escapeChar + "\n" + strings.ReplaceAll(test.pattern, "|", escapeChar),
+				test.match,
+				test.want,
+			})
 		}
 	}
 
@@ -1578,7 +1572,7 @@ func TestEscapeOverridePipe(t *testing.T) {
 
 // TestEscapeOverrideEmpty tests when #escape= (no char) is in the .stignore file.
 func TestEscapeOverrideEmpty(t *testing.T) {
-	suffixes := []string{"", " "}
+	suffixes := []string{"", " ", "\t", "=", "= ", "=\t", "x"}
 
 	var tests = make([]escapeTest, 0, len(backslashTests)*len(suffixes))
 
@@ -1586,6 +1580,33 @@ func TestEscapeOverrideEmpty(t *testing.T) {
 		for _, suffix := range suffixes {
 			tests = append(tests, escapeTest{
 				escapePrefix + suffix + "\n" + test.pattern,
+				test.match,
+				false,
+			})
+		}
+	}
+
+	fs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32)+"?content=true")
+	pats := New(fs, WithCache(true))
+
+	for _, test := range tests {
+		err := pats.Parse(bytes.NewBufferString(test.pattern), ".stignore")
+		if err == nil {
+			t.Fatal("got nil, want err")
+		}
+	}
+}
+
+// TestEscapeInvalid tests when #escape=x has extra characters after it
+func TestEscapeInvalid(t *testing.T) {
+	suffixes := []string{"\\\\", "||", "\u241B\u241B", "xx"} // ␛
+
+	var tests = make([]escapeTest, 0, len(backslashTests)*len(suffixes))
+
+	for _, test := range backslashTests {
+		for _, suffix := range suffixes {
+			tests = append(tests, escapeTest{
+				escapePrefixEqual + suffix + "\n" + test.pattern,
 				test.match,
 				false,
 			})
@@ -1624,7 +1645,7 @@ func TestEscapeBeforePattern(t *testing.T) {
 			tests = append(tests, escapeTest{
 				// Use backslash, as it should not be ignored,
 				// so test against the overrideBackslashTests.
-				prefix + escapePrefix + "\\\n" + test.pattern,
+				prefix + escapePrefixEqual + "\\\n" + test.pattern,
 				test.match,
 				test.want,
 			})
@@ -1651,7 +1672,7 @@ func TestEscapeAfterPattern(t *testing.T) {
 				tests = append(tests, escapeTest{
 					// Use a different character, as it should be ignored,
 					// so test against the backslashTests.
-					prefix + suffix + escapePrefix + "\u241B\n" + test.pattern,
+					prefix + suffix + escapePrefixEqual + "\u241B\n" + test.pattern,
 					test.match,
 					test.want,
 				})
