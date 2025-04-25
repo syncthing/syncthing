@@ -104,7 +104,7 @@ func main() {
 		log.Fatal("Cannot find id copyright-notices in ", htmlFile)
 	}
 
-	modules := getModules()
+	modules := getListModules()
 
 	notices := parseCopyrightNotices(matches[1])
 	old := len(notices)
@@ -271,8 +271,8 @@ func writeFile(path string, data string) {
 	}
 }
 
-func getModules() []string {
-	cmd := exec.Command("go", "mod", "graph")
+func getListModules() []string {
+	cmd := exec.Command("go", "list", "--deps", "./cmd/syncthing")
 	output, err := cmd.Output()
 	if err != nil {
 		log.Fatal(err)
@@ -281,32 +281,33 @@ func getModules() []string {
 	seen := make(map[string]struct{})
 	scanner := bufio.NewScanner(bytes.NewReader(output))
 
+	ignoreRe := regexp.MustCompile(`(syncthing/syncthing|golang\.org/x/|/internal/|/prometheus/)`)
+
 	for scanner.Scan() {
 		line := scanner.Text()
-		fields := strings.Fields(line)
-		if len(fields) == 0 {
+		line = strings.TrimSpace(line)
+
+		if !strings.Contains(line, ".") {
 			continue
 		}
 
-		if !strings.HasPrefix(fields[0], "github.com/syncthing/syncthing") {
+		if ignoreRe.MatchString(line) {
 			continue
 		}
 
-		// Get left-hand side of dependency pair (before '@')
-		mod := strings.SplitN(fields[1], "@", 2)[0]
-
-		// Keep only first 3 path components
-		parts := strings.Split(mod, "/")
+		parts := strings.Split(line, "/")
 		if len(parts) == 1 {
 			continue
 		}
+		// Keep only first 3 path components
 		short := strings.Join(parts[:min(len(parts), 3)], "/")
 
-		if strings.HasPrefix(short, "golang.org/x") ||
-			strings.HasPrefix(short, "github.com/prometheus") ||
-			short == "go" {
-
-			continue
+		// map "google.golang.org/protobuf/*" to "google.golang.org/protobuf"
+		for mod := range urlMap {
+			if strings.HasPrefix(short, mod) {
+				short = mod
+				break
+			}
 		}
 
 		seen[short] = struct{}{}
@@ -486,4 +487,55 @@ func (t Type) String() string {
 	default:
 		return "unknown"
 	}
+}
+
+func getModModules() []string {
+	cmd := exec.Command("go", "mod", "graph")
+	output, err := cmd.Output()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	seen := make(map[string]struct{})
+	scanner := bufio.NewScanner(bytes.NewReader(output))
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+
+		if !strings.HasPrefix(fields[0], "github.com/syncthing/syncthing") {
+			continue
+		}
+
+		// Get left-hand side of dependency pair (before '@')
+		mod := strings.SplitN(fields[1], "@", 2)[0]
+
+		// Keep only first 3 path components
+		parts := strings.Split(mod, "/")
+		if len(parts) == 1 {
+			continue
+		}
+		short := strings.Join(parts[:min(len(parts), 3)], "/")
+
+		if strings.HasPrefix(short, "golang.org/x") ||
+			strings.HasPrefix(short, "github.com/prometheus") ||
+			short == "go" {
+
+			continue
+		}
+
+		seen[short] = struct{}{}
+	}
+
+	adds := make([]string, 0)
+	for k := range seen {
+		adds = append(adds, k)
+	}
+
+	slices.Sort(adds)
+
+	return adds
 }
