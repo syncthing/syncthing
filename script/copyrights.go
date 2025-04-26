@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"regexp"
 	"slices"
 	"strconv"
@@ -272,49 +273,43 @@ func writeFile(path string, data string) {
 }
 
 func getModules() []string {
-	ignoreRe := regexp.MustCompile(`(golang\.org/x/)`)
+	ignoreRe := regexp.MustCompile(`golang\.org/x/|github\.com/syncthing|^[^.]+(/|$)`)
 
-	data := readAll("go.mod")
-	lines := strings.Split(string(data), "\n")
+	// List all modules (used for mapping packages to modules)
+	data, err := exec.Command("go", "list", "-m", "all").Output()
+	if err != nil {
+		log.Fatalf("go list -m all: %v", err)
+	}
+	modules := strings.Split(string(data), "\n")
+	for i := range modules {
+		modules[i], _, _ = strings.Cut(modules[i], " ")
+	}
+	modules = slices.DeleteFunc(modules, func(s string) bool { return s == "" })
+
+	// List all packages in use by the syncthing binary, map them to modules
+	data, err = exec.Command("go", "list", "-deps", "./cmd/syncthing").Output()
+	if err != nil {
+		log.Fatalf("go list -deps ./cmd/syncthing: %v", err)
+	}
+	packages := strings.Split(string(data), "\n")
+	packages = slices.DeleteFunc(packages, func(s string) bool { return s == "" })
 
 	seen := make(map[string]struct{})
-
-	requires := false
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "require (") {
-			requires = true
-			continue
-		}
-		if !requires {
-			continue
-		}
-		if strings.HasPrefix(line, ")") {
-			break
-		}
-
-		if ignoreRe.MatchString(line) {
+	for _, pkg := range packages {
+		if ignoreRe.MatchString(pkg) {
 			continue
 		}
 
-		parts := strings.Split(line, " ")
-		parts = strings.Split(parts[0], "/")
-		if len(parts) == 1 {
+		// Find module for package
+		modIdx := slices.IndexFunc(modules, func(mod string) bool {
+			return strings.HasPrefix(pkg, mod)
+		})
+		if modIdx < 0 {
+			log.Println("no module for", pkg)
 			continue
 		}
-		// Keep only first 3 path components
-		short := strings.Join(parts[:min(len(parts), 3)], "/")
-
-		// map "google.golang.org/protobuf/*" to "google.golang.org/protobuf"
-		for mod := range urlMap {
-			if strings.HasPrefix(short, mod) {
-				short = mod
-				break
-			}
-		}
-
-		seen[short] = struct{}{}
+		module := modules[modIdx]
+		seen[module] = struct{}{}
 	}
 
 	adds := make([]string, 0)
