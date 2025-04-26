@@ -13,8 +13,6 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -50,6 +48,8 @@ var copyrightMap = map[string]string{
 	"jmespath/go-jmespath": "Copyright &copy; 2015 James Saryerwinnie",
 	// https://github.com/maxmind/geoipupdate/blob/main/README.md?plain=1#L140
 	"maxmind/geoipupdate": "Copyright &copy; 2018-2024 by MaxMind, Inc",
+	// https://github.com/search?q=repo%3Aprometheus%2Fclient_golang%20copyright&type=code
+	"prometheus/client_golang": "Copyright 2012-2015 The Prometheus Authors",
 	// https://github.com/search?q=repo%3Apuzpuzpuz%2Fxsync%20copyright&type=code
 	// "puzpuzpuz/xsync": "No copyrights found",
 	// https://github.com/search?q=repo%3Atklauser%2Fnumcpus%20copyright&type=code
@@ -59,13 +59,13 @@ var copyrightMap = map[string]string{
 }
 
 var urlMap = map[string]string{
-	"fontawesome.io":             "https://github.com/FortAwesome/Font-Awesome",
-	"go.uber.org/automaxprocs":   "https://github.com/uber-go/automaxprocs",
-	"go.uber.org/mock":           "https://github.com/uber-go/mock",
+	"fontawesome.io":           "https://github.com/FortAwesome/Font-Awesome",
+	"go.uber.org/automaxprocs": "https://github.com/uber-go/automaxprocs",
+	// "go.uber.org/mock":           "https://github.com/uber-go/mock",
 	"google.golang.org/protobuf": "https://github.com/protocolbuffers/protobuf-go",
-	"gopkg.in/yaml.v2":           "", // ignore, as gopkg.in/yaml.v3 supersedes
-	"gopkg.in/yaml.v3":           "https://github.com/go-yaml/yaml",
-	"sigs.k8s.io/yaml":           "https://github.com/kubernetes-sigs/yaml",
+	// "gopkg.in/yaml.v2":           "", // ignore, as gopkg.in/yaml.v3 supersedes
+	// "gopkg.in/yaml.v3":           "https://github.com/go-yaml/yaml",
+	"sigs.k8s.io/yaml": "https://github.com/kubernetes-sigs/yaml",
 }
 
 const htmlFile = "gui/default/syncthing/core/aboutModalView.html"
@@ -174,6 +174,7 @@ func main() {
 		if n.Type != TypeNew {
 			continue
 		}
+
 		copyright, ok := copyrightMap[n.Name]
 		if ok {
 			notices[i].Copyright = copyright
@@ -272,44 +273,43 @@ func writeFile(path string, data string) {
 }
 
 func getModules() []string {
-	cmd := exec.Command("go", "mod", "graph")
-	output, err := cmd.Output()
+	ignoreRe := regexp.MustCompile(`golang\.org/x/|github\.com/syncthing|^[^.]+(/|$)`)
+
+	// List all modules (used for mapping packages to modules)
+	data, err := exec.Command("go", "list", "-m", "all").Output()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("go list -m all: %v", err)
 	}
+	modules := strings.Split(string(data), "\n")
+	for i := range modules {
+		modules[i], _, _ = strings.Cut(modules[i], " ")
+	}
+	modules = slices.DeleteFunc(modules, func(s string) bool { return s == "" })
+
+	// List all packages in use by the syncthing binary, map them to modules
+	data, err = exec.Command("go", "list", "-deps", "./cmd/syncthing").Output()
+	if err != nil {
+		log.Fatalf("go list -deps ./cmd/syncthing: %v", err)
+	}
+	packages := strings.Split(string(data), "\n")
+	packages = slices.DeleteFunc(packages, func(s string) bool { return s == "" })
 
 	seen := make(map[string]struct{})
-	scanner := bufio.NewScanner(bytes.NewReader(output))
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		fields := strings.Fields(line)
-		if len(fields) == 0 {
+	for _, pkg := range packages {
+		if ignoreRe.MatchString(pkg) {
 			continue
 		}
 
-		if !strings.HasPrefix(fields[0], "github.com/syncthing/syncthing") {
+		// Find module for package
+		modIdx := slices.IndexFunc(modules, func(mod string) bool {
+			return strings.HasPrefix(pkg, mod)
+		})
+		if modIdx < 0 {
+			log.Println("no module for", pkg)
 			continue
 		}
-
-		// Get left-hand side of dependency pair (before '@')
-		mod := strings.SplitN(fields[1], "@", 2)[0]
-
-		// Keep only first 3 path components
-		parts := strings.Split(mod, "/")
-		if len(parts) == 1 {
-			continue
-		}
-		short := strings.Join(parts[:min(len(parts), 3)], "/")
-
-		if strings.HasPrefix(short, "golang.org/x") ||
-			strings.HasPrefix(short, "github.com/prometheus") ||
-			short == "go" {
-
-			continue
-		}
-
-		seen[short] = struct{}{}
+		module := modules[modIdx]
+		seen[module] = struct{}{}
 	}
 
 	adds := make([]string, 0)
@@ -404,7 +404,9 @@ func getLicenseText(owner, repo string) string {
 		log.Fatal(err)
 	}
 	defer resp.Body.Close()
-
+	if resp.StatusCode == 404 {
+		return ""
+	}
 	var result struct {
 		Content  string `json:"content"`
 		Encoding string `json:"encoding"`
@@ -416,7 +418,7 @@ func getLicenseText(owner, repo string) string {
 	}
 
 	if result.Encoding != "base64" {
-		log.Fatal(fmt.Sprintf("unexpected encoding: %s", result.Encoding))
+		log.Fatal(fmt.Sprintf("unexpected encoding: %q", result.Encoding))
 	}
 
 	decoded, err := base64.StdEncoding.DecodeString(result.Content)
