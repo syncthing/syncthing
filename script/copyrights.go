@@ -418,9 +418,6 @@ func getLicenseText(owner, repo string) string {
 	}
 
 	if result.Encoding != "base64" {
-		fmt.Printf("resp=%+v\n", resp)
-		fmt.Printf("body=%+v\n", string(body))
-		fmt.Printf("result=%+v\n", result)
 		log.Fatal(fmt.Sprintf("unexpected encoding: %q", result.Encoding))
 	}
 
