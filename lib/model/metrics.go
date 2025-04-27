@@ -7,6 +7,8 @@
 package model
 
 import (
+	"github.com/syncthing/syncthing/lib/config"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -84,9 +86,11 @@ const (
 	metricTypeBytes       = "bytes"
 )
 
-func registerFolderMetrics(folderID string) {
-	// Register metrics for this folder, so that counters are present even
-	// when zero.
+func registerFolderMetrics(fc config.FolderConfiguration) {
+	registerInfoGauge(fc)
+	// Register metrics for this folder, so that
+	// counters are present even when zero.
+	folderID := fc.ID
 	metricFolderState.WithLabelValues(folderID)
 	metricFolderPulls.WithLabelValues(folderID)
 	metricFolderPullSeconds.WithLabelValues(folderID)
@@ -98,4 +102,26 @@ func registerFolderMetrics(folderID string) {
 	metricFolderProcessedBytesTotal.WithLabelValues(folderID, metricSourceLocalShifted)
 	metricFolderProcessedBytesTotal.WithLabelValues(folderID, metricSourceSkipped)
 	metricFolderConflictsTotal.WithLabelValues(folderID)
+}
+
+func registerInfoGauge(fc config.FolderConfiguration) {
+	// Create a dynamic "info" gauge to help users
+	// map IDs to humane strings.
+	// It produces a constant `1`
+	info_gauge := prometheus.NewGaugeFunc(
+		prometheus.GaugeOpts{
+			Namespace: "syncthing",
+			Name:      "folder_info_" + fc.ID,
+			Help:      "Folder metadata info",
+			ConstLabels: prometheus.Labels{
+				"id":    fc.ID,
+				"label": fc.Label,
+				"path":  fc.Path,
+			},
+		},
+		func() float64 { return 1 },
+	)
+	// This can error, but we have no way to recover or fallback.
+	// The tests, for example, register ID `ro` many times.
+	prometheus.DefaultRegisterer.Register(info_gauge)
 }
