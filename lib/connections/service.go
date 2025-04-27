@@ -850,7 +850,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	newDevices := make(map[protocol.DeviceID]bool, len(to.Devices))
 	for _, dev := range to.Devices {
 		newDevices[dev.DeviceID] = true
-		registerDeviceMetrics(dev.DeviceID.String())
+		registerDeviceMetrics(dev)
 	}
 
 	for _, dev := range from.Devices {
