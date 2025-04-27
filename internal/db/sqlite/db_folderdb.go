@@ -56,6 +56,10 @@ func (s *DB) getFolderDB(folder string, create bool) (*folderDB, error) {
 	if dbName == "" {
 		// First time we want to access this folder, need to create a new
 		// folder ID
+
+		s.updateLock.Lock()
+		defer s.updateLock.Unlock()
+
 		idx, err := s.folderIdxLocked(folder)
 		if err != nil {
 			return nil, wrap(err)
