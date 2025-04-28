@@ -87,7 +87,7 @@ const (
 )
 
 func registerFolderMetrics(fc config.FolderConfiguration) {
-	registerInfoGauge(fc)
+	registerFolderInfoGauge(fc)
 	// Register metrics for this folder, so that
 	// counters are present even when zero.
 	folderID := fc.ID
@@ -104,9 +104,9 @@ func registerFolderMetrics(fc config.FolderConfiguration) {
 	metricFolderConflictsTotal.WithLabelValues(folderID)
 }
 
-func registerInfoGauge(fc config.FolderConfiguration) {
+func registerFolderInfoGauge(fc config.FolderConfiguration) {
 	// Create a dynamic "info" gauge to help users
-	// map IDs to humane strings.
+	// map IDs to human-readable strings.
 	// It produces a constant `1`
 	info_gauge := prometheus.NewGaugeFunc(
 		prometheus.GaugeOpts{

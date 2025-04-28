@@ -30,7 +30,7 @@ func registerDeviceMetrics(dc config.DeviceConfiguration) {
 
 func registerDeviceInfoGauge(dc config.DeviceConfiguration) {
 	// Create a dynamic "info" gauge to help users
-	// map IDs to humane strings.
+	// map IDs to human-readable strings.
 	// It produces a constant `1`
 	did := dc.DeviceID.String()
 	info_gauge := prometheus.NewGaugeFunc(
