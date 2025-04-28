@@ -521,7 +521,28 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 
 	var err error
 	var escaping = true
+	var escaped = false
 	for _, line := range lines {
+		if strings.HasPrefix(line, escapePrefix) {
+			if !escaping {
+				if escaped {
+					return nil, nil, errors.New("mutiple #escape= lines found in ignore file")
+				} else {
+					return nil, nil, errors.New("#escape= line found after patterns in ignore file")
+				}
+			}
+			trimmed := strings.TrimPrefix(line, escapePrefix)
+			trimmed = strings.ReplaceAll(strings.ReplaceAll(trimmed, " ", ""), "\t", "")
+			runes := []rune(trimmed)
+			if len(runes) != 2 || runes[0] != '=' {
+				return nil, nil, fmt.Errorf("failed to parse #escape= line in ignore file: %q", line)
+			}
+			escapeChar = runes[1]
+			escaped = true
+			escaping = false
+			continue
+		}
+
 		if _, ok := linesSeen[line]; ok {
 			continue
 		}
@@ -530,21 +551,6 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 		case line == "":
 			continue
 		case strings.HasPrefix(line, "//"):
-			continue
-		}
-
-		trimmed := strings.ReplaceAll(strings.ReplaceAll(line, " ", ""), "\t", "")
-		if strings.HasPrefix(trimmed, escapePrefix) {
-			// Silently ignore multiple #escape='s in a file.
-			if escaping {
-				trimmed = strings.TrimPrefix(trimmed, escapePrefix)
-				runes := []rune(trimmed)
-				if len(runes) != 2 || runes[0] != '=' {
-					return nil, nil, fmt.Errorf("failed to parse #escape= line in ignore file: %q", line)
-				}
-				escapeChar = runes[1]
-				escaping = false
-			}
 			continue
 		}
 

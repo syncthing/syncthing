@@ -1433,7 +1433,7 @@ var backslashTests = []escapeTest{
 
 // TestEscapeBackslash tests backslash (\) as the escape character.
 func TestEscapeBackslash(t *testing.T) {
-	testEscape(t, backslashTests)
+	testEscape(t, backslashTests, true)
 }
 
 // pipeTests contains the same wants as backslashTests, but
@@ -1488,7 +1488,7 @@ func TestEscapePipe(t *testing.T) {
 		t.Skip("Skipping Windows only test")
 	}
 
-	testEscape(t, pipeTests)
+	testEscape(t, pipeTests, true)
 }
 
 // overrideBackslashTests has the same wants as the pipeTests tests.
@@ -1539,11 +1539,17 @@ var overrideBackslashTests = []escapeTest{
 
 // TestEscapeOverrideBackslash tests when #escape=\ is in the .stignore file.
 func TestEscapeOverrideBackslash(t *testing.T) {
-	for i, test := range overrideBackslashTests {
-		overrideBackslashTests[i].pattern = escapePrefixEqual + "\\\n" + test.pattern
+	var tests = make([]escapeTest, 0, len(overrideBackslashTests))
+
+	for _, test := range overrideBackslashTests {
+		tests = append(tests, escapeTest{
+			escapePrefixEqual + "\\\n" + test.pattern,
+			test.match,
+			test.want,
+		})
 	}
 
-	testEscape(t, overrideBackslashTests)
+	testEscape(t, tests, true)
 }
 
 // TestEscapeOverridePipe tests when #escape=| (or another character) is in the
@@ -1567,61 +1573,7 @@ func TestEscapeOverridePipe(t *testing.T) {
 		}
 	}
 
-	testEscape(t, tests)
-}
-
-// TestEscapeOverrideEmpty tests when #escape= (no char) is in the .stignore file.
-func TestEscapeOverrideEmpty(t *testing.T) {
-	suffixes := []string{"", " ", "\t", "=", "= ", "=\t", "x"}
-
-	var tests = make([]escapeTest, 0, len(backslashTests)*len(suffixes))
-
-	for _, test := range backslashTests {
-		for _, suffix := range suffixes {
-			tests = append(tests, escapeTest{
-				escapePrefix + suffix + "\n" + test.pattern,
-				test.match,
-				false,
-			})
-		}
-	}
-
-	fs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32)+"?content=true")
-	pats := New(fs, WithCache(true))
-
-	for _, test := range tests {
-		err := pats.Parse(bytes.NewBufferString(test.pattern), ".stignore")
-		if err == nil {
-			t.Fatal("got nil, want err")
-		}
-	}
-}
-
-// TestEscapeInvalid tests when #escape=x has extra characters after it
-func TestEscapeInvalid(t *testing.T) {
-	suffixes := []string{"\\\\", "||", "\u241B\u241B", "xx"} // ␛
-
-	var tests = make([]escapeTest, 0, len(backslashTests)*len(suffixes))
-
-	for _, test := range backslashTests {
-		for _, suffix := range suffixes {
-			tests = append(tests, escapeTest{
-				escapePrefixEqual + suffix + "\n" + test.pattern,
-				test.match,
-				false,
-			})
-		}
-	}
-
-	fs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32)+"?content=true")
-	pats := New(fs, WithCache(true))
-
-	for _, test := range tests {
-		err := pats.Parse(bytes.NewBufferString(test.pattern), ".stignore")
-		if err == nil {
-			t.Fatal("got nil, want err")
-		}
-	}
+	testEscape(t, tests, true)
 }
 
 var escapePrefixes = []string{
@@ -1652,19 +1604,57 @@ func TestEscapeBeforePattern(t *testing.T) {
 		}
 	}
 
-	testEscape(t, tests)
+	testEscape(t, tests, true)
+}
+
+// TestEscapeEmpty tests when #escape= (no char) is in the .stignore file.
+func TestEscapeEmpty(t *testing.T) {
+	suffixes := []string{"", " ", "\t", "=", "= ", "=\t", "x"}
+
+	var tests = make([]escapeTest, 0, len(backslashTests)*len(suffixes))
+
+	for _, test := range backslashTests {
+		for _, suffix := range suffixes {
+			tests = append(tests, escapeTest{
+				escapePrefix + suffix + "\n" + test.pattern,
+				test.match,
+				false,
+			})
+		}
+	}
+
+	testEscape(t, tests, false)
+}
+
+// TestEscapeInvalid tests when #escape=x has extra characters after it
+func TestEscapeInvalid(t *testing.T) {
+	suffixes := []string{"\\\\", "||", "\u241B\u241B", "xx"} // ␛
+
+	var tests = make([]escapeTest, 0, len(backslashTests)*len(suffixes))
+
+	for _, test := range backslashTests {
+		for _, suffix := range suffixes {
+			tests = append(tests, escapeTest{
+				escapePrefixEqual + suffix + "\n" + test.pattern,
+				test.match,
+				false,
+			})
+		}
+	}
+
+	testEscape(t, tests, false)
 }
 
 // TestEscapeAfterPattern tests when #escape= is found after a pattern in the
 // .stignore file.
 func TestEscapeAfterPattern(t *testing.T) {
-	var tests = make([]escapeTest, 0, len(backslashTests)*len(escapePrefixes))
-
 	var suffixes = []string{
 		"pattern\n",
 		"pattern/\n",
 		"pattern/**\n",
 	}
+
+	var tests = make([]escapeTest, 0, len(backslashTests)*len(escapePrefixes)*len(suffixes))
 
 	for _, test := range backslashTests {
 		for _, prefix := range escapePrefixes {
@@ -1674,20 +1664,44 @@ func TestEscapeAfterPattern(t *testing.T) {
 					// so test against the backslashTests.
 					prefix + suffix + escapePrefixEqual + "\u241B\n" + test.pattern,
 					test.match,
-					test.want,
+					false,
 				})
 			}
 		}
 	}
 
-	testEscape(t, tests)
+	testEscape(t, tests, false)
+}
+
+// TestEscapeDoubled tests when #escape= is found more than once.
+func TestEscapeDoubled(t *testing.T) {
+	var suffixes = []string{
+		"#escape\n",
+		"#escape=\n",
+		"#escape=\\\n",
+		"#escape=|\n",
+	}
+
+	var tests = make([]escapeTest, 0, len(backslashTests)*len(suffixes))
+
+	for _, test := range backslashTests {
+		for _, suffix := range suffixes {
+			tests = append(tests, escapeTest{
+				escapePrefixEqual + "\\\n" + suffix + test.pattern,
+				test.match,
+				false,
+			})
+		}
+	}
+
+	testEscape(t, tests, false)
 }
 
 var testEscapeFiles = map[string]string{
 	"escape-excludes": "dir4\n",
 }
 
-func testEscape(t *testing.T, tests []escapeTest) {
+func testEscape(t *testing.T, tests []escapeTest, noErrors bool) {
 	t.Helper()
 
 	for _, test := range tests {
@@ -1699,8 +1713,15 @@ func testEscape(t *testing.T, tests []escapeTest) {
 		pats := New(testFS, WithCache(true))
 
 		err := pats.Parse(bytes.NewBufferString(test.pattern), ".stignore")
-		if err != nil {
-			t.Fatal(err)
+		if noErrors {
+			if err != nil {
+				t.Fatalf("%q: err=%v", test.pattern, err)
+			}
+		} else {
+			if err == nil {
+				t.Fatalf("%q: got nil, want error", test.pattern)
+			}
+			continue
 		}
 
 		got := pats.Match(test.match).IsIgnored()
