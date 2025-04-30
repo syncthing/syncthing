@@ -734,10 +734,13 @@ jobs:
       - name: Push artifacts
         uses: docker://docker.io/rclone/rclone:latest
         env:
-          RCLONE_CONFIG_OBJSTORE_TYPE: ${{ secrets.AZUREBLOB_TYPE }}
-          RCLONE_CONFIG_OBJSTORE_ACCOUNT: ${{ secrets.AZUREBLOB_ACCOUNT }}
-          RCLONE_CONFIG_OBJSTORE_KEY: ${{ secrets.AZUREBLOB_KEY }}
-          RCLONE_AZUREBLOB_ACCESS_TIER: hot
+          RCLONE_CONFIG_OBJSTORE_TYPE: s3
+          RCLONE_CONFIG_OBJSTORE_PROVIDER: ${{ secrets.S3_PROVIDER }}
+          RCLONE_CONFIG_OBJSTORE_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_OBJSTORE_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          RCLONE_CONFIG_OBJSTORE_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          RCLONE_CONFIG_OBJSTORE_REGION: ${{ secrets.S3_REGION }}
+          RCLONE_CONFIG_OBJSTORE_ACL: public-read
         with:
           args: sync -v packages objstore:nightly
 
@@ -785,20 +788,26 @@ jobs:
       - name: Push to object store (${{ env.VERSION }})
         uses: docker://docker.io/rclone/rclone:latest
         env:
-          RCLONE_CONFIG_OBJSTORE_TYPE: ${{ secrets.AZUREBLOB_TYPE }}
-          RCLONE_CONFIG_OBJSTORE_ACCOUNT: ${{ secrets.AZUREBLOB_ACCOUNT }}
-          RCLONE_CONFIG_OBJSTORE_KEY: ${{ secrets.AZUREBLOB_KEY }}
-          RCLONE_AZUREBLOB_ACCESS_TIER: cool
+          RCLONE_CONFIG_OBJSTORE_TYPE: s3
+          RCLONE_CONFIG_OBJSTORE_PROVIDER: ${{ secrets.S3_PROVIDER }}
+          RCLONE_CONFIG_OBJSTORE_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_OBJSTORE_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          RCLONE_CONFIG_OBJSTORE_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          RCLONE_CONFIG_OBJSTORE_REGION: ${{ secrets.S3_REGION }}
+          RCLONE_CONFIG_OBJSTORE_ACL: public-read
         with:
           args: sync -v packages objstore:release/${{ env.VERSION }}
 
       - name: Push to object store (latest)
         uses: docker://docker.io/rclone/rclone:latest
         env:
-          RCLONE_CONFIG_OBJSTORE_TYPE: ${{ secrets.AZUREBLOB_TYPE }}
-          RCLONE_CONFIG_OBJSTORE_ACCOUNT: ${{ secrets.AZUREBLOB_ACCOUNT }}
-          RCLONE_CONFIG_OBJSTORE_KEY: ${{ secrets.AZUREBLOB_KEY }}
-          RCLONE_AZUREBLOB_ACCESS_TIER: hot
+          RCLONE_CONFIG_OBJSTORE_TYPE: s3
+          RCLONE_CONFIG_OBJSTORE_PROVIDER: ${{ secrets.S3_PROVIDER }}
+          RCLONE_CONFIG_OBJSTORE_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_OBJSTORE_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          RCLONE_CONFIG_OBJSTORE_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          RCLONE_CONFIG_OBJSTORE_REGION: ${{ secrets.S3_REGION }}
+          RCLONE_CONFIG_OBJSTORE_ACL: public-read
         with:
           args: sync -v objstore:release/${{ env.VERSION }} objstore:release/latest
 
@@ -849,9 +858,13 @@ jobs:
       - name: Pull archive
         uses: docker://docker.io/rclone/rclone:latest
         env:
-          RCLONE_CONFIG_OBJSTORE_TYPE: ${{ secrets.AZUREBLOB_TYPE }}
-          RCLONE_CONFIG_OBJSTORE_ACCOUNT: ${{ secrets.AZUREBLOB_ACCOUNT }}
-          RCLONE_CONFIG_OBJSTORE_KEY: ${{ secrets.AZUREBLOB_KEY }}
+          RCLONE_CONFIG_OBJSTORE_TYPE: s3
+          RCLONE_CONFIG_OBJSTORE_PROVIDER: ${{ secrets.S3_PROVIDER }}
+          RCLONE_CONFIG_OBJSTORE_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_OBJSTORE_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          RCLONE_CONFIG_OBJSTORE_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          RCLONE_CONFIG_OBJSTORE_REGION: ${{ secrets.S3_REGION }}
+          RCLONE_CONFIG_OBJSTORE_ACL: public-read
         with:
           args: sync objstore:apt/dists dists
 
@@ -868,10 +881,13 @@ jobs:
       - name: Push archive
         uses: docker://docker.io/rclone/rclone:latest
         env:
-          RCLONE_CONFIG_OBJSTORE_TYPE: ${{ secrets.AZUREBLOB_TYPE }}
-          RCLONE_CONFIG_OBJSTORE_ACCOUNT: ${{ secrets.AZUREBLOB_ACCOUNT }}
-          RCLONE_CONFIG_OBJSTORE_KEY: ${{ secrets.AZUREBLOB_KEY }}
-          RCLONE_AZUREBLOB_ACCESS_TIER: hot
+          RCLONE_CONFIG_OBJSTORE_TYPE: s3
+          RCLONE_CONFIG_OBJSTORE_PROVIDER: ${{ secrets.S3_PROVIDER }}
+          RCLONE_CONFIG_OBJSTORE_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_OBJSTORE_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+          RCLONE_CONFIG_OBJSTORE_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+          RCLONE_CONFIG_OBJSTORE_REGION: ${{ secrets.S3_REGION }}
+          RCLONE_CONFIG_OBJSTORE_ACL: public-read
         with:
           args: sync -v dists objstore:apt/dists
 
