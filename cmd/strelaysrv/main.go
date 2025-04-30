@@ -51,7 +51,6 @@ var (
 	globalLimitBps    int
 	overLimit         atomic.Bool
 	descriptorLimit   int64
-	sessionLimiter    *rate.Limiter
 	globalLimiter     *rate.Limiter
 	networkBufferSize int
 
@@ -228,9 +227,6 @@ func main() {
 		}
 	}
 
-	if sessionLimitBps > 0 {
-		sessionLimiter = rate.NewLimiter(rate.Limit(sessionLimitBps), 2*sessionLimitBps)
-	}
 	if globalLimitBps > 0 {
 		globalLimiter = rate.NewLimiter(rate.Limit(globalLimitBps), 2*globalLimitBps)
 	}
