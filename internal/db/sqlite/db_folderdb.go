@@ -35,12 +35,17 @@ func (s *DB) getFolderDB(folder string, create bool) (*folderDB, error) {
 
 	// Check for an existing database. If we're not supposed to create the
 	// folder, we don't move on if it doesn't already have a database name.
-	var dbName string
+	var dbns sql.NullString
 	if err := s.stmt(`
 		SELECT database_name FROM folders
 		WHERE folder_id = ?
-	`).Get(&dbName, folder); err != nil && !errors.Is(err, sql.ErrNoRows) {
+	`).Get(&dbns, folder); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, wrap(err)
+	}
+
+	var dbName string
+	if dbns.Valid {
+		dbName = dbns.String
 	}
 	if dbName == "" && !create {
 		return nil, errNoSuchFolder
