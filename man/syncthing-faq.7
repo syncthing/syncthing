@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "Apr 21, 2025" "v1.29.3" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Apr 26, 2025" "v1.29.3" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -74,6 +74,8 @@ syncthing-faq \- Frequently Asked Questions
 \fI\%Why does Syncthing connect to this unknown/suspicious address?\fP
 .IP \(bu 2
 \fI\%I am seeing the error message “folder marker missing”. What do I do?\fP
+.IP \(bu 2
+\fI\%Why do my Windows computers always connect through a relay?\fP
 .UNINDENT
 .IP \(bu 2
 \fI\%Usage\fP
@@ -254,8 +256,7 @@ Syncthing logs to stdout by default. On Windows Syncthing by default also
 creates \fBsyncthing.log\fP in Syncthing’s home directory (run \fBsyncthing
 \-\-paths\fP to see where that is). The command line option \fB\-\-logfile\fP can be
 used to specify a user\-defined logfile.  If you only have access to a running
-instance’s GUI, check under the \fIActions\fP \- \fIAbout\fP menu item to see the used
-paths.
+instance’s GUI, click the \fIHelp\fP \-> \fIAbout\fP menu item, then the \fIPaths\fP tab.
 .sp
 If you’re running a process manager like systemd, check there. If you’re
 using a GUI wrapper integration, it may keep the logs for you.
@@ -424,6 +425,14 @@ it will also reset the database state of this folder. It will be considered a �
 will be merged with files from remote devices.
 .sp
 Also see the \fI\%marker FAQ\fP for more information about the folder marker.
+.SS Why do my Windows computers always connect through a relay?
+.sp
+When connecting to a new network, Windows by default sets its profile to
+“Public”. While being more secure, this setting commonly prevents applications
+like Syncthing from being able to establish direct connections with the device
+in question, forcing it to connect through a relay. If you would rather connect
+your devices directly, please follow \X'tty: link https://support.microsoft.com/windows/essential-network-settings-and-tasks-in-windows-f21a9bbc-c582-55cd-35e0-73431160a1b9#bkmk_network_profile'\fI\%the official Microsoft instructions on how
+to change the network profile to “Private”\fP <\fBhttps://support.microsoft.com/windows/essential-network-settings-and-tasks-in-windows-f21a9bbc-c582-55cd-35e0-73431160a1b9#bkmk_network_profile\fP>\X'tty: link'\&.
 .SH USAGE
 .SS What if there is a conflict?
 .sp
