@@ -11,9 +11,24 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
+var packages = make(map[string]string)
+
 type adapter struct{}
 
-func NewAdapter(name string) *adapter { return &adapter{} }
+func NewAdapter(name string) *adapter {
+	var pcs [1]uintptr
+	runtime.Callers(2, pcs[:])
+	pc := pcs[0]
+	fr := runtime.CallersFrames([]uintptr{pc})
+	if fram, _ := fr.Next(); fram.Function != "" {
+		packages[funcNameToPkg(fram.Function)] = name
+	}
+	return &adapter{}
+}
+
+func Packages() map[string]string {
+	return packages
+}
 
 func (a adapter) Debugln(vals ...interface{}) {
 	log(strings.TrimSpace(fmt.Sprintln(vals...)), slog.LevelDebug)

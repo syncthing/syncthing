@@ -41,6 +41,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -748,7 +749,7 @@ func (*service) getSystemVersion(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (*service) getSystemDebug(w http.ResponseWriter, _ *http.Request) {
-	names := l.Facilities()
+	names := slogutil.Packages()
 	enabled := l.FacilityDebugging()
 	sort.Strings(enabled)
 	sendJSON(w, map[string]interface{}{
