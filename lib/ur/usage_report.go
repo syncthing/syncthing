@@ -177,7 +177,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 		case config.CompressionNever:
 			report.DeviceUses.CompressNever++
 		default:
-			l.Warnf("Unhandled versioning type for usage reports: %s", cfg.Compression)
+			l.Warnf("Unhandled versioning type for usage reports: %v", cfg.Compression)
 		}
 
 		for _, addr := range cfg.Addresses {

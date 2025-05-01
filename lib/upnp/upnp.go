@@ -613,7 +613,7 @@ func soapRequestWithIP(ctx context.Context, url, service, function, message stri
 
 	resp, err = io.ReadAll(r.Body)
 	if err != nil {
-		l.Debugf("Error reading SOAP response: %s, partial response (if present):\n\n%s", resp)
+		l.Debugf("Error reading SOAP response: %v, partial response (if present):\n\n%s", err, resp)
 		return resp, err
 	}
 

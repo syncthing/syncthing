@@ -9,7 +9,3 @@ package model
 import "github.com/syncthing/syncthing/internal/slogutil"
 
 var l = slogutil.NewAdapter("The root hub")
-
-func shouldDebug() bool {
-	return l.ShouldDebug("model")
-}

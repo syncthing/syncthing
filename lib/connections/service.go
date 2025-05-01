@@ -713,7 +713,7 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 			continue
 		}
 		if currentConns >= s.desiredConnectionsToDevice(deviceCfg.DeviceID) && priority == priorityCutoff {
-			l.Debugf("Not dialing %s at %s using %s as priority is equal and we already have %d/%d connections", deviceID.Short(), addr, dialerFactory, currentConns, deviceCfg.NumConnections)
+			l.Debugf("Not dialing %s at %s using %s as priority is equal and we already have %d/%d connections", deviceID.Short(), addr, dialerFactory, currentConns, deviceCfg.NumConnections())
 			continue
 		}
 

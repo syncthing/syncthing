@@ -968,7 +968,7 @@ func (f *folder) versionCleanupTimerFired() {
 	f.setState(FolderCleaning)
 
 	if err := f.versioner.Clean(f.ctx); err != nil {
-		l.Infoln("Failed to clean versions in %s: %v", f.Description(), err)
+		l.Infof("Failed to clean versions in %s: %v", f.Description(), err)
 	}
 
 	f.versionCleanupTimer.Reset(f.versionCleanupInterval)

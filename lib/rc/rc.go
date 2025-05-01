@@ -573,7 +573,7 @@ func (p *Process) eventLoop() {
 				folder := data["folder"].(string)
 				p.eventMut.Lock()
 				m := p.updateSequenceLocked(folder, device, data["sequence"])
-				l.Debugf("FolderCompletion %v\n\t%+v", p.id, folder, m)
+				l.Debugln("FolderCompletion", p.id, folder, m)
 				p.eventMut.Unlock()
 			}
 		}
