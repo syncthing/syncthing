@@ -9,6 +9,7 @@ package sqlite
 import (
 	"testing"
 
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -50,7 +51,7 @@ func TestBlocks(t *testing.T) {
 
 	// Search for blocks
 
-	vals, err := db.AllLocalBlocksWithHash([]byte{1, 2, 3})
+	vals, err := itererr.Collect(db.AllLocalBlocksWithHash(folderID, []byte{1, 2, 3}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,26 +62,13 @@ func TestBlocks(t *testing.T) {
 		t.Log(vals[0])
 		t.Fatal("bad entry")
 	}
-
-	// Get FileInfos for those blocks
-
-	res, err := db.AllLocalFilesWithBlocksHashAnyFolder(vals[0].BlocklistHash)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(res) != 1 {
-		t.Fatal("should return one folder")
-	}
-	if len(res[folderID]) != 1 {
-		t.Fatal("should find one file")
-	}
-	if res[folderID][0].Name != "file1" {
+	if vals[0].FileName != "file1" {
 		t.Fatal("should be file1")
 	}
 
 	// Get the other blocks
 
-	vals, err = db.AllLocalBlocksWithHash([]byte{3, 4, 5})
+	vals, err = itererr.Collect(db.AllLocalBlocksWithHash(folderID, []byte{3, 4, 5}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +107,7 @@ func TestBlocksDeleted(t *testing.T) {
 
 	// We should find one entry for the block hash
 	search := file.Blocks[0].Hash
-	es, err := sdb.AllLocalBlocksWithHash(search)
+	es, err := itererr.Collect(sdb.AllLocalBlocksWithHash(folderID, search))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +122,7 @@ func TestBlocksDeleted(t *testing.T) {
 	}
 
 	// Searching for the old hash should yield no hits
-	if hits, err := sdb.AllLocalBlocksWithHash(search); err != nil {
+	if hits, err := itererr.Collect(sdb.AllLocalBlocksWithHash(folderID, search)); err != nil {
 		t.Fatal(err)
 	} else if len(hits) != 0 {
 		t.Log(hits)
@@ -142,7 +130,7 @@ func TestBlocksDeleted(t *testing.T) {
 	}
 
 	// Searching for the new hash should yield one hits
-	if hits, err := sdb.AllLocalBlocksWithHash(file.Blocks[0].Hash); err != nil {
+	if hits, err := itererr.Collect(sdb.AllLocalBlocksWithHash(folderID, file.Blocks[0].Hash)); err != nil {
 		t.Fatal(err)
 	} else if len(hits) != 1 {
 		t.Log(hits)

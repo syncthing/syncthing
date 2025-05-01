@@ -99,7 +99,7 @@ func (s *folderDB) AllLocalBlocksWithHash(hash []byte) (iter.Seq[db.BlockMapEntr
 	// & blocklists is deferred (garbage collected) while the files list is
 	// not. This filters out blocks that are in fact deleted.
 	return iterStructs[db.BlockMapEntry](s.stmt(`
-		SELECT f.blocklist_hash as blocklisthash, b.idx as blockindex, b.offset, b.size FROM files f
+		SELECT f.blocklist_hash as blocklisthash, b.idx as blockindex, b.offset, b.size, f.name as filename FROM files f
 		LEFT JOIN blocks b ON f.blocklist_hash = b.blocklist_hash
 		WHERE f.device_idx = {{.LocalDeviceIdx}} AND b.hash = ?
 	`).Queryx(hash))
