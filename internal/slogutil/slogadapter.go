@@ -13,7 +13,9 @@ import (
 
 var packages = make(map[string]string)
 
-type adapter struct{}
+func Packages() map[string]string {
+	return packages
+}
 
 func NewAdapter(name string) *adapter {
 	var pcs [1]uintptr
@@ -26,9 +28,7 @@ func NewAdapter(name string) *adapter {
 	return &adapter{}
 }
 
-func Packages() map[string]string {
-	return packages
-}
+type adapter struct{}
 
 func (a adapter) Debugln(vals ...interface{}) {
 	log(strings.TrimSpace(fmt.Sprintln(vals...)), slog.LevelDebug)
@@ -80,6 +80,6 @@ func (a adapter) SetFlags(flag int)                                         {}
 func (a adapter) SetPrefix(prefix string)                                   {}
 func (a adapter) ShouldDebug(facility string) bool                          { return true }
 func (a adapter) SetDebug(facility string, enabled bool)                    {}
-func (a adapter) Facilities() map[string]string                             { return nil }
+func (a adapter) Facilities() map[string]string                             { return Packages() }
 func (a adapter) FacilityDebugging() []string                               { return nil }
 func (a adapter) NewFacility(facility, description string) logger.Logger    { return a }

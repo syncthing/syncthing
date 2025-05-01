@@ -11,7 +11,6 @@ type contextKey int
 
 const (
 	extraArgs contextKey = iota
-	callerOverride
 )
 
 type DecoratingHandler struct {
@@ -31,13 +30,9 @@ func (h DecoratingHandler) Handle(ctx context.Context, r slog.Record) error {
 	// Prefix the log message with the originating package/type name.
 	// In JSON, this becomes an attribute instead.
 	var caller string
-	if v, ok := ctx.Value(callerOverride).(string); ok && v != "" {
-		caller = v
-	} else {
-		fr := runtime.CallersFrames([]uintptr{r.PC})
-		if fram, _ := fr.Next(); fram.Function != "" {
-			caller = funcNameToPkg(fram.Function)
-		}
+	fr := runtime.CallersFrames([]uintptr{r.PC})
+	if fram, _ := fr.Next(); fram.Function != "" {
+		caller = funcNameToPkg(fram.Function)
 	}
 	if caller != "" {
 		r.AddAttrs(slog.String("caller", caller))
@@ -48,7 +43,8 @@ func (h DecoratingHandler) Handle(ctx context.Context, r slog.Record) error {
 
 func funcNameToPkg(fn string) string {
 	fn = strings.ToLower(fn)
-	fn = strings.TrimPrefix(fn, "github.com/syncthing/syncthing/")
+	fn = strings.TrimPrefix(fn, "github.com/syncthing/syncthing/lib/")
+	fn = strings.TrimPrefix(fn, "github.com/syncthing/syncthing/internal/")
 
 	pkgTypFn := strings.Split(fn, ".") // [package, type, method] or [package, function]
 	if len(pkgTypFn) <= 2 {
@@ -80,11 +76,6 @@ func With(ctx context.Context, args ...any) context.Context {
 	}
 
 	return context.WithValue(ctx, extraArgs, extra)
-}
-
-// WithCaller overrides the computed caller name in the output
-func WithCaller(ctx context.Context, caller string) context.Context {
-	return context.WithValue(ctx, callerOverride, caller)
 }
 
 // copy of the unexported method in log/slog, lightly modified
