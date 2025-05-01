@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"log/slog"
 	"net/url"
 	"sync"
 	"time"
@@ -46,7 +47,7 @@ type relayListener struct {
 func (t *relayListener) serve(ctx context.Context) error {
 	clnt, err := client.NewClient(t.uri, t.tlsCfg.Certificates, 10*time.Second)
 	if err != nil {
-		l.Infoln("Listen (BEP/relay):", err)
+		slog.Error("Failed to listen", "error", err)
 		return err
 	}
 
@@ -54,8 +55,8 @@ func (t *relayListener) serve(ctx context.Context) error {
 	t.client = clnt
 	t.mut.Unlock()
 
-	l.Infof("Relay listener (%v) starting", t)
-	defer l.Infof("Relay listener (%v) shutting down", t)
+	slog.Info("Relay listener starting", "id", t)
+	defer slog.Info("Relay listener shutting down", "id", t)
 	defer t.clearAddresses(t)
 
 	invitationCtx, cancel := context.WithCancel(ctx)
@@ -77,19 +78,19 @@ func (t *relayListener) handleInvitations(ctx context.Context, clnt client.Relay
 			conn, err := client.JoinSession(ctx, inv)
 			if err != nil {
 				if !errors.Is(err, context.Canceled) {
-					l.Infoln("Listen (BEP/relay): joining session:", err)
+					slog.Info("Failed to join session", "error", err)
 				}
 				continue
 			}
 
 			err = dialer.SetTCPOptions(conn)
 			if err != nil {
-				l.Debugln("Listen (BEP/relay): setting tcp options:", err)
+				slog.Debug("Failed to set TCP options", "error", err)
 			}
 
 			err = dialer.SetTrafficClass(conn, t.cfg.Options().TrafficClass)
 			if err != nil {
-				l.Debugln("Listen (BEP/relay): setting traffic class:", err)
+				slog.Debug("Failed to set traffic class", "error", err)
 			}
 
 			var tc *tls.Conn
@@ -102,7 +103,7 @@ func (t *relayListener) handleInvitations(ctx context.Context, clnt client.Relay
 			err = tlsTimedHandshake(tc)
 			if err != nil {
 				tc.Close()
-				l.Infoln("Listen (BEP/relay): TLS handshake:", err)
+				slog.Warn("Failed TLS handshake", "error", err)
 				continue
 			}
 

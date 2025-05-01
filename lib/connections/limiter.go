@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"sync/atomic"
 
 	"golang.org/x/time/rate"
@@ -107,15 +108,13 @@ func (lim *limiter) processDevicesConfigurationLocked(from, to config.Configurat
 				writeLimitStr = fmt.Sprintf("limit is %d KiB/s", dev.MaxSendKbps)
 			}
 
-			l.Infof("Device %s send rate %s, receive rate %s", dev.DeviceID, writeLimitStr, readLimitStr)
+			slog.Info("Device is rate limited", "device", dev.DeviceID, "send", writeLimitStr, "recv", readLimitStr)
 		}
 	}
 
 	// Delete remote devices which were removed in new configuration
 	for _, dev := range from.Devices {
 		if _, ok := seen[dev.DeviceID]; !ok {
-			l.Debugf("deviceID: %s should be removed", dev.DeviceID)
-
 			delete(lim.deviceWriteLimiters, dev.DeviceID)
 			delete(lim.deviceReadLimiters, dev.DeviceID)
 		}
@@ -160,13 +159,13 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 
 	lim.limitsLAN.Store(to.Options.LimitBandwidthInLan)
 
-	l.Infof("Overall send rate %s, receive rate %s", sendLimitStr, recvLimitStr)
+	slog.Info("Overall rate limit in use", "send", sendLimitStr, "recv", recvLimitStr)
 
 	if limited {
 		if to.Options.LimitBandwidthInLan {
-			l.Infoln("Rate limits apply to LAN connections")
+			slog.Info("Rate limits apply to LAN connections")
 		} else {
-			l.Infoln("Rate limits do not apply to LAN connections")
+			slog.Info("Rate limits do not apply to LAN connections")
 		}
 	}
 

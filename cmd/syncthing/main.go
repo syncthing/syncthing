@@ -815,7 +815,7 @@ func newLogHandler(level slog.Level) slog.Handler {
 	// 	})
 	// }
 
-	return slogutil.NewDecoratingHandler(handler, false)
+	return slogutil.NewDecoratingHandler(handler)
 }
 
 type versionCmd struct{}

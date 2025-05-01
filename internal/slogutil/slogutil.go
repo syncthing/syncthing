@@ -16,11 +16,10 @@ const (
 
 type DecoratingHandler struct {
 	slog.Handler
-	json bool
 }
 
-func NewDecoratingHandler(h slog.Handler, json bool) DecoratingHandler {
-	return DecoratingHandler{Handler: h, json: json}
+func NewDecoratingHandler(h slog.Handler) DecoratingHandler {
+	return DecoratingHandler{Handler: h}
 }
 
 func (h DecoratingHandler) Handle(ctx context.Context, r slog.Record) error {
@@ -104,4 +103,16 @@ func argsToAttr(args []any) (slog.Attr, []any) {
 	default:
 		return slog.Any(badKey, x), args[1:]
 	}
+}
+
+type expensive struct {
+	fn func() any
+}
+
+func (e expensive) LogValue() slog.Value {
+	return slog.AnyValue(e.fn())
+}
+
+func Expensive(fn func() any) expensive {
+	return expensive{fn}
 }

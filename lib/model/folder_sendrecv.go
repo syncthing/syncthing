@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/internal/itererr"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -567,11 +569,10 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 		mode = 0o777
 	}
 
-	if shouldDebug() {
+	slog.Debug("Need dir", "file", file, "cur", slogutil.Expensive(func() any {
 		curFile, _, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
-		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
-	}
-
+		return curFile
+	}))
 	info, err := f.mtimefs.Lstat(file.Name)
 	switch {
 	// There is already something under that name, we need to handle that.
@@ -731,10 +732,10 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 		})
 	}()
 
-	if shouldDebug() {
-		curFile, ok, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
-		l.Debugf("need symlink\n\t%v\n\t%v", file, curFile, ok)
-	}
+	slog.Debug("Need symlink", "file", file, "cur", slogutil.Expensive(func() any {
+		curFile, _, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
+		return curFile
+	}))
 
 	if len(file.SymlinkTarget) == 0 {
 		// Index entry from a Syncthing predating the support for including

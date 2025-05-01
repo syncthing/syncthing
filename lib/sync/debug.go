@@ -11,12 +11,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
 	threshold = 100 * time.Millisecond
-	l         = logger.DefaultLogger.NewFacility("sync", "Mutexes")
+	l         = slogutil.NewAdapter("Mutexes")
 
 	// We make an exception in this package and have an actual "if debug { ...
 	// }" variable, as it may be rather performance critical and does

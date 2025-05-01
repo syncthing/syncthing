@@ -13,6 +13,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"log/slog"
 	"net"
 	"net/url"
 	"sync"
@@ -56,7 +57,7 @@ type quicListener struct {
 
 func (t *quicListener) OnNATTypeChanged(natType stun.NATType) {
 	if natType != stun.NATUnknown {
-		l.Infof("%s detected NAT type: %s", t.uri, natType)
+		slog.Info("Detected NAT type", "uri", t.uri, "type", natType)
 	}
 	t.nat.Store(uint64(natType))
 }
@@ -75,7 +76,7 @@ func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) 
 	t.mut.Unlock()
 
 	if uri != nil && (existingAddress == nil || existingAddress.String() != uri.String()) {
-		l.Infof("%s resolved external address %s (via %s)", t.uri, uri.String(), via)
+		slog.Info("Resolved external address", "uri", t.uri, "address", uri.String(), "via", via)
 		t.notifyAddressesChanged(t)
 	} else if uri == nil && existingAddress != nil {
 		t.notifyAddressesChanged(t)
@@ -87,13 +88,13 @@ func (t *quicListener) serve(ctx context.Context) error {
 
 	udpAddr, err := net.ResolveUDPAddr(network, t.uri.Host)
 	if err != nil {
-		l.Infoln("Listen (BEP/quic):", err)
+		slog.Error("Failed to listen", "error", err)
 		return err
 	}
 
 	udpConn, err := net.ListenUDP(network, udpAddr)
 	if err != nil {
-		l.Infoln("Listen (BEP/quic):", err)
+		slog.Error("Failed to listen", "error", err)
 		return err
 	}
 	defer udpConn.Close()
@@ -115,7 +116,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 
 	listener, err := quicTransport.Listen(t.tlsCfg, quicConfig)
 	if err != nil {
-		l.Infoln("Listen (BEP/quic):", err)
+		slog.Error("Failed to listen", "error", err)
 		return err
 	}
 	defer listener.Close()
@@ -123,8 +124,8 @@ func (t *quicListener) serve(ctx context.Context) error {
 	t.notifyAddressesChanged(t)
 	defer t.clearAddresses(t)
 
-	l.Infof("QUIC listener (%v) starting", udpConn.LocalAddr())
-	defer l.Infof("QUIC listener (%v) shutting down", udpConn.LocalAddr())
+	slog.Info("QUIC listener starting", "addr", udpConn.LocalAddr())
+	defer slog.Info("QUIC listener shutting down", "addr", udpConn.LocalAddr())
 
 	t.mut.Lock()
 	t.laddr = udpConn.LocalAddr()
@@ -149,7 +150,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 		if errors.Is(err, context.Canceled) {
 			return nil
 		} else if err != nil {
-			l.Infoln("Listen (BEP/quic): Accepting connection:", err)
+			slog.Error("Failed to accept connection", "error", err)
 
 			acceptFailures++
 			if acceptFailures > maxAcceptFailures {
@@ -166,13 +167,13 @@ func (t *quicListener) serve(ctx context.Context) error {
 
 		acceptFailures = 0
 
-		l.Debugln("connect from", session.RemoteAddr())
+		slog.Debug("Incoming connection", "from", session.RemoteAddr())
 
 		streamCtx, cancel := context.WithTimeout(ctx, quicOperationTimeout)
 		stream, err := session.AcceptStream(streamCtx)
 		cancel()
 		if err != nil {
-			l.Debugf("failed to accept stream from %s: %v", session.RemoteAddr(), err)
+			slog.Debug("Failed to accept stream", "from", session.RemoteAddr(), "error", err)
 			_ = session.CloseWithError(1, err.Error())
 			continue
 		}

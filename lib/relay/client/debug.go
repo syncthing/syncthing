@@ -2,8 +2,6 @@
 
 package client
 
-import (
-	"github.com/syncthing/syncthing/lib/logger"
-)
+import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = logger.DefaultLogger.NewFacility("relay", "")
+var l = slogutil.NewAdapter("Relay client")

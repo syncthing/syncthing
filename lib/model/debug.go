@@ -6,11 +6,9 @@
 
 package model
 
-import (
-	"github.com/syncthing/syncthing/lib/logger"
-)
+import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = logger.DefaultLogger.NewFacility("model", "The root hub")
+var l = slogutil.NewAdapter("The root hub")
 
 func shouldDebug() bool {
 	return l.ShouldDebug("model")
