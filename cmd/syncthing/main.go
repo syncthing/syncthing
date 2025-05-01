@@ -20,7 +20,6 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
-	"regexp"
 	"runtime/pprof"
 	"strconv"
 	"syscall"
@@ -251,8 +250,6 @@ func helpHandler(options kong.HelpOptions, ctx *kong.Context) error {
 
 // serveCmd.Run() is the entrypoint for `syncthing serve`
 func (c *serveCmd) Run() error {
-	l.SetFlags(c.LogFlags)
-
 	if c.GUIAddress != "" {
 		// The config picks this up from the environment.
 		os.Setenv("STGUIADDRESS", c.GUIAddress)
@@ -273,7 +270,7 @@ func (c *serveCmd) Run() error {
 	if c.LogFile != "default" {
 		// We must set this *after* expandLocations above.
 		if err := locations.Set(locations.LogFile, c.LogFile); err != nil {
-			l.Warnln("Setting log file path:", err)
+			slog.Error("Failed to set log file path", "error", err)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 	}
@@ -282,7 +279,7 @@ func (c *serveCmd) Run() error {
 		// The asset dir is blank if STGUIASSETS wasn't set, in which case we
 		// should look for extra assets in the default place.
 		if err := locations.Set(locations.GUIAssets, c.DebugGUIAssetsDir); err != nil {
-			l.Warnln("Setting GUI assets path:", err)
+			slog.Error("Failed to set GUI assets path", "error", err)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 	}
@@ -456,7 +453,7 @@ func (c *serveCmd) syncthingMain() {
 	}
 
 	if err := syncthing.TryMigrateDatabase(c.DBDeleteRetentionInterval); err != nil {
-		l.Warnln("Failed to migrate old-style database:", err)
+		slog.Error("Failed to migrate old-style database", "error", err)
 		os.Exit(1)
 	}
 
@@ -504,13 +501,13 @@ func (c *serveCmd) syncthingMain() {
 	}
 
 	if c.Audit || cfgWrapper.Options().AuditEnabled {
-		l.Infoln("Auditing is enabled.")
+		slog.Info("Auditing is enabled")
 
 		auditFile := cfgWrapper.Options().AuditFile
 
 		// Ignore config option if command-line option is set
 		if c.AuditFile != "" {
-			l.Debugln("Using the audit file from the command-line parameter.")
+			slog.Debug("Using the audit file from the command-line parameter", "path", c.AuditFile)
 			auditFile = c.AuditFile
 		}
 
@@ -641,7 +638,7 @@ func (c *serveCmd) autoUpgradePossible() bool {
 		return false
 	}
 	if c.NoUpgrade {
-		l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
+		slog.Info("No automatic upgrades; STNOUPGRADE environment variable defined.")
 		return false
 	}
 	return true
@@ -794,28 +791,8 @@ func exitCodeForUpgrade(err error) int {
 	return svcutil.ExitError.AsInt()
 }
 
-// convertLegacyArgs returns the slice of arguments with single dash long
-// flags converted to double dash long flags.
-func convertLegacyArgs(args []string) []string {
-	// Legacy args begin with a single dash, followed by two or more characters.
-	legacyExp := regexp.MustCompile(`^-\w{2,}`)
-
-	res := make([]string, len(args))
-	for i, arg := range args {
-		if legacyExp.MatchString(arg) {
-			res[i] = "-" + arg
-		} else {
-			res[i] = arg
-		}
-	}
-
-	return res
-}
-
 func newLogHandler(level slog.Level) slog.Handler {
-	// Like time.RFC3339Nano, but with milliseconds without zero trimming,
-	// so the timestamp column is always equally wide.
-	const rfc3339Millis = "2006-01-02T15:04:05.000Z07:00"
+	const logFmt = "2006-01-02 15:04:05"
 
 	replaceAttr := func(groups []string, a slog.Attr) slog.Attr {
 		if len(groups) == 0 && a.Key == slog.TimeKey {
@@ -827,7 +804,7 @@ func newLogHandler(level slog.Level) slog.Handler {
 	color := isatty.IsTerminal(os.Stdout.Fd()) || os.Getenv("MONITOR_IS_STDOUT") != ""
 	handler := tint.NewHandler(os.Stdout, &tint.Options{
 		Level:       level,
-		TimeFormat:  rfc3339Millis,
+		TimeFormat:  logFmt,
 		NoColor:     !color,
 		ReplaceAttr: replaceAttr,
 	})
@@ -934,9 +911,9 @@ type debugCmd struct {
 type resetDatabaseCmd struct{}
 
 func (resetDatabaseCmd) Run() error {
-	l.Infoln("Removing database in", locations.Get(locations.Database))
+	slog.Info("Removing database", "path", locations.Get(locations.Database))
 	if err := os.RemoveAll(locations.Get(locations.Database)); err != nil {
-		l.Warnln("Resetting database:", err)
+		slog.Error("Failed to reset database", "error", err)
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 	slog.Info("Reset database - it will be rebuilt after next start")

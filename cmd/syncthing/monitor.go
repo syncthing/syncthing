@@ -45,8 +45,6 @@ const (
 )
 
 func (c *serveCmd) monitorMain() {
-	l.SetPrefix("[monitor] ")
-
 	var dst io.Writer = os.Stdout
 
 	logFile := locations.Get(locations.LogFile)
@@ -65,7 +63,7 @@ func (c *serveCmd) monitorMain() {
 			fileDst, err = open(logFile)
 		}
 		if err != nil {
-			l.Warnln("Failed to set up logging to file, proceeding with logging to stdout only:", err)
+			slog.Error("Failed to set up logging to file, proceeding with logging to stdout only", "error", err)
 		} else {
 			if build.IsWindows {
 				// Translate line breaks to Windows standard
@@ -79,14 +77,14 @@ func (c *serveCmd) monitorMain() {
 			// Log to both stdout and file.
 			dst = io.MultiWriter(dst, fileDst)
 
-			l.Info("Log output saved to file", "path", logFile)
+			slog.Info("Log output saved to file", "path", logFile)
 		}
 	}
 
 	args := os.Args
 	binary, err := getBinary(args[0])
 	if err != nil {
-		l.Warn("Error starting the main Syncthing process", "error", err)
+		slog.Warn("Error starting the main Syncthing process", "error", err)
 		panic("Error starting the main Syncthing process")
 	}
 	var restarts [restartCounts]time.Time
@@ -98,12 +96,15 @@ func (c *serveCmd) monitorMain() {
 	signal.Notify(restartSign, sigHup)
 
 	childEnv := childEnv()
+	if dst == os.Stdout {
+		childEnv = append(childEnv, "MONITOR_IS_STDOUT=true")
+	}
 	first := true
 	for {
 		maybeReportPanics()
 
 		if t := time.Since(restarts[0]); t < restartLoopThreshold {
-			l.Warn("Too many restarts; not retrying further", "count", restartCounts, "interval", t)
+			slog.Error("Too many restarts; not retrying further", "count", restartCounts, "interval", t)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 
@@ -123,10 +124,10 @@ func (c *serveCmd) monitorMain() {
 			panic(err)
 		}
 
-		l.Debug("Starting syncthing")
+		slog.Debug("Starting syncthing")
 		err = cmd.Start()
 		if err != nil {
-			l.Warn("Error starting the main Syncthing process", "error", err)
+			slog.Error("Error starting the main Syncthing process", "error", err)
 			panic("Error starting the main Syncthing process")
 		}
 
@@ -139,7 +140,7 @@ func (c *serveCmd) monitorMain() {
 
 		wg.Add(1)
 		go func() {
-			copyStderr(l, stderr, dst)
+			copyStderr(stderr, dst)
 			wg.Done()
 		}()
 
@@ -159,13 +160,13 @@ func (c *serveCmd) monitorMain() {
 		stopped := false
 		select {
 		case s := <-stopSign:
-			l.Info("Signal received; exiting", "signal", s)
+			slog.Info("Signal received; exiting", "signal", s)
 			cmd.Process.Signal(sigTerm)
 			err = <-exit
 			stopped = true
 
 		case s := <-restartSign:
-			l.Info("Signal received; restarting", "signal", s)
+			slog.Info("Signal received; restarting", "signal", s)
 			cmd.Process.Signal(sigHup)
 			err = <-exit
 
@@ -185,9 +186,9 @@ func (c *serveCmd) monitorMain() {
 			if exitCode == svcutil.ExitUpgrade.AsInt() {
 				// Restart the monitor process to release the .old
 				// binary as part of the upgrade process.
-				l.Info("Restarting monitor...")
+				slog.Info("Restarting monitor...")
 				if err = restartMonitor(binary, args); err != nil {
-					l.Warn("Error restarting", "error", err)
+					slog.Warn("Error restarting", "error", err)
 				}
 				os.Exit(exitCode)
 			}
@@ -197,7 +198,7 @@ func (c *serveCmd) monitorMain() {
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 
-		l.Info("Syncthing exited", "error", err)
+		slog.Info("Syncthing exited", "error", err)
 		time.Sleep(restartPause)
 
 		if first {
@@ -222,7 +223,7 @@ func getBinary(args0 string) (string, error) {
 	return "", err
 }
 
-func copyStderr(l *slog.Logger, stderr io.Reader, dst io.Writer) {
+func copyStderr(stderr io.Reader, dst io.Writer) {
 	br := bufio.NewReader(stderr)
 
 	var panicFd *os.File
@@ -245,13 +246,13 @@ func copyStderr(l *slog.Logger, stderr io.Reader, dst io.Writer) {
 			if strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") {
 				panicFd, err = os.Create(locations.GetTimestamped(locations.PanicLog))
 				if err != nil {
-					l.Warn("Failed to create panic log", "error", err)
+					slog.Error("Failed to create panic log", "error", err)
 					continue
 				}
 
-				l.Warn("Panic detected, writing to log", "path", panicFd.Name())
-				l.Warn("Please check for existing issues with similar panic message at https://github.com/syncthing/syncthing/issues/")
-				l.Warn("If no issue with similar panic message exists, please create a new issue with the panic log attached")
+				slog.Warn("Panic detected, writing to log", "path", panicFd.Name())
+				slog.Warn("Please check for existing issues with similar panic message at https://github.com/syncthing/syncthing/issues/")
+				slog.Warn("If no issue with similar panic message exists, please create a new issue with the panic log attached")
 
 				stdoutMut.Lock()
 				for _, line := range stdoutFirstLines {
