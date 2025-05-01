@@ -154,21 +154,11 @@ func (s *DB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[db.Fil
 	return fdb.AllGlobalFilesPrefix(prefix)
 }
 
-func (s *DB) AllLocalBlocksWithHash(hash []byte) ([]db.BlockMapEntry, error) {
-	var entries []db.BlockMapEntry
+func (s *DB) AllLocalBlocksWithHash(hash []byte) (map[string][]db.BlockMapEntry, error) {
+	res := make(map[string][]db.BlockMapEntry)
 	err := s.forEachFolder(func(fdb *folderDB) error {
-		es, err := itererr.Collect(fdb.AllLocalBlocksWithHash(hash))
-		entries = append(entries, es...)
-		return err
-	})
-	return entries, err
-}
-
-func (s *DB) AllLocalFilesWithBlocksHashAnyFolder(hash []byte) (map[string][]db.FileMetadata, error) {
-	res := make(map[string][]db.FileMetadata)
-	err := s.forEachFolder(func(fdb *folderDB) error {
-		files, err := itererr.Collect(fdb.AllLocalFilesWithBlocksHash(hash))
-		res[fdb.folderID] = files
+		blocks, err := itererr.Collect(fdb.AllLocalBlocksWithHash(hash))
+		res[fdb.folderID] = blocks
 		return err
 	})
 	return res, err

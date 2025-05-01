@@ -49,41 +49,22 @@ func TestBlocks(t *testing.T) {
 	}
 
 	// Search for blocks
-
-	vals, err := db.AllLocalBlocksWithHash([]byte{1, 2, 3})
-	if err != nil {
-		t.Fatal(err)
-	}
+	vals := allLocalBlocksForSingleTestFolder(t, db, []byte{1, 2, 3})
 	if len(vals) != 1 {
 		t.Log(vals)
 		t.Fatal("expected one hit")
-	} else if vals[0].BlockIndex != 0 || vals[0].Offset != 0 || vals[0].Size != 42 {
+	}
+	if vals[0].BlockIndex != 0 || vals[0].Offset != 0 || vals[0].Size != 42 {
 		t.Log(vals[0])
 		t.Fatal("bad entry")
 	}
-
-	// Get FileInfos for those blocks
-
-	res, err := db.AllLocalFilesWithBlocksHashAnyFolder(vals[0].BlocklistHash)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(res) != 1 {
-		t.Fatal("should return one folder")
-	}
-	if len(res[folderID]) != 1 {
-		t.Fatal("should find one file")
-	}
-	if res[folderID][0].Name != "file1" {
+	if vals[0].Filename != "file1" {
 		t.Fatal("should be file1")
 	}
 
 	// Get the other blocks
 
-	vals, err = db.AllLocalBlocksWithHash([]byte{3, 4, 5})
-	if err != nil {
-		t.Fatal(err)
-	}
+	vals = allLocalBlocksForSingleTestFolder(t, db, []byte{3, 4, 5})
 	if len(vals) != 2 {
 		t.Log(vals)
 		t.Fatal("expected two hits")
@@ -200,4 +181,17 @@ func TestRemoteSequence(t *testing.T) {
 		t.Log(seqs)
 		t.Error("bad seqs")
 	}
+}
+
+func allLocalBlocksForSingleTestFolder(t testing.TB, db *DB, hash []byte) []BlockMapEntry {
+	t.Helper()
+
+	valsPerFolder, err := db.AllLocalBlocksWithHash(hash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(valsPerFolder) != 1 {
+		t.Fatal("should return one folder")
+	}
+	return valsPerFolder[folderID]
 }
