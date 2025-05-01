@@ -162,6 +162,7 @@ func (s *DB) AllLocalBlocksWithHashAnyFolder(hash []byte) (iter.Seq[db.BlockMapE
 				if err != nil {
 					return err
 				}
+				e.FolderID = fdb.folderID
 				if !yield(e) {
 					return nil
 				}
