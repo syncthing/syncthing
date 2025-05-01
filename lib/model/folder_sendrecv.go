@@ -1343,34 +1343,32 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			}
 
 			buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
-
 			copied := false
-			blockMapEntriesPerFolder, err := f.model.sdb.AllLocalBlocksWithHash(block.Hash)
-			if err != nil {
-				// No special handling needed, the loop below will just be
-				// skipped and we start pulling (though likely will fail as this
-				// error shouldn't occur if the DB is healthy).
-				l.Debugf("Failed to get information from DB about block %v (folderID %v, file %v) in copier: %v", block.Hash, f.folderID, state.file.Name)
-			}
-		blockMapEntries:
-			for folderID, blockMapEntries := range blockMapEntriesPerFolder {
-				ffs := folderFilesystems[folderID]
-				for _, e := range blockMapEntries {
-					copied, err = f.copyBlock(e.FileName, e.Offset, dstFd, ffs, block, buf)
-					if err != nil {
-						state.fail(err)
-						break blockMapEntries
-					}
-					if !copied {
-						continue
-					}
-					if e.FileName == state.file.Name {
-						state.copiedFromOrigin(block.Size)
-					} else {
-						state.copiedFromElsewhere(block.Size)
-					}
-					break blockMapEntries
+
+			for e, err := range itererr.Zip(f.model.sdb.AllLocalBlocksWithHashAnyFolder(block.Hash)) {
+				if err != nil {
+					// We just ignore this and continue pulling instead (though
+					// there's a good chance that will fail too, if the DB is
+					// unhealthy).
+					l.Debugf("Failed to get information from DB about block %v in copier (folderID %v, file %v): %v", block.Hash, f.folderID, state.file.Name)
+					break
 				}
+
+				ffs := folderFilesystems[e.FolderID]
+				copied, err = f.copyBlock(e.FileName, e.Offset, dstFd, ffs, block, buf)
+				if err != nil {
+					state.fail(err)
+					break
+				}
+				if !copied {
+					continue
+				}
+				if e.FileName == state.file.Name {
+					state.copiedFromOrigin(block.Size)
+				} else {
+					state.copiedFromElsewhere(block.Size)
+				}
+				break
 			}
 
 			if state.failed() != nil {

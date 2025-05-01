@@ -154,14 +154,21 @@ func (s *DB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[db.Fil
 	return fdb.AllGlobalFilesPrefix(prefix)
 }
 
-func (s *DB) AllLocalBlocksWithHash(hash []byte) (map[string][]db.BlockMapEntry, error) {
-	res := make(map[string][]db.BlockMapEntry)
-	err := s.forEachFolder(func(fdb *folderDB) error {
-		blocks, err := itererr.Collect(fdb.AllLocalBlocksWithHash(hash))
-		res[fdb.folderID] = blocks
-		return err
-	})
-	return res, err
+func (s *DB) AllLocalBlocksWithHashAnyFolder(hash []byte) (iter.Seq[db.BlockMapEntry], func() error) {
+	var retErr error
+	return func(yield func(db.BlockMapEntry) bool) {
+		retErr = s.forEachFolder(func(fdb *folderDB) error {
+			for e, err := range itererr.Zip(fdb.AllLocalBlocksWithHash(hash)) {
+				if err != nil {
+					return err
+				}
+				if !yield(e) {
+					return nil
+				}
+			}
+			return nil
+		})
+	}, func() error { return retErr }
 }
 
 func (s *DB) AllLocalFiles(folder string, device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error) {

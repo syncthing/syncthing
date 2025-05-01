@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -325,11 +326,11 @@ func TestCopierCleanup(t *testing.T) {
 	// Update index (removing old blocks)
 	f.updateLocalsFromScanning([]protocol.FileInfo{file})
 
-	if vals, err := m.sdb.AllLocalBlocksWithHash(blocks[0].Hash); err != nil || len(vals) > 0 {
+	if vals, err := itererr.Collect(m.sdb.AllLocalBlocksWithHashAnyFolder(blocks[0].Hash)); err != nil || len(vals) > 0 {
 		t.Error("Unexpected block found")
 	}
 
-	if vals, err := m.sdb.AllLocalBlocksWithHash(blocks[1].Hash); err != nil || len(vals) == 0 {
+	if vals, err := itererr.Collect(m.sdb.AllLocalBlocksWithHashAnyFolder(blocks[1].Hash)); err != nil || len(vals) == 0 {
 		t.Error("Expected block not found")
 	}
 
@@ -338,11 +339,11 @@ func TestCopierCleanup(t *testing.T) {
 	// Update index (removing old blocks)
 	f.updateLocalsFromScanning([]protocol.FileInfo{file})
 
-	if vals, err := m.sdb.AllLocalBlocksWithHash(blocks[0].Hash); err != nil || len(vals) == 0 {
+	if vals, err := itererr.Collect(m.sdb.AllLocalBlocksWithHashAnyFolder(blocks[0].Hash)); err != nil || len(vals) == 0 {
 		t.Error("Unexpected block found")
 	}
 
-	if vals, err := m.sdb.AllLocalBlocksWithHash(blocks[1].Hash); err != nil || len(vals) > 0 {
+	if vals, err := itererr.Collect(m.sdb.AllLocalBlocksWithHashAnyFolder(blocks[1].Hash)); err != nil || len(vals) > 0 {
 		t.Error("Expected block not found")
 	}
 }

@@ -9,6 +9,7 @@ package sqlite
 import (
 	"testing"
 
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -49,22 +50,28 @@ func TestBlocks(t *testing.T) {
 	}
 
 	// Search for blocks
-	vals := allLocalBlocksForSingleTestFolder(t, db, []byte{1, 2, 3})
+
+	vals, err := itererr.Collect(db.AllLocalBlocksWithHashAnyFolder([]byte{1, 2, 3}))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(vals) != 1 {
 		t.Log(vals)
 		t.Fatal("expected one hit")
-	}
-	if vals[0].BlockIndex != 0 || vals[0].Offset != 0 || vals[0].Size != 42 {
+	} else if vals[0].BlockIndex != 0 || vals[0].Offset != 0 || vals[0].Size != 42 {
 		t.Log(vals[0])
 		t.Fatal("bad entry")
 	}
-	if vals[0].Filename != "file1" {
+	if vals[0].FileName != "file1" {
 		t.Fatal("should be file1")
 	}
 
 	// Get the other blocks
 
-	vals = allLocalBlocksForSingleTestFolder(t, db, []byte{3, 4, 5})
+	vals, err = itererr.Collect(db.AllLocalBlocksWithHashAnyFolder([]byte{3, 4, 5}))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(vals) != 2 {
 		t.Log(vals)
 		t.Fatal("expected two hits")
@@ -100,7 +107,7 @@ func TestBlocksDeleted(t *testing.T) {
 
 	// We should find one entry for the block hash
 	search := file.Blocks[0].Hash
-	es, err := sdb.AllLocalBlocksWithHash(search)
+	es, err := itererr.Collect(sdb.AllLocalBlocksWithHashAnyFolder(search))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +122,7 @@ func TestBlocksDeleted(t *testing.T) {
 	}
 
 	// Searching for the old hash should yield no hits
-	if hits, err := sdb.AllLocalBlocksWithHash(search); err != nil {
+	if hits, err := itererr.Collect(sdb.AllLocalBlocksWithHashAnyFolder(search)); err != nil {
 		t.Fatal(err)
 	} else if len(hits) != 0 {
 		t.Log(hits)
@@ -123,7 +130,7 @@ func TestBlocksDeleted(t *testing.T) {
 	}
 
 	// Searching for the new hash should yield one hits
-	if hits, err := sdb.AllLocalBlocksWithHash(file.Blocks[0].Hash); err != nil {
+	if hits, err := itererr.Collect(sdb.AllLocalBlocksWithHashAnyFolder(file.Blocks[0].Hash)); err != nil {
 		t.Fatal(err)
 	} else if len(hits) != 1 {
 		t.Log(hits)
@@ -181,17 +188,4 @@ func TestRemoteSequence(t *testing.T) {
 		t.Log(seqs)
 		t.Error("bad seqs")
 	}
-}
-
-func allLocalBlocksForSingleTestFolder(t testing.TB, db *DB, hash []byte) []BlockMapEntry {
-	t.Helper()
-
-	valsPerFolder, err := db.AllLocalBlocksWithHash(hash)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(valsPerFolder) != 1 {
-		t.Fatal("should return one folder")
-	}
-	return valsPerFolder[folderID]
 }
