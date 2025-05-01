@@ -41,7 +41,7 @@ type DB interface {
 	AllLocalFilesWithPrefix(folder string, device protocol.DeviceID, prefix string) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocalFilesWithBlocksHash(folder string, h []byte) (iter.Seq[FileMetadata], func() error)
 	AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit, offset int) (iter.Seq[protocol.FileInfo], func() error)
-	AllLocalBlocksWithHashAnyFolder(hash []byte) (iter.Seq[BlockMapEntry], func() error)
+	AllLocalBlocksWithHash(folder string, hash []byte) (iter.Seq[BlockMapEntry], func() error)
 
 	// Cleanup
 	DropAllFiles(folder string, device protocol.DeviceID) error
@@ -87,7 +87,6 @@ type BlockMapEntry struct {
 	Offset        int64
 	BlockIndex    int
 	Size          int
-	FolderID      string
 	FileName      string
 }
 

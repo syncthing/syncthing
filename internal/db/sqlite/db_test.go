@@ -1084,7 +1084,7 @@ func TestInsertLargeFile(t *testing.T) {
 	// Verify all the blocks are here
 
 	for i, block := range files[0].Blocks {
-		bs, err := itererr.Collect(sdb.AllLocalBlocksWithHashAnyFolder(block.Hash))
+		bs, err := itererr.Collect(sdb.AllLocalBlocksWithHash(folderID, block.Hash))
 		if err != nil {
 			t.Fatal(err)
 		}

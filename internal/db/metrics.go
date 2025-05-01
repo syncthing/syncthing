@@ -102,9 +102,9 @@ func (m metricsDB) GetGlobalAvailability(folder, file string) ([]protocol.Device
 	return m.DB.GetGlobalAvailability(folder, file)
 }
 
-func (m metricsDB) AllLocalBlocksWithHashAnyFolder(hash []byte) (iter.Seq[BlockMapEntry], func() error) {
+func (m metricsDB) AllLocalBlocksWithHash(folder string, hash []byte) (iter.Seq[BlockMapEntry], func() error) {
 	defer m.account("-", "AllLocalBlocksWithHash")()
-	return m.DB.AllLocalBlocksWithHashAnyFolder(hash)
+	return m.DB.AllLocalBlocksWithHash(folder, hash)
 }
 
 func (m metricsDB) Close() error {

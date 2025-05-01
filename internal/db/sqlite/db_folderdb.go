@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
-	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -154,22 +153,15 @@ func (s *DB) AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[db.Fil
 	return fdb.AllGlobalFilesPrefix(prefix)
 }
 
-func (s *DB) AllLocalBlocksWithHashAnyFolder(hash []byte) (iter.Seq[db.BlockMapEntry], func() error) {
-	var retErr error
-	return func(yield func(db.BlockMapEntry) bool) {
-		retErr = s.forEachFolder(func(fdb *folderDB) error {
-			for e, err := range itererr.Zip(fdb.AllLocalBlocksWithHash(hash)) {
-				if err != nil {
-					return err
-				}
-				e.FolderID = fdb.folderID
-				if !yield(e) {
-					return nil
-				}
-			}
-			return nil
-		})
-	}, func() error { return retErr }
+func (s *DB) AllLocalBlocksWithHash(folder string, hash []byte) (iter.Seq[db.BlockMapEntry], func() error) {
+	fdb, err := s.getFolderDB(folder, false)
+	if errors.Is(err, errNoSuchFolder) {
+		return func(yield func(db.BlockMapEntry) bool) {}, func() error { return nil }
+	}
+	if err != nil {
+		return func(yield func(db.BlockMapEntry) bool) {}, func() error { return err }
+	}
+	return fdb.AllLocalBlocksWithHash(hash)
 }
 
 func (s *DB) AllLocalFiles(folder string, device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error) {

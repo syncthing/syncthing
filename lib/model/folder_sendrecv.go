@@ -1345,30 +1345,32 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
 			copied := false
 
-			for e, err := range itererr.Zip(f.model.sdb.AllLocalBlocksWithHashAnyFolder(block.Hash)) {
-				if err != nil {
-					// We just ignore this and continue pulling instead (though
-					// there's a good chance that will fail too, if the DB is
-					// unhealthy).
-					l.Debugf("Failed to get information from DB about block %v in copier (folderID %v, file %v): %v", block.Hash, f.folderID, state.file.Name)
-					break
-				}
+		folders:
+			for folderID, ffs := range folderFilesystems {
+				for e, err := range itererr.Zip(f.model.sdb.AllLocalBlocksWithHash(folderID, block.Hash)) {
+					if err != nil {
+						// We just ignore this and continue pulling instead (though
+						// there's a good chance that will fail too, if the DB is
+						// unhealthy).
+						l.Debugf("Failed to get information from DB about block %v in copier (folderID %v, file %v): %v", block.Hash, f.folderID, state.file.Name)
+						break
+					}
 
-				ffs := folderFilesystems[e.FolderID]
-				copied, err = f.copyBlock(e.FileName, e.Offset, dstFd, ffs, block, buf)
-				if err != nil {
-					state.fail(err)
-					break
+					copied, err = f.copyBlock(e.FileName, e.Offset, dstFd, ffs, block, buf)
+					if err != nil {
+						state.fail(err)
+						break folders
+					}
+					if !copied {
+						continue
+					}
+					if e.FileName == state.file.Name {
+						state.copiedFromOrigin(block.Size)
+					} else {
+						state.copiedFromElsewhere(block.Size)
+					}
+					break folders
 				}
-				if !copied {
-					continue
-				}
-				if e.FileName == state.file.Name {
-					state.copiedFromOrigin(block.Size)
-				} else {
-					state.copiedFromElsewhere(block.Size)
-				}
-				break
 			}
 
 			if state.failed() != nil {

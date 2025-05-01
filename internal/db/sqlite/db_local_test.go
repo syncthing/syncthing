@@ -51,7 +51,7 @@ func TestBlocks(t *testing.T) {
 
 	// Search for blocks
 
-	vals, err := itererr.Collect(db.AllLocalBlocksWithHashAnyFolder([]byte{1, 2, 3}))
+	vals, err := itererr.Collect(db.AllLocalBlocksWithHash(folderID, []byte{1, 2, 3}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestBlocks(t *testing.T) {
 
 	// Get the other blocks
 
-	vals, err = itererr.Collect(db.AllLocalBlocksWithHashAnyFolder([]byte{3, 4, 5}))
+	vals, err = itererr.Collect(db.AllLocalBlocksWithHash(folderID, []byte{3, 4, 5}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestBlocksDeleted(t *testing.T) {
 
 	// We should find one entry for the block hash
 	search := file.Blocks[0].Hash
-	es, err := itererr.Collect(sdb.AllLocalBlocksWithHashAnyFolder(search))
+	es, err := itererr.Collect(sdb.AllLocalBlocksWithHash(folderID, search))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func TestBlocksDeleted(t *testing.T) {
 	}
 
 	// Searching for the old hash should yield no hits
-	if hits, err := itererr.Collect(sdb.AllLocalBlocksWithHashAnyFolder(search)); err != nil {
+	if hits, err := itererr.Collect(sdb.AllLocalBlocksWithHash(folderID, search)); err != nil {
 		t.Fatal(err)
 	} else if len(hits) != 0 {
 		t.Log(hits)
@@ -130,7 +130,7 @@ func TestBlocksDeleted(t *testing.T) {
 	}
 
 	// Searching for the new hash should yield one hits
-	if hits, err := itererr.Collect(sdb.AllLocalBlocksWithHashAnyFolder(file.Blocks[0].Hash)); err != nil {
+	if hits, err := itererr.Collect(sdb.AllLocalBlocksWithHash(folderID, file.Blocks[0].Hash)); err != nil {
 		t.Fatal(err)
 	} else if len(hits) != 1 {
 		t.Log(hits)
