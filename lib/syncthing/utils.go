@@ -267,6 +267,7 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 	_ = miscDB.PutTime("migrated-from-leveldb-at", time.Now())
 	_ = miscDB.PutString("migrated-from-leveldb-by", build.LongVersion)
 
+	_ = be.Close()
 	_ = os.Rename(oldDBDir, oldDBDir+"-migrated")
 
 	l.Infof("Migration complete, %d files and %dk blocks in %s", totFiles, totBlocks/1000, time.Since(t0).Truncate(time.Second))
