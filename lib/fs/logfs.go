@@ -177,7 +177,3 @@ func (fs *logFilesystem) Usage(name string) (Usage, error) {
 func (fs *logFilesystem) underlying() (Filesystem, bool) {
 	return fs.Filesystem, true
 }
-
-func (*logFilesystem) wrapperType() filesystemWrapperType {
-	return filesystemWrapperTypeLog
-}

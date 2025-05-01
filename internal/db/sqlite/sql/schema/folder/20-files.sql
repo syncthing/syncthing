@@ -22,7 +22,6 @@
 -- Need bit. This allows for very efficient lookup of files needing handling
 -- on this device, which is a common query.
 CREATE TABLE IF NOT EXISTS files (
-    folder_idx INTEGER NOT NULL,
     device_idx INTEGER NOT NULL, -- actual device ID or LocalDeviceID
     sequence INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, -- our local database sequence, for each and every entry
     remote_sequence INTEGER, -- remote device's sequence number, null for local or synthetic entries
@@ -35,8 +34,7 @@ CREATE TABLE IF NOT EXISTS files (
     invalid INTEGER NOT NULL, -- boolean
     local_flags INTEGER NOT NULL,
     blocklist_hash BLOB, -- null when there are no blocks
-    FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
-    FOREIGN KEY(folder_idx) REFERENCES folders(idx) ON DELETE CASCADE
+    FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE
 ) STRICT
 ;
 -- FileInfos store the actual protobuf object. We do this separately to keep
@@ -48,15 +46,15 @@ CREATE TABLE IF NOT EXISTS fileinfos (
 ) STRICT
 ;
 -- There can be only one file per folder, device, and remote sequence number
-CREATE UNIQUE INDEX IF NOT EXISTS files_remote_sequence ON files (folder_idx, device_idx, remote_sequence)
+CREATE UNIQUE INDEX IF NOT EXISTS files_remote_sequence ON files (device_idx, remote_sequence)
     WHERE remote_sequence IS NOT NULL
 ;
 -- There can be only one file per folder, device, and name
-CREATE UNIQUE INDEX IF NOT EXISTS files_device_name ON files (folder_idx, device_idx, name)
+CREATE UNIQUE INDEX IF NOT EXISTS files_device_name ON files (device_idx, name)
 ;
 -- We want to be able to look up & iterate files based on just folder and name
-CREATE INDEX IF NOT EXISTS files_name_only ON files (folder_idx, name)
+CREATE INDEX IF NOT EXISTS files_name_only ON files (name)
 ;
 -- We want to be able to look up & iterate files based on blocks hash
-CREATE INDEX IF NOT EXISTS files_blocklist_hash_only ON files (blocklist_hash, device_idx, folder_idx) WHERE blocklist_hash IS NOT NULL
+CREATE INDEX IF NOT EXISTS files_blocklist_hash_only ON files (blocklist_hash, device_idx) WHERE blocklist_hash IS NOT NULL
 ;

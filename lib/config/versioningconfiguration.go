@@ -20,7 +20,7 @@ type VersioningConfiguration struct {
 	Params           map[string]string `json:"params" xml:"parameter" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	CleanupIntervalS int               `json:"cleanupIntervalS" xml:"cleanupIntervalS" default:"3600"`
 	FSPath           string            `json:"fsPath" xml:"fsPath"`
-	FSType           FilesystemType    `json:"fsType" xml:"fsType"`
+	FSType           FilesystemType    `json:"fsType" xml:"fsType" default:"basic"`
 }
 
 func (c *VersioningConfiguration) Reset() {
@@ -33,7 +33,7 @@ type internalVersioningConfiguration struct {
 	Params           []internalParam `xml:"param"`
 	CleanupIntervalS int             `xml:"cleanupIntervalS" default:"3600"`
 	FSPath           string          `xml:"fsPath"`
-	FSType           FilesystemType  `xml:"fsType"`
+	FSType           FilesystemType  `xml:"fsType" default:"basic"`
 }
 
 type internalParam struct {

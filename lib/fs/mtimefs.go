@@ -143,10 +143,6 @@ func (f *mtimeFS) underlying() (Filesystem, bool) {
 	return f.Filesystem, true
 }
 
-func (*mtimeFS) wrapperType() filesystemWrapperType {
-	return filesystemWrapperTypeMtime
-}
-
 func (f *mtimeFS) save(name string, ondisk, virtual time.Time) {
 	if f.caseInsensitive {
 		name = UnicodeLowercaseNormalized(name)
@@ -209,7 +205,7 @@ func (f mtimeFile) unwrap() File {
 }
 
 func GetMtimeMapping(fs Filesystem, file string) (ondisk, virtual time.Time) {
-	fs, ok := unwrapFilesystem(fs, filesystemWrapperTypeMtime)
+	fs, ok := unwrapFilesystem[*mtimeFS](fs)
 	if !ok {
 		return time.Time{}, time.Time{}
 	}

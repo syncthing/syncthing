@@ -8,6 +8,7 @@ package osutil
 
 import (
 	"net"
+	"strings"
 )
 
 // GetInterfaceAddrs returns the IP networks of all interfaces that are up.
@@ -44,6 +45,17 @@ func GetInterfaceAddrs(includePtP bool) ([]*net.IPNet, error) {
 		}
 	}
 	return nets, nil
+}
+
+func IPFromString(addr string) net.IP {
+	// strip the port
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+	// strip IPv6 zone identifier
+	host, _, _ = strings.Cut(host, "%")
+	return net.ParseIP(host)
 }
 
 func IPFromAddr(addr net.Addr) (net.IP, error) {

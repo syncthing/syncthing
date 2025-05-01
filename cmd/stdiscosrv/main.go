@@ -21,11 +21,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/blob"
+	"github.com/syncthing/syncthing/internal/blob/azureblob"
+	"github.com/syncthing/syncthing/internal/blob/s3"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/s3"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 )
 
@@ -58,12 +60,13 @@ const (
 var debug = false
 
 type CLI struct {
-	Cert          string `group:"Listen" help:"Certificate file" default:"./cert.pem" env:"DISCOVERY_CERT_FILE"`
-	Key           string `group:"Listen" help:"Key file" default:"./key.pem" env:"DISCOVERY_KEY_FILE"`
-	HTTP          bool   `group:"Listen" help:"Listen on HTTP (behind an HTTPS proxy)" env:"DISCOVERY_HTTP"`
-	Compression   bool   `group:"Listen" help:"Enable GZIP compression of responses" env:"DISCOVERY_COMPRESSION"`
-	Listen        string `group:"Listen" help:"Listen address" default:":8443" env:"DISCOVERY_LISTEN"`
-	MetricsListen string `group:"Listen" help:"Metrics listen address" env:"DISCOVERY_METRICS_LISTEN"`
+	Cert                string  `group:"Listen" help:"Certificate file" default:"./cert.pem" env:"DISCOVERY_CERT_FILE"`
+	Key                 string  `group:"Listen" help:"Key file" default:"./key.pem" env:"DISCOVERY_KEY_FILE"`
+	HTTP                bool    `group:"Listen" help:"Listen on HTTP (behind an HTTPS proxy)" env:"DISCOVERY_HTTP"`
+	Compression         bool    `group:"Listen" help:"Enable GZIP compression of responses" env:"DISCOVERY_COMPRESSION"`
+	Listen              string  `group:"Listen" help:"Listen address" default:":8443" env:"DISCOVERY_LISTEN"`
+	MetricsListen       string  `group:"Listen" help:"Metrics listen address" env:"DISCOVERY_METRICS_LISTEN"`
+	DesiredNotFoundRate float64 `group:"Listen" help:"Desired maximum rate of not-found replies (/s)" default:"1000"`
 
 	DBDir           string        `group:"Database" help:"Database directory" default:"." env:"DISCOVERY_DB_DIR"`
 	DBFlushInterval time.Duration `group:"Database" help:"Interval between database flushes" default:"5m" env:"DISCOVERY_DB_FLUSH_INTERVAL"`
@@ -73,6 +76,10 @@ type CLI struct {
 	DBS3Bucket      string `name:"db-s3-bucket" group:"Database (S3 backup)" hidden:"true" help:"S3 bucket for database" env:"DISCOVERY_DB_S3_BUCKET"`
 	DBS3AccessKeyID string `name:"db-s3-access-key-id" group:"Database (S3 backup)" hidden:"true" help:"S3 access key ID for database" env:"DISCOVERY_DB_S3_ACCESS_KEY_ID"`
 	DBS3SecretKey   string `name:"db-s3-secret-key" group:"Database (S3 backup)" hidden:"true" help:"S3 secret key for database" env:"DISCOVERY_DB_S3_SECRET_KEY"`
+
+	DBAzureBlobAccount   string `name:"db-azure-blob-account" env:"DISCOVERY_DB_AZUREBLOB_ACCOUNT"`
+	DBAzureBlobKey       string `name:"db-azure-blob-key" env:"DISCOVERY_DB_AZUREBLOB_KEY"`
+	DBAzureBlobContainer string `name:"db-azure-blob-container" env:"DISCOVERY_DB_AZUREBLOB_CONTAINER"`
 
 	AMQPAddress string `group:"AMQP replication" hidden:"true" help:"Address to AMQP broker" env:"DISCOVERY_AMQP_ADDRESS"`
 
@@ -117,18 +124,20 @@ func main() {
 		Timeout:           2 * time.Minute,
 	})
 
-	// If configured, use S3 for database backups.
-	var s3c *s3.Session
+	// If configured, use blob storage for database backups.
+	var blobs blob.Store
+	var err error
 	if cli.DBS3Endpoint != "" {
-		var err error
-		s3c, err = s3.NewSession(cli.DBS3Endpoint, cli.DBS3Region, cli.DBS3Bucket, cli.DBS3AccessKeyID, cli.DBS3SecretKey)
-		if err != nil {
-			log.Fatalf("Failed to create S3 session: %v", err)
-		}
+		blobs, err = s3.NewSession(cli.DBS3Endpoint, cli.DBS3Region, cli.DBS3Bucket, cli.DBS3AccessKeyID, cli.DBS3SecretKey)
+	} else if cli.DBAzureBlobAccount != "" {
+		blobs, err = azureblob.NewBlobStore(cli.DBAzureBlobAccount, cli.DBAzureBlobKey, cli.DBAzureBlobContainer)
+	}
+	if err != nil {
+		log.Fatalf("Failed to create blob store: %v", err)
 	}
 
 	// Start the database.
-	db := newInMemoryStore(cli.DBDir, cli.DBFlushInterval, s3c)
+	db := newInMemoryStore(cli.DBDir, cli.DBFlushInterval, blobs)
 	main.Add(db)
 
 	// If we have an AMQP broker for replication, start that
@@ -141,7 +150,7 @@ func main() {
 	}
 
 	// Start the main API server.
-	qs := newAPISrv(cli.Listen, cert, db, repl, cli.HTTP, cli.Compression)
+	qs := newAPISrv(cli.Listen, cert, db, repl, cli.HTTP, cli.Compression, cli.DesiredNotFoundRate)
 	main.Add(qs)
 
 	// If we have a metrics port configured, start a metrics handler.

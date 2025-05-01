@@ -156,7 +156,7 @@
     "Failed Items": "Elementy zakończone niepowodzeniem",
     "Failed to load file versions.": "Nie udało się załadować wersji plików.",
     "Failed to load ignore patterns.": "Nie udało się załadować wzorców ignorowania.",
-    "Failed to setup, retrying": "Nie udało się ustawić; ponawiam próbę",
+    "Failed to set up, retrying": "Nie udało się ustawić; ponawiam próbę",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Błąd połączenia do serwerów IPv6 może wystąpić, gdy w ogóle nie ma połączenia po IPv6.",
     "File Pull Order": "Kolejność pobierania plików",
     "File Versioning": "Wersjonowanie plików",

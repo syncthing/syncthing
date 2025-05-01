@@ -153,7 +153,3 @@ func (f *walkFilesystem) Walk(root string, walkFn WalkFunc) error {
 func (f *walkFilesystem) underlying() (Filesystem, bool) {
 	return f.Filesystem, true
 }
-
-func (*walkFilesystem) wrapperType() filesystemWrapperType {
-	return filesystemWrapperTypeWalk
-}

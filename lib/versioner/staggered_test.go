@@ -139,10 +139,12 @@ func TestCreateVersionPath(t *testing.T) {
 	}
 
 	folderCfg := config.FolderConfiguration{
-		ID:   "default",
-		Path: tmpDir,
+		ID:             "default",
+		FilesystemType: config.FilesystemTypeBasic,
+		Path:           tmpDir,
 		Versioning: config.VersioningConfiguration{
 			Type:   "staggered",
+			FSType: config.FilesystemTypeBasic,
 			FSPath: versionsDir,
 		},
 	}

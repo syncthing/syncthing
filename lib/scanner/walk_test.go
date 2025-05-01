@@ -677,7 +677,7 @@ func TestStopWalk(t *testing.T) {
 
 	// Use an errorFs as the backing fs for the rest of the interface
 	// The way we get it is a bit hacky tho.
-	errorFs := fs.NewFilesystem(fs.FilesystemType(-1), ".")
+	errorFs := fs.NewFilesystem(fs.FilesystemType("error"), ".")
 	fs := fs.NewWalkFilesystem(&infiniteFS{errorFs, 100, 100, 1e6})
 
 	const numHashers = 4

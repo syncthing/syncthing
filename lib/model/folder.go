@@ -173,6 +173,8 @@ func (f *folder) Serve(ctx context.Context) error {
 	}
 
 	initialCompleted := f.initialScanFinished
+	pullTimer := time.NewTimer(0)
+	pullTimer.Stop()
 
 	for {
 		var err error
@@ -183,6 +185,17 @@ func (f *folder) Serve(ctx context.Context) error {
 			return nil
 
 		case <-f.pullScheduled:
+			if f.PullerDelayS > 0 {
+				// Wait for incoming updates to settle before doing the
+				// actual pull
+				f.setState(FolderSyncWaiting)
+				pullTimer.Reset(time.Duration(float64(time.Second) * f.PullerDelayS))
+			} else {
+				_, err = f.pull()
+			}
+
+		case <-pullTimer.C:
+			f.setState(FolderIdle)
 			_, err = f.pull()
 
 		case <-f.pullFailTimer.C:

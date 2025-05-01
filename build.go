@@ -628,6 +628,9 @@ func buildDeb(target target) {
 		// than just 0.14.26. This rectifies that.
 		debver = strings.Replace(debver, "-", "~", -1)
 	}
+	if strings.Contains(debver, "_") {
+		debver = strings.Replace(debver, "_", "~", -1)
+	}
 	args := []string{
 		"-t", "deb",
 		"-s", "dir",

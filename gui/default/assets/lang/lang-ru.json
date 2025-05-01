@@ -154,7 +154,7 @@
     "Failed Items": "Сбойные объекты",
     "Failed to load file versions.": "Не удалось загрузить версии файлов.",
     "Failed to load ignore patterns.": "Не удалось загрузить шаблоны игнорирования.",
-    "Failed to setup, retrying": "Не удалось настроить, пробуем ещё",
+    "Failed to set up, retrying": "Не удалось настроить, пробуем ещё",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Если нет IPv6-соединений, при подключении к IPv6-серверам произойдёт ошибка.",
     "File Pull Order": "Порядок получения файлов",
     "File Versioning": "Управление версиями",

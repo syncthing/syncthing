@@ -298,6 +298,7 @@ func TestBasics(t *testing.T) {
 			t.Fatal(err)
 		}
 		if len(folders) != 1 || folders[0] != folderID {
+			t.Log(folders)
 			t.Error("expected one folder")
 		}
 	})
@@ -1009,15 +1010,20 @@ func TestBlocklistGarbageCollection(t *testing.T) {
 
 	// There should exist three blockslists and six blocks
 
+	fdb, err := sdb.getFolderDB(folderID, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	var count int
-	if err := sdb.sql.Get(&count, `SELECT count(*) FROM blocklists`); err != nil {
+	if err := fdb.sql.Get(&count, `SELECT count(*) FROM blocklists`); err != nil {
 		t.Fatal(err)
 	}
 	if count != 3 {
 		t.Log(count)
 		t.Fatal("expected 3 blocklists")
 	}
-	if err := sdb.sql.Get(&count, `SELECT count(*) FROM blocks`); err != nil {
+	if err := fdb.sql.Get(&count, `SELECT count(*) FROM blocks`); err != nil {
 		t.Fatal(err)
 	}
 	if count != 6 {
@@ -1039,19 +1045,52 @@ func TestBlocklistGarbageCollection(t *testing.T) {
 
 	// There should exist two blockslists and four blocks
 
-	if err := sdb.sql.Get(&count, `SELECT count(*) FROM blocklists`); err != nil {
+	if err := fdb.sql.Get(&count, `SELECT count(*) FROM blocklists`); err != nil {
 		t.Fatal(err)
 	}
 	if count != 2 {
 		t.Log(count)
 		t.Error("expected 2 blocklists")
 	}
-	if err := sdb.sql.Get(&count, `SELECT count(*) FROM blocks`); err != nil {
+	if err := fdb.sql.Get(&count, `SELECT count(*) FROM blocks`); err != nil {
 		t.Fatal(err)
 	}
 	if count != 3 {
 		t.Log(count)
 		t.Error("expected 3 blocks")
+	}
+}
+
+func TestInsertLargeFile(t *testing.T) {
+	t.Parallel()
+
+	sdb, err := OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := sdb.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// Add a large file (many blocks)
+
+	files := []protocol.FileInfo{genFile("test1", 16000, 1)}
+	if err := sdb.Update(folderID, protocol.LocalDeviceID, files); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify all the blocks are here
+
+	for i, block := range files[0].Blocks {
+		bs, err := itererr.Collect(sdb.AllLocalBlocksWithHash(folderID, block.Hash))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(bs) == 0 {
+			t.Error("missing blocks for", i)
+		}
 	}
 }
 
@@ -1067,6 +1106,54 @@ func TestErrorWrap(t *testing.T) {
 
 	if err := wrap(fooErr, "bar", "baz"); err.Error() != "testerrorwrap (bar, baz): foo" {
 		t.Fatalf("%q", err)
+	}
+}
+
+func TestStrangeDeletedGlobalBug(t *testing.T) {
+	// This exercises an edge case with serialisation and ordering of
+	// version vectors. It does not need to make sense, it just needs to
+	// pass.
+
+	t.Parallel()
+
+	sdb, err := OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := sdb.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// One remote device announces the original version of the file
+
+	file := genFile("test", 1, 1)
+	file.Version = protocol.Vector{Counters: []protocol.Counter{{ID: 35494436325452, Value: 1742900373}}}
+	t.Log("orig", file.Version)
+	sdb.Update(folderID, protocol.DeviceID{42}, []protocol.FileInfo{file})
+
+	// Another one announces a newer one that is deleted
+
+	del := file
+	del.SetDeleted(43)
+	del.Version = protocol.Vector{Counters: []protocol.Counter{{ID: 55445057455644, Value: 1742918457}, {ID: 35494436325452, Value: 1742900373}}}
+	t.Log("del", del.Version)
+	sdb.Update(folderID, protocol.DeviceID{43}, []protocol.FileInfo{del})
+
+	// We have an instance of the original file
+
+	sdb.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{file})
+
+	// Which one is the global? It should be the deleted one, clearly.
+
+	g, _, err := sdb.GetGlobalFile(folderID, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !g.Deleted {
+		t.Log(g)
+		t.Fatal("should be deleted")
 	}
 }
 

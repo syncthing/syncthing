@@ -9,6 +9,8 @@ package config
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"path"
@@ -22,6 +24,7 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/structutil"
 )
 
 var (
@@ -46,8 +49,8 @@ type FolderDeviceConfiguration struct {
 type FolderConfiguration struct {
 	ID                      string                      `json:"id" xml:"id,attr" nodefault:"true"`
 	Label                   string                      `json:"label" xml:"label,attr" restart:"false"`
-	FilesystemType          FilesystemType              `json:"filesystemType" xml:"filesystemType"`
-	Path                    string                      `json:"path" xml:"path,attr" default:"~"`
+	FilesystemType          FilesystemType              `json:"filesystemType" xml:"filesystemType" default:"basic"`
+	Path                    string                      `json:"path" xml:"path,attr"`
 	Type                    FolderType                  `json:"type" xml:"type,attr"`
 	Devices                 []FolderDeviceConfiguration `json:"devices" xml:"device"`
 	RescanIntervalS         int                         `json:"rescanIntervalS" xml:"rescanIntervalS,attr" default:"3600"`
@@ -65,6 +68,7 @@ type FolderConfiguration struct {
 	IgnoreDelete            bool                        `json:"ignoreDelete" xml:"ignoreDelete"`
 	ScanProgressIntervalS   int                         `json:"scanProgressIntervalS" xml:"scanProgressIntervalS"`
 	PullerPauseS            int                         `json:"pullerPauseS" xml:"pullerPauseS"`
+	PullerDelayS            float64                     `json:"pullerDelayS" xml:"pullerDelayS" default:"1"`
 	MaxConflicts            int                         `json:"maxConflicts" xml:"maxConflicts" default:"10"`
 	DisableSparseFiles      bool                        `json:"disableSparseFiles" xml:"disableSparseFiles"`
 	DisableTempIndexes      bool                        `json:"disableTempIndexes" xml:"disableTempIndexes"`
@@ -390,4 +394,24 @@ func (f XattrFilter) GetMaxSingleEntrySize() int {
 
 func (f XattrFilter) GetMaxTotalSize() int {
 	return f.MaxTotalSize
+}
+
+func (f *FolderConfiguration) UnmarshalJSON(data []byte) error {
+	structutil.SetDefaults(f)
+
+	// avoid recursing into this method
+	type noCustomUnmarshal FolderConfiguration
+	ptr := (*noCustomUnmarshal)(f)
+
+	return json.Unmarshal(data, ptr)
+}
+
+func (f *FolderConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	structutil.SetDefaults(f)
+
+	// avoid recursing into this method
+	type noCustomUnmarshal FolderConfiguration
+	ptr := (*noCustomUnmarshal)(f)
+
+	return d.DecodeElement(ptr, &start)
 }

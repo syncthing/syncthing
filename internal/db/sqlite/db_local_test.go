@@ -9,7 +9,6 @@ package sqlite
 import (
 	"testing"
 
-	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -52,7 +51,7 @@ func TestBlocks(t *testing.T) {
 
 	// Search for blocks
 
-	vals, err := itererr.Collect(db.AllLocalBlocksWithHash([]byte{1, 2, 3}))
+	vals, err := itererr.Collect(db.AllLocalBlocksWithHash(folderID, []byte{1, 2, 3}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,30 +62,13 @@ func TestBlocks(t *testing.T) {
 		t.Log(vals[0])
 		t.Fatal("bad entry")
 	}
-
-	// Get FileInfos for those blocks
-
-	found := 0
-	it, errFn := db.AllLocalFilesWithBlocksHashAnyFolder(vals[0].BlocklistHash)
-	for folder, fileInfo := range it {
-		if folder != folderID {
-			t.Fatal("should be same folder")
-		}
-		if fileInfo.Name != "file1" {
-			t.Fatal("should be file1")
-		}
-		found++
-	}
-	if err := errFn(); err != nil {
-		t.Fatal(err)
-	}
-	if found != 1 {
-		t.Fatal("should find one file")
+	if vals[0].FileName != "file1" {
+		t.Fatal("should be file1")
 	}
 
 	// Get the other blocks
 
-	vals, err = itererr.Collect(db.AllLocalBlocksWithHash([]byte{3, 4, 5}))
+	vals, err = itererr.Collect(db.AllLocalBlocksWithHash(folderID, []byte{3, 4, 5}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +107,10 @@ func TestBlocksDeleted(t *testing.T) {
 
 	// We should find one entry for the block hash
 	search := file.Blocks[0].Hash
-	es := mustCollect[db.BlockMapEntry](t)(sdb.AllLocalBlocksWithHash(search))
+	es, err := itererr.Collect(sdb.AllLocalBlocksWithHash(folderID, search))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(es) != 1 {
 		t.Fatal("expected one hit")
 	}
@@ -137,13 +122,17 @@ func TestBlocksDeleted(t *testing.T) {
 	}
 
 	// Searching for the old hash should yield no hits
-	if hits := mustCollect[db.BlockMapEntry](t)(sdb.AllLocalBlocksWithHash(search)); len(hits) != 0 {
+	if hits, err := itererr.Collect(sdb.AllLocalBlocksWithHash(folderID, search)); err != nil {
+		t.Fatal(err)
+	} else if len(hits) != 0 {
 		t.Log(hits)
 		t.Error("expected no hits")
 	}
 
 	// Searching for the new hash should yield one hits
-	if hits := mustCollect[db.BlockMapEntry](t)(sdb.AllLocalBlocksWithHash(file.Blocks[0].Hash)); len(hits) != 1 {
+	if hits, err := itererr.Collect(sdb.AllLocalBlocksWithHash(folderID, file.Blocks[0].Hash)); err != nil {
+		t.Fatal(err)
+	} else if len(hits) != 1 {
 		t.Log(hits)
 		t.Error("expected one hit")
 	}

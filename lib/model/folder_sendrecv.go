@@ -1343,60 +1343,33 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			}
 
 			buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
+			copied := false
 
-			found := false
-			for e, err := range itererr.Zip(f.model.sdb.AllLocalBlocksWithHash(block.Hash)) {
-				if err != nil {
-					break
-				}
-				it, errFn := f.model.sdb.AllLocalFilesWithBlocksHashAnyFolder(e.BlocklistHash)
-				for folderID, fi := range it {
-					ffs := folderFilesystems[folderID]
-					fd, err := ffs.Open(fi.Name)
+		folders:
+			for folderID, ffs := range folderFilesystems {
+				for e, err := range itererr.Zip(f.model.sdb.AllLocalBlocksWithHash(folderID, block.Hash)) {
 					if err != nil {
-						continue
-					}
-					defer fd.Close()
-
-					_, err = fd.ReadAt(buf, e.Offset)
-					if err != nil {
-						fd.Close()
-						continue
-					}
-
-					// Hash is not SHA256 as it's an encrypted hash token. In that
-					// case we can't verify the block integrity so we'll take it on
-					// trust. (The other side can and will verify.)
-					if f.Type != config.FolderTypeReceiveEncrypted {
-						if err := f.verifyBuffer(buf, block); err != nil {
-							l.Debugln("Finder failed to verify buffer", err)
-							continue
-						}
-					}
-
-					if f.CopyRangeMethod != config.CopyRangeMethodStandard {
-						err = f.withLimiter(func() error {
-							dstFd.mut.Lock()
-							defer dstFd.mut.Unlock()
-							return fs.CopyRange(f.CopyRangeMethod.ToFS(), fd, dstFd.fd, e.Offset, block.Offset, int64(block.Size))
-						})
-					} else {
-						err = f.limitedWriteAt(dstFd, buf, block.Offset)
-					}
-					if err != nil {
-						state.fail(fmt.Errorf("dst write: %w", err))
+						// We just ignore this and continue pulling instead (though
+						// there's a good chance that will fail too, if the DB is
+						// unhealthy).
+						l.Debugf("Failed to get information from DB about block %v in copier (folderID %v, file %v): %v", block.Hash, f.folderID, state.file.Name)
 						break
 					}
-					if fi.Name == state.file.Name {
+
+					copied, err = f.copyBlock(e.FileName, e.Offset, dstFd, ffs, block, buf)
+					if err != nil {
+						state.fail(err)
+						break folders
+					}
+					if !copied {
+						continue
+					}
+					if e.FileName == state.file.Name {
 						state.copiedFromOrigin(block.Size)
 					} else {
 						state.copiedFromElsewhere(block.Size)
 					}
-					found = true
-					break
-				}
-				if err := errFn(); err != nil {
-					l.Warnln(err)
+					break folders
 				}
 			}
 
@@ -1404,7 +1377,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				break
 			}
 
-			if !found {
+			if !copied {
 				state.pullStarted()
 				ps := pullBlockState{
 					sharedPullerState: state.sharedPullerState,
@@ -1418,6 +1391,47 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 		out <- state.sharedPullerState
 	}
+}
+
+// Returns true, if the block was successfully copied to buf. The returned
+// errors is *only* non-nil for errors that are fatal for pulling this entire
+// file (i.e. writing to dstFd fails). For other errors that mean the block
+// wasn't copied, but we can continue trying, the error is nil and the bool
+// false.
+// The buffer must be big enough to hold the block. It's only purpose is
+// efficiency resp. reuse, the caller must not use/rely on its contents.
+func (f *sendReceiveFolder) copyBlock(srcName string, srcOffset int64, dstFd *lockedWriterAt, ffs fs.Filesystem, block protocol.BlockInfo, buf []byte) (bool, error) {
+	fd, err := ffs.Open(srcName)
+	if err != nil {
+		l.Debugf("Failed to open file %v trying to copy block %v (folderID %v): %v", srcName, block.Hash, f.folderID, err)
+		return false, nil
+	}
+	defer fd.Close()
+
+	_, err = fd.ReadAt(buf, srcOffset)
+	if err != nil {
+		l.Debugf("Failed to read block from file %v in copier (folderID: %v, hash: %v): %v", srcName, f.folderID, block.Hash, err)
+		return false, nil
+	}
+
+	// Hash is not SHA256 as it's an encrypted hash token. In that
+	// case we can't verify the block integrity so we'll take it on
+	// trust. (The other side can and will verify.)
+	if f.Type != config.FolderTypeReceiveEncrypted {
+		if err := f.verifyBuffer(buf, block); err != nil {
+			l.Debugf("Failed to verify buffer in copier (folderID: %v): %v", f.folderID, err)
+			return false, nil
+		}
+	}
+
+	if f.CopyRangeMethod != config.CopyRangeMethodStandard {
+		return true, f.withLimiter(func() error {
+			dstFd.mut.Lock()
+			defer dstFd.mut.Unlock()
+			return fs.CopyRange(f.CopyRangeMethod.ToFS(), fd, dstFd.fd, srcOffset, block.Offset, int64(block.Size))
+		})
+	}
+	return true, f.limitedWriteAt(dstFd, buf, block.Offset)
 }
 
 func (*sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) error {
@@ -1801,6 +1815,7 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 		return nil
 	}
 
+	metricFolderConflictsTotal.WithLabelValues(f.ID).Inc()
 	newName := conflictName(name, lastModBy)
 	err := f.mtimefs.Rename(name, newName)
 	if fs.IsNotExist(err) {

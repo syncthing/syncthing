@@ -19,6 +19,8 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 )
 
+const FilesystemTypeBasic FilesystemType = "basic"
+
 var (
 	errInvalidFilenameEmpty               = errors.New("name is invalid, must not be empty")
 	errInvalidFilenameWindowsSpacePeriod  = errors.New("name is invalid, must not end in space or period on Windows")
@@ -55,6 +57,12 @@ type (
 	userCache  = valueCache[string, *user.User]
 	groupCache = valueCache[string, *user.Group]
 )
+
+func init() {
+	RegisterFilesystemType(FilesystemTypeBasic, func(root string, opts ...Option) (Filesystem, error) {
+		return newBasicFilesystem(root, opts...), nil
+	})
+}
 
 func newBasicFilesystem(root string, opts ...Option) *BasicFilesystem {
 	if root == "" {
@@ -326,10 +334,6 @@ func (*BasicFilesystem) SameFile(fi1, fi2 FileInfo) bool {
 
 func (*BasicFilesystem) underlying() (Filesystem, bool) {
 	return nil, false
-}
-
-func (*BasicFilesystem) wrapperType() filesystemWrapperType {
-	return filesystemWrapperTypeNone
 }
 
 // basicFile implements the fs.File interface on top of an os.File

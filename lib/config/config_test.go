@@ -92,6 +92,8 @@ func TestDefaultValues(t *testing.T) {
 			RawStunServers:            []string{"default"},
 			AnnounceLANAddresses:      true,
 			FeatureFlags:              []string{},
+			AuditEnabled:              false,
+			AuditFile:                 "",
 			ConnectionPriorityTCPLAN:  10,
 			ConnectionPriorityQUICLAN: 20,
 			ConnectionPriorityTCPWAN:  30,
@@ -101,16 +103,18 @@ func TestDefaultValues(t *testing.T) {
 		Defaults: Defaults{
 			Folder: FolderConfiguration{
 				FilesystemType:   FilesystemTypeBasic,
-				Path:             "~",
+				Path:             "",
 				Type:             FolderTypeSendReceive,
 				Devices:          []FolderDeviceConfiguration{{DeviceID: device1}},
 				RescanIntervalS:  3600,
 				FSWatcherEnabled: true,
 				FSWatcherDelayS:  10,
 				IgnorePerms:      false,
+				PullerDelayS:     1,
 				AutoNormalize:    true,
 				MinDiskFree:      size,
 				Versioning: VersioningConfiguration{
+					FSType:           FilesystemTypeBasic,
 					CleanupIntervalS: 3600,
 					Params:           map[string]string{},
 				},
@@ -179,21 +183,26 @@ func TestDeviceConfig(t *testing.T) {
 				Devices:          []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
 				Type:             FolderTypeSendOnly,
 				RescanIntervalS:  600,
-				FSWatcherEnabled: false,
+				FSWatcherEnabled: true,
 				FSWatcherDelayS:  10,
 				Copiers:          0,
 				Hashers:          0,
+				PullerDelayS:     1,
 				AutoNormalize:    true,
 				MinDiskFree:      Size{1, "%"},
 				MaxConflicts:     -1,
 				Versioning: VersioningConfiguration{
-					Params: map[string]string{},
+					CleanupIntervalS: 3600,
+					FSType:           FilesystemTypeBasic,
+					Params:           map[string]string{},
 				},
 				MarkerName:          DefaultMarkerName,
 				JunctionsAsDirs:     true,
 				MaxConcurrentWrites: maxConcurrentWritesDefault,
 				XattrFilter: XattrFilter{
-					Entries: []XattrFilterEntry{},
+					MaxSingleEntrySize: 1024,
+					MaxTotalSize:       4096,
+					Entries:            []XattrFilterEntry{},
 				},
 			},
 		}
@@ -288,6 +297,8 @@ func TestOverriddenValues(t *testing.T) {
 		StunKeepaliveMinS:         900,
 		RawStunServers:            []string{"foo"},
 		FeatureFlags:              []string{"feature"},
+		AuditEnabled:              true,
+		AuditFile:                 "nggyu",
 		ConnectionPriorityTCPLAN:  40,
 		ConnectionPriorityQUICLAN: 45,
 		ConnectionPriorityTCPWAN:  50,
@@ -518,7 +529,8 @@ func TestIssue1750(t *testing.T) {
 
 func TestFolderPath(t *testing.T) {
 	folder := FolderConfiguration{
-		Path: "~/tmp",
+		FilesystemType: FilesystemTypeBasic,
+		Path:           "~/tmp",
 	}
 
 	realPath := folder.Filesystem().URI()

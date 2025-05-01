@@ -34,6 +34,7 @@ const (
 	AuditLog       LocationEnum = "auditLog"
 	GUIAssets      LocationEnum = "guiAssets"
 	DefFolder      LocationEnum = "defFolder"
+	LockFile       LocationEnum = "lockFile"
 )
 
 type BaseDirEnum string
@@ -48,7 +49,7 @@ const (
 	UserHomeBaseDir BaseDirEnum = "userHome"
 
 	levelDBDir          = "index-v0.14.0.db"
-	databaseName        = "index-v2.db"
+	databaseName        = "index-v2"
 	configFileName      = "config.xml"
 	defaultStateDir     = ".local/state/syncthing"
 	oldDefaultConfigDir = ".config/syncthing"
@@ -127,6 +128,7 @@ var locationTemplates = map[LocationEnum]string{
 	AuditLog:       "${data}/audit-%{timestamp}.log",
 	GUIAssets:      "${config}/gui",
 	DefFolder:      "${userHome}/Sync",
+	LockFile:       "${data}/syncthing.lock",
 }
 
 var locations = make(map[LocationEnum]string)

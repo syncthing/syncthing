@@ -268,7 +268,7 @@ func TestDontNeedIgnored(t *testing.T) {
 	}
 }
 
-func TestRemoveDontNeedLocalIgnored(t *testing.T) {
+func TestRemoteDontNeedLocalIgnored(t *testing.T) {
 	t.Parallel()
 
 	db, err := OpenTemp()
@@ -388,6 +388,32 @@ func TestRemoteDontNeedDeletedMissing(t *testing.T) {
 
 	// It shouldn't show up in their need list
 	names := mustCollect[protocol.FileInfo](t)(db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0, 0))
+	if len(names) != 0 {
+		t.Log(names)
+		t.Error("need no files")
+	}
+
+	// Another remote has announced it, but has set the invalid bit,
+	// presumably it's being ignored.
+	file = genFile("test1", 1, 103)
+	file.SetIgnored()
+	err = db.Update(folderID, protocol.DeviceID{43}, []protocol.FileInfo{file})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// They don't need it, either
+	s, err = db.CountNeed(folderID, protocol.DeviceID{43})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Bytes != 0 || s.Files != 0 || s.Deleted != 0 {
+		t.Log(s)
+		t.Error("bad need")
+	}
+
+	// It shouldn't show up in their need list
+	names = mustCollect[protocol.FileInfo](t)(db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0, 0))
 	if len(names) != 0 {
 		t.Log(names)
 		t.Error("need no files")

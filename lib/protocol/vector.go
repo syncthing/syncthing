@@ -31,7 +31,9 @@ func (v *Vector) String() string {
 		if i > 0 {
 			buf.WriteRune(',')
 		}
-		fmt.Fprintf(&buf, "%x:%d", c.ID, c.Value)
+		var idbs [8]byte
+		binary.BigEndian.PutUint64(idbs[:], uint64(c.ID))
+		fmt.Fprintf(&buf, "%x:%d", idbs, c.Value)
 	}
 	return buf.String()
 }
