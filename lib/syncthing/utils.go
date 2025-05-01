@@ -170,11 +170,13 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 		// Apparently, not a valid old database
 		return nil
 	}
+	defer be.Close()
 
 	sdb, err := sqlite.OpenForMigration(locations.Get(locations.Database))
 	if err != nil {
 		return err
 	}
+	defer sdb.Close()
 
 	miscDB := db.NewMiscDB(sdb)
 	if when, ok, err := miscDB.Time("migrated-from-leveldb-at"); err == nil && ok {
@@ -265,8 +267,7 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 	_ = miscDB.PutTime("migrated-from-leveldb-at", time.Now())
 	_ = miscDB.PutString("migrated-from-leveldb-by", build.LongVersion)
 
-	be.Close()
-	sdb.Close()
+	_ = be.Close()
 	_ = os.Rename(oldDBDir, oldDBDir+"-migrated")
 
 	l.Infof("Migration complete, %d files and %dk blocks in %s", totFiles, totBlocks/1000, time.Since(t0).Truncate(time.Second))
