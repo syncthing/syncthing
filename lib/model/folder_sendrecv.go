@@ -1346,7 +1346,10 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			copied := false
 
 		folders:
-			for folderID, ffs := range folderFilesystems {
+			// Intentionally not iterating over `folderFilesystems` directly,
+			// to preserve order (same folder first).
+			for _, folderID := range folders {
+				ffs := folderFilesystems[folderID]
 				for e, err := range itererr.Zip(f.model.sdb.AllLocalBlocksWithHash(folderID, block.Hash)) {
 					if err != nil {
 						// We just ignore this and continue pulling instead (though
@@ -1393,7 +1396,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 	}
 }
 
-// Returns true, if the block was successfully copied to buf. The returned
+// Returns true, if the block was successfully copied. The returned
 // errors is *only* non-nil for errors that are fatal for pulling this entire
 // file (i.e. writing to dstFd fails). For other errors that mean the block
 // wasn't copied, but we can continue trying, the error is nil and the bool
