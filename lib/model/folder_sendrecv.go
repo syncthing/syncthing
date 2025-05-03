@@ -1349,6 +1349,13 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			}
 			pullChan <- ps
 		}
+		// If there are no blocks to pull/copy, we still need the temporary file in place.
+		if len(state.blocks) == 0 {
+			_, err := state.tempFile()
+			if err != nil {
+				state.fail(err)
+			}
+		}
 
 		out <- state.sharedPullerState
 	}
