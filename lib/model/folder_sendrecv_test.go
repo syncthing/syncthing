@@ -14,6 +14,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"testing"
@@ -679,6 +680,17 @@ func TestCopyOwner(t *testing.T) {
 		expOwner = 1234
 		expGroup = 5678
 	)
+
+	// This test hung on a regression, taking a long time to fail - speed that up.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	go func() {
+		<-ctx.Done()
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			pprof.Lookup("goroutine").WriteTo(os.Stdout, 2)
+			panic("timed out before test finished")
+		}
+	}()
 
 	// Set up a folder with the CopyParentOwner bit and backed by a fake
 	// filesystem.
