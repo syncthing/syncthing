@@ -38,7 +38,7 @@ syncthing \- Syncthing
 syncthing [serve]
           [\-\-audit] [\-\-auditfile=<file|\-|\-\->] [\-\-browser\-only] [\-\-device\-id]
           [\-\-generate=<dir>] [\-\-gui\-address=<address>] [\-\-gui\-apikey=<key>]
-          [\-\-home=<dir> | \-\-config=<dir> \-\-data=<dir>] [\-\-tmp=<tmp>]
+          [\-\-home=<dir> | \-\-config=<dir> \-\-data=<dir>]
           [\-\-logfile=<filename>] [\-\-logflags=<flags>]
           [\-\-log\-max\-old\-files=<num>] [\-\-log\-max\-size=<num>]
           [\-\-no\-browser] [\-\-no\-console] [\-\-no\-restart] [\-\-paths] [\-\-paused]
@@ -170,14 +170,6 @@ together with \fB\-\-data\fP\&.
 .B \-\-data=<dir>
 Set data (e.g. database) directory. Alternative to \fB\-\-home\fP and must be used
 together with \fB\-\-config\fP\&.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-\-tmp=<tmp>
-Set tempory file directory. All temporary files will be stored here. Must be on
-the same filesystem as the destination folder. Temporary file names are hashed
-to prevent collisions in the event two files with the same name are being
-synced across different folders.
 .UNINDENT
 .INDENT 0.0
 .TP
