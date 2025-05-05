@@ -22,7 +22,7 @@ const (
 	UnixTempPrefix    = ".syncthing."
 )
 
-var tmpdir string
+var tempdir string
 
 func tempPrefix() string {
 	if build.IsWindows {
@@ -48,13 +48,13 @@ func IsTemporary(name string) bool {
 
 func TempNameWithPrefix(name, prefix string) string {
 	var tdir, tname string
-	if tmpdir != "" {
-		tdir = tmpdir
+	if tempdir != "" {
+		tdir = tempdir
 	} else {
 		tdir = filepath.Dir(name)
 	}
 	tbase := filepath.Base(name)
-	if tmpdir != "" || len(tbase) > maxFilenameLength {
+	if tempdir != "" || len(tbase) > maxFilenameLength {
 		// Hash the full name to prevent collisions if the same tbase
 		// is being stored in different folders.
 		tname = fmt.Sprintf("%s%x.tmp", prefix, sha256.Sum256([]byte(name)))
@@ -78,8 +78,8 @@ func SetTempDir(dir string) error {
 	}
 	perm := fi.Mode().Perm()
 	if perm&(1<<(uint(7))) == 0 {
-		return errors.New("tmpdir not writable")
+		return errors.New("tempdir not writable")
 	}
-	tmpdir = dir
+	tempdir = dir
 	return nil
 }

@@ -24,7 +24,7 @@ func TestLongTempFilename(t *testing.T) {
 }
 
 func TestCustomTempDirHashesFileNames(t *testing.T) {
-	tmpdir = "local-tmp-dir"
+	tempdir = "local-temp-dir"
 	filename1 := "file/to/sync.txt"
 	tFile1 := TempName(filename1)
 	filename2 := "duplicate-file/to/sync.txt"
