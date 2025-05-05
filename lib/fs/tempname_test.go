@@ -23,6 +23,17 @@ func TestLongTempFilename(t *testing.T) {
 	}
 }
 
+func TestCustomTempDirHashesFileNames(t *testing.T) {
+	tmpdir = "local-tmp-dir"
+	filename1 := "file/to/sync.txt"
+	tFile1 := TempName(filename1)
+	filename2 := "duplicate-file/to/sync.txt"
+	tFile2 := TempName(filename2)
+	if tFile1 == tFile2 {
+		t.Fatal("non-unique temp names", tFile1, tFile2)
+	}
+}
+
 func benchmarkTempName(b *testing.B, filename string) {
 	filename = filepath.Join("/Users/marieantoinette", filename)
 
