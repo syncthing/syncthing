@@ -144,6 +144,7 @@ type serveOptions struct {
 	AuditFile        string `name:"auditfile" placeholder:"PATH" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)"`
 	BrowserOnly      bool   `help:"Open GUI in browser"`
 	DataDir          string `name:"data" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
+	TempDir          string `name:"tmp" placeholder:"TMPDIR" env:"STTMPDIR" help:"Set single tempdir for storing incomplete files (optional)"`
 	DeviceID         bool   `help:"Show the device ID"`
 	GenerateDir      string `name:"generate" placeholder:"PATH" help:"Generate key and config in specified dir, then exit"` // DEPRECATED: replaced by subcommand!
 	GUIAddress       string `name:"gui-address" placeholder:"URL" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")"`
@@ -286,6 +287,13 @@ func (options serveOptions) Run() error {
 	if err != nil {
 		l.Warnln("Command line options:", err)
 		os.Exit(svcutil.ExitError.AsInt())
+	}
+
+	if options.TempDir != "" {
+		if err := fs.SetTempDir(options.TempDir); err != nil {
+			l.Warnln("Setting temp dir:", err)
+			os.Exit(svcutil.ExitError.AsInt())
+		}
 	}
 
 	// Treat an explicitly empty log file name as no log file
