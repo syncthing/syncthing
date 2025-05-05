@@ -54,8 +54,6 @@ func TempNameWithPrefix(name, prefix string) string {
 		tdir = filepath.Dir(name)
 	}
 	tbase := filepath.Base(name)
-	// TODO(stn): maybe always hash full path?
-	// then re-hash to find at the end?
 	if tmpdir != "" || len(tbase) > maxFilenameLength {
 		// Hash the full name to prevent collisions if the same tbase
 		// is being stored in different folders.
@@ -66,11 +64,6 @@ func TempNameWithPrefix(name, prefix string) string {
 	return filepath.Join(tdir, tname)
 }
 
-// The temp name is set here, so that's probably a good yarn to begin pulling
-// to see where to hook in a different temp name policy. Maybe extend the
-// TempName method to be able to take a hint about using a different directory.
-//
-// https://github.com/syncthing/syncthing/issues/2208#issuecomment-435565604
 func TempName(name string) string {
 	return TempNameWithPrefix(name, tempPrefix())
 }
