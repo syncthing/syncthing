@@ -87,13 +87,13 @@ func (t *quicListener) serve(ctx context.Context) error {
 
 	udpAddr, err := net.ResolveUDPAddr(network, t.uri.Host)
 	if err != nil {
-		l.Error("Failed to listen", "error", err)
+		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
 
 	udpConn, err := net.ListenUDP(network, udpAddr)
 	if err != nil {
-		l.Error("Failed to listen", "error", err)
+		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
 	defer udpConn.Close()
@@ -115,7 +115,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 
 	listener, err := quicTransport.Listen(t.tlsCfg, quicConfig)
 	if err != nil {
-		l.Error("Failed to listen", "error", err)
+		l.Infoln("Listen (BEP/quic):", err)
 		return err
 	}
 	defer listener.Close()
@@ -149,7 +149,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 		if errors.Is(err, context.Canceled) {
 			return nil
 		} else if err != nil {
-			l.Error("Failed to accept connection", "error", err)
+			l.Infoln("Listen (BEP/quic): Accepting connection:", err)
 
 			acceptFailures++
 			if acceptFailures > maxAcceptFailures {

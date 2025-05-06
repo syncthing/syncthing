@@ -46,7 +46,7 @@ type relayListener struct {
 func (t *relayListener) serve(ctx context.Context) error {
 	clnt, err := client.NewClient(t.uri, t.tlsCfg.Certificates, 10*time.Second)
 	if err != nil {
-		l.Error("Failed to listen", "error", err)
+		l.Infoln("Listen (BEP/relay):", err)
 		return err
 	}
 

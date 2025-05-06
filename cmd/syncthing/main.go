@@ -741,22 +741,22 @@ func cleanConfigDirectory() {
 		fs := fs.NewFilesystem(fs.FilesystemTypeBasic, locations.GetBaseDir(locations.ConfigBaseDir))
 		files, err := fs.Glob(pat)
 		if err != nil {
-			l.Error("Cleaning", "error", err)
+			l.Infoln("Cleaning:", err)
 			continue
 		}
 
 		for _, file := range files {
 			info, err := fs.Lstat(file)
 			if err != nil {
-				l.Error("Cleaning", "error", err)
+				l.Infoln("Cleaning:", err)
 				continue
 			}
 
 			if time.Since(info.ModTime()) > dur {
 				if err = fs.RemoveAll(file); err != nil {
-					l.Error("Cleaning", "error", err)
+					l.Infoln("Cleaning:", err)
 				} else {
-					l.Info("Cleaned out old file", "path", filepath.Base(file))
+					l.Infoln("Cleaned away old file", filepath.Base(file))
 				}
 			}
 		}

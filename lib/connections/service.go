@@ -266,7 +266,7 @@ func (s *service) handleConns(ctx context.Context) error {
 		// connection.
 		certs := cs.PeerCertificates
 		if cl := len(certs); cl != 1 {
-			l.Error("Protocol error: peer certificate list of wrong length", "len", cl, "addr", c)
+			l.Infof("Got peer certificate list of length %d != 1 from peer at %s; protocol error", cl, c)
 			c.Close()
 			continue
 		}

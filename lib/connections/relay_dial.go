@@ -46,7 +46,7 @@ func (d *relayDialer) Dial(ctx context.Context, id protocol.DeviceID, uri *url.U
 
 	err = dialer.SetTrafficClass(conn, d.trafficClass)
 	if err != nil {
-		l.Error("Failed to set traffic class", "error", err)
+		l.Debugln("Dial (BEP/relay): setting traffic class:", err)
 	}
 
 	var tc *tls.Conn
