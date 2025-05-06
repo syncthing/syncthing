@@ -14,23 +14,39 @@ import (
 
 func TestLongTempFilename(t *testing.T) {
 	filename := strings.Repeat("l", 300)
-	tFile := TempName(filename)
+	tFile := TempName(filename, "")
 	if len(tFile) < 10 || len(tFile) > 160 {
 		t.Fatal("Invalid long filename")
 	}
-	if !strings.HasSuffix(TempName("short"), "short.tmp") {
-		t.Fatal("Invalid short filename", TempName("short"))
+	if !strings.HasSuffix(TempName("short", ""), "short.tmp") {
+		t.Fatal("Invalid short filename", TempName("short", ""))
 	}
 }
 
 func TestCustomTempDirHashesFileNames(t *testing.T) {
-	tempdir = "local-temp-dir"
+	tempdir := "local-temp-dir"
 	filename1 := "file/to/sync.txt"
-	tFile1 := TempName(filename1)
+	tFile1 := TempName(filename1, tempdir)
 	filename2 := "duplicate-file/to/sync.txt"
-	tFile2 := TempName(filename2)
+	tFile2 := TempName(filename2, tempdir)
 	if tFile1 == tFile2 {
 		t.Fatal("non-unique temp names", tFile1, tFile2)
+	}
+}
+
+func TestIsTemporary(t *testing.T) {
+	tempdir := "local-temp-dir"
+	filename := "file/to/sync.txt"
+	if IsTemporary(filename) {
+		t.Fatal("file should not be temporary", filename)
+	}
+	tFile := TempName(filename, tempdir)
+	if !IsTemporary(tFile) {
+		t.Fatal("file should be temporary", tFile)
+	}
+	tFile = TempName(filename, "")
+	if !IsTemporary(tFile) {
+		t.Fatal("file should be temporary", tFile)
 	}
 }
 
@@ -40,7 +56,7 @@ func benchmarkTempName(b *testing.B, filename string) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		TempName(filename)
+		TempName(filename, "")
 	}
 }
 

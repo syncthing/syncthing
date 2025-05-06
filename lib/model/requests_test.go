@@ -187,7 +187,7 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
 	goodIdx := make(chan struct{})
-	name := fs.TempName("testlink")
+	name := fs.TempName("testlink", "")
 	fc.setIndexFn(func(_ context.Context, folder string, fs []protocol.FileInfo) error {
 		for _, f := range fs {
 			if f.Name == name {

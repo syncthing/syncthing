@@ -8,9 +8,7 @@ package fs
 
 import (
 	"crypto/sha256"
-	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -21,8 +19,6 @@ const (
 	WindowsTempPrefix = "~syncthing~"
 	UnixTempPrefix    = ".syncthing."
 )
-
-var tempdir string
 
 func tempPrefix() string {
 	if build.IsWindows {
@@ -46,7 +42,7 @@ func IsTemporary(name string) bool {
 		strings.HasPrefix(name, UnixTempPrefix)
 }
 
-func TempNameWithPrefix(name, prefix string) string {
+func TempNameWithPrefix(name, prefix, tempdir string) string {
 	var tdir, tname string
 	if tempdir != "" {
 		tdir = tempdir
@@ -64,22 +60,6 @@ func TempNameWithPrefix(name, prefix string) string {
 	return filepath.Join(tdir, tname)
 }
 
-func TempName(name string) string {
-	return TempNameWithPrefix(name, tempPrefix())
-}
-
-func SetTempDir(dir string) error {
-	fi, err := os.Stat(dir)
-	if err != nil {
-		return err
-	}
-	if !fi.IsDir() {
-		return errors.New("not a directory")
-	}
-	perm := fi.Mode().Perm()
-	if perm&(1<<(uint(7))) == 0 {
-		return errors.New("tempdir not writable")
-	}
-	tempdir = dir
-	return nil
+func TempName(name, tempdir string) string {
+	return TempNameWithPrefix(name, tempPrefix(), tempdir)
 }
