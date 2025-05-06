@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"os"
 	"runtime"
@@ -145,7 +144,7 @@ func (a *App) startup() error {
 	// Figure out our device ID, set it as the log prefix and log it.
 	a.myID = protocol.NewDeviceID(a.cert.Certificate[0])
 	l.SetPrefix(fmt.Sprintf("[%s] ", a.myID.String()[:5]))
-	slog.Info("Got device ID", "myID", a.myID)
+	l.Info("Got device ID", "myID", a.myID)
 
 	// Emit the Starting event, now that we know who we are.
 
@@ -172,12 +171,12 @@ func (a *App) startup() error {
 	}
 
 	perf := ur.CpuBench(context.Background(), 3, 150*time.Millisecond)
-	slog.Info("Measured hashing performance", "perf", fmt.Sprintf("%.02f MB/s", perf))
+	l.Info("Measured hashing performance", "perf", fmt.Sprintf("%.02f MB/s", perf))
 
 	if a.opts.ResetDeltaIdxs {
-		slog.Info("Reinitializing delta index IDs")
+		l.Info("Reinitializing delta index IDs")
 		if err := a.sdb.DropAllIndexIDs(); err != nil {
-			slog.Error("Failed to drop index IDs", "error", err)
+			l.Error("Failed to drop index IDs", "error", err)
 			return err
 		}
 	}

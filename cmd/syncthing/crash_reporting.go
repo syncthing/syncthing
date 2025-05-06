@@ -11,7 +11,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -34,7 +33,7 @@ const (
 func uploadPanicLogs(ctx context.Context, urlBase, dir string) {
 	files, err := filepath.Glob(filepath.Join(dir, "panic-*.log"))
 	if err != nil {
-		slog.Error("Failed to list panic logs", "error", err)
+		l.Error("Failed to list panic logs", "error", err)
 		return
 	}
 
@@ -47,7 +46,7 @@ func uploadPanicLogs(ctx context.Context, urlBase, dir string) {
 		}
 
 		if err := uploadPanicLog(ctx, urlBase, file); err != nil {
-			slog.Error("Reporting crash", "error", err)
+			l.Error("Reporting crash", "error", err)
 		} else {
 			// Rename the log so we don't have to try to report it again. This
 			// succeeds, or it does not. There is no point complaining about it.
@@ -70,7 +69,7 @@ func uploadPanicLog(ctx context.Context, urlBase, file string) error {
 	data = filterLogLines(data)
 
 	hash := fmt.Sprintf("%x", sha256.Sum256(data))
-	slog.Info("Reporting crash", "path", filepath.Base(file), "reportID", hash[:8])
+	l.Info("Reporting crash", "path", filepath.Base(file), "reportID", hash[:8])
 
 	url := fmt.Sprintf("%s/%s", urlBase, hash)
 	headReq, err := http.NewRequest(http.MethodHead, url, nil)

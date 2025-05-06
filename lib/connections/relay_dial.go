@@ -9,7 +9,6 @@ package connections
 import (
 	"context"
 	"crypto/tls"
-	"log/slog"
 	"net/url"
 	"time"
 
@@ -47,7 +46,7 @@ func (d *relayDialer) Dial(ctx context.Context, id protocol.DeviceID, uri *url.U
 
 	err = dialer.SetTrafficClass(conn, d.trafficClass)
 	if err != nil {
-		slog.Error("Failed to set traffic class", "error", err)
+		l.Error("Failed to set traffic class", "error", err)
 	}
 
 	var tc *tls.Conn

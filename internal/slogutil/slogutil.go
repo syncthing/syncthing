@@ -3,7 +3,6 @@ package slogutil
 import (
 	"context"
 	"log/slog"
-	"runtime"
 	"strings"
 )
 
@@ -12,34 +11,6 @@ type contextKey int
 const (
 	extraArgs contextKey = iota
 )
-
-type DecoratingHandler struct {
-	slog.Handler
-}
-
-func NewDecoratingHandler(h slog.Handler) DecoratingHandler {
-	return DecoratingHandler{Handler: h}
-}
-
-func (h DecoratingHandler) Handle(ctx context.Context, r slog.Record) error {
-	// Add any extra attrs from the context
-	if extra, ok := ctx.Value(extraArgs).([]slog.Attr); ok {
-		r.AddAttrs(extra...)
-	}
-
-	// Prefix the log message with the originating package/type name.
-	// In JSON, this becomes an attribute instead.
-	var caller string
-	fr := runtime.CallersFrames([]uintptr{r.PC})
-	if fram, _ := fr.Next(); fram.Function != "" {
-		caller = funcNameToPkg(fram.Function)
-	}
-	if caller != "" {
-		r.AddAttrs(slog.String("caller", caller))
-	}
-
-	return h.Handler.Handle(ctx, r)
-}
 
 func funcNameToPkg(fn string) string {
 	fn = strings.ToLower(fn)

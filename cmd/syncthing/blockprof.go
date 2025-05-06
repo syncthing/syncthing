@@ -8,7 +8,6 @@ package main
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"runtime"
 	"runtime/pprof"
@@ -21,10 +20,10 @@ func startBlockProfiler() {
 	if profiler == nil {
 		panic("Couldn't find block profiler")
 	}
-	slog.Debug("Starting block profiling")
+	l.Debug("Starting block profiling")
 	go func() {
 		err := saveBlockingProfiles(profiler) // Only returns on error
-		slog.Error("Block profiler failed", "error", err)
+		l.Error("Block profiler failed", "error", err)
 		panic("Block profiler failed")
 	}()
 }

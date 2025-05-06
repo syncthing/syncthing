@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"math"
 	"net"
 	"net/url"
@@ -259,7 +258,7 @@ func (s *service) handleConns(ctx context.Context) error {
 		// because there are implementations out there that don't support
 		// protocol negotiation (iOS for one...).
 		if cs.NegotiatedProtocol != s.bepProtocolName {
-			slog.Warn("Peer at did not negotiate bep/1.0", "address", c)
+			l.Warn("Peer at did not negotiate bep/1.0", "address", c)
 		}
 
 		// We should have received exactly one certificate from the other
@@ -267,7 +266,7 @@ func (s *service) handleConns(ctx context.Context) error {
 		// connection.
 		certs := cs.PeerCertificates
 		if cl := len(certs); cl != 1 {
-			slog.Error("Protocol error: peer certificate list of wrong length", "len", cl, "addr", c)
+			l.Error("Protocol error: peer certificate list of wrong length", "len", cl, "addr", c)
 			c.Close()
 			continue
 		}
@@ -278,16 +277,16 @@ func (s *service) handleConns(ctx context.Context) error {
 		// though, especially in the presence of NAT hairpinning, multiple
 		// clients between the same NAT gateway, and global discovery.
 		if remoteID == s.myID {
-			slog.Debug("Connected to myself", "id", remoteID, "addr", c)
+			l.Debug("Connected to myself", "id", remoteID, "addr", c)
 			c.Close()
 			continue
 		}
 
 		if err := s.connectionCheckEarly(remoteID, c); err != nil {
 			if errors.Is(err, errDeviceAlreadyConnected) {
-				slog.Debug("Connection rejected", "device", remoteID, "addr", c.RemoteAddr(), "type", c.Type(), "error", err)
+				l.Debug("Connection rejected", "device", remoteID, "addr", c.RemoteAddr(), "type", c.Type(), "error", err)
 			} else {
-				slog.Warn("Connection rejected", "device", remoteID, "addr", c.RemoteAddr(), "type", c.Type(), "error", err)
+				l.Warn("Connection rejected", "device", remoteID, "addr", c.RemoteAddr(), "type", c.Type(), "error", err)
 			}
 			c.Close()
 			continue
@@ -820,7 +819,7 @@ func (s *lanChecker) isLAN(addr net.Addr) bool {
 func (s *service) createListener(factory listenerFactory, uri *url.URL) bool {
 	// must be called with listenerMut held
 
-	slog.Debug("Starting listener", "uri", uri)
+	l.Debug("Starting listener", "uri", uri)
 
 	listener := factory.New(uri, s.cfg, s.tlsCfg, s.conns, s.natService, s.registry, s.lanChecker)
 	listener.OnAddressesChanged(s.logListenAddressesChangedEvent)

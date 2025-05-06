@@ -11,7 +11,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -63,7 +62,7 @@ func (c *serveCmd) monitorMain() {
 			fileDst, err = open(logFile)
 		}
 		if err != nil {
-			slog.Error("Failed to set up logging to file, proceeding with logging to stdout only", "error", err)
+			l.Error("Failed to set up logging to file, proceeding with logging to stdout only", "error", err)
 		} else {
 			if build.IsWindows {
 				// Translate line breaks to Windows standard
@@ -77,14 +76,14 @@ func (c *serveCmd) monitorMain() {
 			// Log to both stdout and file.
 			dst = io.MultiWriter(dst, fileDst)
 
-			slog.Info("Log output saved to file", "path", logFile)
+			l.Info("Log output saved to file", "path", logFile)
 		}
 	}
 
 	args := os.Args
 	binary, err := getBinary(args[0])
 	if err != nil {
-		slog.Warn("Error starting the main Syncthing process", "error", err)
+		l.Warn("Error starting the main Syncthing process", "error", err)
 		panic("Error starting the main Syncthing process")
 	}
 	var restarts [restartCounts]time.Time
@@ -104,7 +103,7 @@ func (c *serveCmd) monitorMain() {
 		maybeReportPanics()
 
 		if t := time.Since(restarts[0]); t < restartLoopThreshold {
-			slog.Error("Too many restarts; not retrying further", "count", restartCounts, "interval", t)
+			l.Error("Too many restarts; not retrying further", "count", restartCounts, "interval", t)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 
@@ -124,10 +123,10 @@ func (c *serveCmd) monitorMain() {
 			panic(err)
 		}
 
-		slog.Debug("Starting syncthing")
+		l.Debug("Starting syncthing")
 		err = cmd.Start()
 		if err != nil {
-			slog.Error("Error starting the main Syncthing process", "error", err)
+			l.Error("Error starting the main Syncthing process", "error", err)
 			panic("Error starting the main Syncthing process")
 		}
 
@@ -160,13 +159,13 @@ func (c *serveCmd) monitorMain() {
 		stopped := false
 		select {
 		case s := <-stopSign:
-			slog.Info("Signal received; exiting", "signal", s)
+			l.Info("Signal received; exiting", "signal", s)
 			cmd.Process.Signal(sigTerm)
 			err = <-exit
 			stopped = true
 
 		case s := <-restartSign:
-			slog.Info("Signal received; restarting", "signal", s)
+			l.Info("Signal received; restarting", "signal", s)
 			cmd.Process.Signal(sigHup)
 			err = <-exit
 
@@ -186,9 +185,9 @@ func (c *serveCmd) monitorMain() {
 			if exitCode == svcutil.ExitUpgrade.AsInt() {
 				// Restart the monitor process to release the .old
 				// binary as part of the upgrade process.
-				slog.Info("Restarting monitor...")
+				l.Info("Restarting monitor...")
 				if err = restartMonitor(binary, args); err != nil {
-					slog.Warn("Error restarting", "error", err)
+					l.Warn("Error restarting", "error", err)
 				}
 				os.Exit(exitCode)
 			}
@@ -198,7 +197,7 @@ func (c *serveCmd) monitorMain() {
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 
-		slog.Info("Syncthing exited", "error", err)
+		l.Info("Syncthing exited", "error", err)
 		time.Sleep(restartPause)
 
 		if first {
@@ -246,13 +245,13 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 			if strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") {
 				panicFd, err = os.Create(locations.GetTimestamped(locations.PanicLog))
 				if err != nil {
-					slog.Error("Failed to create panic log", "error", err)
+					l.Error("Failed to create panic log", "error", err)
 					continue
 				}
 
-				slog.Warn("Panic detected, writing to log", "path", panicFd.Name())
-				slog.Warn("Please check for existing issues with similar panic message at https://github.com/syncthing/syncthing/issues/")
-				slog.Warn("If no issue with similar panic message exists, please create a new issue with the panic log attached")
+				l.Warn("Panic detected, writing to log", "path", panicFd.Name())
+				l.Warn("Please check for existing issues with similar panic message at https://github.com/syncthing/syncthing/issues/")
+				l.Warn("If no issue with similar panic message exists, please create a new issue with the panic log attached")
 
 				stdoutMut.Lock()
 				for _, line := range stdoutFirstLines {
@@ -542,7 +541,7 @@ func maybeReportPanics() {
 	// Try to get a config to see if/where panics should be reported.
 	cfg, err := loadOrDefaultConfig()
 	if err != nil {
-		slog.Error("Couldn't load config; not reporting crash")
+		l.Error("Couldn't load config; not reporting crash")
 		return
 	}
 
@@ -562,7 +561,7 @@ func maybeReportPanics() {
 		case <-ctx.Done():
 			return
 		case <-time.After(panicUploadNoticeWait):
-			slog.Error("Uploading crash reports is taking a while, please wait...")
+			l.Error("Uploading crash reports is taking a while, please wait...")
 		}
 	}()
 

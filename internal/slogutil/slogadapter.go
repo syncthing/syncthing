@@ -4,12 +4,17 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"runtime"
 	"strings"
 	"time"
 
+	"github.com/lmittmann/tint"
+	"github.com/mattn/go-isatty"
 	"github.com/syncthing/syncthing/lib/logger"
 )
+
+var slogDef = slog.New(newLogHandler(slog.LevelInfo))
 
 var packages = make(map[string]string)
 
@@ -23,47 +28,51 @@ func NewAdapter(name string) *adapter {
 	pc := pcs[0]
 	fr := runtime.CallersFrames([]uintptr{pc})
 	if fram, _ := fr.Next(); fram.Function != "" {
-		packages[funcNameToPkg(fram.Function)] = name
+		pkgName := funcNameToPkg(fram.Function)
+		packages[pkgName] = name
+		return &adapter{slogDef.With("pkg", pkgName)}
 	}
-	return &adapter{}
+	return &adapter{slogDef}
 }
 
-type adapter struct{}
+type adapter struct {
+	*slog.Logger
+}
 
 func (a adapter) Debugln(vals ...interface{}) {
-	log(strings.TrimSpace(fmt.Sprintln(vals...)), slog.LevelDebug)
+	a.log(strings.TrimSpace(fmt.Sprintln(vals...)), slog.LevelDebug)
 }
 
 func (a adapter) Debugf(format string, vals ...interface{}) {
-	log(fmt.Sprintf(format, vals...), slog.LevelDebug)
+	a.log(fmt.Sprintf(format, vals...), slog.LevelDebug)
 }
 
 func (a adapter) Verboseln(vals ...interface{}) {
-	log(strings.TrimSpace(fmt.Sprintln(vals...)), slog.LevelInfo)
+	a.log(strings.TrimSpace(fmt.Sprintln(vals...)), slog.LevelInfo)
 }
 
 func (a adapter) Verbosef(format string, vals ...interface{}) {
-	log(fmt.Sprintf(format, vals...), slog.LevelInfo)
+	a.log(fmt.Sprintf(format, vals...), slog.LevelInfo)
 }
 
 func (a adapter) Infoln(vals ...interface{}) {
-	log(strings.TrimSpace(fmt.Sprintln(vals...)), slog.LevelInfo)
+	a.log(strings.TrimSpace(fmt.Sprintln(vals...)), slog.LevelInfo)
 }
 
 func (a adapter) Infof(format string, vals ...interface{}) {
-	log(fmt.Sprintf(format, vals...), slog.LevelInfo)
+	a.log(fmt.Sprintf(format, vals...), slog.LevelInfo)
 }
 
 func (a adapter) Warnln(vals ...interface{}) {
-	log(strings.TrimSpace(fmt.Sprintln(vals...)), slog.LevelError)
+	a.log(strings.TrimSpace(fmt.Sprintln(vals...)), slog.LevelError)
 }
 
 func (a adapter) Warnf(format string, vals ...interface{}) {
-	log(fmt.Sprintf(format, vals...), slog.LevelError)
+	a.log(fmt.Sprintf(format, vals...), slog.LevelError)
 }
 
-func log(msg string, level slog.Level) {
-	h := slog.Default().Handler()
+func (a adapter) log(msg string, level slog.Level) {
+	h := a.Logger.Handler()
 	if !h.Enabled(context.Background(), level) {
 		return
 	}
@@ -83,3 +92,13 @@ func (a adapter) SetDebug(facility string, enabled bool)                    {}
 func (a adapter) Facilities() map[string]string                             { return Packages() }
 func (a adapter) FacilityDebugging() []string                               { return nil }
 func (a adapter) NewFacility(facility, description string) logger.Logger    { return a }
+
+func newLogHandler(level slog.Level) slog.Handler {
+	const logFmt = "2006-01-02 15:04:05"
+	color := isatty.IsTerminal(os.Stdout.Fd()) || os.Getenv("MONITOR_IS_STDOUT") != ""
+	return tint.NewHandler(os.Stdout, &tint.Options{
+		Level:      level,
+		TimeFormat: logFmt,
+		NoColor:    !color,
+	})
+}

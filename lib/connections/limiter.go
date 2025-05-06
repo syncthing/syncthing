@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log/slog"
 	"sync/atomic"
 
 	"golang.org/x/time/rate"
@@ -108,7 +107,7 @@ func (lim *limiter) processDevicesConfigurationLocked(from, to config.Configurat
 				writeLimitStr = fmt.Sprintf("limit is %d KiB/s", dev.MaxSendKbps)
 			}
 
-			slog.Info("Device is rate limited", "device", dev.DeviceID, "send", writeLimitStr, "recv", readLimitStr)
+			l.Info("Device is rate limited", "device", dev.DeviceID, "send", writeLimitStr, "recv", readLimitStr)
 		}
 	}
 
@@ -159,13 +158,13 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 
 	lim.limitsLAN.Store(to.Options.LimitBandwidthInLan)
 
-	slog.Info("Overall rate limit in use", "send", sendLimitStr, "recv", recvLimitStr)
+	l.Info("Overall rate limit in use", "send", sendLimitStr, "recv", recvLimitStr)
 
 	if limited {
 		if to.Options.LimitBandwidthInLan {
-			slog.Info("Rate limits apply to LAN connections")
+			l.Info("Rate limits apply to LAN connections")
 		} else {
-			slog.Info("Rate limits do not apply to LAN connections")
+			l.Info("Rate limits do not apply to LAN connections")
 		}
 	}
 
