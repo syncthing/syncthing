@@ -14,13 +14,19 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-var slogDef = slog.New(newLogHandler(slog.LevelInfo))
+var slogDef = newLogHandler(slog.LevelInfo)
 
 var packages = make(map[string]string)
 
 func Packages() map[string]string {
 	return packages
 }
+
+// Log levels:
+// - DEBUG: programmers only (not user troubleshooting)
+// - INFO: most stuff, files syncing properly
+// - WARN: errors that can be ignored or will be retried (e.g., sync failures)
+// - ERROR: errors that need handling, shown in the GUI
 
 func NewAdapter(name string) *adapter {
 	var pcs [1]uintptr
@@ -30,9 +36,10 @@ func NewAdapter(name string) *adapter {
 	if fram, _ := fr.Next(); fram.Function != "" {
 		pkgName := funcNameToPkg(fram.Function)
 		packages[pkgName] = name
-		return &adapter{slogDef.With("pkg", pkgName)}
+		h := &LevelTrackingHandler{Handler: slogDef, pkg: pkgName}
+		return &adapter{slog.New(h).With("pkg", pkgName)}
 	}
-	return &adapter{slogDef}
+	return &adapter{slog.New(slogDef)}
 }
 
 type adapter struct {
@@ -87,7 +94,7 @@ func (a adapter) log(msg string, level slog.Level) {
 func (a adapter) AddHandler(level logger.LogLevel, h logger.MessageHandler) {}
 func (a adapter) SetFlags(flag int)                                         {}
 func (a adapter) SetPrefix(prefix string)                                   {}
-func (a adapter) ShouldDebug(facility string) bool                          { return true }
+func (a adapter) ShouldDebug(facility string) bool                          { return Levels.Get(facility) >= slog.LevelDebug }
 func (a adapter) SetDebug(facility string, enabled bool)                    {}
 func (a adapter) Facilities() map[string]string                             { return Packages() }
 func (a adapter) FacilityDebugging() []string                               { return nil }
