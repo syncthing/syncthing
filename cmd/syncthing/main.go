@@ -260,7 +260,9 @@ func (c *serveCmd) Run() error {
 		osutil.HideConsole()
 	}
 
-	slogutil.Levels.SetDefault(c.LogLevel)
+	// The default log level for all packages
+	slogutil.SetDefaultLevel(c.LogLevel)
+
 	// Treat an explicitly empty log file name as no log file
 	if c.LogFile == "" {
 		c.LogFile = "-"

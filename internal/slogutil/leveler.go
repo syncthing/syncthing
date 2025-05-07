@@ -9,9 +9,25 @@ import (
 	"sync"
 )
 
-var Levels = &LevelTracker{
+var globalLevels = &levelTracker{
 	levels: make(map[string]slog.Level),
 	descrs: make(map[string]string),
+}
+
+func PackageDescrs() map[string]string {
+	return globalLevels.Descrs()
+}
+
+func PackageLevels() map[string]slog.Level {
+	return globalLevels.Levels()
+}
+
+func SetPackageLevel(pkg string, level slog.Level) {
+	globalLevels.Set(pkg, level)
+}
+
+func SetDefaultLevel(level slog.Level) {
+	globalLevels.SetDefault(level)
 }
 
 func init() {
@@ -29,18 +45,18 @@ func init() {
 				slog.New(slogDef).Warn("Bad log level requested in STTRACE", "pkg", pkg, "level", levelStr, "error", err)
 			}
 		}
-		Levels.Set(pkg, level)
+		globalLevels.Set(pkg, level)
 	}
 }
 
-type LevelTracker struct {
+type levelTracker struct {
 	mut      sync.RWMutex
 	defLevel slog.Level
 	descrs   map[string]string     // package name to description
 	levels   map[string]slog.Level // package name to level
 }
 
-func (t *LevelTracker) Get(pkg string) slog.Level {
+func (t *levelTracker) Get(pkg string) slog.Level {
 	t.mut.RLock()
 	defer t.mut.RUnlock()
 	if level, ok := t.levels[pkg]; ok {
@@ -49,25 +65,25 @@ func (t *LevelTracker) Get(pkg string) slog.Level {
 	return t.defLevel
 }
 
-func (t *LevelTracker) Set(pkg string, level slog.Level) {
+func (t *levelTracker) Set(pkg string, level slog.Level) {
 	t.mut.Lock()
 	t.levels[pkg] = level
 	t.mut.Unlock()
 }
 
-func (t *LevelTracker) SetDefault(level slog.Level) {
+func (t *levelTracker) SetDefault(level slog.Level) {
 	t.mut.Lock()
 	t.defLevel = level
 	t.mut.Unlock()
 }
 
-func (t *LevelTracker) SetDescr(pkg, descr string) {
+func (t *levelTracker) SetDescr(pkg, descr string) {
 	t.mut.Lock()
 	t.descrs[pkg] = descr
 	t.mut.Unlock()
 }
 
-func (t *LevelTracker) Descrs() map[string]string {
+func (t *levelTracker) Descrs() map[string]string {
 	t.mut.RLock()
 	defer t.mut.RUnlock()
 	m := make(map[string]string, len(t.descrs))
@@ -75,7 +91,7 @@ func (t *LevelTracker) Descrs() map[string]string {
 	return m
 }
 
-func (t *LevelTracker) Levels() map[string]slog.Level {
+func (t *levelTracker) Levels() map[string]slog.Level {
 	t.mut.RLock()
 	defer t.mut.RUnlock()
 	m := make(map[string]slog.Level, len(t.descrs))
@@ -89,38 +105,28 @@ func (t *LevelTracker) Levels() map[string]slog.Level {
 	return m
 }
 
-type PackageLeveler struct {
-	t   *LevelTracker
-	pkg string
-}
-
-func (t *LevelTracker) NewPackageLeveler(pkg string) slog.Leveler {
-	return &PackageLeveler{t: t, pkg: pkg}
-}
-
-func (p *PackageLeveler) Level() slog.Level {
-	return p.t.Get(p.pkg)
-}
-
-type LevelTrackingHandler struct {
+type levelTrackingHandler struct {
 	slog.Handler
-	pkg string
+	levels *levelTracker
+	pkg    string
 }
 
-func (l *LevelTrackingHandler) Enabled(_ context.Context, level slog.Level) bool {
-	return Levels.Get(l.pkg) <= level
+func (l *levelTrackingHandler) Enabled(_ context.Context, level slog.Level) bool {
+	return l.levels.Get(l.pkg) <= level
 }
 
-func (l *LevelTrackingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &LevelTrackingHandler{
+func (l *levelTrackingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &levelTrackingHandler{
 		Handler: l.Handler.WithAttrs(attrs),
+		levels:  l.levels,
 		pkg:     l.pkg,
 	}
 }
 
-func (l *LevelTrackingHandler) WithGroup(name string) slog.Handler {
-	return &LevelTrackingHandler{
+func (l *levelTrackingHandler) WithGroup(name string) slog.Handler {
+	return &levelTrackingHandler{
 		Handler: l.Handler.WithGroup(name),
+		levels:  l.levels,
 		pkg:     l.pkg,
 	}
 }

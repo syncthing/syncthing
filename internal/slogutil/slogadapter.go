@@ -14,7 +14,7 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-var slogDef = newLogHandler(slog.LevelInfo)
+var slogDef = newLogHandler()
 
 // Log levels:
 // - DEBUG: programmers only (not user troubleshooting)
@@ -29,8 +29,12 @@ func NewAdapter(descr string) *adapter {
 	fr := runtime.CallersFrames([]uintptr{pc})
 	if fram, _ := fr.Next(); fram.Function != "" {
 		pkgName := funcNameToPkg(fram.Function)
-		Levels.SetDescr(pkgName, descr)
-		h := &LevelTrackingHandler{Handler: slogDef, pkg: pkgName}
+		globalLevels.SetDescr(pkgName, descr)
+		h := &levelTrackingHandler{
+			Handler: slogDef,
+			levels:  globalLevels,
+			pkg:     pkgName,
+		}
 		return &adapter{slog.New(h).With("pkg", pkgName)}
 	}
 	return &adapter{slog.New(slogDef)}
@@ -88,13 +92,14 @@ func (a adapter) log(msg string, level slog.Level) {
 func (a adapter) AddHandler(level logger.LogLevel, h logger.MessageHandler) {}
 func (a adapter) SetFlags(flag int)                                         {}
 func (a adapter) SetPrefix(prefix string)                                   {}
-func (a adapter) ShouldDebug(facility string) bool                          { return Levels.Get(facility) >= slog.LevelDebug }
+func (a adapter) ShouldDebug(facility string) bool {
+	return globalLevels.Get(facility) >= slog.LevelDebug
+}
 
-func newLogHandler(level slog.Level) slog.Handler {
+func newLogHandler() slog.Handler {
 	const logFmt = "2006-01-02 15:04:05"
 	color := isatty.IsTerminal(os.Stdout.Fd()) || os.Getenv("MONITOR_IS_STDOUT") != ""
 	return tint.NewHandler(os.Stdout, &tint.Options{
-		Level:      level,
 		TimeFormat: logFmt,
 		NoColor:    !color,
 	})

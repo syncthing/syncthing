@@ -751,8 +751,8 @@ func (*service) getSystemVersion(w http.ResponseWriter, _ *http.Request) {
 
 func (*service) getSystemDebug(w http.ResponseWriter, _ *http.Request) {
 	sendJSON(w, map[string]any{
-		"packages": slogutil.Levels.Descrs(),
-		"levels":   slogutil.Levels.Levels(),
+		"packages": slogutil.PackageDescrs(),
+		"levels":   slogutil.PackageLevels(),
 	})
 }
 
@@ -763,7 +763,7 @@ func (*service) postSystemDebug(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for pkg, level := range levelRequest {
-		slogutil.Levels.Set(pkg, level)
+		slogutil.SetPackageLevel(pkg, level)
 	}
 }
 
