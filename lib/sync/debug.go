@@ -7,12 +7,13 @@
 package sync
 
 import (
+	"context"
+	"log/slog"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/slogutil"
-	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
@@ -22,7 +23,7 @@ var (
 	// We make an exception in this package and have an actual "if debug { ...
 	// }" variable, as it may be rather performance critical and does
 	// nonstandard things (from a debug logging PoV).
-	debug = logger.DefaultLogger.ShouldDebug("sync")
+	debug = l.Enabled(context.Background(), slog.LevelDebug)
 )
 
 func init() {

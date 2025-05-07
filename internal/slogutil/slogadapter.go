@@ -90,8 +90,6 @@ func (a adapter) log(msg string, level slog.Level) {
 }
 
 func (a adapter) AddHandler(level logger.LogLevel, h logger.MessageHandler) {}
-func (a adapter) SetFlags(flag int)                                         {}
-func (a adapter) SetPrefix(prefix string)                                   {}
 func (a adapter) ShouldDebug(facility string) bool {
 	return globalLevels.Get(facility) >= slog.LevelDebug
 }

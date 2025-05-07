@@ -41,8 +41,6 @@ type MessageHandler func(l LogLevel, msg string)
 
 type Logger interface {
 	AddHandler(level LogLevel, h MessageHandler)
-	SetFlags(flag int)
-	SetPrefix(prefix string)
 	Debugln(vals ...interface{})
 	Debugf(format string, vals ...interface{})
 	Verboseln(vals ...interface{})
@@ -51,7 +49,6 @@ type Logger interface {
 	Infof(format string, vals ...interface{})
 	Warnln(vals ...interface{})
 	Warnf(format string, vals ...interface{})
-	ShouldDebug(facility string) bool
 }
 
 type logger struct {

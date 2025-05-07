@@ -143,7 +143,6 @@ func (a *App) startup() error {
 
 	// Figure out our device ID, set it as the log prefix and log it.
 	a.myID = protocol.NewDeviceID(a.cert.Certificate[0])
-	l.SetPrefix(fmt.Sprintf("[%s] ", a.myID.String()[:5]))
 	l.Info("Got device ID", "myID", a.myID)
 
 	// Emit the Starting event, now that we know who we are.
