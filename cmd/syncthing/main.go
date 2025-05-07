@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	_ "net/http/pprof" // Need to import this to support STPROFILER.
 	"net/url"
@@ -33,6 +34,7 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/cmd/syncthing/generate"
 	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -167,6 +169,7 @@ type serveCmd struct {
 	LogFlags                  int           `name:"logflags" help:"Select information in log line prefix (see below)" default:"${logFlags}" placeholder:"BITS" env:"STLOGFLAGS"`
 	LogMaxFiles               int           `name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)" default:"${logMaxFiles}" placeholder:"N" env:"STLOGMAXOLDFILES"`
 	LogMaxSize                int           `help:"Maximum size of any file (zero to disable log rotation)" default:"${logMaxSize}" placeholder:"BYTES" env:"STLOGMAXSIZE"`
+	LogLevel                  slog.Level    `help:"Log level for all packages (DEBUG,INFO,WARN,ERROR)" env:"STLOGLEVEL" default:"INFO"`
 	NoBrowser                 bool          `help:"Do not start browser" env:"STNOBROWSER"`
 	NoPortProbing             bool          `help:"Don't try to find free ports for GUI and listen addresses on first startup" env:"STNOPORTPROBING"`
 	NoRestart                 bool          `help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash" env:"STNORESTART"`
@@ -257,6 +260,7 @@ func (c *serveCmd) Run() error {
 		osutil.HideConsole()
 	}
 
+	slogutil.Levels.SetDefault(c.LogLevel)
 	// Treat an explicitly empty log file name as no log file
 	if c.LogFile == "" {
 		c.LogFile = "-"

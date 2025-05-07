@@ -52,10 +52,6 @@ type Logger interface {
 	Warnln(vals ...interface{})
 	Warnf(format string, vals ...interface{})
 	ShouldDebug(facility string) bool
-	SetDebug(facility string, enabled bool)
-	Facilities() map[string]string
-	FacilityDebugging() []string
-	NewFacility(facility, description string) Logger
 }
 
 type logger struct {

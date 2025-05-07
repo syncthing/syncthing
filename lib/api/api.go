@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -280,7 +281,7 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/status", s.getSystemStatus)             // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/upgrade", s.getSystemUpgrade)           // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/version", s.getSystemVersion)           // -
-	restMux.HandlerFunc(http.MethodGet, "/rest/system/debug", s.getSystemDebug)               // -
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/loglevels", s.getSystemDebug)           // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/log", s.getSystemLog)                   // [since]
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/log.txt", s.getSystemLogTxt)            // [since]
 
@@ -300,7 +301,7 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/upgrade", s.postSystemUpgrade)            // -
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/pause", s.makeDevicePauseHandler(true))   // [device]
 	restMux.HandlerFunc(http.MethodPost, "/rest/system/resume", s.makeDevicePauseHandler(false)) // [device]
-	restMux.HandlerFunc(http.MethodPost, "/rest/system/debug", s.postSystemDebug)                // [enable] [disable]
+	restMux.HandlerFunc(http.MethodPost, "/rest/system/loglevels", s.postSystemDebug)            // [enable] [disable]
 
 	// The DELETE handlers
 	restMux.HandlerFunc(http.MethodDelete, "/rest/cluster/pending/devices", s.deletePendingDevices) // device
@@ -749,31 +750,20 @@ func (*service) getSystemVersion(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (*service) getSystemDebug(w http.ResponseWriter, _ *http.Request) {
-	names := slogutil.Packages()
-	enabled := l.FacilityDebugging()
-	sort.Strings(enabled)
-	sendJSON(w, map[string]interface{}{
-		"facilities": names,
-		"enabled":    enabled,
+	sendJSON(w, map[string]any{
+		"packages": slogutil.Levels.Descrs(),
+		"levels":   slogutil.Levels.Levels(),
 	})
 }
 
 func (*service) postSystemDebug(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	q := r.URL.Query()
-	for _, f := range strings.Split(q.Get("enable"), ",") {
-		if f == "" || l.ShouldDebug(f) {
-			continue
-		}
-		l.SetDebug(f, true)
-		l.Infof("Enabled debug data for %q", f)
+	var levelRequest map[string]slog.Level
+	if err := json.NewDecoder(r.Body).Decode(&levelRequest); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
-	for _, f := range strings.Split(q.Get("disable"), ",") {
-		if f == "" || !l.ShouldDebug(f) {
-			continue
-		}
-		l.SetDebug(f, false)
-		l.Infof("Disabled debug data for %q", f)
+	for pkg, level := range levelRequest {
+		slogutil.Levels.Set(pkg, level)
 	}
 }
 

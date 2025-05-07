@@ -16,26 +16,20 @@ import (
 
 var slogDef = newLogHandler(slog.LevelInfo)
 
-var packages = make(map[string]string)
-
-func Packages() map[string]string {
-	return packages
-}
-
 // Log levels:
 // - DEBUG: programmers only (not user troubleshooting)
 // - INFO: most stuff, files syncing properly
 // - WARN: errors that can be ignored or will be retried (e.g., sync failures)
 // - ERROR: errors that need handling, shown in the GUI
 
-func NewAdapter(name string) *adapter {
+func NewAdapter(descr string) *adapter {
 	var pcs [1]uintptr
 	runtime.Callers(2, pcs[:])
 	pc := pcs[0]
 	fr := runtime.CallersFrames([]uintptr{pc})
 	if fram, _ := fr.Next(); fram.Function != "" {
 		pkgName := funcNameToPkg(fram.Function)
-		packages[pkgName] = name
+		Levels.SetDescr(pkgName, descr)
 		h := &LevelTrackingHandler{Handler: slogDef, pkg: pkgName}
 		return &adapter{slog.New(h).With("pkg", pkgName)}
 	}
@@ -95,10 +89,6 @@ func (a adapter) AddHandler(level logger.LogLevel, h logger.MessageHandler) {}
 func (a adapter) SetFlags(flag int)                                         {}
 func (a adapter) SetPrefix(prefix string)                                   {}
 func (a adapter) ShouldDebug(facility string) bool                          { return Levels.Get(facility) >= slog.LevelDebug }
-func (a adapter) SetDebug(facility string, enabled bool)                    {}
-func (a adapter) Facilities() map[string]string                             { return Packages() }
-func (a adapter) FacilityDebugging() []string                               { return nil }
-func (a adapter) NewFacility(facility, description string) logger.Logger    { return a }
 
 func newLogHandler(level slog.Level) slog.Handler {
 	const logFmt = "2006-01-02 15:04:05"
