@@ -139,7 +139,7 @@ func newFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg conf
 	f.pullFailTimer = time.NewTimer(0)
 	<-f.pullFailTimer.C
 
-	registerFolderMetrics(f.ID)
+	registerFolderMetrics(f.FolderConfiguration)
 
 	return f
 }
