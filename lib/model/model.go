@@ -2027,7 +2027,7 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
 	if req.FromTemporary && !folderCfg.DisableTempIndexes {
-		tempFn := fs.TempName(req.Name)
+		tempFn := fs.TempName(req.Name, folderCfg.TempDir)
 
 		if info, err := folderFs.Lstat(tempFn); err != nil || !info.IsRegular() {
 			// Reject reads for anything that doesn't exist or is something

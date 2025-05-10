@@ -126,7 +126,7 @@ func (t *trashcan) Restore(filepath string, versionTime time.Time) error {
 			return taggedName
 		}
 
-		taggedName = fs.TempName(name)
+		taggedName = fs.TempName(name, "")
 		return name
 	}
 
