@@ -156,3 +156,98 @@ func TestPathTildes(t *testing.T) {
 		t.Fatalf("found versioned file %q, want one that begins with %q", got, testPath)
 	}
 }
+
+func TestArchiveFoldersCreationPermission(t *testing.T) {
+	dir := t.TempDir()
+	versionsDir := t.TempDir()
+
+	cfg := config.FolderConfiguration{
+		FilesystemType: config.FilesystemTypeBasic,
+		Path:           dir,
+		Versioning: config.VersioningConfiguration{
+			FSPath: versionsDir,
+			FSType: config.FilesystemTypeBasic,
+			Params: map[string]string{
+				"keep": "2",
+			},
+		},
+	}
+	vfs := cfg.Filesystem(nil)
+	v := newSimple(cfg)
+
+	// Create two folders and set their permissions
+	folder1Path := filepath.Join(dir, "folder1")
+	folder1Perms := os.FileMode(0o777)
+	folder1VersionsPath := filepath.Join(versionsDir, "folder1")
+	err := os.Mkdir(folder1Path, folder1Perms)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// chmod incase umask changes the create permissions
+	err = os.Chmod(folder1Path, folder1Perms)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	folder2Path := filepath.Join(folder1Path, "folder2")
+	folder2VersionsPath := filepath.Join(folder1VersionsPath, "folder2")
+	folder2Perms := os.FileMode(0o744)
+	err = os.Mkdir(folder2Path, folder2Perms)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// chmod incase umask changes the create permissions
+	err = os.Chmod(folder2Path, folder2Perms)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// create a file
+	filePath := filepath.Join("folder1", "folder2", "testFile")
+	f, err := vfs.Create(filePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	if err := v.Archive(filePath); err != nil {
+		t.Error(err)
+	}
+
+	// check permissions of the created version folders
+	folder1VersionsInfo, err := os.Stat(folder1VersionsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if folder1VersionsInfo.Mode().Perm() != folder1Perms {
+		t.Errorf("folder1 permissions %v, want %v", folder1VersionsInfo.Mode(), folder1Perms)
+	}
+
+	folder2VersionsInfo, err := os.Stat(folder2VersionsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if folder2VersionsInfo.Mode().Perm() != folder2Perms {
+		t.Errorf("folder2 permissions %v, want %v", folder2VersionsInfo.Mode(), folder2Perms)
+	}
+
+	// Archive again to test that archiving doesn't fail if the versioned folders already exist
+	if err := v.Archive(filePath); err != nil {
+		t.Error(err)
+	}
+	folder1VersionsInfo, err = os.Stat(folder1VersionsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if folder1VersionsInfo.Mode().Perm() != folder1Perms {
+		t.Errorf("folder1 permissions %v, want %v", folder1VersionsInfo.Mode(), folder1Perms)
+	}
+
+	folder2VersionsInfo, err = os.Stat(folder2VersionsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if folder2VersionsInfo.Mode().Perm() != folder2Perms {
+		t.Errorf("folder2 permissions %v, want %v", folder2VersionsInfo.Mode(), folder2Perms)
+	}
+}
