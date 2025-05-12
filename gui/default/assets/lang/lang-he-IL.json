@@ -154,7 +154,7 @@
     "Failed Items": "פריטים שנכשלו",
     "Failed to load file versions.": "טעינת גרסאות קבצים נכשלה.",
     "Failed to load ignore patterns.": "טעינת דפוסי התעלמות נכשלה.",
-    "Failed to setup, retrying": "ההגדרה נכשלה, מנסה שוב",
+    "Failed to set up, retrying": "ההגדרה נכשלה, מנסה שוב",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "צפוי כשל בהתחברות לשרתי IPv6 אם אין קישוריות IPv6.",
     "File Pull Order": "סדר משיכת קבצים",
     "File Versioning": "ניהול גרסאות קבצים",

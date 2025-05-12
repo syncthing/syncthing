@@ -640,9 +640,21 @@ func syncthingMain(options serveOptions) {
 		DBRecheckInterval:    options.DebugDBRecheckInterval,
 		DBIndirectGCInterval: options.DebugDBIndirectGCInterval,
 	}
-	if options.Audit {
-		appOpts.AuditWriter = auditWriter(options.AuditFile)
+
+	if options.Audit || cfgWrapper.Options().AuditEnabled {
+		l.Infoln("Auditing is enabled.")
+
+		auditFile := cfgWrapper.Options().AuditFile
+
+		// Ignore config option if command-line option is set
+		if options.AuditFile != "" {
+			l.Debugln("Using the audit file from the command-line parameter.")
+			auditFile = options.AuditFile
+		}
+
+		appOpts.AuditWriter = auditWriter(auditFile)
 	}
+
 	if dur, err := time.ParseDuration(os.Getenv("STRECHECKDBEVERY")); err == nil {
 		appOpts.DBRecheckInterval = dur
 	}

@@ -69,7 +69,3 @@ func (fs *errorFilesystem) PlatformData(_ string, _, _ bool, _ XattrFilter) (pro
 func (*errorFilesystem) underlying() (Filesystem, bool) {
 	return nil, false
 }
-
-func (*errorFilesystem) wrapperType() filesystemWrapperType {
-	return filesystemWrapperTypeError
-}

@@ -190,6 +190,11 @@ type Report struct {
 	Country      string    `json:"country" metric:"location,gaugeVec:country"`
 	CountryCode  string    `json:"countryCode" metric:"location,gaugeVec:countryCode"`
 	MajorVersion string    `json:"majorVersion" metric:"reports_by_major_total,gaugeVec:version"`
+
+	// Once more to create a metric on OS, arch, distribution
+	DistDist string `json:"distDist" metric:"distribution,gaugeVec:distribution"`
+	DistOS   string `json:"distOS" metric:"distribution,gaugeVec:os"`
+	DistArch string `json:"distArch" metric:"distribution,gaugeVec:arch"`
 }
 
 func New() *Report {
