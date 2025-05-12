@@ -273,10 +273,6 @@ func (m *metricsFS) underlying() (Filesystem, bool) {
 	return m.next, true
 }
 
-func (m *metricsFS) wrapperType() filesystemWrapperType {
-	return filesystemWrapperTypeMetrics
-}
-
 type metricsFile struct {
 	fs   *metricsFS
 	next File

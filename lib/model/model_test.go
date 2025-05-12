@@ -2774,9 +2774,10 @@ func TestIssue4903(t *testing.T) {
 	folderPath := "nonexistent"
 	cfg := defaultCfgWrapper.RawCopy()
 	fcfg := config.FolderConfiguration{
-		ID:     "folder1",
-		Path:   folderPath,
-		Paused: true,
+		ID:             "folder1",
+		Path:           folderPath,
+		FilesystemType: config.FilesystemTypeBasic,
+		Paused:         true,
 		Devices: []config.FolderDeviceConfiguration{
 			{DeviceID: device1},
 		},

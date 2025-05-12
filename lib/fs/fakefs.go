@@ -26,6 +26,14 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
+const FilesystemTypeFake FilesystemType = "fake"
+
+func init() {
+	RegisterFilesystemType(FilesystemTypeFake, func(root string, opts ...Option) (Filesystem, error) {
+		return newFakeFilesystem(root, opts...), nil
+	})
+}
+
 // see readShortAt()
 const randomBlockShift = 14 // 128k
 
@@ -714,10 +722,6 @@ func (fs *fakeFS) PlatformData(name string, scanOwnership, scanXattrs bool, xatt
 
 func (*fakeFS) underlying() (Filesystem, bool) {
 	return nil, false
-}
-
-func (*fakeFS) wrapperType() filesystemWrapperType {
-	return filesystemWrapperTypeNone
 }
 
 func (fs *fakeFS) resetCounters() {

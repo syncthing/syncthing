@@ -9,6 +9,7 @@ package fs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -18,18 +19,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/ignore/ignoreresult"
 	"github.com/syncthing/syncthing/lib/protocol"
-)
-
-type filesystemWrapperType int32
-
-const (
-	filesystemWrapperTypeNone filesystemWrapperType = iota
-	filesystemWrapperTypeMtime
-	filesystemWrapperTypeCase
-	filesystemWrapperTypeError
-	filesystemWrapperTypeWalk
-	filesystemWrapperTypeLog
-	filesystemWrapperTypeMetrics
 )
 
 type XattrFilter interface {
@@ -74,10 +63,11 @@ type Filesystem interface {
 	PlatformData(name string, withOwnership, withXattrs bool, xattrFilter XattrFilter) (protocol.PlatformData, error)
 	GetXattr(name string, xattrFilter XattrFilter) ([]protocol.Xattr, error)
 	SetXattr(path string, xattrs []protocol.Xattr, xattrFilter XattrFilter) error
+}
 
+type wrappingFilesystem interface {
 	// Used for unwrapping things
 	underlying() (Filesystem, bool)
-	wrapperType() filesystemWrapperType
 }
 
 // The File interface abstracts access to a regular file, being a somewhat
@@ -215,17 +205,6 @@ func IsPermission(err error) bool {
 // IsPathSeparator is the equivalent of os.IsPathSeparator
 var IsPathSeparator = os.IsPathSeparator
 
-// Option modifies a filesystem at creation. An option might be specific
-// to a filesystem-type.
-//
-// String is used to detect options with the same effect, i.e. must be different
-// for options with different effects. Meaning if an option has parameters, a
-// representation of those must be part of the returned string.
-type Option interface {
-	String() string
-	apply(Filesystem) Filesystem
-}
-
 func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem {
 	var caseOpt Option
 	var mtimeOpt Option
@@ -246,18 +225,23 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 	}
 	opts = opts[:i]
 
+	// Construct file system using the registered factory function
 	var fs Filesystem
-	switch fsType {
-	case FilesystemTypeBasic:
-		fs = newBasicFilesystem(uri, opts...)
-	case FilesystemTypeFake:
-		fs = newFakeFilesystem(uri, opts...)
-	default:
-		l.Debugln("Unknown filesystem", fsType, uri)
+	var err error
+	filesystemFactoriesMutex.Lock()
+	fsFactory, factoryFound := filesystemFactories[fsType]
+	filesystemFactoriesMutex.Unlock()
+	if factoryFound {
+		fs, err = fsFactory(uri, opts...)
+	} else {
+		err = fmt.Errorf("File system type '%s' not recognized", fsType)
+	}
+
+	if err != nil {
 		fs = &errorFilesystem{
 			fsType: fsType,
 			uri:    uri,
-			err:    errors.New("filesystem with type " + fsType.String() + " does not exist."),
+			err:    err,
 		}
 	}
 
@@ -358,16 +342,23 @@ func Canonicalize(file string) (string, error) {
 	return file, nil
 }
 
-// unwrapFilesystem removes "wrapping" filesystems to expose the filesystem of the requested wrapperType, if it exists.
-func unwrapFilesystem(fs Filesystem, wrapperType filesystemWrapperType) (Filesystem, bool) {
-	var ok bool
+// unwrapFilesystem removes "wrapping" filesystems to expose the filesystem of the requested wrapper type T, if it exists.
+func unwrapFilesystem[T Filesystem](fs Filesystem) (T, bool) {
 	for {
-		if fs.wrapperType() == wrapperType {
-			return fs, true
+		if unwrapped, ok := fs.(T); ok {
+			return unwrapped, true
 		}
-		fs, ok = fs.underlying()
+
+		wrappingFs, ok := fs.(wrappingFilesystem)
 		if !ok {
-			return nil, false
+			var x T
+			return x, false
+		}
+
+		fs, ok = wrappingFs.underlying()
+		if !ok {
+			var x T
+			return x, false
 		}
 	}
 }

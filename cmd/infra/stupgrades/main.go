@@ -289,9 +289,10 @@ func filterForCompabitility(rels []upgrade.Release, ua, osv string) []upgrade.Re
 }
 
 type cachedReleases struct {
-	url     string
-	mut     sync.RWMutex
-	current []upgrade.Release
+	url                  string
+	mut                  sync.RWMutex
+	current              []upgrade.Release
+	latestRel, latestPre string
 }
 
 func (c *cachedReleases) Releases() []upgrade.Release {
@@ -305,8 +306,26 @@ func (c *cachedReleases) Update(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	latestRel, latestPre := "", ""
+	for _, rel := range rels {
+		if !rel.Prerelease && latestRel == "" {
+			latestRel = rel.Tag
+		}
+		if rel.Prerelease && latestPre == "" {
+			latestPre = rel.Tag
+		}
+		if latestRel != "" && latestPre != "" {
+			break
+		}
+	}
 	c.mut.Lock()
 	c.current = rels
+	if latestRel != c.latestRel || latestPre != c.latestPre {
+		metricLatestReleaseInfo.DeleteLabelValues(c.latestRel, c.latestPre)
+		metricLatestReleaseInfo.WithLabelValues(latestRel, latestPre).Set(1)
+		c.latestRel = latestRel
+		c.latestPre = latestPre
+	}
 	c.mut.Unlock()
 	return nil
 }

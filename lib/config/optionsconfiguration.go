@@ -8,8 +8,10 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"runtime"
 	"slices"
+	"strings"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -66,22 +68,21 @@ type OptionsConfiguration struct {
 	AnnounceLANAddresses        bool     `json:"announceLANAddresses" xml:"announceLANAddresses" default:"true"`
 	SendFullIndexOnUpgrade      bool     `json:"sendFullIndexOnUpgrade" xml:"sendFullIndexOnUpgrade"`
 	FeatureFlags                []string `json:"featureFlags" xml:"featureFlag"`
+	AuditEnabled                bool     `json:"auditEnabled" xml:"auditEnabled" default:"false"`
+	AuditFile                   string   `json:"auditFile" xml:"auditFile"`
 	// The number of connections at which we stop trying to connect to more
 	// devices, zero meaning no limit. Does not affect incoming connections.
 	ConnectionLimitEnough int `json:"connectionLimitEnough" xml:"connectionLimitEnough"`
 	// The maximum number of connections which we will allow in total, zero
 	// meaning no limit. Affects incoming connections and prevents
 	// attempting outgoing connections.
-	ConnectionLimitMax int `json:"connectionLimitMax" xml:"connectionLimitMax"`
-	// When set, this allows TLS 1.2 on sync connections, where we otherwise
-	// default to TLS 1.3+ only.
-	InsecureAllowOldTLSVersions        bool `json:"insecureAllowOldTLSVersions" xml:"insecureAllowOldTLSVersions"`
-	ConnectionPriorityTCPLAN           int  `json:"connectionPriorityTcpLan" xml:"connectionPriorityTcpLan" default:"10"`
-	ConnectionPriorityQUICLAN          int  `json:"connectionPriorityQuicLan" xml:"connectionPriorityQuicLan" default:"20"`
-	ConnectionPriorityTCPWAN           int  `json:"connectionPriorityTcpWan" xml:"connectionPriorityTcpWan" default:"30"`
-	ConnectionPriorityQUICWAN          int  `json:"connectionPriorityQuicWan" xml:"connectionPriorityQuicWan" default:"40"`
-	ConnectionPriorityRelay            int  `json:"connectionPriorityRelay" xml:"connectionPriorityRelay" default:"50"`
-	ConnectionPriorityUpgradeThreshold int  `json:"connectionPriorityUpgradeThreshold" xml:"connectionPriorityUpgradeThreshold" default:"0"`
+	ConnectionLimitMax                 int `json:"connectionLimitMax" xml:"connectionLimitMax"`
+	ConnectionPriorityTCPLAN           int `json:"connectionPriorityTcpLan" xml:"connectionPriorityTcpLan" default:"10"`
+	ConnectionPriorityQUICLAN          int `json:"connectionPriorityQuicLan" xml:"connectionPriorityQuicLan" default:"20"`
+	ConnectionPriorityTCPWAN           int `json:"connectionPriorityTcpWan" xml:"connectionPriorityTcpWan" default:"30"`
+	ConnectionPriorityQUICWAN          int `json:"connectionPriorityQuicWan" xml:"connectionPriorityQuicWan" default:"40"`
+	ConnectionPriorityRelay            int `json:"connectionPriorityRelay" xml:"connectionPriorityRelay" default:"50"`
+	ConnectionPriorityUpgradeThreshold int `json:"connectionPriorityUpgradeThreshold" xml:"connectionPriorityUpgradeThreshold" default:"0"`
 	// Legacy deprecated
 	DeprecatedUPnPEnabled        bool     `json:"-" xml:"upnpEnabled,omitempty"`        // Deprecated: Do not use.
 	DeprecatedUPnPLeaseM         int      `json:"-" xml:"upnpLeaseMinutes,omitempty"`   // Deprecated: Do not use.
@@ -184,15 +185,22 @@ func (opts OptionsConfiguration) StunServers() []string {
 	for _, addr := range opts.RawStunServers {
 		switch addr {
 		case "default":
-			defaultPrimaryAddresses := make([]string, len(DefaultPrimaryStunServers))
-			copy(defaultPrimaryAddresses, DefaultPrimaryStunServers)
-			rand.Shuffle(defaultPrimaryAddresses)
-			addresses = append(addresses, defaultPrimaryAddresses...)
+			_, records, err := net.LookupSRV("stun", "udp", "syncthing.net")
+			if err != nil {
+				l.Debugf("Unable to resolve primary STUN servers via DNS:", err)
+			}
 
-			defaultSecondaryAddresses := make([]string, len(DefaultSecondaryStunServers))
-			copy(defaultSecondaryAddresses, DefaultSecondaryStunServers)
-			rand.Shuffle(defaultSecondaryAddresses)
-			addresses = append(addresses, defaultSecondaryAddresses...)
+			for _, record := range records {
+				priority := record.Priority
+				target := strings.TrimSuffix(record.Target, ".")
+				address := fmt.Sprintf("%s:%d", target, record.Port)
+				l.Debugf("Resolved primary STUN server %s with priority %d", address, priority)
+				addresses = append(addresses, address)
+			}
+
+			fallbackAddresses := slices.Clone(DefaultFallbackStunServers)
+			rand.Shuffle(fallbackAddresses)
+			addresses = append(addresses, fallbackAddresses...)
 		default:
 			addresses = append(addresses, addr)
 		}
