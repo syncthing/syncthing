@@ -68,7 +68,7 @@ func (v external) Archive(filePath string) error {
 		"%FILE_PATH%":         filePath,
 	}
 
-	cmd, err := cmdutil.formattedCommand(v.command, context)
+	cmd, err := cmdutil.FormattedCommand(v.command, context)
 	if err != nil {
 		return err
 	}

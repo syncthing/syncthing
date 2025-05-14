@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-func formattedCommand(command string, keywords map[string]string) (*exec.Cmd, error) {
+func FormattedCommand(command string, keywords map[string]string) (*exec.Cmd, error) {
 	if command == "" {
 		return nil, errors.New("command is empty, please enter a valid command")
 	}
