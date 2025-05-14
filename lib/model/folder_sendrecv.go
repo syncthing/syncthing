@@ -32,6 +32,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/weakhash"
+	"github.com/syncthing/syncthing/lib/cmdutil"
 )
 
 var (
@@ -1845,6 +1846,21 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 			return fmt.Errorf("%s: %w", contextRemovingOldItem, err)
 		}
 		return nil
+	}
+
+	if f.FolderConfiguration.ConflictHandling.ExternalMergeEnabled {
+		keywords := map[string]string{
+			"%FILE_PATH%": name,
+		}
+
+		cmd := cmdutil.formattedCommand(f.FolderConfiguration.ConflictHandling.ExternalMergeCommand, keywords)
+
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return err
+		}
+
+		l.Debugln("Output from command:", output)
 	}
 
 	if f.MaxConflicts == 0 {
