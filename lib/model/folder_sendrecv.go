@@ -1853,7 +1853,10 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 			"%FILE_PATH%": name,
 		}
 
-		cmd := cmdutil.formattedCommand(f.FolderConfiguration.ConflictHandling.ExternalMergeCommand, keywords)
+		cmd, err := cmdutil.formattedCommand(f.FolderConfiguration.ConflictHandling.ExternalMergeCommand, keywords)
+		if err != nil {
+			return err
+		}
 
 		output, err := cmd.CombinedOutput()
 		if err != nil {
