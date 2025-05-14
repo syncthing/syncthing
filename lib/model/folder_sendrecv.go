@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/cmdutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
@@ -32,7 +33,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/weakhash"
-	"github.com/syncthing/syncthing/lib/cmdutil"
 )
 
 var (
