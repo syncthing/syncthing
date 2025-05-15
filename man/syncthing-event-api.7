@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-EVENT-API" "7" "Mar 19, 2025" "v1.29.3" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "May 09, 2025" "v1.29.6" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .SH DESCRIPTION
@@ -845,9 +845,7 @@ Deprecated since version v1.10.0: The \fBversion\fP field is a legacy name kept 
 .sp
 When authentication is enabled for the GUI, this event is emitted on every
 login attempt. If either the username or password are incorrect, \fBsuccess\fP
-is false and in any case the given username is returned.  The included
-remote address concerns the immediate connecting host, which may not be the
-origin of the request, but e.g. a reverse proxy.
+is false and in any case the given username is returned.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -856,7 +854,32 @@ origin of the request, but e.g. a reverse proxy.
    \(dqid\(dq : 187,
    \(dqtime\(dq : \(dq2017\-03\-07T00:19:24.420386143+01:00\(dq,
    \(dqdata\(dq : {
-      \(dqremoteAddress\(dq : \(dq127.0.0.1:55530\(dq,
+      \(dqremoteAddress\(dq : \(dq127.0.0.1\(dq,
+      \(dqusername\(dq : \(dqsomename\(dq,
+      \(dqsuccess\(dq : false
+   },
+   \(dqtype\(dq : \(dqLoginAttempt\(dq,
+   \(dqglobalID\(dq : 195
+}
+.EE
+.UNINDENT
+.UNINDENT
+.sp
+If the \fBX\-Forwared\-For\fP header is present and the connecting host is
+either on \fBlocalhost\fP or on the same LAN, it will be treated as a reverse
+proxy. In this case, the \fBremoteAddress\fP field is filled with the leftmost
+IP address from the header, and the additional \fBproxy\fP field retains the
+original IP of the connecting host.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+{
+   \(dqid\(dq : 187,
+   \(dqtime\(dq : \(dq2017\-03\-07T00:19:24.420386143+01:00\(dq,
+   \(dqdata\(dq : {
+      \(dqproxy\(dq : \(dq127.0.0.1\(dq,
+      \(dqremoteAddress\(dq : \(dq192.168.178.10\(dq,
       \(dqusername\(dq : \(dqsomename\(dq,
       \(dqsuccess\(dq : false
    },

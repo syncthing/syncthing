@@ -161,10 +161,11 @@ func BenchmarkWalkCaseFakeFS100k(b *testing.B) {
 		b.Fatal(err)
 	}
 	b.Run("rawfs", func(b *testing.B) {
-		var fakefs *fakeFS
-		if ffs, ok := unwrapFilesystem(fsys, filesystemWrapperTypeNone); ok {
-			fakefs = ffs.(*fakeFS)
+		fakefs, ok := unwrapFilesystem[*fakeFS](fsys)
+		if !ok {
+			panic("expected unwrap to fakefs")
 		}
+
 		fakefs.resetCounters()
 		benchmarkWalkFakeFS(b, fsys, paths, 0, "")
 		fakefs.reportMetricsPerOp(b)
@@ -180,9 +181,10 @@ func BenchmarkWalkCaseFakeFS100k(b *testing.B) {
 				cache: newCaseCache(),
 			},
 		}
-		var fakefs *fakeFS
-		if ffs, ok := unwrapFilesystem(fsys, filesystemWrapperTypeNone); ok {
-			fakefs = ffs.(*fakeFS)
+
+		fakefs, ok := unwrapFilesystem[*fakeFS](fsys)
+		if !ok {
+			panic("expected unwrap to fakefs")
 		}
 		fakefs.resetCounters()
 		benchmarkWalkFakeFS(b, casefs, paths, 0, "")
@@ -209,10 +211,12 @@ func BenchmarkWalkCaseFakeFS100k(b *testing.B) {
 				cache: newCaseCache(),
 			},
 		}
-		var fakefs *fakeFS
-		if ffs, ok := unwrapFilesystem(fsys, filesystemWrapperTypeNone); ok {
-			fakefs = ffs.(*fakeFS)
+
+		fakefs, ok := unwrapFilesystem[*fakeFS](fsys)
+		if !ok {
+			panic("expected unwrap to fakefs")
 		}
+
 		fakefs.resetCounters()
 		benchmarkWalkFakeFS(b, casefs, paths, otherOpEvery, otherOpPath)
 		fakefs.reportMetricsPerOp(b)

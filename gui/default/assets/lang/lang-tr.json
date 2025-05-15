@@ -156,7 +156,7 @@
     "Failed Items": "Başarısız Olan Öğeler",
     "Failed to load file versions.": "Dosya sürümlerini yükleme başarısız.",
     "Failed to load ignore patterns.": "Yoksayma şekillerini yükleme başarısız.",
-    "Failed to setup, retrying": "Ayarlama başarısız, yeniden deneniyor",
+    "Failed to set up, retrying": "Ayarlama başarısız, yeniden deneniyor",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "IPv6 bağlanabilirliği yoksa IPv6 sunucularına bağlanma hatası beklenmekte.",
     "File Pull Order": "Dosya Çekme Sırası",
     "File Versioning": "Dosya Sürümlendirme",

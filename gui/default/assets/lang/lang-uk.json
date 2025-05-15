@@ -27,6 +27,7 @@
     "Allowed Networks": "Дозволені мережі",
     "Alphabetic": "За абеткою",
     "Altered by ignoring deletes.": "Змінено, ігноруючи видалення.",
+    "Always turned on when the folder type is \"{%foldertype%}\".": "Завжди вмикається, якщо тип теки «{{foldertype}}».",
     "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Зовнішня команда керує версіями. Вона повинна видалити файл із спільної теки. Якщо шлях до застосунку містить пробіли, його слід взяти в лапки.",
     "Anonymous Usage Reporting": "Анонімне звітування про використання",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Формат анонімного звітування про використання змінився. Бажаєте перейти на новий формат?",
@@ -52,6 +53,7 @@
     "Body:": "Повідомлення:",
     "Bugs": "Помилки",
     "Cancel": "Скасувати",
+    "Cannot be enabled when the folder type is \"{%foldertype%}\".": "Неможливо ввімкнути, якщо тип теки «{{foldertype}}».",
     "Changelog": "Журнал змін",
     "Clean out after": "Очистити після",
     "Cleaning Versions": "Очищення версій",
@@ -154,7 +156,7 @@
     "Failed Items": "Невдалі",
     "Failed to load file versions.": "Не вдалося завантажити версії файлів.",
     "Failed to load ignore patterns.": "Не вдалося завантажити шаблони ігнорування.",
-    "Failed to setup, retrying": "Не вдалося налаштувати, повторна спроба",
+    "Failed to set up, retrying": "Не вдалося налаштувати, повторна спроба",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "За відсутності з'єднання IPv6 очікується неможливість під'єднання до серверів IPv6.",
     "File Pull Order": "Порядок витягнення файлів",
     "File Versioning": "Версіонування файлів",
@@ -550,6 +552,6 @@
     },
     "unknown device": "невідомий пристрій",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} хоче поділитися папкою \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} хоче поділитися папкою \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} хоче поділитися текою \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} може повторно порекомендувати цей пристрій."
 }

@@ -144,7 +144,7 @@
     "Failed Items": "Nepavykę siuntimai",
     "Failed to load file versions.": "Nepavyko įkelti failo versijų.",
     "Failed to load ignore patterns.": "Nepavyko įkelti nepaisymo šablonų.",
-    "Failed to setup, retrying": "Nepavyko nustatyti, bandoma iš naujo",
+    "Failed to set up, retrying": "Nepavyko nustatyti, bandoma iš naujo",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Nesėkmė prisijungti prie IPv6 serverių yra tikėtina, jei nėra IPv6 ryšio.",
     "File Pull Order": "Failų siuntimo tvarka",
     "File Versioning": "Versijų valdymas",

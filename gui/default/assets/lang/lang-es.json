@@ -154,7 +154,7 @@
     "Failed Items": "Elementos fallidos",
     "Failed to load file versions.": "Error al cargar las versiones de los archivos.",
     "Failed to load ignore patterns.": "No se pudieron cargar los patrones de ignorar.",
-    "Failed to setup, retrying": "Fallo en la configuración, reintentando",
+    "Failed to set up, retrying": "Fallo en la configuración, reintentando",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Se espera un fallo al conectar a los servidores IPv6 si no hay conectividad IPv6.",
     "File Pull Order": "Orden de Obtención de los Archivos",
     "File Versioning": "Versionado de ficheros",

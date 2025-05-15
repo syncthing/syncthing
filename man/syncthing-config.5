@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Mar 19, 2025" "v1.29.3" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "May 09, 2025" "v1.29.6" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -221,7 +221,6 @@ may no longer correspond to the defaults.
         <sendFullIndexOnUpgrade>false</sendFullIndexOnUpgrade>
         <connectionLimitEnough>0</connectionLimitEnough>
         <connectionLimitMax>0</connectionLimitMax>
-        <insecureAllowOldTLSVersions>false</insecureAllowOldTLSVersions>
     </options>
     <remoteIgnoredDevice time=\(dq2022\-01\-09T20:02:01Z\(dq id=\(dq5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU\(dq name=\(dqbugger\(dq address=\(dq192.168.0.20:22000\(dq></remoteIgnoredDevice>
     <defaults>
@@ -1077,6 +1076,11 @@ header do not need this setting.
 When this setting is disabled, the GUI will not send 401 responses so users
 won’t see browser popups prompting for username and password.
 .UNINDENT
+.INDENT 0.0
+.TP
+.B metricsWithoutAuth
+If true, this allows access to the ‘/metrics’ without authentication.
+.UNINDENT
 .SH LDAP ELEMENT
 .INDENT 0.0
 .INDENT 3.5
@@ -1196,7 +1200,6 @@ Search filter for user searches.
     <sendFullIndexOnUpgrade>false</sendFullIndexOnUpgrade>
     <connectionLimitEnough>0</connectionLimitEnough>
     <connectionLimitMax>0</connectionLimitMax>
-    <insecureAllowOldTLSVersions>false</insecureAllowOldTLSVersions>
 </options>
 .EE
 .UNINDENT
@@ -1429,16 +1432,9 @@ ECN bits into account.
 .INDENT 0.0
 .TP
 .B stunServer
-Server to be used for STUN, given as ip:port. The keyword \fBdefault\fP gets
-expanded to
-\fBstun.callwithus.com:3478\fP, \fBstun.counterpath.com:3478\fP,
-\fBstun.counterpath.net:3478\fP, \fBstun.ekiga.net:3478\fP,
-\fBstun.hitv.com:3478\fP, \fBstun.ideasip.com:3478\fP,
-\fBstun.internetcalls.com:3478\fP, \fBstun.miwifi.com:3478\fP,
-\fBstun.schlund.de:3478\fP,\(ga\(gastun.sipgate.net:10000\(ga\(ga,
-\fBstun.sipgate.net:3478\fP, \fBstun.voip.aebc.com:3478\fP,
-\fBstun.voiparound.com:3478\fP, \fBstun.voipbuster.com:3478\fP,
-\fBstun.voipstunt.com:3478\fP and \fBstun.xten.com:3478\fP (this is the default).
+Server to use for STUN, given as ip:port. The keyword \fBdefault\fP gets
+expanded to a set of public STUN servers, with preference given to those
+hosted by the Syncthing project.
 .sp
 To configure multiple servers, you can either: repeat \fB<stunServer>\fP tags
 in the configuration file or enter several servers separated by commas in
@@ -1448,7 +1444,7 @@ the GUI.
 .TP
 .B stunKeepaliveStartS
 Interval in seconds between contacting a STUN server to maintain NAT
-mapping. Default is \fB24\fP and you can set it to \fB0\fP to disable contacting
+mapping. Default is \fB180\fP and you can set it to \fB0\fP to disable contacting
 STUN servers.  The interval is automatically reduced if needed, down to a
 minimum of \fI\%stunKeepaliveMinS\fP\&.
 .UNINDENT
@@ -1540,12 +1536,6 @@ The maximum number of connections which we will allow in total, zero meaning
 no limit.  Affects incoming connections and prevents attempting outgoing
 connections.  The mechanism is described in detail in a \fI\%separate
 chapter\fP\&.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B insecureAllowOldTLSVersions
-Only for compatibility with old versions of Syncthing on remote devices, as
-detailed in \fI\%insecureAllowOldTLSVersions\fP\&.
 .UNINDENT
 .SH DEFAULTS ELEMENT
 .INDENT 0.0

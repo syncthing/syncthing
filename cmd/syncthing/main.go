@@ -376,7 +376,7 @@ func (options serveOptions) Run() error {
 	if options.Upgrade {
 		release, err := checkUpgrade()
 		if err == nil {
-			lf := flock.New(locations.Get(locations.CertFile))
+			lf := flock.New(locations.Get(locations.LockFile))
 			locked, err := lf.TryLock()
 			if err != nil {
 				l.Warnln("Upgrade:", err)
@@ -386,6 +386,8 @@ func (options serveOptions) Run() error {
 			} else {
 				err = upgrade.To(release)
 			}
+			_ = lf.Unlock()
+			_ = os.Remove(locations.Get(locations.LockFile))
 		}
 		if err != nil {
 			l.Warnln("Upgrade:", err)
@@ -546,7 +548,7 @@ func syncthingMain(options serveOptions) {
 	}
 
 	// Ensure we are the only running instance
-	lf := flock.New(locations.Get(locations.CertFile))
+	lf := flock.New(locations.Get(locations.LockFile))
 	locked, err := lf.TryLock()
 	if err != nil {
 		l.Warnln("Failed to acquire lock:", err)
@@ -636,9 +638,21 @@ func syncthingMain(options serveOptions) {
 		DBRecheckInterval:    options.DebugDBRecheckInterval,
 		DBIndirectGCInterval: options.DebugDBIndirectGCInterval,
 	}
-	if options.Audit {
-		appOpts.AuditWriter = auditWriter(options.AuditFile)
+
+	if options.Audit || cfgWrapper.Options().AuditEnabled {
+		l.Infoln("Auditing is enabled.")
+
+		auditFile := cfgWrapper.Options().AuditFile
+
+		// Ignore config option if command-line option is set
+		if options.AuditFile != "" {
+			l.Debugln("Using the audit file from the command-line parameter.")
+			auditFile = options.AuditFile
+		}
+
+		appOpts.AuditWriter = auditWriter(auditFile)
 	}
+
 	if dur, err := time.ParseDuration(os.Getenv("STRECHECKDBEVERY")); err == nil {
 		appOpts.DBRecheckInterval = dur
 	}
@@ -691,6 +705,10 @@ func syncthingMain(options serveOptions) {
 	if options.DebugProfileCPU {
 		pprof.StopCPUProfile()
 	}
+
+	// Best effort remove lockfile, doesn't matter if it succeeds
+	_ = lf.Unlock()
+	_ = os.Remove(locations.Get(locations.LockFile))
 
 	os.Exit(int(status))
 }
