@@ -28,7 +28,7 @@ func init() {
 			TLSHandshakeTimeout: 10 * time.Second,
 		}
 
-		// Defer this, so that logging gets setup.
+		// Defer this, so that logging gets set up.
 		go func() {
 			time.Sleep(500 * time.Millisecond)
 			l.Infoln("Proxy settings detected")

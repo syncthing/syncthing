@@ -34,6 +34,7 @@ type Report struct {
 	SHA256Perf     float64 `json:"sha256Perf,omitempty" metric:"sha256_perf_mibps,summary" since:"1"`
 	HashPerf       float64 `json:"hashPerf,omitempty" metric:"hash_perf_mibps,summary" since:"1"`
 	MemorySize     int     `json:"memorySize,omitempty" metric:"memory_size_mib,summary" since:"1"`
+	ProcessRSSMiB  int     `json:"processRSSMiB,omitempty" metric:"process_rss_mib,summary" since:"1"`
 
 	// v2 fields
 
@@ -189,6 +190,11 @@ type Report struct {
 	Country      string    `json:"country" metric:"location,gaugeVec:country"`
 	CountryCode  string    `json:"countryCode" metric:"location,gaugeVec:countryCode"`
 	MajorVersion string    `json:"majorVersion" metric:"reports_by_major_total,gaugeVec:version"`
+
+	// Once more to create a metric on OS, arch, distribution
+	DistDist string `json:"distDist" metric:"distribution,gaugeVec:distribution"`
+	DistOS   string `json:"distOS" metric:"distribution,gaugeVec:os"`
+	DistArch string `json:"distArch" metric:"distribution,gaugeVec:arch"`
 }
 
 func New() *Report {

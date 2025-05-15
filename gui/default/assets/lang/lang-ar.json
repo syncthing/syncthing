@@ -154,7 +154,7 @@
     "Failed Items": "العناصر الفاشلة",
     "Failed to load file versions.": "لم يُتَوَصَّل لنسخة الملف.",
     "Failed to load ignore patterns.": "فشل التَّوَصُّل إلى مُرَشِّحات التجاهل.",
-    "Failed to setup, retrying": "فشل الإعداد، تجري المحاولة مرة أخرى",
+    "Failed to set up, retrying": "فشل الإعداد، تجري المحاولة مرة أخرى",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "يُتوقع فشل الاتصال بخوادم IPv6، إذا لم يكن IPv6 متاحا.",
     "File Pull Order": "ترتيب استيراد الملفات",
     "File Versioning": "إصدارات الملف",

@@ -68,25 +68,18 @@ var (
 	DefaultTheme = "default"
 	// Default stun servers should be substituted when the configuration
 	// contains <stunServer>default</stunServer>.
-
-	// DefaultPrimaryStunServers are servers provided by us (to avoid causing the public servers burden)
-	DefaultPrimaryStunServers = []string{
-		"stun.syncthing.net:3478",
-	}
-	DefaultSecondaryStunServers = []string{
-		"stun.callwithus.com:3478",
+	// The primary stun servers are provided by us and are resolved via an SRV record
+	// The fallback stun servers are used if the primary ones can't be resolved or are down.
+	DefaultFallbackStunServers = []string{
 		"stun.counterpath.com:3478",
 		"stun.counterpath.net:3478",
 		"stun.ekiga.net:3478",
 		"stun.hitv.com:3478",
-		"stun.ideasip.com:3478",
 		"stun.internetcalls.com:3478",
 		"stun.miwifi.com:3478",
 		"stun.schlund.de:3478",
-		"stun.sipgate.net:10000",
 		"stun.sipgate.net:3478",
 		"stun.voip.aebc.com:3478",
-		"stun.voiparound.com:3478",
 		"stun.voipbuster.com:3478",
 		"stun.voipstunt.com:3478",
 		"stun.xten.com:3478",
@@ -241,6 +234,10 @@ func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 
 func (cfg Configuration) Copy() Configuration {
 	newCfg := cfg
+
+	// Deep copy Defaults
+	newCfg.Defaults.Folder = cfg.Defaults.Folder.Copy()
+	newCfg.Defaults.Device = cfg.Defaults.Device.Copy()
 
 	// Deep copy FolderConfigurations
 	newCfg.Folders = make([]FolderConfiguration, len(cfg.Folders))

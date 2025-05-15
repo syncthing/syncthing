@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/gofrs/flock"
 	"github.com/thejerf/suture/v4"
 	"github.com/willabides/kongplete"
 
@@ -41,7 +42,6 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -376,15 +376,18 @@ func (options serveOptions) Run() error {
 	if options.Upgrade {
 		release, err := checkUpgrade()
 		if err == nil {
-			// Use leveldb database locks to protect against concurrent upgrades
-			var ldb backend.Backend
-			ldb, err = syncthing.OpenDBBackend(locations.Get(locations.Database), config.TuningAuto)
+			lf := flock.New(locations.Get(locations.LockFile))
+			locked, err := lf.TryLock()
 			if err != nil {
+				l.Warnln("Upgrade:", err)
+				os.Exit(1)
+			} else if locked {
 				err = upgradeViaRest()
 			} else {
-				_ = ldb.Close()
 				err = upgrade.To(release)
 			}
+			_ = lf.Unlock()
+			_ = os.Remove(locations.Get(locations.LockFile))
 		}
 		if err != nil {
 			l.Warnln("Upgrade:", err)
@@ -544,6 +547,17 @@ func syncthingMain(options serveOptions) {
 		os.Exit(1)
 	}
 
+	// Ensure we are the only running instance
+	lf := flock.New(locations.Get(locations.LockFile))
+	locked, err := lf.TryLock()
+	if err != nil {
+		l.Warnln("Failed to acquire lock:", err)
+		os.Exit(1)
+	} else if !locked {
+		l.Warnln("Failed to acquire lock: is another Syncthing instance already running?")
+		os.Exit(1)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -624,9 +638,21 @@ func syncthingMain(options serveOptions) {
 		DBRecheckInterval:    options.DebugDBRecheckInterval,
 		DBIndirectGCInterval: options.DebugDBIndirectGCInterval,
 	}
-	if options.Audit {
-		appOpts.AuditWriter = auditWriter(options.AuditFile)
+
+	if options.Audit || cfgWrapper.Options().AuditEnabled {
+		l.Infoln("Auditing is enabled.")
+
+		auditFile := cfgWrapper.Options().AuditFile
+
+		// Ignore config option if command-line option is set
+		if options.AuditFile != "" {
+			l.Debugln("Using the audit file from the command-line parameter.")
+			auditFile = options.AuditFile
+		}
+
+		appOpts.AuditWriter = auditWriter(auditFile)
 	}
+
 	if dur, err := time.ParseDuration(os.Getenv("STRECHECKDBEVERY")); err == nil {
 		appOpts.DBRecheckInterval = dur
 	}
@@ -679,6 +705,10 @@ func syncthingMain(options serveOptions) {
 	if options.DebugProfileCPU {
 		pprof.StopCPUProfile()
 	}
+
+	// Best effort remove lockfile, doesn't matter if it succeeds
+	_ = lf.Unlock()
+	_ = os.Remove(locations.Get(locations.LockFile))
 
 	os.Exit(int(status))
 }
@@ -830,6 +860,10 @@ func initialAutoUpgradeCheck(misc *db.NamespacedKV) (upgrade.Release, error) {
 	if err != nil {
 		return upgrade.Release{}, err
 	}
+	if upgrade.CompareVersions(release.Tag, build.Version) == upgrade.MajorNewer {
+		return upgrade.Release{}, errors.New("higher major version")
+	}
+
 	if lastVersion, ok, err := misc.String(upgradeVersionKey); err == nil && ok && lastVersion == release.Tag {
 		// Only check time if we try to upgrade to the same release.
 		if lastTime, ok, err := misc.Time(upgradeTimeKey); err == nil && ok && time.Since(lastTime) < upgradeRetryInterval {

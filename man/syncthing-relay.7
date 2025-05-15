@@ -28,7 +28,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-RELAY" "7" "Jan 16, 2025" "v1.29.1" "Syncthing"
+.TH "SYNCTHING-RELAY" "7" "May 09, 2025" "v1.29.6" "Syncthing"
 .SH NAME
 syncthing-relay \- Relay Protocol v1
 .SH WHAT IS A RELAY?
@@ -105,8 +105,9 @@ If the client fails to send a message (even if it’s a ping message) every minu
 .SS Temporary protocol submode
 .sp
 A temporary protocol submode begins with ConnectRequest message, to which the
-relay responds with either ResponseNotFound if the device the client it is after
-is not available, or with a SessionInvitation, which contains the unique session
+relay responds with ResponseNotFound if the device the client it is after
+is not available, with a RelayFull if the relay has reached its limits,
+or with a SessionInvitation, which contains the unique session
 key which then can be used to establish a connection in session mode.
 .sp
 The connection is terminated immediately after that.
@@ -228,7 +229,7 @@ T}
 The first and only message the client sends in the session mode is the
 JoinSessionRequest message which contains the session key identifying which
 session you are trying to join. The relay responds with one of the following
-Response messages:
+messages:
 .INDENT 0.0
 .IP 1. 3
 ResponseNotFound \- Session key is invalid
@@ -237,6 +238,9 @@ ResponseAlreadyConnected \- Session is full (both sides already connected)
 .IP 3. 3
 ResponseSuccess \- You have successfully joined the session
 .UNINDENT
+.sp
+4. RelayFull \- Relay limits are too strict for you to be able to join the session.
+The relay immediately terminates the connection after sending this.
 .sp
 After the successful response, all the bytes written and received will be
 relayed between the two devices in the session directly.
@@ -569,6 +573,21 @@ the server side or the client side, this boolean indicates which side of the
 connection this client should assume it’s getting. The value is inverted in
 the invitation which is sent to the other device, so that there is always
 one client socket, and one server socket.
+.UNINDENT
+.SS RelayFull message (Type = 7)
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
+
+
+struct RelayFull {
+}
+.EE
+.UNINDENT
 .UNINDENT
 .SH HOW SYNCTHING USES RELAYS, AND GENERAL SECURITY
 .sp

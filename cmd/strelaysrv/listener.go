@@ -184,7 +184,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config, token strin
 					continue
 				}
 				// requestedPeer is the server, id is the client
-				ses := newSession(requestedPeer, id, sessionLimiter, globalLimiter)
+				ses := newSession(requestedPeer, id, sessionLimitBps, globalLimiter)
 
 				go ses.Serve()
 

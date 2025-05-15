@@ -3,9 +3,7 @@ name: Build Syncthing
 on:
   pull_request:
   push:
-  schedule:
-    # Run nightly build at 05:00 UTC
-    - cron: '00 05 * * *'
+  workflow_call:
   workflow_dispatch:
 
 env:
@@ -736,7 +734,7 @@ jobs:
           RCLONE_CONFIG_OBJSTORE_REGION: ${{ secrets.S3_REGION }}
           RCLONE_CONFIG_OBJSTORE_ACL: public-read
         with:
-          args: sync packages objstore:${{ secrets.S3_BUCKET }}/nightly
+          args: sync -v packages objstore:nightly
 
   #
   # Push release artifacts to Spaces
@@ -790,7 +788,7 @@ jobs:
           RCLONE_CONFIG_OBJSTORE_REGION: ${{ secrets.S3_REGION }}
           RCLONE_CONFIG_OBJSTORE_ACL: public-read
         with:
-          args: sync packages objstore:${{ secrets.S3_BUCKET }}/release/${{ env.VERSION }}
+          args: sync -v packages objstore:release/${{ env.VERSION }}
 
       - name: Push to object store (latest)
         uses: docker://docker.io/rclone/rclone:latest
@@ -803,7 +801,7 @@ jobs:
           RCLONE_CONFIG_OBJSTORE_REGION: ${{ secrets.S3_REGION }}
           RCLONE_CONFIG_OBJSTORE_ACL: public-read
         with:
-          args: sync objstore:${{ secrets.S3_BUCKET }}/release/${{ env.VERSION }} objstore:${{ secrets.S3_BUCKET }}/release/latest
+          args: sync -v objstore:release/${{ env.VERSION }} objstore:release/latest
 
   #
   # Push Debian/APT archive
@@ -858,7 +856,7 @@ jobs:
           RCLONE_CONFIG_OBJSTORE_REGION: ${{ secrets.S3_REGION }}
           RCLONE_CONFIG_OBJSTORE_ACL: public-read
         with:
-          args: sync objstore:syncthing-apt/dists dists
+          args: sync objstore:apt/dists dists
 
       - name: Update archive
         uses: docker://ghcr.io/kastelo/ezapt:latest
@@ -881,7 +879,7 @@ jobs:
           RCLONE_CONFIG_OBJSTORE_REGION: ${{ secrets.S3_REGION }}
           RCLONE_CONFIG_OBJSTORE_ACL: public-read
         with:
-          args: sync dists -v objstore:syncthing-apt/dists
+          args: sync -v dists objstore:apt/dists
 
   #
   # Build and push to Docker Hub
