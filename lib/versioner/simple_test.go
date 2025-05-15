@@ -189,8 +189,8 @@ func TestArchiveFoldersCreationPermission(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	folder2Path := filepath.Join(folder1Path, "folder2")
-	folder2VersionsPath := filepath.Join(folder1VersionsPath, "folder2")
+	folder2Path := filepath.Join(folder1Path, "földer2")
+	folder2VersionsPath := filepath.Join(folder1VersionsPath, "földer2")
 	folder2Perms := os.FileMode(0o744)
 	err = os.Mkdir(folder2Path, folder2Perms)
 	if err != nil {
@@ -203,7 +203,7 @@ func TestArchiveFoldersCreationPermission(t *testing.T) {
 	}
 
 	// create a file
-	filePath := filepath.Join("folder1", "folder2", "testFile")
+	filePath := filepath.Join("folder1", "földer2", "testFile")
 	f, err := vfs.Create(filePath)
 	if err != nil {
 		t.Fatal(err)
@@ -228,7 +228,7 @@ func TestArchiveFoldersCreationPermission(t *testing.T) {
 		t.Fatal(err)
 	}
 	if folder2VersionsInfo.Mode().Perm() != folder2Perms {
-		t.Errorf("folder2 permissions %v, want %v", folder2VersionsInfo.Mode(), folder2Perms)
+		t.Errorf("földer2 permissions %v, want %v", folder2VersionsInfo.Mode(), folder2Perms)
 	}
 
 	// Archive again to test that archiving doesn't fail if the versioned folders already exist
@@ -248,6 +248,6 @@ func TestArchiveFoldersCreationPermission(t *testing.T) {
 		t.Fatal(err)
 	}
 	if folder2VersionsInfo.Mode().Perm() != folder2Perms {
-		t.Errorf("folder2 permissions %v, want %v", folder2VersionsInfo.Mode(), folder2Perms)
+		t.Errorf("földer2 permissions %v, want %v", folder2VersionsInfo.Mode(), folder2Perms)
 	}
 }

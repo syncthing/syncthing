@@ -196,16 +196,14 @@ func dupDirTree(srcFs, dstFs fs.Filesystem, folderPath string) error {
 	if err == nil || !fs.IsNotExist(err) {
 		return err
 	}
-	i := 0
 	hadParent := true
-	for i < len(folderPath) {
+	for i := range folderPath {
 		if os.IsPathSeparator(folderPath[i]) {
 			// If the parent folder didn't exist, then this folder doesn't exist
 			// so we can skip the check
 			if hadParent {
 				_, err := dstFs.Stat(folderPath[:i])
 				if err == nil {
-					i++
 					continue
 				}
 				if !fs.IsNotExist(err) {
@@ -218,7 +216,6 @@ func dupDirTree(srcFs, dstFs fs.Filesystem, folderPath string) error {
 				return err
 			}
 		}
-		i++
 	}
 	return dupDirWithPerms(srcFs, dstFs, folderPath)
 }
