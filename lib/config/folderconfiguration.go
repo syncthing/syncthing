@@ -114,7 +114,6 @@ type XattrFilterEntry struct {
 }
 
 type ConflictHandling struct {
-	//WinnerSelectionType  string `json:"winnerSelectionType" xml:"winnerSelectionType" default:"classic"`
 	ExternalMergeEnabled bool   `json:"externalMergeEnabled" xml:"externalMergeEnabled" default:"false"`
 	ExternalMergeCommand string `json:"externalMergeCommand" xml:"externalMergeCommand"`
 }
