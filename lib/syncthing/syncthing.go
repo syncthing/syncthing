@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/lib/api"
@@ -306,6 +307,37 @@ func (a *App) startup() error {
 
 	if isSuperUser() {
 		l.Warnln("Syncthing should not run as a privileged or system user. Please consider using a normal user account.")
+	}
+
+	if os.Getenv("NOTIFY_SOCKET") != "" {
+		stateChangeSub := a.evLogger.Subscribe(events.StateChanged)
+
+		scanningFolderIds := make(map[string]struct{})
+		for _, folder := range a.ll.ListFolders() {
+			scanningFolderIds[folder] = struct{}{}
+		}
+
+		for len(scanningFolderIds) > 0 {
+			select {
+			case event := <-stateChangeSub.C():
+				data := event.Data.(map[string]interface{})
+				if data["to"] == "idle" {
+					delete(scanningFolderIds, data["folder"].(string))
+					if len(scanningFolderIds) == 0 {
+						break
+					}
+				}
+			}
+		}
+		stateChangeSub.Unsubscribe()
+
+		if sent, err := daemon.SdNotify(false, daemon.SdNotifyReady); err != nil {
+			l.Warnln("Failed to notify systemd:", err)
+		} else if !sent {
+			l.Warnln("Systemd notification not sent (returned false)")
+		} else {
+			l.Infoln("Successfully sent systemd ready notification")
+		}
 	}
 
 	a.evLogger.Log(events.StartupComplete, map[string]string{
