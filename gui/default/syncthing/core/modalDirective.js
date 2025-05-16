@@ -16,6 +16,14 @@ angular.module('syncthing.core')
             },
             link: function (scope, element, attrs) {
 
+                $(element).on('click', function (event) {
+                    const closestTabAnchor = event.target.closest('a[data-toggle="tab"]');
+
+                    if (closestTabAnchor && closestTabAnchor.href.includes('#')) {
+                        event.preventDefault();
+                    }
+                });
+
                 // before modal show animation
                 $(element).on('show.bs.modal', function () {
 
