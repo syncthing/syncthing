@@ -587,6 +587,25 @@ func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool
 		return nil
 	})
 
+	// Apply default ignores to newly created folders
+	// Only do this for regular folders (not for receive-encrypted folders)
+	if cfg.Type != config.FolderTypeReceiveEncrypted {
+		go func() {
+			ignores := m.cfg.DefaultIgnores()
+			// JS split() side effect. handling for empty ignore pattern.
+			if len(ignores.Lines) > 0 && ignores.Lines[0] != "" {
+				_, err := cfg.Filesystem(nil).Lstat(".stignore")
+				if fs.IsNotExist(err) {
+					if err := m.setIgnores(cfg, ignores.Lines); err != nil {
+						l.Debugf("Failed to apply default ignores to new folder %s: %v", cfg.Description(), err)
+					} else {
+						l.Debugf("Applied default ignores to new folder")
+					}
+				}
+			}
+		}()
+	}
+
 	return nil
 }
 
