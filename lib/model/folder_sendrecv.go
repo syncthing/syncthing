@@ -1974,6 +1974,9 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, scanChan c
 			return nil
 		}
 		cf, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, path)
+		if err != nil {
+			return err
+		}
 		switch {
 		case !ok || cf.IsDeleted():
 			// Something appeared in the dir that we either are not
