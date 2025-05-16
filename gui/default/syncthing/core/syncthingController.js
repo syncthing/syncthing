@@ -98,6 +98,7 @@ angular.module('syncthing.core')
             simpleKeep: 5,
             staggeredMaxAge: 365,
             externalCommand: "",
+            archiveDeletedOnly: true,
         };
 
         $scope.localStateTotal = {
@@ -2365,6 +2366,7 @@ angular.module('syncthing.core')
             switch (currentVersioning.type) {
             case "trashcan":
                 $scope.currentFolder._guiVersioning.trashcanClean = +currentVersioning.params.cleanoutDays;
+                $scope.currentFolder._guiVersioning.archiveDeletedOnly = currentVersioning.params.archiveDeletedOnly === "true";
                 break;
             case "simple":
                 $scope.currentFolder._guiVersioning.simpleKeep = +currentVersioning.params.keep;
@@ -2550,6 +2552,7 @@ angular.module('syncthing.core')
             switch (folderCfg._guiVersioning.selector) {
             case "trashcan":
                 folderCfg.versioning.params.cleanoutDays = '' + folderCfg._guiVersioning.trashcanClean;
+                folderCfg.versioning.params.archiveDeletedOnly = '' + folderCfg._guiVersioning.archiveDeletedOnly;
                 break;
             case "simple":
                 folderCfg.versioning.params.keep = '' + folderCfg._guiVersioning.simpleKeep,
