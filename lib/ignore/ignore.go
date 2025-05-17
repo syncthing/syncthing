@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -26,6 +27,17 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
 )
+
+const escapePrefix = "#escape"
+
+var defaultEscapeChar = '\\'
+
+func init() {
+	if os.PathSeparator == defaultEscapeChar {
+		// The pipe character (|) is not allowed in filenames on Windows
+		defaultEscapeChar = '|'
+	}
+}
 
 // A ParseError signifies an error with contents of an ignore file,
 // including I/O errors on included files. An I/O error on the root level
@@ -238,6 +250,7 @@ func (m *Matcher) Match(file string) (result ignoreresult.R) {
 		return ignoreresult.NotIgnored
 	}
 
+	// Change backslashes to slashes (on Windows only)
 	file = filepath.ToSlash(file)
 
 	if m.matches != nil {
@@ -504,8 +517,32 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 		return nil, nil, err
 	}
 
+	escapeChar := defaultEscapeChar
+
 	var err error
+	var escaping = true
+	var escaped = false
 	for _, line := range lines {
+		if strings.HasPrefix(line, escapePrefix) {
+			if !escaping {
+				if escaped {
+					return nil, nil, errors.New("mutiple #escape= lines found in ignore file")
+				} else {
+					return nil, nil, errors.New("#escape= line found after patterns in ignore file")
+				}
+			}
+			trimmed := strings.TrimPrefix(line, escapePrefix)
+			trimmed = strings.ReplaceAll(strings.ReplaceAll(trimmed, " ", ""), "\t", "")
+			runes := []rune(trimmed)
+			if len(runes) != 2 || runes[0] != '=' {
+				return nil, nil, fmt.Errorf("failed to parse #escape= line in ignore file: %q", line)
+			}
+			escapeChar = runes[1]
+			escaped = true
+			escaping = false
+			continue
+		}
+
 		if _, ok := linesSeen[line]; ok {
 			continue
 		}
@@ -517,7 +554,18 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			continue
 		}
 
-		line = filepath.ToSlash(line)
+		if escapeChar != '\\' {
+			// ToSlash changes backslashes to forward slashes on Windows only,
+			// so we only need to do this, if escapeChar is not a backslash.
+			// If escapeChar is a backslash, then the user is using forward
+			// slashes for path separators, and we leave backslashes alone.
+			line = filepath.ToSlash(line)
+			// Replace all escapeChars with backslashes
+			line = strings.ReplaceAll(line, string(escapeChar), `\`)
+			// Now restore double escapeChars to actually escape the escapeChar.
+			line = strings.ReplaceAll(line, `\\`, `\`+string(escapeChar))
+		}
+
 		switch {
 		case strings.HasPrefix(line, "#include"):
 			fields := strings.SplitN(line, " ", 2)
@@ -545,13 +593,16 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			}
 		case strings.HasSuffix(line, "/**"):
 			err = addPattern(line)
+			escaping = false
 		case strings.HasSuffix(line, "/"):
 			err = addPattern(line + "**")
+			escaping = false
 		default:
 			err = addPattern(line)
 			if err == nil {
 				err = addPattern(line + "/**")
 			}
+			escaping = false
 		}
 		if err != nil {
 			return lines, nil, err
