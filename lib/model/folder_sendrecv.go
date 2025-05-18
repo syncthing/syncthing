@@ -1286,11 +1286,6 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 // copierRoutine reads copierStates until the in channel closes and performs
 // the relevant copies when possible, or passes it to the puller routine.
 func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
-	buf := protocol.BufferPool.Get(protocol.MinBlockSize)
-	defer func() {
-		protocol.BufferPool.Put(buf)
-	}()
-
 	otherFolderFilesystems := make(map[string]fs.Filesystem)
 	for folder, cfg := range f.model.cfg.Folders() {
 		if folder == f.ID {
@@ -1333,7 +1328,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				continue
 			}
 
-			if f.copyBlock(block, state, otherFolderFilesystems, buf) {
+			if f.copyBlock(block, state, otherFolderFilesystems) {
 				state.copyDone(block)
 				continue
 			}
@@ -1362,8 +1357,9 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 }
 
 // Returns true when the block was successfully copied.
-func (f *sendReceiveFolder) copyBlock(block protocol.BlockInfo, state copyBlocksState, otherFolderFilesystems map[string]fs.Filesystem, buf []byte) bool {
-	buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
+func (f *sendReceiveFolder) copyBlock(block protocol.BlockInfo, state copyBlocksState, otherFolderFilesystems map[string]fs.Filesystem) bool {
+	buf := protocol.BufferPool.Get(int(block.Size))
+	defer protocol.BufferPool.Put(buf)
 
 	// Hope that it's usually in the same folder, so start with that
 	// one. Also possibly more efficient copy (same filesystem).
@@ -1978,6 +1974,9 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, scanChan c
 			return nil
 		}
 		cf, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, path)
+		if err != nil {
+			return err
+		}
 		switch {
 		case !ok || cf.IsDeleted():
 			// Something appeared in the dir that we either are not
