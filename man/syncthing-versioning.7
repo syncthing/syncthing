@@ -66,11 +66,6 @@ available to clean the trash can from files older than a specified number of
 days.  If this is set to a positive number of days, files will be removed when
 they have been in the trash can that long.  Setting this to zero prevents any
 files from being removed from the trash can automatically.
-.IP "\\fBarchiveDeletedOnly\\fP"
-When set to true, Syncthing will only create versions of files that are deleted from the folder.
-Modifications to existing files will not be versioned. This is useful to protect against
-accidental deletions, without keeping a full history of all changes. Defaults to false.
-This option is only available for the Trash Can versioner.
 .SH SIMPLE FILE VERSIONING
 .sp
 With “Simple File Versioning” files are moved to the \fB\&.stversions\fP folder when
