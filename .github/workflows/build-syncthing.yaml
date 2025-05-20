@@ -127,6 +127,7 @@ jobs:
       - package-debian
       - package-windows
       - govulncheck
+      - golangci
     steps:
       - uses: actions/checkout@v4
 
