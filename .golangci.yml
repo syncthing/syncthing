@@ -1,20 +1,18 @@
+version: "2"
 linters:
-  enable-all: true
+  default: all
   disable:
     - cyclop
     - depguard
     - exhaustive
     - exhaustruct
     - funlen
-    - gci
     - gochecknoglobals
     - gochecknoinits
     - gocognit
     - goconst
     - gocyclo
     - godox
-    - gofmt
-    - goimports
     - gomoddirectives
     - inamedparam
     - interfacebloat
@@ -25,15 +23,34 @@ linters:
     - nonamedreturns
     - paralleltest
     - protogetter
-    - scopelint
     - tagalign
     - tagliatelle
     - testpackage
     - varnamelen
     - wsl
-
-issues:
-  exclude-dirs:
-    - internal/gen
-    - cmd/dev
-    - repos
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - internal/gen
+      - cmd/dev
+      - repos
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofumpt
+  exclusions:
+    generated: lax
+    paths:
+      - internal/gen
+      - cmd/dev
+      - repos
+      - third_party$
+      - builtin$
+      - examples$
