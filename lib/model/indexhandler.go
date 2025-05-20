@@ -194,7 +194,8 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 		// currently in the database, wait for the local index to update. The
 		// local index may update for other folders than the one we are
 		// sending for.
-		seq, err := s.sdb.GetDeviceSequence(s.folder, protocol.LocalDeviceID)
+		var seq int64
+		seq, err = s.sdb.GetDeviceSequence(s.folder, protocol.LocalDeviceID)
 		if err != nil {
 			return err
 		}
