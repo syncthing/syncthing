@@ -106,13 +106,16 @@ type tm_config struct {
 	serviceRunning bool
 }
 
+type tm_localTunnelEPs struct {
+	localTunnelEndpoints map[protocol.DeviceID]map[uint64]io.ReadWriteCloser
+}
+
 type TunnelManager struct {
 	config                *utils.Protected[*tm_config] // TunnelManager config
-	endpointsMutex        sync.Mutex                   // Mutex for localTunnelEndpoints
 	deviceConnectionMutex sync.Mutex                   // Mutex for deviceConnections
 	configFile            string
 	idGenerator           *uid64.Generator
-	localTunnelEndpoints  map[protocol.DeviceID]map[uint64]io.ReadWriteCloser
+	endpoints             *utils.Protected[*tm_localTunnelEPs]
 	deviceConnections     map[protocol.DeviceID]*DeviceConnection
 }
 
@@ -168,9 +171,11 @@ func NewTunnelManagerFromConfig(config *bep.TunnelConfig, configFile string) *Tu
 			configOut:      make(map[string]*tunnelOutConfig),
 			serviceRunning: false,
 		}),
-		idGenerator:          gen,
-		localTunnelEndpoints: make(map[protocol.DeviceID]map[uint64]io.ReadWriteCloser),
-		deviceConnections:    make(map[protocol.DeviceID]*DeviceConnection),
+		idGenerator: gen,
+		endpoints: utils.NewProtected(&tm_localTunnelEPs{
+			localTunnelEndpoints: make(map[protocol.DeviceID]map[uint64]io.ReadWriteCloser),
+		}),
+		deviceConnections: make(map[protocol.DeviceID]*DeviceConnection),
 	}
 	// use update logic to set the initial config as well.
 	// this avoids code duplication
@@ -527,22 +532,22 @@ func (tm *TunnelManager) handleLocalTunnelEndpoint(ctx context.Context, tunnelID
 
 func (tm *TunnelManager) registerLocalTunnelEndpoint(deviceID protocol.DeviceID, tunnelID uint64, conn io.ReadWriteCloser) {
 	tl.Debugln("Registering local tunnel endpoint, device ID:", deviceID, "tunnel ID:", tunnelID)
-	tm.endpointsMutex.Lock()
-	defer tm.endpointsMutex.Unlock()
-	if tm.localTunnelEndpoints[deviceID] == nil {
-		tm.localTunnelEndpoints[deviceID] = make(map[uint64]io.ReadWriteCloser)
-	}
-	tm.localTunnelEndpoints[deviceID][tunnelID] = conn
+	tm.endpoints.DoProtected(func(eps *tm_localTunnelEPs) {
+		if eps.localTunnelEndpoints[deviceID] == nil {
+			eps.localTunnelEndpoints[deviceID] = make(map[uint64]io.ReadWriteCloser)
+		}
+		eps.localTunnelEndpoints[deviceID][tunnelID] = conn
+	})
 }
 
 func (tm *TunnelManager) deregisterLocalTunnelEndpoint(deviceID protocol.DeviceID, tunnelID uint64) {
 	tl.Debugln("Deregistering local tunnel endpoint, device ID:", deviceID, "tunnel ID:", tunnelID)
-	tm.endpointsMutex.Lock()
-	defer tm.endpointsMutex.Unlock()
-	delete(tm.localTunnelEndpoints[deviceID], tunnelID)
-	if len(tm.localTunnelEndpoints[deviceID]) == 0 {
-		delete(tm.localTunnelEndpoints, deviceID) // Ensure map cleanup
-	}
+	tm.endpoints.DoProtected(func(eps *tm_localTunnelEPs) {
+		delete(eps.localTunnelEndpoints[deviceID], tunnelID)
+		if len(eps.localTunnelEndpoints[deviceID]) == 0 {
+			delete(eps.localTunnelEndpoints, deviceID) // Ensure map cleanup
+		}
+	})
 }
 
 func (tm *TunnelManager) RegisterDeviceConnection(device protocol.DeviceID, tunnelIn <-chan *protocol.TunnelData, tunnelOut chan<- *protocol.TunnelData) {
@@ -639,9 +644,10 @@ func (tm *TunnelManager) forwardRemoteTunnelData(fromDevice protocol.DeviceID, d
 		go tm.handleLocalTunnelEndpoint(service.ctx, data.D.TunnelId, conn, fromDevice, *data.D.RemoteServiceName, TunnelDestinationAddress)
 
 	case bep.TunnelCommand_TUNNEL_COMMAND_DATA:
-		tm.endpointsMutex.Lock()
-		tcpConn, ok := tm.localTunnelEndpoints[fromDevice][data.D.TunnelId]
-		tm.endpointsMutex.Unlock()
+		tcpConn, ok := utils.DoProtected2(tm.endpoints, func(eps *tm_localTunnelEPs) (io.WriteCloser, bool) {
+			tcpConn, ok := eps.localTunnelEndpoints[fromDevice][data.D.TunnelId]
+			return tcpConn, ok
+		})
 		if ok {
 			_, err := tcpConn.Write(data.D.Data)
 			if err != nil {
@@ -651,9 +657,10 @@ func (tm *TunnelManager) forwardRemoteTunnelData(fromDevice protocol.DeviceID, d
 			tl.Infof("Data: No TCP connection found for device %v, TunnelID: %d", fromDevice, data.D.TunnelId)
 		}
 	case bep.TunnelCommand_TUNNEL_COMMAND_CLOSE:
-		tm.endpointsMutex.Lock()
-		tcpConn, ok := tm.localTunnelEndpoints[fromDevice][data.D.TunnelId]
-		tm.endpointsMutex.Unlock()
+		tcpConn, ok := utils.DoProtected2(tm.endpoints, func(eps *tm_localTunnelEPs) (io.WriteCloser, bool) {
+			tcpConn, ok := eps.localTunnelEndpoints[fromDevice][data.D.TunnelId]
+			return tcpConn, ok
+		})
 		if ok {
 			tcpConn.Close()
 		} else {
