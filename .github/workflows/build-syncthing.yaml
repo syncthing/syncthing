@@ -127,6 +127,7 @@ jobs:
       - package-debian
       - package-windows
       - govulncheck
+      - golangci
     steps:
       - uses: actions/checkout@v4
 
@@ -1020,3 +1021,22 @@ jobs:
           go run build.go assets
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
+
+  golangci:
+    runs-on: ubuntu-latest
+    name: Run golangci-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
+
+      - name: ensure asset generation
+        run: go run build.go assets
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          only-new-issues: true
