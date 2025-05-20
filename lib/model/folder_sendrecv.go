@@ -179,7 +179,7 @@ func (f *sendReceiveFolder) pull() (bool, error) {
 	f.errorsMut.Unlock()
 
 	var err error
-	for tries := 0; tries < maxPullerIterations; tries++ {
+	for tries := range maxPullerIterations {
 		select {
 		case <-f.ctx.Done():
 			return false, f.ctx.Err()
@@ -259,7 +259,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 		updateWg.Done()
 	}()
 
-	for i := 0; i < f.Copiers; i++ {
+	for range f.Copiers {
 		copyWg.Add(1)
 		go func() {
 			// copierRoutine finishes when copyChan is closed
@@ -1358,7 +1358,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 // Returns true when the block was successfully copied.
 func (f *sendReceiveFolder) copyBlock(block protocol.BlockInfo, state copyBlocksState, otherFolderFilesystems map[string]fs.Filesystem) bool {
-	buf := protocol.BufferPool.Get(int(block.Size))
+	buf := protocol.BufferPool.Get(block.Size)
 	defer protocol.BufferPool.Put(buf)
 
 	// Hope that it's usually in the same folder, so start with that
@@ -1561,7 +1561,7 @@ loop:
 		activity.using(selected)
 		var buf []byte
 		blockNo := int(state.block.Offset / int64(state.file.BlockSize()))
-		buf, lastError = f.model.RequestGlobal(f.ctx, selected.ID, f.folderID, state.file.Name, blockNo, state.block.Offset, int(state.block.Size), state.block.Hash, selected.FromTemporary)
+		buf, lastError = f.model.RequestGlobal(f.ctx, selected.ID, f.folderID, state.file.Name, blockNo, state.block.Offset, state.block.Size, state.block.Hash, selected.FromTemporary)
 		activity.done(selected)
 		if lastError != nil {
 			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, selected.ID.Short(), "returned error:", lastError)

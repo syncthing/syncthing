@@ -60,12 +60,12 @@ func (p *deviceFolderDownloadState) Update(updates []protocol.FileDownloadProgre
 				local = deviceFolderFileDownloadState{
 					blockIndexes: update.BlockIndexes,
 					version:      update.Version,
-					blockSize:    int(update.BlockSize),
+					blockSize:    update.BlockSize,
 				}
 			} else if !local.version.Equal(update.Version) {
 				local.blockIndexes = append(local.blockIndexes[:0], update.BlockIndexes...)
 				local.version = update.Version
-				local.blockSize = int(update.BlockSize)
+				local.blockSize = update.BlockSize
 			} else {
 				local.blockIndexes = append(local.blockIndexes, update.BlockIndexes...)
 			}
