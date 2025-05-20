@@ -16,6 +16,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: stable
+      - name: ensure asset generation
+        run: go run build.go
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
