@@ -6,6 +6,7 @@ linters:
     - depguard
     - exhaustive
     - exhaustruct
+    - forbidigo
     - funlen
     - gochecknoglobals
     - gochecknoinits
@@ -19,14 +20,24 @@ linters:
     - ireturn
     - lll
     - maintidx
+    - mnd
+    - musttag
     - nestif
+    - nlreturn
     - nonamedreturns
     - paralleltest
+    - prealloc
+    - predeclared
     - protogetter
+    - recvcheck
+    - revive
     - tagalign
     - tagliatelle
     - testpackage
+    - usetesting # go 1.24
     - varnamelen
+    - whitespace
+    - wrapcheck
     - wsl
   exclusions:
     generated: lax
