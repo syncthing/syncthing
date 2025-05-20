@@ -22,7 +22,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/maruel/panicparse/v2 v2.5.0
-	github.com/mattn/go-sqlite3 v1.14.27
+	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.11.2
 	github.com/maxmind/geoipupdate/v6 v6.1.0
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
@@ -108,3 +108,6 @@ require (
 
 // https://github.com/gobwas/glob/pull/55
 replace github.com/gobwas/glob v0.2.3 => github.com/calmh/glob v0.0.0-20220615080505-1d823af5017b
+
+// https://github.com/mattn/go-sqlite3/pull/1338
+replace github.com/mattn/go-sqlite3 v1.14.28 => github.com/calmh/go-sqlite3 v1.14.29-0.20250520105817-2e94cda3f7f8
