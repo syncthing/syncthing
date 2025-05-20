@@ -19,7 +19,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ek220/guf"
@@ -110,13 +109,16 @@ type tm_localTunnelEPs struct {
 	localTunnelEndpoints map[protocol.DeviceID]map[uint64]io.ReadWriteCloser
 }
 
+type tm_deviceConnections struct {
+	deviceConnections map[protocol.DeviceID]*DeviceConnection
+}
+
 type TunnelManager struct {
-	config                *utils.Protected[*tm_config] // TunnelManager config
-	deviceConnectionMutex sync.Mutex                   // Mutex for deviceConnections
-	configFile            string
-	idGenerator           *uid64.Generator
-	endpoints             *utils.Protected[*tm_localTunnelEPs]
-	deviceConnections     map[protocol.DeviceID]*DeviceConnection
+	config            *utils.Protected[*tm_config]
+	configFile        string
+	idGenerator       *uid64.Generator
+	endpoints         *utils.Protected[*tm_localTunnelEPs]
+	deviceConnections *utils.Protected[*tm_deviceConnections]
 }
 
 func (m *TunnelManager) TunnelStatus() []map[string]interface{} {
@@ -128,18 +130,18 @@ func (m *TunnelManager) AddTunnelOutbound(localListenAddress string, remoteDevic
 }
 
 func (m *TunnelManager) TrySendTunnelData(deviceID protocol.DeviceID, data *protocol.TunnelData) error {
-	m.deviceConnectionMutex.Lock()
-	defer m.deviceConnectionMutex.Unlock()
-	if conn, ok := m.deviceConnections[deviceID]; ok {
-		select {
-		case conn.tunnelOut <- data:
-			return nil
-		default:
-			return fmt.Errorf("failed to send tunnel data to device %v", deviceID)
+	return utils.DoProtected(m.deviceConnections, func(dc *tm_deviceConnections) error {
+		if conn, ok := dc.deviceConnections[deviceID]; ok {
+			select {
+			case conn.tunnelOut <- data:
+				return nil
+			default:
+				return fmt.Errorf("failed to send tunnel data to device %v", deviceID)
+			}
+		} else {
+			return fmt.Errorf("device %v not found in TunnelManager", deviceID)
 		}
-	} else {
-		return fmt.Errorf("device %v not found in TunnelManager", deviceID)
-	}
+	})
 }
 
 func NewTunnelManager(configFile string) *TunnelManager {
@@ -175,7 +177,9 @@ func NewTunnelManagerFromConfig(config *bep.TunnelConfig, configFile string) *Tu
 		endpoints: utils.NewProtected(&tm_localTunnelEPs{
 			localTunnelEndpoints: make(map[protocol.DeviceID]map[uint64]io.ReadWriteCloser),
 		}),
-		deviceConnections: make(map[protocol.DeviceID]*DeviceConnection),
+		deviceConnections: utils.NewProtected(&tm_deviceConnections{
+			deviceConnections: make(map[protocol.DeviceID]*DeviceConnection),
+		}),
 	}
 	// use update logic to set the initial config as well.
 	// this avoids code duplication
@@ -490,14 +494,14 @@ func (tm *TunnelManager) handleLocalTunnelEndpoint(ctx context.Context, tunnelID
 		stop()
 	}()
 
-	destinationDeviceTunnel := func() chan<- *protocol.TunnelData {
-		tm.deviceConnectionMutex.Lock()
-		defer tm.deviceConnectionMutex.Unlock()
-		if conn, ok := tm.deviceConnections[destinationDevice]; ok {
-			return conn.tunnelOut
-		}
-		return nil
-	}()
+	destinationDeviceTunnel := utils.DoProtected(
+		tm.deviceConnections,
+		func(dc *tm_deviceConnections) chan<- *protocol.TunnelData {
+			if conn, ok := dc.deviceConnections[destinationDevice]; ok {
+				return conn.tunnelOut
+			}
+			return nil
+		})
 
 	// Example: Forward data to the destination address
 	// This is a placeholder implementation
@@ -551,16 +555,13 @@ func (tm *TunnelManager) deregisterLocalTunnelEndpoint(deviceID protocol.DeviceI
 }
 
 func (tm *TunnelManager) RegisterDeviceConnection(device protocol.DeviceID, tunnelIn <-chan *protocol.TunnelData, tunnelOut chan<- *protocol.TunnelData) {
-	func() {
-		tl.Debugln("Registering device connection, device ID:", device)
-		tm.deviceConnectionMutex.Lock()
-		defer tm.deviceConnectionMutex.Unlock()
-
-		tm.deviceConnections[device] = &DeviceConnection{
+	tl.Debugln("Registering device connection, device ID:", device)
+	tm.deviceConnections.DoProtected(func(dc *tm_deviceConnections) {
+		dc.deviceConnections[device] = &DeviceConnection{
 			tunnelOut:        tunnelOut,
 			serviceOfferings: make(map[string]uint32),
 		}
-	}()
+	})
 
 	// handle all incoming tunnel data for this device
 	go func() {
@@ -592,9 +593,9 @@ func (tm *TunnelManager) generateOfferCommand(json *bep.TunnelInbound) *protocol
 
 func (tm *TunnelManager) DeregisterDeviceConnection(device protocol.DeviceID) {
 	tl.Debugln("Deregistering device connection, device ID:", device)
-	tm.deviceConnectionMutex.Lock()
-	defer tm.deviceConnectionMutex.Unlock()
-	delete(tm.deviceConnections, device)
+	tm.deviceConnections.DoProtected(func(dc *tm_deviceConnections) {
+		delete(dc.deviceConnections, device)
+	})
 }
 
 func parseUint32Or(input string, defaultValue uint32) uint32 {
@@ -667,13 +668,11 @@ func (tm *TunnelManager) forwardRemoteTunnelData(fromDevice protocol.DeviceID, d
 			tl.Infof("Close: No TCP connection found for device %v, TunnelID: %d", fromDevice, data.D.TunnelId)
 		}
 	case bep.TunnelCommand_TUNNEL_COMMAND_OFFER:
-		func() {
-			tm.deviceConnectionMutex.Lock()
-			defer tm.deviceConnectionMutex.Unlock()
-			if conn, ok := tm.deviceConnections[fromDevice]; ok {
+		tm.deviceConnections.DoProtected(func(dc *tm_deviceConnections) {
+			if conn, ok := dc.deviceConnections[fromDevice]; ok {
 				conn.serviceOfferings[*data.D.RemoteServiceName] = parseUint32Or(guf.DerefOrDefault(data.D.TunnelDestinationAddress), 0)
 			}
-		}()
+		})
 	default: // unknown command
 		tl.Warnf("Unknown tunnel command: %v", data.D.Command)
 	}
@@ -746,11 +745,8 @@ func (m *TunnelManager) Status() []map[string]interface{} {
 
 	offerings := make(map[string]map[string]map[string]interface{})
 
-	func() {
-		m.deviceConnectionMutex.Lock()
-		defer m.deviceConnectionMutex.Unlock()
-
-		for deviceID, connection := range m.deviceConnections {
+	m.deviceConnections.DoProtected(func(dc *tm_deviceConnections) {
+		for deviceID, connection := range dc.deviceConnections {
 			if offerings[deviceID.String()] == nil {
 				offerings[deviceID.String()] = make(map[string]map[string]interface{})
 			}
@@ -771,7 +767,7 @@ func (m *TunnelManager) Status() []map[string]interface{} {
 				offerings[deviceID.String()][serviceName] = info
 			}
 		}
-	}()
+	})
 
 	status := utils.DoProtected(m.config, func(config *tm_config) []map[string]interface{} {
 		status := make([]map[string]interface{}, 0, len(config.configIn)+len(config.configOut))
