@@ -27,6 +27,7 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
+		{50, migrateToConfigV50},
 		{37, migrateToConfigV37},
 		{36, migrateToConfigV36},
 		{35, migrateToConfigV35},
@@ -94,6 +95,10 @@ func (m migration) apply(cfg *Configuration) {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+}
+
+func migrateToConfigV50(cfg *Configuration) {
+	// v50 is Syncthing 2.0
 }
 
 func migrateToConfigV37(cfg *Configuration) {
