@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
-	newdb "github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/olddb"
 	"github.com/syncthing/syncthing/internal/db/olddb/backend"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
@@ -146,13 +145,13 @@ func copyFile(src, dst string) error {
 }
 
 // Opens a database
-func OpenDatabase(path string, deleteRetention time.Duration) (newdb.DB, error) {
+func OpenDatabase(path string, deleteRetention time.Duration) (db.DB, error) {
 	sql, err := sqlite.Open(path, sqlite.WithDeleteRetention(deleteRetention))
 	if err != nil {
 		return nil, err
 	}
 
-	sdb := newdb.MetricsWrap(sql)
+	sdb := db.MetricsWrap(sql)
 
 	return sdb, nil
 }
