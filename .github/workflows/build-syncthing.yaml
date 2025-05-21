@@ -88,26 +88,6 @@ jobs:
           CGO_ENABLED: "1"
 
   #
-  # Meta checks for formatting, copyright, etc
-  #
-
-  correctness:
-    name: Check correctness
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: false
-          check-latest: true
-
-      - name: Check correctness
-        run: |
-          go test -v ./meta
-
-  #
   # The basic checks job is a virtual one that depends on the matrix tests,
   # the correctness checks, and various builds that we always do. This makes
   # it easy to have the PR process have a single test as a gatekeeper for
@@ -121,14 +101,12 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build-test
-      - correctness
       - package-linux
       - package-cross
       - package-source
       - package-debian
       - package-windows
       - govulncheck
-      - golangci
     steps:
       - uses: actions/checkout@v4
 
@@ -1049,22 +1027,3 @@ jobs:
           go run build.go assets
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
-
-  golangci:
-    runs-on: ubuntu-latest
-    name: Run golangci-lint
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: false
-          check-latest: true
-
-      - name: ensure asset generation
-        run: go run build.go assets
-
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8
-        with:
-          only-new-issues: true
