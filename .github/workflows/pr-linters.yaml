@@ -16,7 +16,7 @@ jobs:
 
   golangci:
     runs-on: ubuntu-latest
-    name: Run golangci-lint
+    name: Golangci-lint
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -35,8 +35,8 @@ jobs:
   # Meta checks for formatting, copyright, etc
   #
 
-  correctness:
-    name: Check correctness
+  meta:
+    name: Meta checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,7 +44,6 @@ jobs:
         with:
           go-version: 'stable'
 
-      - name: Check correctness
-        run: |
+      - run: |
           go run build.go assets
           go test -v ./meta
