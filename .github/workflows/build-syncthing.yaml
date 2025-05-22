@@ -14,6 +14,7 @@ env:
 
   # Optimize compatibility on the slow archictures.
   GOMIPS: softfloat
+  GOARM: "6"
 
   # Avoid hilarious amounts of obscuring log output when running tests.
   LOGGER_DISCARD: "1"
@@ -251,7 +252,7 @@ jobs:
           for tgt in syncthing stdiscosrv strelaysrv ; do
             go run build.go -tags "${{env.TAGS}}" -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" tar "$tgt"
             go run build.go -tags "${{env.TAGS}}" -goos linux -goarch 386 -cc "zig cc -target x86-linux-musl" tar "$tgt"
-            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch arm -cc "zig cc -target arm-linux-musleabi" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch arm -cc "zig cc -target arm-linux-musleabi -mcpu=arm1136j_s" tar "$tgt"
             go run build.go -tags "${{env.TAGS}}" -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" tar "$tgt"
             go run build.go -tags "${{env.TAGS}}" -goos linux -goarch mips -cc "zig cc -target mips-linux-musleabi" tar "$tgt"
             go run build.go -tags "${{env.TAGS}}" -goos linux -goarch mipsle -cc "zig cc -target mipsel-linux-musleabi" tar "$tgt"
@@ -659,7 +660,7 @@ jobs:
         run: |
           for tgt in syncthing stdiscosrv strelaysrv ; do
             go run build.go -no-upgrade -installsuffix=no-upgrade -tags "${{env.TAGS}}" -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" deb "$tgt"
-            go run build.go -no-upgrade -installsuffix=no-upgrade -tags "${{env.TAGS}}" -goos linux -goarch arm -cc "zig cc -target arm-linux-musleabi" deb "$tgt"
+            go run build.go -no-upgrade -installsuffix=no-upgrade -tags "${{env.TAGS}}" -goos linux -goarch arm -cc "zig cc -target arm-linux-musleabi -mcpu=arm1136j_s" deb "$tgt"
             go run build.go -no-upgrade -installsuffix=no-upgrade -tags "${{env.TAGS}}" -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" deb "$tgt"
           done
         env:
@@ -937,7 +938,7 @@ jobs:
           mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm64
 
           # arm
-          go run build.go -goos linux -goarch arm -tags "${{env.TAGS}}" -cc "zig cc -target arm-linux-musleabi" -no-upgrade build ${{ matrix.pkg }}
+          go run build.go -goos linux -goarch arm -tags "${{env.TAGS}}" -cc "zig cc -target arm-linux-musleabi -mcpu=arm1136j_s" -no-upgrade build ${{ matrix.pkg }}
           mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm
         env:
           CGO_ENABLED: "1"
