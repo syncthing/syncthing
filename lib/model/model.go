@@ -2632,7 +2632,7 @@ func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protoco
 		protocolFolder.Paused = folderCfg.Paused || fs == nil
 
 		folderState, _, _ := m.State(folderCfg.ID)
-		fmt.Println(fmt.Sprintf("LOCAL_STATE: %v", folderState))
+		protocolFolder.OutOfSpace = folderState == FolderOutOfSpace.String()
 
 		for _, folderDevice := range folderCfg.Devices {
 			deviceCfg, _ := m.cfg.Device(folderDevice.DeviceID)

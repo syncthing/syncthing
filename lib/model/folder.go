@@ -389,6 +389,7 @@ func (f *folder) pull() (success bool, err error) {
 	err = f.getHealthErrorWithoutIgnores()
 	if err != nil {
 		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
+		f.setState(FolderOutOfSpace)
 		return false, err
 	}
 
@@ -440,6 +441,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 
 	err := f.getHealthErrorAndLoadIgnores()
 	if err != nil {
+		f.setState(FolderOutOfSpace)
 		return err
 	}
 	f.setError(nil)
