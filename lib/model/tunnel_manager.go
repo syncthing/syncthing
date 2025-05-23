@@ -133,7 +133,10 @@ func (m *TunnelManager) TrySendTunnelData(deviceID protocol.DeviceID, data *prot
 	tunnelOut, ok := utils.DoProtected2(m.deviceConnections,
 		func(dc *tm_deviceConnections) (chan<- *protocol.TunnelData, bool) {
 			conn, ok := dc.deviceConnections[deviceID]
-			return conn.tunnelOut, ok // channels are thread-safe
+			if !ok {
+				return nil, false
+			}
+			return conn.tunnelOut, true // channels are thread-safe
 		})
 
 	if ok {
