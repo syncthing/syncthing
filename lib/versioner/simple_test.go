@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 )
 
@@ -158,6 +159,10 @@ func TestPathTildes(t *testing.T) {
 }
 
 func TestArchiveFoldersCreationPermission(t *testing.T) {
+	if build.IsWindows {
+		t.Skip("Skipping on Windows")
+		return
+	}
 	dir := t.TempDir()
 	versionsDir := t.TempDir()
 
