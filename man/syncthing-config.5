@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "May 01, 2025" "v1.29.3" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "May 15, 2025" "v1.29.6" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -567,8 +567,8 @@ change this unless you know what you’re doing.
 .TP
 .B maxConflicts
 The maximum number of conflict copies to keep around for any given file.
-The default, \fB\-1\fP, means an unlimited number. Setting this to \fB0\fP disables
-conflict copies altogether.
+The default is \fB10\fP\&. \fB\-1\fP, means an unlimited number.
+Setting this to \fB0\fP disables conflict copies altogether.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -1432,8 +1432,9 @@ ECN bits into account.
 .INDENT 0.0
 .TP
 .B stunServer
-Server to be used for STUN, given as ip:port. The keyword \fBdefault\fP gets
-expanded to a set of public STUN servers.
+Server to use for STUN, given as ip:port. The keyword \fBdefault\fP gets
+expanded to a set of public STUN servers, with preference given to those
+hosted by the Syncthing project.
 .sp
 To configure multiple servers, you can either: repeat \fB<stunServer>\fP tags
 in the configuration file or enter several servers separated by commas in

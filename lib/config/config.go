@@ -235,6 +235,10 @@ func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 func (cfg Configuration) Copy() Configuration {
 	newCfg := cfg
 
+	// Deep copy Defaults
+	newCfg.Defaults.Folder = cfg.Defaults.Folder.Copy()
+	newCfg.Defaults.Device = cfg.Defaults.Device.Copy()
+
 	// Deep copy FolderConfigurations
 	newCfg.Folders = make([]FolderConfiguration, len(cfg.Folders))
 	for i := range newCfg.Folders {

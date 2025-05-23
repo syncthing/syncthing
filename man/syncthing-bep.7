@@ -28,7 +28,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-BEP" "7" "May 01, 2025" "v1.29.3" "Syncthing"
+.TH "SYNCTHING-BEP" "7" "May 15, 2025" "v1.29.6" "Syncthing"
 .SH NAME
 syncthing-bep \- Block Exchange Protocol v1
 .SH INTRODUCTION AND DEFINITIONS
@@ -61,7 +61,7 @@ level protocols providing encryption and authentication.
 +\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-+
 |   Block Exchange Protocol   |
 |\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-|
-| Encryption & Auth (TLS 1.2) |
+| Encryption & Auth (TLS 1.3) |
 |\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-|
 |      Reliable Transport     |
 |\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-\-|
@@ -70,13 +70,8 @@ v             ...             v
 .UNINDENT
 .UNINDENT
 .sp
-The encryption and authentication layer SHALL use TLS 1.2 or a higher
-revision. A strong cipher suite SHALL be used, with “strong cipher
-suite” being defined as being without known weaknesses and providing
-Perfect Forward Secrecy (PFS). Examples of strong cipher suites are
-given at the end of this document. This is not to be taken as an
-exhaustive list of allowed cipher suites but represents best practices
-at the time of writing.
+The encryption and authentication layer SHALL use TLS 1.3 or a higher
+revision.
 .sp
 The exact nature of the authentication is up to the application, however
 it SHALL be based on the TLS certificate presented at the start of the
@@ -1054,82 +1049,6 @@ retrieves the data from the folder and transmits Response records (9 through
 message (13). Both peers enter idle state after 13. At some later time 14,
 the ping timer on device B expires and a Ping message is sent. The same
 process occurs for device A at 15.
-.SH EXAMPLES OF STRONG CIPHER SUITES
-.TS
-box center;
-l|l|l.
-T{
-ID
-T}	T{
-Name
-T}	T{
-Description
-T}
-_
-T{
-0x009F
-T}	T{
-DHE\-RSA\-AES256\-GCM\-SHA384
-T}	T{
-TLSv1.2 DH RSA AESGCM(256) AEAD
-T}
-_
-T{
-0x006B
-T}	T{
-DHE\-RSA\-AES256\-SHA256
-T}	T{
-TLSv1.2 DH RSA AES(256) SHA256
-T}
-_
-T{
-0xC030
-T}	T{
-ECDHE\-RSA\-AES256\-GCM\-SHA384
-T}	T{
-TLSv1.2 ECDH RSA AESGCM(256) AEAD
-T}
-_
-T{
-0xC028
-T}	T{
-ECDHE\-RSA\-AES256\-SHA384
-T}	T{
-TLSv1.2 ECDH RSA AES(256) SHA384
-T}
-_
-T{
-0x009E
-T}	T{
-DHE\-RSA\-AES128\-GCM\-SHA256
-T}	T{
-TLSv1.2 DH RSA AESGCM(128) AEAD
-T}
-_
-T{
-0x0067
-T}	T{
-DHE\-RSA\-AES128\-SHA256
-T}	T{
-TLSv1.2 DH RSA AES(128) SHA256
-T}
-_
-T{
-0xC02F
-T}	T{
-ECDHE\-RSA\-AES128\-GCM\-SHA256
-T}	T{
-TLSv1.2 ECDH RSA AESGCM(128) AEAD
-T}
-_
-T{
-0xC027
-T}	T{
-ECDHE\-RSA\-AES128\-SHA256
-T}	T{
-TLSv1.2 ECDH RSA AES(128) SHA256
-T}
-.TE
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "May 01, 2025" "v1.29.3" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "May 15, 2025" "v1.29.6" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -156,6 +156,16 @@ File or directory owners and groups (when enabled)
 Extended attributes (when enabled)
 .IP \(bu 2
 POSIX or NFS ACLs (as part of extended attributes)
+.UNINDENT
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+Note that what can be synced often depends on the operating system, file
+system, and possibly other factors. For example, even though Syncthing may
+try to synchronise symbolic links on Android, this will not succeed, as the
+OS does not support them on the user storage.
+.UNINDENT
 .UNINDENT
 .sp
 The following are \fInot\fP synchronized;
