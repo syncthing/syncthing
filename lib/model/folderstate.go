@@ -24,6 +24,7 @@ const (
 	FolderSyncing
 	FolderCleaning
 	FolderCleanWaiting
+	FolderOutOfSpace
 	FolderError
 )
 
@@ -45,6 +46,8 @@ func (s folderState) String() string {
 		return "cleaning"
 	case FolderCleanWaiting:
 		return "clean-waiting"
+	case FolderOutOfSpace:
+		return "out-of-space"
 	case FolderError:
 		return "error"
 	default:
@@ -58,6 +61,7 @@ const (
 	remoteFolderUnknown remoteFolderState = iota
 	remoteFolderNotSharing
 	remoteFolderPaused
+	remoteFolderOutOfSpace
 	remoteFolderValid
 )
 
@@ -69,6 +73,8 @@ func (s remoteFolderState) String() string {
 		return "notSharing"
 	case remoteFolderPaused:
 		return "paused"
+	case remoteFolderOutOfSpace:
+		return "outOfSpace"
 	case remoteFolderValid:
 		return "valid"
 	default:
