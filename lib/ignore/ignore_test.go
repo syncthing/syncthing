@@ -1704,7 +1704,7 @@ var testEscapeFiles = map[string]string{
 func testEscape(t *testing.T, tests []escapeTest, noErrors bool) {
 	t.Helper()
 
-	for _, test := range tests {
+	for i, test := range tests {
 		testFS := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32)+"?content=true&nostfolder=true")
 
 		for name, content := range testEscapeFiles {
@@ -1715,18 +1715,18 @@ func testEscape(t *testing.T, tests []escapeTest, noErrors bool) {
 		err := pats.Parse(bytes.NewBufferString(test.pattern), ".stignore")
 		if noErrors {
 			if err != nil {
-				t.Fatalf("%q: err=%v", test.pattern, err)
+				t.Fatalf("%q: err=%v (test %d)", test.pattern, err, i+1)
 			}
 		} else {
 			if err == nil {
-				t.Fatalf("%q: got nil, want error", test.pattern)
+				t.Fatalf("%q: got nil, want error (test %d)", test.pattern, i+1)
 			}
 			continue
 		}
 
 		got := pats.Match(test.match).IsIgnored()
 		if got != test.want {
-			t.Errorf("%-20q: %-20q: got %v, want %v", test.pattern, test.match, got, test.want)
+			t.Errorf("%-20q: %-20q: got %v, want %v (test %d)", test.pattern, test.match, got, test.want, i+1)
 		}
 	}
 }

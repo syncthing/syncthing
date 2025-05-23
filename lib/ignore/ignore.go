@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gobwas/glob"
 	"golang.org/x/text/unicode/norm"
@@ -520,27 +521,28 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 	escapeChar := defaultEscapeChar
 
 	var err error
-	var escaping = true
-	var escaped = false
+	escapePrefixSeen := false
+	includedPatterns := 0
 	for _, line := range lines {
 		if strings.HasPrefix(line, escapePrefix) {
-			if !escaping {
-				if escaped {
-					return nil, nil, errors.New("mutiple #escape= lines found in ignore file")
-				} else {
-					return nil, nil, errors.New("#escape= line found after patterns in ignore file")
+			if escapePrefixSeen {
+				return nil, nil, errors.New("mutiple #escape= lines found in ignore file")
+			}
+			if len(patterns)-includedPatterns > 0 {
+				return nil, nil, errors.New("#escape= line found after patterns in ignore file")
+			}
+			escapePrefixSeen = true
+			trimmed := strings.TrimSpace(strings.TrimPrefix(line, escapePrefix))
+			before, esc, ok := strings.Cut(trimmed, "=")
+			if ok && before == "" {
+				esc = strings.TrimSpace(esc)
+				// avoids allocation of a new slice.
+				if utf8.RuneCountInString(esc) == 1 {
+					escapeChar, _ = utf8.DecodeRuneInString(esc)
+					continue
 				}
 			}
-			trimmed := strings.TrimPrefix(line, escapePrefix)
-			trimmed = strings.ReplaceAll(strings.ReplaceAll(trimmed, " ", ""), "\t", "")
-			runes := []rune(trimmed)
-			if len(runes) != 2 || runes[0] != '=' {
-				return nil, nil, fmt.Errorf("failed to parse #escape= line in ignore file: %q", line)
-			}
-			escapeChar = runes[1]
-			escaped = true
-			escaping = false
-			continue
+			return nil, nil, fmt.Errorf("failed to parse #escape= line in ignore file: %q", line)
 		}
 
 		if _, ok := linesSeen[line]; ok {
@@ -584,6 +586,7 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			var includePatterns []Pattern
 			if includePatterns, err = loadParseIncludeFile(fs, includeFile, cd, linesSeen); err == nil {
 				patterns = append(patterns, includePatterns...)
+				includedPatterns += len(includePatterns)
 			} else {
 				// Wrap the error, as if the include does not exist, we get a
 				// IsNotExists(err) == true error, which we use to check
@@ -593,16 +596,13 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			}
 		case strings.HasSuffix(line, "/**"):
 			err = addPattern(line)
-			escaping = false
 		case strings.HasSuffix(line, "/"):
 			err = addPattern(line + "**")
-			escaping = false
 		default:
 			err = addPattern(line)
 			if err == nil {
 				err = addPattern(line + "/**")
 			}
-			escaping = false
 		}
 		if err != nil {
 			return lines, nil, err
