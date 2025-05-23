@@ -226,8 +226,8 @@ func dupDirWithPerms(srcFs, dstFs fs.Filesystem, folderPath string) error {
 		return err
 	}
 	// If we call Mkdir with srcStat.Mode(), we won't get the expected perms because of umask
-	// So, we create the folder with 0755, and then change the perms to the srcStat.Mode()
-	err = dstFs.Mkdir(folderPath, 0o755)
+	// So, we create the folder with 0700, and then change the perms to the srcStat.Mode()
+	err = dstFs.Mkdir(folderPath, 0o700)
 	if err != nil {
 		return err
 	}
