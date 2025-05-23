@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/pprof"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -1253,10 +1254,8 @@ func TestAutoAcceptPausedWhenFolderConfigChanged(t *testing.T) {
 	} else if fcfg.Path != idOther {
 		t.Error("folder path changed")
 	} else {
-		for _, dev := range fcfg.DeviceIDs() {
-			if dev == device1 {
-				return
-			}
+		if slices.Contains(fcfg.DeviceIDs(), device1) {
+			return
 		}
 		t.Error("device missing")
 	}
@@ -1302,10 +1301,8 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 	} else if fcfg.Path != idOther {
 		t.Error("folder path changed")
 	} else {
-		for _, dev := range fcfg.DeviceIDs() {
-			if dev == device1 {
-				return
-			}
+		if slices.Contains(fcfg.DeviceIDs(), device1) {
+			return
 		}
 		t.Error("device missing")
 	}
