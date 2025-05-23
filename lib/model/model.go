@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 	stdsync "sync"
 	"sync/atomic"
@@ -1810,11 +1811,9 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 		l.Infof("Failed to auto-accept folder %s from %s due to path conflict", folder.Description(), deviceID)
 		return config.FolderConfiguration{}, false
 	} else {
-		for _, device := range cfg.DeviceIDs() {
-			if device == deviceID {
-				// Already shared nothing todo.
-				return config.FolderConfiguration{}, false
-			}
+		if slices.Contains(cfg.DeviceIDs(), deviceID) {
+			// Already shared nothing todo.
+			return config.FolderConfiguration{}, false
 		}
 		if cfg.Type == config.FolderTypeReceiveEncrypted {
 			if len(ccDeviceInfos.remote.EncryptionPasswordToken) == 0 && len(ccDeviceInfos.local.EncryptionPasswordToken) == 0 {
