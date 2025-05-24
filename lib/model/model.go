@@ -1424,6 +1424,12 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			continue
 		}
 
+		if folder.OutOfSpace {
+			indexHandlers.Remove(folder.ID)
+			seenFolders[cfg.ID] = remoteFolderOutOfSpace
+			continue
+		}
+
 		if folder.Paused {
 			indexHandlers.Remove(folder.ID)
 			seenFolders[cfg.ID] = remoteFolderPaused
@@ -2623,6 +2629,9 @@ func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protoco
 		// the missing index info (and drop all the info). We will send
 		// another cluster config once the folder is started.
 		protocolFolder.Paused = folderCfg.Paused || fs == nil
+
+		folderState, _, _ := m.State(folderCfg.ID)
+		protocolFolder.OutOfSpace = folderState == FolderOutOfSpace.String()
 
 		for _, folderDevice := range folderCfg.Devices {
 			deviceCfg, _ := m.cfg.Device(folderDevice.DeviceID)
