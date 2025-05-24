@@ -22,25 +22,33 @@ func init() {
 }
 
 type trashcan struct {
-	folderFs        fs.Filesystem
-	versionsFs      fs.Filesystem
-	cleanoutDays    int
-	copyRangeMethod fs.CopyRangeMethod
+	folderFs           fs.Filesystem
+	versionsFs         fs.Filesystem
+	cleanoutDays       int
+	copyRangeMethod    fs.CopyRangeMethod
+	archiveDeletedOnly bool
 }
 
 func newTrashcan(cfg config.FolderConfiguration) Versioner {
 	cleanoutDays, _ := strconv.Atoi(cfg.Versioning.Params["cleanoutDays"])
 	// On error we default to 0, "do not clean out the trash can"
 
+	archiveDeletedOnly, _ := strconv.ParseBool(cfg.Versioning.Params["archiveDeletedOnly"])
 	s := &trashcan{
-		folderFs:        cfg.Filesystem(nil),
-		versionsFs:      versionerFsFromFolderCfg(cfg),
-		cleanoutDays:    cleanoutDays,
-		copyRangeMethod: cfg.CopyRangeMethod.ToFS(),
+		folderFs:           cfg.Filesystem(nil),
+		versionsFs:         versionerFsFromFolderCfg(cfg),
+		cleanoutDays:       cleanoutDays,
+		copyRangeMethod:    cfg.CopyRangeMethod.ToFS(),
+		archiveDeletedOnly: archiveDeletedOnly,
 	}
 
-	l.Debugf("instantiated %#v", s)
+	l.Debugf("instantiated trashcan versioner for folder %s with cleanoutDays=%d, archiveDeletedOnly=%v", cfg.ID, s.cleanoutDays, s.archiveDeletedOnly)
 	return s
+}
+
+// ArchiveDeletedOnly returns true if the trashcan versioner is configured to only archive deletions.
+func (t *trashcan) ArchiveDeletedOnly() bool {
+	return t.archiveDeletedOnly
 }
 
 // Archive moves the named file away to a version archive. If this function

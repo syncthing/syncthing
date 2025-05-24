@@ -30,6 +30,12 @@ type FileVersion struct {
 	Size        int64     `json:"size"`
 }
 
+// ArchiverForDeletedOnly indicates if a versioner is configured to only archive on explicit deletes,
+// not on modifications.
+type ArchiverForDeletedOnly interface {
+	ArchiveDeletedOnly() bool
+}
+
 type factory func(cfg config.FolderConfiguration) Versioner
 
 var factories = make(map[string]factory)
@@ -80,4 +86,11 @@ func (v *versionerWithErrorContext) Restore(filePath string, versionTime time.Ti
 
 func (v *versionerWithErrorContext) Clean(ctx context.Context) error {
 	return v.wrapError(v.Versioner.Clean(ctx), "clean")
+}
+
+func (v *versionerWithErrorContext) ArchiveDeletedOnly() bool {
+	if archiver, ok := v.Versioner.(ArchiverForDeletedOnly); ok {
+		return archiver.ArchiveDeletedOnly()
+	}
+	return false
 }
