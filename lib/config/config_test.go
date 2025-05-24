@@ -126,6 +126,10 @@ func TestDefaultValues(t *testing.T) {
 					MaxSingleEntrySize: 1024,
 					MaxTotalSize:       4096,
 				},
+				ConflictHandling: ConflictHandling{
+					ExternalMergeEnabled: false,
+					ExternalMergeCommand: "",
+				},
 			},
 			Device: DeviceConfiguration{
 				Addresses:       []string{"dynamic"},
