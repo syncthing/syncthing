@@ -24,7 +24,6 @@ const (
 	FolderSyncing
 	FolderCleaning
 	FolderCleanWaiting
-	FolderOutOfSpace
 	FolderError
 )
 
@@ -46,8 +45,6 @@ func (s folderState) String() string {
 		return "cleaning"
 	case FolderCleanWaiting:
 		return "clean-waiting"
-	case FolderOutOfSpace:
-		return "out-of-space"
 	case FolderError:
 		return "error"
 	default:
