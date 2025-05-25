@@ -177,7 +177,7 @@ func TestArchiveFoldersCreationPermission(t *testing.T) {
 			},
 		},
 	}
-	vfs := cfg.Filesystem(nil)
+	vfs := cfg.Filesystem()
 	v := newSimple(cfg)
 
 	// Create two folders and set their permissions
