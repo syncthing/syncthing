@@ -44,6 +44,12 @@ jobs:
       - name: Determine release notes
         run: |
           go run ./script/relnotes.go --new-ver "$NEXT" --branch "$GITHUB_REF_NAME" --prev-ver "$PREV" > notes.md
-          cat notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push tag
+        run: |
+          git config --global user.name 'Syncthing Release Automation'
+          git config --global user.email 'release@syncthing.net'
+          git tag -a -F notes.md "$NEXT"
+          git push origin "$NEXT"
