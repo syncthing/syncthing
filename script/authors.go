@@ -14,6 +14,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"io"
 	"log"
@@ -21,7 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -102,7 +103,17 @@ func main() {
 	// Write author names in GUI about modal
 
 	getContributions(authors)
-	sort.Sort(byContributions(authors))
+
+	// Sort by contributions
+	slices.SortFunc(authors, func(a, b author) int {
+		// Sort first by log10(commits), then by name. This means that we first get
+		// an alphabetic list of people with >= 1000 commits, then a list of people
+		// with >= 100 commits, and so on.
+		if a.log10commits != b.log10commits {
+			return cmp.Compare(b.log10commits, a.log10commits)
+		}
+		return strings.Compare(a.name, b.name)
+	})
 
 	var lines []string
 	for _, author := range authors {
@@ -125,7 +136,10 @@ func main() {
 
 	// Write AUTHORS file
 
-	sort.Sort(byName(authors))
+	// Sort by author name
+	slices.SortFunc(authors, func(a, b author) int {
+		return strings.Compare(strings.ToLower(a.name), strings.ToLower(b.name))
+	})
 
 	out, err := os.Create("AUTHORS")
 	if err != nil {
@@ -297,34 +311,6 @@ func allAuthors() map[string]string {
 
 	return names
 }
-
-type byContributions []author
-
-func (l byContributions) Len() int { return len(l) }
-
-// Sort first by log10(commits), then by name. This means that we first get
-// an alphabetic list of people with >= 1000 commits, then a list of people
-// with >= 100 commits, and so on.
-func (l byContributions) Less(a, b int) bool {
-	if l[a].log10commits != l[b].log10commits {
-		return l[a].log10commits > l[b].log10commits
-	}
-	return l[a].name < l[b].name
-}
-
-func (l byContributions) Swap(a, b int) { l[a], l[b] = l[b], l[a] }
-
-type byName []author
-
-func (l byName) Len() int { return len(l) }
-
-func (l byName) Less(a, b int) bool {
-	aname := strings.ToLower(l[a].name)
-	bname := strings.ToLower(l[b].name)
-	return aname < bname
-}
-
-func (l byName) Swap(a, b int) { l[a], l[b] = l[b], l[a] }
 
 // A simple string set type
 

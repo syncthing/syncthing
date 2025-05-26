@@ -8,7 +8,8 @@ package versioner
 
 import (
 	"path/filepath"
-	"sort"
+	"slices"
+	"strings"
 
 	"github.com/syncthing/syncthing/lib/fs"
 )
@@ -37,7 +38,9 @@ func (t emptyDirTracker) emptyDirs() []string {
 	for dir := range t {
 		empty = append(empty, dir)
 	}
-	sort.Sort(sort.Reverse(sort.StringSlice(empty)))
+	slices.SortFunc(empty, func(a, b string) int {
+		return strings.Compare(b, a)
+	})
 	return empty
 }
 
