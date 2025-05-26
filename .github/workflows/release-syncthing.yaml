@@ -1,0 +1,43 @@
+name: Release Syncthing
+
+on:
+  push:
+    branches:
+      - release
+      - release-*
+
+jobs:
+
+  create-release-tag:
+    name: Create release tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Get svu
+        run: |
+          go install github.com/caarlos0/svu@latest
+
+      - name: Determine version to release
+        run: |
+          if [[ "$GITHUB_REF_NAME" == "release" ]] ; then
+            next=$(svu next --tag.mode current)
+          else
+            next=$(svu prerelease --tag.mode current --prerelease rc)
+          fi
+          echo "VERSION=$ver" >> $GITHUB_ENV
+          echo "Next version is $ver"
+
+      - name: Determine release notes
+        run: |
+          prev=$(git describe --exclude "*-*" --abbrev=0)
+          echo "Previous version is $prev"
+
+          go run ./script/relnotes --new-ver "$VERSION" --branch "$GITHUB_REF_NAME" --prev-ver "$prev" > notes.md
