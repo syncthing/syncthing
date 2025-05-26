@@ -3,6 +3,9 @@ name: Build Syncthing
 on:
   pull_request:
   push:
+    branches-ignore:
+      - release
+      - release-rc*
   workflow_call:
   workflow_dispatch:
 
