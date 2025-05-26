@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"sort"
+	"slices"
 	"sync"
 	"time"
 
@@ -166,7 +166,7 @@ func relayAddressesOrder(ctx context.Context, input []string) []string {
 		ids = append(ids, id)
 	}
 
-	sort.Ints(ids)
+	slices.Sort(ids)
 
 	addresses := make([]string, 0, len(input))
 	for _, id := range ids {

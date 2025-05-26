@@ -18,7 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/pprof"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -1254,10 +1254,8 @@ func TestAutoAcceptPausedWhenFolderConfigChanged(t *testing.T) {
 	} else if fcfg.Path != idOther {
 		t.Error("folder path changed")
 	} else {
-		for _, dev := range fcfg.DeviceIDs() {
-			if dev == device1 {
-				return
-			}
+		if slices.Contains(fcfg.DeviceIDs(), device1) {
+			return
 		}
 		t.Error("device missing")
 	}
@@ -1303,10 +1301,8 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 	} else if fcfg.Path != idOther {
 		t.Error("folder path changed")
 	} else {
-		for _, dev := range fcfg.DeviceIDs() {
-			if dev == device1 {
-				return
-			}
+		if slices.Contains(fcfg.DeviceIDs(), device1) {
+			return
 		}
 		t.Error("device missing")
 	}
@@ -3995,8 +3991,8 @@ func equalStringsInAnyOrder(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	sort.Strings(a)
-	sort.Strings(b)
+	slices.Sort(a)
+	slices.Sort(b)
 	for i := range a {
 		if a[i] != b[i] {
 			return false

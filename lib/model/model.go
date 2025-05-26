@@ -372,7 +372,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	for _, available := range devs {
 		if _, ok := expected[available]; !ok {
 			l.Debugln("dropping", folder, "state for", available)
-			m.sdb.DropAllFiles(folder, available)
+			_ = m.sdb.DropAllFiles(folder, available)
 		}
 	}
 
@@ -493,7 +493,7 @@ func (m *model) removeFolder(cfg config.FolderConfiguration) {
 	m.mut.Unlock()
 
 	// Remove it from the database
-	m.sdb.DropFolder(cfg.ID)
+	_ = m.sdb.DropFolder(cfg.ID)
 }
 
 // Need to hold lock on m.mut when calling this.
@@ -1559,7 +1559,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 
 	if isEncryptedRemote {
 		passwordToken := protocol.PasswordToken(m.keyGen, fcfg.ID, folderDevice.EncryptionPassword)
-		match := false
+		var match bool
 		if hasTokenLocal {
 			match = bytes.Equal(passwordToken, ccDeviceInfos.local.EncryptionPasswordToken)
 		} else {
@@ -1817,11 +1817,9 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 		l.Infof("Failed to auto-accept folder %s from %s due to path conflict", folder.Description(), deviceID)
 		return config.FolderConfiguration{}, false
 	} else {
-		for _, device := range cfg.DeviceIDs() {
-			if device == deviceID {
-				// Already shared nothing todo.
-				return config.FolderConfiguration{}, false
-			}
+		if slices.Contains(cfg.DeviceIDs(), deviceID) {
+			// Already shared nothing todo.
+			return config.FolderConfiguration{}, false
 		}
 		if cfg.Type == config.FolderTypeReceiveEncrypted {
 			if len(ccDeviceInfos.remote.EncryptionPasswordToken) == 0 && len(ccDeviceInfos.local.EncryptionPasswordToken) == 0 {

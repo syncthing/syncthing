@@ -7,6 +7,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -20,9 +21,11 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime/pprof"
 	"strconv"
 	"syscall"
+	"text/tabwriter"
 	"time"
 
 	"github.com/alecthomas/kong"
@@ -34,6 +37,7 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/decrypt"
 	"github.com/syncthing/syncthing/cmd/syncthing/generate"
 	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/internal/slogutil"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
@@ -284,10 +288,12 @@ func (c *serveCmd) Run() error {
 		}
 	}
 
-	// Ensure that our home directory exists.
-	if err := syncthing.EnsureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0o700); err != nil {
-		l.Error("Failure on home directory", "error", err)
-		os.Exit(svcutil.ExitError.AsInt())
+	// Ensure that our config and data directories exist.
+	for _, loc := range []locations.BaseDirEnum{locations.ConfigBaseDir, locations.DataBaseDir} {
+		if err := syncthing.EnsureDir(locations.GetBaseDir(loc), 0o700); err != nil {
+			l.Error("Failed to ensure directory exists", "error", err)
+			os.Exit(svcutil.ExitError.AsInt())
+		}
 	}
 
 	if c.InternalInnerProcess {
@@ -848,7 +854,8 @@ func (u upgradeCmd) Run() error {
 	release, err := checkUpgrade()
 	if err == nil {
 		lf := flock.New(locations.Get(locations.LockFile))
-		locked, err := lf.TryLock()
+		var locked bool
+		locked, err = lf.TryLock()
 		if err != nil {
 			l.Error("Failed to lock for upgrade", "error", err)
 			os.Exit(1)
@@ -878,7 +885,8 @@ func (browserCmd) Run() error {
 }
 
 type debugCmd struct {
-	ResetDatabase resetDatabaseCmd `cmd:"" help:"Reset the database, forcing a full rescan and resync"`
+	ResetDatabase      resetDatabaseCmd `cmd:"" help:"Reset the database, forcing a full rescan and resync"`
+	DatabaseStatistics databaseStatsCmd `cmd:"" help:"Display database size statistics"`
 }
 
 type resetDatabaseCmd struct{}
@@ -891,6 +899,43 @@ func (resetDatabaseCmd) Run() error {
 	}
 	l.Info("Reset database - it will be rebuilt after next start")
 	return nil
+}
+
+type databaseStatsCmd struct{}
+
+func (c databaseStatsCmd) Run() error {
+	db, err := sqlite.Open(locations.Get(locations.Database))
+	if err != nil {
+		return err
+	}
+	ds, err := db.Statistics()
+	if err != nil {
+		return err
+	}
+
+	tw := tabwriter.NewWriter(os.Stdout, 2, 2, 2, ' ', 0)
+	hdr := fmt.Sprintf("%s\t%s\t%s\t%12s\t%7s\n", "DATABASE", "FOLDER ID", "TABLE", "SIZE", "FILL")
+	fmt.Fprint(tw, hdr)
+	fmt.Fprint(tw, regexp.MustCompile(`[A-Z]`).ReplaceAllString(hdr, "="))
+	c.printStat(tw, ds)
+	return tw.Flush()
+}
+
+func (c databaseStatsCmd) printStat(w io.Writer, s *sqlite.DatabaseStatistics) {
+	for _, table := range s.Tables {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%8d KiB\t%5.01f %%\n", s.Name, cmp.Or(s.FolderID, "-"), table.Name, table.Size/1024, float64(table.Size-table.Unused)*100/float64(table.Size))
+	}
+	for _, next := range s.Children {
+		c.printStat(w, &next)
+		s.Total.Size += next.Total.Size
+		s.Total.Unused += next.Total.Unused
+	}
+
+	totalName := s.Name
+	if len(s.Children) > 0 {
+		totalName += " + children"
+	}
+	fmt.Fprintf(w, "%s\t%s\t%s\t%8d KiB\t%5.01f %%\n", totalName, cmp.Or(s.FolderID, "-"), "(total)", s.Total.Size/1024, float64(s.Total.Size-s.Total.Unused)*100/float64(s.Total.Size))
 }
 
 func setConfigDataLocationsFromFlags(homeDir, confDir, dataDir string) error {

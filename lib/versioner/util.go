@@ -10,9 +10,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -164,9 +165,8 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 
 	file := filepath.Base(filePath)
 	inFolderPath := filepath.Dir(filePath)
-
-	err = dstFs.MkdirAll(inFolderPath, 0o755)
-	if err != nil && !fs.IsExist(err) {
+	err = dupDirTree(srcFs, dstFs, inFolderPath)
+	if err != nil {
 		l.Debugln("archiving", filePath, err)
 		return err
 	}
@@ -188,6 +188,50 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 	_ = dstFs.Chtimes(dst, mtime, mtime)
 
 	return err
+}
+
+func dupDirTree(srcFs, dstFs fs.Filesystem, folderPath string) error {
+	// Return early if the folder already exists.
+	_, err := dstFs.Stat(folderPath)
+	if err == nil || !fs.IsNotExist(err) {
+		return err
+	}
+	hadParent := true
+	for i := range folderPath {
+		if os.IsPathSeparator(folderPath[i]) {
+			// If the parent folder didn't exist, then this folder doesn't exist
+			// so we can skip the check
+			if hadParent {
+				_, err := dstFs.Stat(folderPath[:i])
+				if err == nil {
+					continue
+				}
+				if !fs.IsNotExist(err) {
+					return err
+				}
+			}
+			hadParent = false
+			err := dupDirWithPerms(srcFs, dstFs, folderPath[:i])
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return dupDirWithPerms(srcFs, dstFs, folderPath)
+}
+
+func dupDirWithPerms(srcFs, dstFs fs.Filesystem, folderPath string) error {
+	srcStat, err := srcFs.Stat(folderPath)
+	if err != nil {
+		return err
+	}
+	// If we call Mkdir with srcStat.Mode(), we won't get the expected perms because of umask
+	// So, we create the folder with 0700, and then change the perms to the srcStat.Mode()
+	err = dstFs.Mkdir(folderPath, 0o700)
+	if err != nil {
+		return err
+	}
+	return dstFs.Chmod(folderPath, srcStat.Mode())
 }
 
 func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath string, versionTime time.Time, tagger fileTagger) error {
@@ -295,7 +339,7 @@ func findAllVersions(fs fs.Filesystem, filePath string) []string {
 		return nil
 	}
 	versions = stringutil.UniqueTrimmedStrings(versions)
-	sort.Strings(versions)
+	slices.Sort(versions)
 
 	return versions
 }

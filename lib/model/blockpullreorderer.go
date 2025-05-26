@@ -92,7 +92,7 @@ func (p *standardBlockPullReorderer) Reorder(blocks []protocol.BlockInfo) []prot
 	// The rest of the chunks we fetch in a random order in whole chunks.
 	// Generate chunk index slice and shuffle it
 	indexes := make([]int, 0, len(chunks)-1)
-	for i := 0; i < len(chunks); i++ {
+	for i := range len(chunks) {
 		if i != p.myIndex {
 			indexes = append(indexes, i)
 		}

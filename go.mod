@@ -24,7 +24,7 @@ require (
 	github.com/lmittmann/tint v1.0.7
 	github.com/maruel/panicparse/v2 v2.5.0
 	github.com/mattn/go-isatty v0.0.20
-	github.com/mattn/go-sqlite3 v1.14.27
+	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.11.2
 	github.com/maxmind/geoipupdate/v6 v6.1.0
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
@@ -66,7 +66,7 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/ebitengine/purego v0.8.2 // indirect
+	github.com/ebitengine/purego v0.8.3 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -109,3 +109,6 @@ require (
 
 // https://github.com/gobwas/glob/pull/55
 replace github.com/gobwas/glob v0.2.3 => github.com/calmh/glob v0.0.0-20220615080505-1d823af5017b
+
+// https://github.com/mattn/go-sqlite3/pull/1338
+replace github.com/mattn/go-sqlite3 v1.14.28 => github.com/calmh/go-sqlite3 v1.14.29-0.20250520105817-2e94cda3f7f8

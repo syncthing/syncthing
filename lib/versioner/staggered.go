@@ -9,7 +9,7 @@ package versioner
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"strconv"
 	"time"
 
@@ -69,7 +69,7 @@ func (v *staggered) toRemove(versions []string, now time.Time) []string {
 	var remove []string
 
 	// The list of versions may or may not be properly sorted.
-	sort.Strings(versions)
+	slices.Sort(versions)
 
 	for _, version := range versions {
 		versionTime, err := time.ParseInLocation(TimeFormat, extractTag(version), time.Local)

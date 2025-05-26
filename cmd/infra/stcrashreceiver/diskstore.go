@@ -8,6 +8,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"compress/gzip"
 	"context"
 	"io"
@@ -15,7 +16,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"time"
 )
 
@@ -177,8 +178,8 @@ func (d *diskStore) inventory() error {
 		})
 		return nil
 	})
-	sort.Slice(d.currentFiles, func(i, j int) bool {
-		return d.currentFiles[i].mtime < d.currentFiles[j].mtime
+	slices.SortFunc(d.currentFiles, func(a, b currentFile) int {
+		return cmp.Compare(a.mtime, b.mtime)
 	})
 	var oldest time.Duration
 	if len(d.currentFiles) > 0 {

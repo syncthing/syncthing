@@ -106,7 +106,9 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 		// information we have from them before accepting their
 		// index, which will presumably be a full index.
 		l.Debugf("Device %v folder %s does not announce an index ID", conn.DeviceID().Short(), folder.Description())
-		sdb.DropAllFiles(folder.ID, conn.DeviceID())
+		if err := sdb.DropAllFiles(folder.ID, conn.DeviceID()); err != nil {
+			return nil, err
+		}
 	} else if startInfo.remote.IndexID != theirIndexID {
 		// The index ID we have on file is not what they're
 		// announcing. They must have reset their database and
@@ -114,8 +116,12 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 		// information we have and remember this new index ID
 		// instead.
 		l.Infof("Device %v folder %s has a new index ID (%v)", conn.DeviceID().Short(), folder.Description(), startInfo.remote.IndexID)
-		sdb.DropAllFiles(folder.ID, conn.DeviceID())
-		sdb.SetIndexID(folder.ID, conn.DeviceID(), startInfo.remote.IndexID)
+		if err := sdb.DropAllFiles(folder.ID, conn.DeviceID()); err != nil {
+			return nil, err
+		}
+		if err := sdb.SetIndexID(folder.ID, conn.DeviceID(), startInfo.remote.IndexID); err != nil {
+			return nil, err
+		}
 	}
 
 	return &indexHandler{
@@ -133,7 +139,7 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 	}, nil
 }
 
-// waitWhilePaused waits for the handler to resume
+// waitWhilePaused waits for the handler to resume.
 func (s *indexHandler) waitWhilePaused(ctx context.Context) error {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
@@ -194,7 +200,8 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 		// currently in the database, wait for the local index to update. The
 		// local index may update for other folders than the one we are
 		// sending for.
-		seq, err := s.sdb.GetDeviceSequence(s.folder, protocol.LocalDeviceID)
+		var seq int64
+		seq, err = s.sdb.GetDeviceSequence(s.folder, protocol.LocalDeviceID)
 		if err != nil {
 			return err
 		}

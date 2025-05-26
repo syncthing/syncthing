@@ -23,7 +23,6 @@ import (
 	"net"
 	"net/url"
 	"slices"
-	"sort"
 	"strings"
 	stdsync "sync"
 	"time"
@@ -1151,7 +1150,7 @@ func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, 
 	}
 
 	// Sort the priorities so that we dial lowest first (which means highest...)
-	sort.Ints(priorities)
+	slices.Sort(priorities)
 
 	sema := semaphore.MultiSemaphore{semaphore.New(dialMaxParallelPerDevice), parentSema}
 	for _, prio := range priorities {

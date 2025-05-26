@@ -12,7 +12,7 @@ package fs
 import (
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"golang.org/x/sys/unix"
@@ -38,6 +38,6 @@ func listXattr(path string) ([]string, error) {
 	buf = buf[:size]
 	attrs := compact(strings.Split(string(buf), "\x00"))
 
-	sort.Strings(attrs)
+	slices.Sort(attrs)
 	return attrs, nil
 }
