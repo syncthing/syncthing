@@ -8,7 +8,7 @@ package olddb
 
 import (
 	"encoding/binary"
-	"sort"
+	"slices"
 
 	"github.com/syncthing/syncthing/internal/db/olddb/backend"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -104,6 +104,6 @@ func (i *smallIndex) Values() []string {
 	}
 	i.mut.Unlock()
 
-	sort.Strings(vals)
+	slices.Sort(vals)
 	return vals
 }

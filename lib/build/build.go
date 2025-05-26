@@ -12,7 +12,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -127,7 +127,7 @@ func TagsList() []string {
 		}
 	}
 
-	sort.Strings(tags)
+	slices.Sort(tags)
 
 	// Remove any empty tags, which will be at the front of the list now
 	for len(tags) > 0 && tags[0] == "" {

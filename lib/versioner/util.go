@@ -13,7 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -339,7 +339,7 @@ func findAllVersions(fs fs.Filesystem, filePath string) []string {
 		return nil
 	}
 	versions = stringutil.UniqueTrimmedStrings(versions)
-	sort.Strings(versions)
+	slices.Sort(versions)
 
 	return versions
 }

@@ -8,7 +8,7 @@ package versioner
 
 import (
 	"context"
-	"sort"
+	"slices"
 	"strconv"
 	"time"
 
@@ -79,7 +79,7 @@ func (v simple) toRemove(versions []string, now time.Time) []string {
 	var remove []string
 
 	// The list of versions may or may not be properly sorted.
-	sort.Strings(versions)
+	slices.Sort(versions)
 
 	// If the amount of elements exceeds the limit: the oldest elements are to be removed.
 	if len(versions) > v.keep {

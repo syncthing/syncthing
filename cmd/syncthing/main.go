@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime/pprof"
-	"sort"
+	"slices"
 	"strconv"
 	"syscall"
 	"text/tabwriter"
@@ -338,7 +338,7 @@ func debugFacilities() string {
 			maxLen = len(name)
 		}
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 
 	// Format the choices
 	b := new(bytes.Buffer)
