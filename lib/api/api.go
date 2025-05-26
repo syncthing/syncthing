@@ -8,6 +8,7 @@ package api
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -24,7 +25,7 @@ import (
 	"reflect"
 	"runtime"
 	"runtime/pprof"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -750,7 +751,7 @@ func (*service) getSystemVersion(w http.ResponseWriter, _ *http.Request) {
 func (*service) getSystemDebug(w http.ResponseWriter, _ *http.Request) {
 	names := l.Facilities()
 	enabled := l.FacilityDebugging()
-	sort.Strings(enabled)
+	slices.Sort(enabled)
 	sendJSON(w, map[string]interface{}{
 		"facilities": names,
 		"enabled":    enabled,
@@ -1535,8 +1536,8 @@ func (*service) getLang(w http.ResponseWriter, r *http.Request) {
 		langs = append(langs, code)
 	}
 	// Reorder by descending q value
-	sort.SliceStable(langs, func(i, j int) bool {
-		return weights[langs[i]] > weights[langs[j]]
+	slices.SortStableFunc(langs, func(i, j string) int {
+		return cmp.Compare(weights[j], weights[i])
 	})
 	sendJSON(w, langs)
 }
@@ -1822,8 +1823,8 @@ func browseFiles(ffs fs.Filesystem, search string) []string {
 	}
 
 	// sort to return matches in deterministic order (don't depend on file system order)
-	sort.Strings(exactMatches)
-	sort.Strings(caseInsMatches)
+	slices.Sort(exactMatches)
+	slices.Sort(caseInsMatches)
 	return append(exactMatches, caseInsMatches...)
 }
 
@@ -1920,7 +1921,7 @@ func dirNames(dir string) []string {
 		}
 	}
 
-	sort.Strings(dirs)
+	slices.Sort(dirs)
 	return dirs
 }
 

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math/rand"
 	"path/filepath"
+	"slices"
 	"sort"
 	"time"
 
@@ -1341,7 +1342,7 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 	if len(dirs) == 0 {
 		return nil
 	}
-	sort.Strings(dirs)
+	slices.Sort(dirs)
 	if dirs[0] == "" || dirs[0] == "." || dirs[0] == string(fs.PathSeparator) {
 		return nil
 	}

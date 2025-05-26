@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -380,8 +381,8 @@ func (cfg *Configuration) prepareFolders(myID protocol.DeviceID, existingDevices
 		}
 	}
 	// Ensure that the folder list is sorted by ID
-	sort.Slice(cfg.Folders, func(a, b int) bool {
-		return cfg.Folders[a].ID < cfg.Folders[b].ID
+	slices.SortFunc(cfg.Folders, func(a, b FolderConfiguration) int {
+		return strings.Compare(a.ID, b.ID)
 	})
 	return sharedFolders, nil
 }

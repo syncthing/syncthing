@@ -7,9 +7,10 @@
 package cli
 
 import (
+	"cmp"
 	"encoding/binary"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/syncthing/syncthing/lib/db"
 )
@@ -77,8 +78,8 @@ func indexDumpSize() error {
 		elems = append(elems, ele)
 	}
 
-	sort.Slice(elems, func(i, j int) bool {
-		return elems[i].size > elems[j].size
+	slices.SortFunc(elems, func(a, b sizedElement) int {
+		return cmp.Compare(b.size, a.size)
 	})
 	for _, ele := range elems {
 		fmt.Println(ele.key, ele.size)

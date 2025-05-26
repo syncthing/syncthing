@@ -18,7 +18,6 @@ import (
 	"path/filepath"
 	"runtime/pprof"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -4092,8 +4091,8 @@ func equalStringsInAnyOrder(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	sort.Strings(a)
-	sort.Strings(b)
+	slices.Sort(a)
+	slices.Sort(b)
 	for i := range a {
 		if a[i] != b[i] {
 			return false

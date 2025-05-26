@@ -8,10 +8,11 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"sort"
+	"slices"
 
 	"google.golang.org/protobuf/proto"
 
@@ -207,11 +208,11 @@ func indexCheck() (err error) {
 
 	// Aggregate the ranges of missing sequence entries, print them
 
-	sort.Slice(missingSeq, func(a, b int) bool {
-		if missingSeq[a].folder != missingSeq[b].folder {
-			return missingSeq[a].folder < missingSeq[b].folder
+	slices.SortFunc(missingSeq, func(a, b sequenceKey) int {
+		if a.folder != b.folder {
+			return cmp.Compare(a.folder, b.folder)
 		}
-		return missingSeq[a].sequence < missingSeq[b].sequence
+		return cmp.Compare(a.sequence, b.sequence)
 	})
 
 	var folder uint32

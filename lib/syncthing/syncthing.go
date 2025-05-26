@@ -15,7 +15,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -437,8 +437,8 @@ func printServiceTree(w io.Writer, sup supervisor, level int) {
 	printService(w, sup, level)
 
 	svcs := sup.Services()
-	sort.Slice(svcs, func(a, b int) bool {
-		return fmt.Sprint(svcs[a]) < fmt.Sprint(svcs[b])
+	slices.SortFunc(svcs, func(a, b suture.Service) int {
+		return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
 	})
 
 	for _, svc := range svcs {
