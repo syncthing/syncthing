@@ -782,6 +782,26 @@ jobs:
         with:
           args: sync -v objstore:release/${{ env.VERSION }} objstore:release/latest
 
+      - name: Create GitHub release and push binaries
+        run: |
+          maybePrerelease=""
+          if [[ $VERSION == *-* ]]; then
+            maybePrerelease="--prerelease"
+          fi
+          export GH_PROMPT_DISABLED=1
+          if ! gh release view --json name "$VERSION" >/dev/null 2>&1 ; then
+            gh release create \
+              "$TAG" \
+              $maybePrerelease \
+              --title "$VERSION" \
+              --notes-from-tag
+          fi
+          gh release upload "$TAG" \
+            packages/*.asc packages/*.json \
+            packages/syncthing-*.tar.gz \
+            packages/syncthing-*.zip \
+            packages/syncthing*.deb
+
   #
   # Push Debian/APT archive
   #
