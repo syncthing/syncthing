@@ -39,6 +39,9 @@ func main() {
 	if *ver == "" {
 		log.Fatalln("Must set --new-ver")
 	}
+	if githubToken == "" {
+		log.Fatalln("Must set $GITHUB_TOKEN")
+	}
 
 	addl, err := additionalNotes(*ver)
 	if err != nil {
