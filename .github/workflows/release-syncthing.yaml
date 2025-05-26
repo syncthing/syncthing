@@ -1,0 +1,55 @@
+name: Release Syncthing
+
+on:
+  push:
+    branches:
+      - release
+      - release-rc*
+
+permissions:
+  contents: write
+
+jobs:
+  create-release-tag:
+    name: Create release tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Get svu
+        run: |
+          go install github.com/caarlos0/svu@latest
+
+      - name: Determine version to release
+        run: |
+          if [[ "$GITHUB_REF_NAME" == "release" ]] ; then
+            next=$(svu next)
+          else
+            next=$(svu prerelease --pre-release rc)
+          fi
+          echo "NEXT=$next" >> $GITHUB_ENV
+          echo "Next version is $next"
+
+          prev=$(git describe --exclude "*-*" --abbrev=0)
+          echo "PREV=$prev" >> $GITHUB_ENV
+          echo "Previous version is $prev"
+
+      - name: Determine release notes
+        run: |
+          go run ./script/relnotes.go --new-ver "$NEXT" --branch "$GITHUB_REF_NAME" --prev-ver "$PREV" > notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push tag
+        run: |
+          git config --global user.name 'Syncthing Release Automation'
+          git config --global user.email 'release@syncthing.net'
+          git tag -a -F notes.md "$NEXT"
+          git push origin "$NEXT"
