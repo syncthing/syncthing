@@ -6,8 +6,10 @@ on:
       - release
       - release-*
 
-jobs:
+permissions:
+  contents: write
 
+jobs:
   create-release-tag:
     name: Create release tag
     runs-on: ubuntu-latest

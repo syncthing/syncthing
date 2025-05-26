@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -23,20 +24,19 @@ func main() {
 	branch := flag.String("branch", "HEAD", "Branch to release from")
 	flag.Parse()
 
+	log.SetOutput(os.Stderr)
+
 	if *ver == "" {
-		fmt.Println("Must set -new-ver")
-		os.Exit(2)
+		log.Fatalln("Must set --new-ver")
 	}
 
 	addl, err := additionalNotes(*ver)
 	if err != nil {
-		fmt.Println("Gathering additional notes:", err)
-		os.Exit(1)
+		log.Fatalln("Gathering additional notes:", err)
 	}
 	notes, err := generatedNotes(*ver, *branch, *prevVer)
 	if err != nil {
-		fmt.Println("Gathering github notes:", err)
-		os.Exit(1)
+		log.Fatalln("Gathering github notes:", err)
 	}
 
 	if addl != "" {
