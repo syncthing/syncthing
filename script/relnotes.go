@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -77,6 +78,8 @@ func generatedNotes(newVer, targetCommit, prevVer string) (string, error) {
 		return "", err
 	}
 	if res.StatusCode != http.StatusOK {
+		bs, _ := io.ReadAll(res.Body)
+		log.Print(string(bs))
 		return "", errors.New(res.Status)
 	}
 	defer res.Body.Close()
