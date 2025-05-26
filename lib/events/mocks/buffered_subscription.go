@@ -32,7 +32,7 @@ type BufferedSubscription struct {
 	sinceReturnsOnCall map[int]struct {
 		result1 []events.Event
 	}
-	invocations      map[string][][]interface{}
+	invocations      map[string][][]any
 	invocationsMutex sync.RWMutex
 }
 
@@ -43,7 +43,7 @@ func (fake *BufferedSubscription) Mask() events.EventType {
 	}{})
 	stub := fake.MaskStub
 	fakeReturns := fake.maskReturns
-	fake.recordInvocation("Mask", []interface{}{})
+	fake.recordInvocation("Mask", []any{})
 	fake.maskMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -104,7 +104,7 @@ func (fake *BufferedSubscription) Since(arg1 int, arg2 []events.Event, arg3 time
 	}{arg1, arg2Copy, arg3})
 	stub := fake.SinceStub
 	fakeReturns := fake.sinceReturns
-	fake.recordInvocation("Since", []interface{}{arg1, arg2Copy, arg3})
+	fake.recordInvocation("Since", []any{arg1, arg2Copy, arg3})
 	fake.sinceMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
@@ -157,28 +157,28 @@ func (fake *BufferedSubscription) SinceReturnsOnCall(i int, result1 []events.Eve
 	}{result1}
 }
 
-func (fake *BufferedSubscription) Invocations() map[string][][]interface{} {
+func (fake *BufferedSubscription) Invocations() map[string][][]any {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.maskMutex.RLock()
 	defer fake.maskMutex.RUnlock()
 	fake.sinceMutex.RLock()
 	defer fake.sinceMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
+	copiedInvocations := map[string][][]any{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *BufferedSubscription) recordInvocation(key string, args []interface{}) {
+func (fake *BufferedSubscription) recordInvocation(key string, args []any) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
+		fake.invocations = map[string][][]any{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
+		fake.invocations[key] = [][]any{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

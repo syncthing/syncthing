@@ -194,7 +194,7 @@ type Connection struct {
 	typeReturnsOnCall map[int]struct {
 		result1 string
 	}
-	invocations      map[string][][]interface{}
+	invocations      map[string][][]any
 	invocationsMutex sync.RWMutex
 }
 
@@ -204,7 +204,7 @@ func (fake *Connection) Close(arg1 error) {
 		arg1 error
 	}{arg1})
 	stub := fake.CloseStub
-	fake.recordInvocation("Close", []interface{}{arg1})
+	fake.recordInvocation("Close", []any{arg1})
 	fake.closeMutex.Unlock()
 	if stub != nil {
 		fake.CloseStub(arg1)
@@ -237,7 +237,7 @@ func (fake *Connection) Closed() <-chan struct{} {
 	}{})
 	stub := fake.ClosedStub
 	fakeReturns := fake.closedReturns
-	fake.recordInvocation("Closed", []interface{}{})
+	fake.recordInvocation("Closed", []any{})
 	fake.closedMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -289,7 +289,7 @@ func (fake *Connection) ClusterConfig(arg1 *protocol.ClusterConfig) {
 		arg1 *protocol.ClusterConfig
 	}{arg1})
 	stub := fake.ClusterConfigStub
-	fake.recordInvocation("ClusterConfig", []interface{}{arg1})
+	fake.recordInvocation("ClusterConfig", []any{arg1})
 	fake.clusterConfigMutex.Unlock()
 	if stub != nil {
 		fake.ClusterConfigStub(arg1)
@@ -322,7 +322,7 @@ func (fake *Connection) ConnectionID() string {
 	}{})
 	stub := fake.ConnectionIDStub
 	fakeReturns := fake.connectionIDReturns
-	fake.recordInvocation("ConnectionID", []interface{}{})
+	fake.recordInvocation("ConnectionID", []any{})
 	fake.connectionIDMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -375,7 +375,7 @@ func (fake *Connection) Crypto() string {
 	}{})
 	stub := fake.CryptoStub
 	fakeReturns := fake.cryptoReturns
-	fake.recordInvocation("Crypto", []interface{}{})
+	fake.recordInvocation("Crypto", []any{})
 	fake.cryptoMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -428,7 +428,7 @@ func (fake *Connection) DeviceID() protocol.DeviceID {
 	}{})
 	stub := fake.DeviceIDStub
 	fakeReturns := fake.deviceIDReturns
-	fake.recordInvocation("DeviceID", []interface{}{})
+	fake.recordInvocation("DeviceID", []any{})
 	fake.deviceIDMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -481,7 +481,7 @@ func (fake *Connection) DownloadProgress(arg1 context.Context, arg2 *protocol.Do
 		arg2 *protocol.DownloadProgress
 	}{arg1, arg2})
 	stub := fake.DownloadProgressStub
-	fake.recordInvocation("DownloadProgress", []interface{}{arg1, arg2})
+	fake.recordInvocation("DownloadProgress", []any{arg1, arg2})
 	fake.downloadProgressMutex.Unlock()
 	if stub != nil {
 		fake.DownloadProgressStub(arg1, arg2)
@@ -514,7 +514,7 @@ func (fake *Connection) EstablishedAt() time.Time {
 	}{})
 	stub := fake.EstablishedAtStub
 	fakeReturns := fake.establishedAtReturns
-	fake.recordInvocation("EstablishedAt", []interface{}{})
+	fake.recordInvocation("EstablishedAt", []any{})
 	fake.establishedAtMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -569,7 +569,7 @@ func (fake *Connection) Index(arg1 context.Context, arg2 *protocol.Index) error 
 	}{arg1, arg2})
 	stub := fake.IndexStub
 	fakeReturns := fake.indexReturns
-	fake.recordInvocation("Index", []interface{}{arg1, arg2})
+	fake.recordInvocation("Index", []any{arg1, arg2})
 	fake.indexMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -631,7 +631,7 @@ func (fake *Connection) IndexUpdate(arg1 context.Context, arg2 *protocol.IndexUp
 	}{arg1, arg2})
 	stub := fake.IndexUpdateStub
 	fakeReturns := fake.indexUpdateReturns
-	fake.recordInvocation("IndexUpdate", []interface{}{arg1, arg2})
+	fake.recordInvocation("IndexUpdate", []any{arg1, arg2})
 	fake.indexUpdateMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -691,7 +691,7 @@ func (fake *Connection) IsLocal() bool {
 	}{})
 	stub := fake.IsLocalStub
 	fakeReturns := fake.isLocalReturns
-	fake.recordInvocation("IsLocal", []interface{}{})
+	fake.recordInvocation("IsLocal", []any{})
 	fake.isLocalMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -744,7 +744,7 @@ func (fake *Connection) Priority() int {
 	}{})
 	stub := fake.PriorityStub
 	fakeReturns := fake.priorityReturns
-	fake.recordInvocation("Priority", []interface{}{})
+	fake.recordInvocation("Priority", []any{})
 	fake.priorityMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -797,7 +797,7 @@ func (fake *Connection) RemoteAddr() net.Addr {
 	}{})
 	stub := fake.RemoteAddrStub
 	fakeReturns := fake.remoteAddrReturns
-	fake.recordInvocation("RemoteAddr", []interface{}{})
+	fake.recordInvocation("RemoteAddr", []any{})
 	fake.remoteAddrMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -852,7 +852,7 @@ func (fake *Connection) Request(arg1 context.Context, arg2 *protocol.Request) ([
 	}{arg1, arg2})
 	stub := fake.RequestStub
 	fakeReturns := fake.requestReturns
-	fake.recordInvocation("Request", []interface{}{arg1, arg2})
+	fake.recordInvocation("Request", []any{arg1, arg2})
 	fake.requestMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -914,7 +914,7 @@ func (fake *Connection) SetFolderPasswords(arg1 map[string]string) {
 		arg1 map[string]string
 	}{arg1})
 	stub := fake.SetFolderPasswordsStub
-	fake.recordInvocation("SetFolderPasswords", []interface{}{arg1})
+	fake.recordInvocation("SetFolderPasswords", []any{arg1})
 	fake.setFolderPasswordsMutex.Unlock()
 	if stub != nil {
 		fake.SetFolderPasswordsStub(arg1)
@@ -945,7 +945,7 @@ func (fake *Connection) Start() {
 	fake.startArgsForCall = append(fake.startArgsForCall, struct {
 	}{})
 	stub := fake.StartStub
-	fake.recordInvocation("Start", []interface{}{})
+	fake.recordInvocation("Start", []any{})
 	fake.startMutex.Unlock()
 	if stub != nil {
 		fake.StartStub()
@@ -971,7 +971,7 @@ func (fake *Connection) Statistics() protocol.Statistics {
 	}{})
 	stub := fake.StatisticsStub
 	fakeReturns := fake.statisticsReturns
-	fake.recordInvocation("Statistics", []interface{}{})
+	fake.recordInvocation("Statistics", []any{})
 	fake.statisticsMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -1024,7 +1024,7 @@ func (fake *Connection) String() string {
 	}{})
 	stub := fake.StringStub
 	fakeReturns := fake.stringReturns
-	fake.recordInvocation("String", []interface{}{})
+	fake.recordInvocation("String", []any{})
 	fake.stringMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -1077,7 +1077,7 @@ func (fake *Connection) Transport() string {
 	}{})
 	stub := fake.TransportStub
 	fakeReturns := fake.transportReturns
-	fake.recordInvocation("Transport", []interface{}{})
+	fake.recordInvocation("Transport", []any{})
 	fake.transportMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -1130,7 +1130,7 @@ func (fake *Connection) Type() string {
 	}{})
 	stub := fake.TypeStub
 	fakeReturns := fake.typeReturns
-	fake.recordInvocation("Type", []interface{}{})
+	fake.recordInvocation("Type", []any{})
 	fake.typeMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -1176,7 +1176,7 @@ func (fake *Connection) TypeReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *Connection) Invocations() map[string][][]interface{} {
+func (fake *Connection) Invocations() map[string][][]any {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.closeMutex.RLock()
@@ -1219,21 +1219,21 @@ func (fake *Connection) Invocations() map[string][][]interface{} {
 	defer fake.transportMutex.RUnlock()
 	fake.typeMutex.RLock()
 	defer fake.typeMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
+	copiedInvocations := map[string][][]any{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *Connection) recordInvocation(key string, args []interface{}) {
+func (fake *Connection) recordInvocation(key string, args []any) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
+		fake.invocations = map[string][][]any{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
+		fake.invocations[key] = [][]any{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

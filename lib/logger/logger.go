@@ -43,14 +43,14 @@ type Logger interface {
 	AddHandler(level LogLevel, h MessageHandler)
 	SetFlags(flag int)
 	SetPrefix(prefix string)
-	Debugln(vals ...interface{})
-	Debugf(format string, vals ...interface{})
-	Verboseln(vals ...interface{})
-	Verbosef(format string, vals ...interface{})
-	Infoln(vals ...interface{})
-	Infof(format string, vals ...interface{})
-	Warnln(vals ...interface{})
-	Warnf(format string, vals ...interface{})
+	Debugln(vals ...any)
+	Debugf(format string, vals ...any)
+	Verboseln(vals ...any)
+	Verbosef(format string, vals ...any)
+	Infoln(vals ...any)
+	Infof(format string, vals ...any)
+	Warnln(vals ...any)
+	Warnf(format string, vals ...any)
 	ShouldDebug(facility string) bool
 	SetDebug(facility string, enabled bool)
 	Facilities() map[string]string
@@ -127,11 +127,11 @@ func (l *logger) callHandlers(level LogLevel, s string) {
 }
 
 // Debugln logs a line with a DEBUG prefix.
-func (l *logger) Debugln(vals ...interface{}) {
+func (l *logger) Debugln(vals ...any) {
 	l.debugln(3, vals...)
 }
 
-func (l *logger) debugln(level int, vals ...interface{}) {
+func (l *logger) debugln(level int, vals ...any) {
 	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -140,11 +140,11 @@ func (l *logger) debugln(level int, vals ...interface{}) {
 }
 
 // Debugf logs a formatted line with a DEBUG prefix.
-func (l *logger) Debugf(format string, vals ...interface{}) {
+func (l *logger) Debugf(format string, vals ...any) {
 	l.debugf(3, format, vals...)
 }
 
-func (l *logger) debugf(level int, format string, vals ...interface{}) {
+func (l *logger) debugf(level int, format string, vals ...any) {
 	s := fmt.Sprintf(format, vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -153,7 +153,7 @@ func (l *logger) debugf(level int, format string, vals ...interface{}) {
 }
 
 // Infoln logs a line with a VERBOSE prefix.
-func (l *logger) Verboseln(vals ...interface{}) {
+func (l *logger) Verboseln(vals ...any) {
 	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -162,7 +162,7 @@ func (l *logger) Verboseln(vals ...interface{}) {
 }
 
 // Infof logs a formatted line with a VERBOSE prefix.
-func (l *logger) Verbosef(format string, vals ...interface{}) {
+func (l *logger) Verbosef(format string, vals ...any) {
 	s := fmt.Sprintf(format, vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -171,7 +171,7 @@ func (l *logger) Verbosef(format string, vals ...interface{}) {
 }
 
 // Infoln logs a line with an INFO prefix.
-func (l *logger) Infoln(vals ...interface{}) {
+func (l *logger) Infoln(vals ...any) {
 	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -180,7 +180,7 @@ func (l *logger) Infoln(vals ...interface{}) {
 }
 
 // Infof logs a formatted line with an INFO prefix.
-func (l *logger) Infof(format string, vals ...interface{}) {
+func (l *logger) Infof(format string, vals ...any) {
 	s := fmt.Sprintf(format, vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -189,7 +189,7 @@ func (l *logger) Infof(format string, vals ...interface{}) {
 }
 
 // Warnln logs a formatted line with a WARNING prefix.
-func (l *logger) Warnln(vals ...interface{}) {
+func (l *logger) Warnln(vals ...any) {
 	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -198,7 +198,7 @@ func (l *logger) Warnln(vals ...interface{}) {
 }
 
 // Warnf logs a formatted line with a WARNING prefix.
-func (l *logger) Warnf(format string, vals ...interface{}) {
+func (l *logger) Warnf(format string, vals ...any) {
 	s := fmt.Sprintf(format, vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
@@ -290,7 +290,7 @@ type facilityLogger struct {
 }
 
 // Debugln logs a line with a DEBUG prefix.
-func (l *facilityLogger) Debugln(vals ...interface{}) {
+func (l *facilityLogger) Debugln(vals ...any) {
 	if !l.ShouldDebug(l.facility) {
 		return
 	}
@@ -298,7 +298,7 @@ func (l *facilityLogger) Debugln(vals ...interface{}) {
 }
 
 // Debugf logs a formatted line with a DEBUG prefix.
-func (l *facilityLogger) Debugf(format string, vals ...interface{}) {
+func (l *facilityLogger) Debugf(format string, vals ...any) {
 	if !l.ShouldDebug(l.facility) {
 		return
 	}

@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	trans      = make(map[string]interface{})
+	trans      = make(map[string]any)
 	attrRe     = regexp.MustCompile(`\{\{\s*'([^']+)'\s+\|\s+translate\s*\}\}`)
 	attrReCond = regexp.MustCompile(`\{\{.+\s+\?\s+'([^']+)'\s+:\s+'([^']+)'\s+\|\s+translate\s*\}\}`)
 )
@@ -114,7 +114,7 @@ func isTranslated(id string) bool {
 		if _, ok := namespace[subNamespace]; !ok {
 			return false
 		}
-		namespace = namespace[subNamespace].(map[string]interface{})
+		namespace = namespace[subNamespace].(map[string]any)
 	}
 
 	_, ok := namespace[id]
@@ -127,9 +127,9 @@ func translation(id string, v string) {
 	id = idParts[len(idParts)-1]
 	for _, subNamespace := range idParts[0 : len(idParts)-1] {
 		if _, ok := namespace[subNamespace]; !ok {
-			namespace[subNamespace] = make(map[string]interface{})
+			namespace[subNamespace] = make(map[string]any)
 		}
-		namespace = namespace[subNamespace].(map[string]interface{})
+		namespace = namespace[subNamespace].(map[string]any)
 	}
 
 	v = strings.TrimSpace(v)

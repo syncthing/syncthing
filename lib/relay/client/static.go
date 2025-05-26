@@ -67,7 +67,7 @@ func (c *staticClient) serve(ctx context.Context) error {
 
 	l.Infof("Joined relay %s://%s", c.uri.Scheme, c.uri.Host)
 
-	messages := make(chan interface{})
+	messages := make(chan any)
 	errorsc := make(chan error, 1)
 
 	go messageReader(ctx, c.conn, messages, errorsc)
@@ -233,7 +233,7 @@ func performHandshakeAndValidation(conn *tls.Conn, uri *url.URL) error {
 	return nil
 }
 
-func messageReader(ctx context.Context, conn net.Conn, messages chan<- interface{}, errors chan<- error) {
+func messageReader(ctx context.Context, conn net.Conn, messages chan<- any, errors chan<- error) {
 	for {
 		msg, err := protocol.ReadMessage(conn)
 		if err != nil {

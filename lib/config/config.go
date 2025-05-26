@@ -665,7 +665,7 @@ func (defaults *Defaults) prepare(myID protocol.DeviceID, existingDevices map[pr
 	defaults.Device.prepare(nil)
 }
 
-func ensureZeroForNodefault(empty interface{}, target interface{}) {
+func ensureZeroForNodefault(empty any, target any) {
 	copyMatchingTag(empty, target, "nodefault", func(v string) bool {
 		if len(v) > 0 && v != "true" {
 			panic(fmt.Sprintf(`unexpected tag value: %s. expected untagged or "true"`, v))
@@ -675,7 +675,7 @@ func ensureZeroForNodefault(empty interface{}, target interface{}) {
 }
 
 // copyMatchingTag copies fields tagged tag:"value" from "from" struct onto "to" struct.
-func copyMatchingTag(from interface{}, to interface{}, tag string, shouldCopy func(value string) bool) {
+func copyMatchingTag(from any, to any, tag string, shouldCopy func(value string) bool) {
 	fromStruct := reflect.ValueOf(from).Elem()
 	fromType := fromStruct.Type()
 

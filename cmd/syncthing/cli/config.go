@@ -32,7 +32,7 @@ func (c *configCommand) Run(ctx Context, _ *kong.Context) error {
 	app := cli.NewApp()
 	app.Name = "syncthing"
 	app.Author = "The Syncthing Authors"
-	app.Metadata = map[string]interface{}{
+	app.Metadata = map[string]any{
 		"clientFactory": ctx.clientFactory,
 	}
 

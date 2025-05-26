@@ -1803,7 +1803,7 @@ func TestConfigChanges(t *testing.T) {
 		return resp
 	}
 
-	mod := func(method, path string, data interface{}) {
+	mod := func(method, path string, data any) {
 		t.Helper()
 		bs, err := json.Marshal(data)
 		if err != nil {

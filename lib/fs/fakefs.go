@@ -1016,7 +1016,7 @@ func (f *fakeFileInfo) Group() int {
 	return f.gid
 }
 
-func (*fakeFileInfo) Sys() interface{} {
+func (*fakeFileInfo) Sys() any {
 	return nil
 }
 

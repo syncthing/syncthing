@@ -106,7 +106,7 @@ type Model interface {
 	Availability(folder string, file protocol.FileInfo, block protocol.BlockInfo) ([]Availability, error)
 
 	Completion(device protocol.DeviceID, folder string) (FolderCompletion, error)
-	ConnectionStats() map[string]interface{}
+	ConnectionStats() map[string]any
 	DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatistics, error)
 	FolderStatistics() (map[string]stats.FolderStatistics, error)
 	UsageReportingStats(report *contract.Report, version int, preview bool)
@@ -710,11 +710,11 @@ type ConnectionInfo struct {
 }
 
 // ConnectionStats returns a map with connection statistics for each device.
-func (m *model) ConnectionStats() map[string]interface{} {
+func (m *model) ConnectionStats() map[string]any {
 	m.mut.RLock()
 	defer m.mut.RUnlock()
 
-	res := make(map[string]interface{})
+	res := make(map[string]any)
 	devs := m.cfg.Devices()
 	conns := make(map[string]ConnectionStats, len(devs))
 	for device, deviceCfg := range devs {
@@ -774,7 +774,7 @@ func (m *model) ConnectionStats() map[string]interface{} {
 	res["connections"] = conns
 
 	in, out := protocol.TotalInOut()
-	res["total"] = map[string]interface{}{
+	res["total"] = map[string]any{
 		"at":            time.Now().Truncate(time.Second),
 		"inBytesTotal":  in,
 		"outBytesTotal": out,
@@ -874,8 +874,8 @@ func (comp *FolderCompletion) setCompletionPct() {
 }
 
 // Map returns the members as a map, e.g. used in api to serialize as JSON.
-func (comp *FolderCompletion) Map() map[string]interface{} {
-	return map[string]interface{}{
+func (comp *FolderCompletion) Map() map[string]any {
+	return map[string]any{
 		"completion":  comp.CompletionPct,
 		"globalBytes": comp.GlobalBytes,
 		"needBytes":   comp.NeedBytes,
@@ -1500,7 +1500,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 		})
 	}
 	if len(updatedPending) > 0 || len(expiredPendingList) > 0 {
-		m.evLogger.Log(events.PendingFoldersChanged, map[string]interface{}{
+		m.evLogger.Log(events.PendingFoldersChanged, map[string]any{
 			"added":   updatedPending,
 			"removed": expiredPendingList,
 		})
@@ -2290,7 +2290,7 @@ func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		if err := m.db.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String()); err != nil {
 			l.Warnf("Failed to persist pending device entry to database: %v", err)
 		}
-		m.evLogger.Log(events.PendingDevicesChanged, map[string][]interface{}{
+		m.evLogger.Log(events.PendingDevicesChanged, map[string][]any{
 			"added": {map[string]string{
 				"deviceID": remoteID.String(),
 				"name":     hello.DeviceName,
@@ -2436,7 +2436,7 @@ func (m *model) DownloadProgress(conn protocol.Connection, p *protocol.DownloadP
 	downloads.Update(p.Folder, p.Updates)
 	state := downloads.GetBlockCounts(p.Folder)
 
-	m.evLogger.Log(events.RemoteDownloadProgress, map[string]interface{}{
+	m.evLogger.Log(events.RemoteDownloadProgress, map[string]any{
 		"device": deviceID.String(),
 		"folder": p.Folder,
 		"state":  state,
@@ -3209,7 +3209,7 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 		}
 	}
 	if len(removedPendingFolders) > 0 {
-		m.evLogger.Log(events.PendingFoldersChanged, map[string]interface{}{
+		m.evLogger.Log(events.PendingFoldersChanged, map[string]any{
 			"removed": removedPendingFolders,
 		})
 	}
@@ -3244,7 +3244,7 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 		})
 	}
 	if len(removedPendingDevices) > 0 {
-		m.evLogger.Log(events.PendingDevicesChanged, map[string]interface{}{
+		m.evLogger.Log(events.PendingDevicesChanged, map[string]any{
 			"removed": removedPendingDevices,
 		})
 	}
@@ -3290,7 +3290,7 @@ func (m *model) DismissPendingDevice(device protocol.DeviceID) error {
 	removedPendingDevices := []map[string]string{
 		{"deviceID": device.String()},
 	}
-	m.evLogger.Log(events.PendingDevicesChanged, map[string]interface{}{
+	m.evLogger.Log(events.PendingDevicesChanged, map[string]any{
 		"removed": removedPendingDevices,
 	})
 	return nil
@@ -3324,7 +3324,7 @@ func (m *model) DismissPendingFolder(device protocol.DeviceID, folder string) er
 		}
 	}
 	if len(removedPendingFolders) > 0 {
-		m.evLogger.Log(events.PendingFoldersChanged, map[string]interface{}{
+		m.evLogger.Log(events.PendingFoldersChanged, map[string]any{
 			"removed": removedPendingFolders,
 		})
 	}

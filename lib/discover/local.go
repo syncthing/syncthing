@@ -292,7 +292,7 @@ func (c *localClient) registerDevice(src net.Addr, device *discoproto.Announce) 
 	})
 
 	if isNewDevice {
-		c.evLogger.Log(events.DeviceDiscovered, map[string]interface{}{
+		c.evLogger.Log(events.DeviceDiscovered, map[string]any{
 			"device": id.String(),
 			"addrs":  validAddresses,
 		})

@@ -838,7 +838,7 @@ func (s *service) createListener(factory listenerFactory, uri *url.URL) bool {
 }
 
 func (s *service) logListenAddressesChangedEvent(l ListenerAddresses) {
-	s.evLogger.Log(events.ListenAddressesChanged, map[string]interface{}{
+	s.evLogger.Log(events.ListenAddressesChanged, map[string]any{
 		"address": l.URI,
 		"lan":     l.LANAddresses,
 		"wan":     l.WANAddresses,

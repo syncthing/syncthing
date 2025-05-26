@@ -218,7 +218,7 @@ type Event struct {
 	ID   int
 	Time time.Time
 	Type string
-	Data interface{}
+	Data any
 }
 
 func (p *Process) Events(since int) ([]Event, error) {
@@ -490,7 +490,7 @@ func (p *Process) eventLoop() {
 				// The Starting event tells us where the configuration is. Load
 				// it and populate our list of folders.
 
-				data := ev.Data.(map[string]interface{})
+				data := ev.Data.(map[string]any)
 				id, err := protocol.DeviceIDFromString(data["myID"].(string))
 				if err != nil {
 					log.Println("eventLoop: DeviceIdFromString:", err)
@@ -525,7 +525,7 @@ func (p *Process) eventLoop() {
 				select {
 				case <-p.startComplete:
 				default:
-					data := ev.Data.(map[string]interface{})
+					data := ev.Data.(map[string]any)
 					to := data["to"].(string)
 					if to == "idle" {
 						folder := data["folder"].(string)
@@ -537,7 +537,7 @@ func (p *Process) eventLoop() {
 				}
 
 			case "LocalIndexUpdated":
-				data := ev.Data.(map[string]interface{})
+				data := ev.Data.(map[string]any)
 				folder := data["folder"].(string)
 				p.eventMut.Lock()
 				m := p.updateSequenceLocked(folder, p.id.String(), data["sequence"])
@@ -546,7 +546,7 @@ func (p *Process) eventLoop() {
 				p.eventMut.Unlock()
 
 			case "RemoteIndexUpdated":
-				data := ev.Data.(map[string]interface{})
+				data := ev.Data.(map[string]any)
 				device := data["device"].(string)
 				folder := data["folder"].(string)
 				p.eventMut.Lock()
@@ -556,9 +556,9 @@ func (p *Process) eventLoop() {
 				p.eventMut.Unlock()
 
 			case "FolderSummary":
-				data := ev.Data.(map[string]interface{})
+				data := ev.Data.(map[string]any)
 				folder := data["folder"].(string)
-				summary := data["summary"].(map[string]interface{})
+				summary := data["summary"].(map[string]any)
 				need, _ := summary["needTotalItems"].(json.Number).Int64()
 				done := need == 0
 				p.eventMut.Lock()
@@ -568,7 +568,7 @@ func (p *Process) eventLoop() {
 				p.eventMut.Unlock()
 
 			case "FolderCompletion":
-				data := ev.Data.(map[string]interface{})
+				data := ev.Data.(map[string]any)
 				device := data["device"].(string)
 				folder := data["folder"].(string)
 				p.eventMut.Lock()
@@ -580,7 +580,7 @@ func (p *Process) eventLoop() {
 	}
 }
 
-func (p *Process) updateSequenceLocked(folder, device string, sequenceIntf interface{}) map[string]int64 {
+func (p *Process) updateSequenceLocked(folder, device string, sequenceIntf any) map[string]int64 {
 	sequence, _ := sequenceIntf.(json.Number).Int64()
 	m := p.sequence[folder]
 	if m == nil {

@@ -12,7 +12,7 @@ import (
 
 // fatal is the required common interface between *testing.B and *testing.T
 type fatal interface {
-	Fatal(...interface{})
+	Fatal(...any)
 	Helper()
 }
 

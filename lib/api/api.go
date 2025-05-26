@@ -201,7 +201,7 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 	return listener, nil
 }
 
-func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
+func sendJSON(w http.ResponseWriter, jsonObject any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	// Marshalling might fail, in which case we should return a 500 with the
 	// actual error.
@@ -720,7 +720,7 @@ func (*service) getSystemPaths(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *service) getJSMetadata(w http.ResponseWriter, _ *http.Request) {
-	meta, _ := json.Marshal(map[string]interface{}{
+	meta, _ := json.Marshal(map[string]any{
 		"deviceID":      s.id.String(),
 		"deviceIDShort": s.id.Short().String(),
 		"authenticated": true,
@@ -730,7 +730,7 @@ func (s *service) getJSMetadata(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (*service) getSystemVersion(w http.ResponseWriter, _ *http.Request) {
-	sendJSON(w, map[string]interface{}{
+	sendJSON(w, map[string]any{
 		"version":     build.Version,
 		"codename":    build.Codename,
 		"longVersion": build.LongVersion,
@@ -752,7 +752,7 @@ func (*service) getSystemDebug(w http.ResponseWriter, _ *http.Request) {
 	names := l.Facilities()
 	enabled := l.FacilityDebugging()
 	slices.Sort(enabled)
-	sendJSON(w, map[string]interface{}{
+	sendJSON(w, map[string]any{
 		"facilities": names,
 		"enabled":    enabled,
 	})
@@ -873,7 +873,7 @@ func (s *service) getDBNeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert the struct to a more loose structure, and inject the size.
-	sendJSON(w, map[string]interface{}{
+	sendJSON(w, map[string]any{
 		"progress": toJsonFileInfoSlice(progress),
 		"queued":   toJsonFileInfoSlice(queued),
 		"rest":     toJsonFileInfoSlice(rest),
@@ -901,7 +901,7 @@ func (s *service) getDBRemoteNeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendJSON(w, map[string]interface{}{
+	sendJSON(w, map[string]any{
 		"files":   toJsonFileInfoSlice(files),
 		"page":    page,
 		"perpage": perpage,
@@ -921,7 +921,7 @@ func (s *service) getDBLocalChanged(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendJSON(w, map[string]interface{}{
+	sendJSON(w, map[string]any{
 		"files":   toJsonFileInfoSlice(files),
 		"page":    page,
 		"perpage": perpage,
@@ -987,11 +987,11 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 	}
 	mtimeMapping, mtimeErr := s.model.GetMtimeMapping(folder, file)
 
-	sendJSON(w, map[string]interface{}{
+	sendJSON(w, map[string]any{
 		"global":       jsonFileInfo(gf),
 		"local":        jsonFileInfo(lf),
 		"availability": av,
-		"mtime": map[string]interface{}{
+		"mtime": map[string]any{
 			"err":   mtimeErr,
 			"value": mtimeMapping,
 		},
@@ -1016,12 +1016,12 @@ func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
 	av := snap.Availability(file)
 	vl := snap.DebugGlobalVersions(file)
 
-	sendJSON(w, map[string]interface{}{
+	sendJSON(w, map[string]any{
 		"global":         jsonFileInfo(gf),
 		"local":          jsonFileInfo(lf),
 		"availability":   av,
 		"globalVersions": vl.String(),
-		"mtime": map[string]interface{}{
+		"mtime": map[string]any{
 			"err":   mtimeErr,
 			"value": mtimeMapping,
 		},
@@ -1091,7 +1091,7 @@ func (s *service) getSystemStatus(w http.ResponseWriter, _ *http.Request) {
 	runtime.ReadMemStats(&m)
 
 	tilde, _ := fs.ExpandTilde("~")
-	res := make(map[string]interface{})
+	res := make(map[string]any)
 	res["myID"] = s.id.String()
 	res["goroutines"] = runtime.NumGoroutine()
 	res["alloc"] = m.Alloc
@@ -1313,14 +1313,14 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 }
 
 func (*service) getSystemHTTPMetrics(w http.ResponseWriter, _ *http.Request) {
-	stats := make(map[string]interface{})
-	metrics.Each(func(name string, intf interface{}) {
+	stats := make(map[string]any)
+	metrics.Each(func(name string, intf any) {
 		if m, ok := intf.(*metrics.StandardTimer); ok {
 			pct := m.Percentiles([]float64{0.50, 0.95, 0.99})
 			for i := range pct {
 				pct[i] /= 1e6 // ns to ms
 			}
-			stats[name] = map[string]interface{}{
+			stats[name] = map[string]any{
 				"count":         m.Count(),
 				"sumMs":         m.Sum() / 1e6, // ns to ms
 				"ratesPerS":     []float64{m.Rate1(), m.Rate5(), m.Rate15()},
@@ -1376,7 +1376,7 @@ func (s *service) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 	folder := qs.Get("folder")
 
 	lines, patterns, err := s.model.LoadIgnores(folder)
-	sendJSON(w, map[string]interface{}{
+	sendJSON(w, map[string]any{
 		"ignore":   lines,
 		"expanded": patterns,
 		"error":    errorString(err),
@@ -1485,7 +1485,7 @@ func (s *service) getSystemUpgrade(w http.ResponseWriter, _ *http.Request) {
 		httpError(w, err)
 		return
 	}
-	res := make(map[string]interface{})
+	res := make(map[string]any)
 	res["running"] = build.Version
 	res["latest"] = rel.Tag
 	res["newer"] = upgrade.CompareVersions(rel.Tag, build.Version) == upgrade.Newer
@@ -1741,7 +1741,7 @@ func (s *service) getFolderErrors(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sendJSON(w, map[string]interface{}{
+	sendJSON(w, map[string]any{
 		"folder":  folder,
 		"errors":  errors,
 		"page":    page,
@@ -1873,8 +1873,8 @@ func (f jsonFileInfo) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-func fileIntfJSONMap(f protocol.FileInfo) map[string]interface{} {
-	out := map[string]interface{}{
+func fileIntfJSONMap(f protocol.FileInfo) map[string]any {
+	out := map[string]any{
 		"name":          f.FileName(),
 		"type":          f.FileType().String(),
 		"size":          f.FileSize(),

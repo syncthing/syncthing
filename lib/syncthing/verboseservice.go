@@ -63,7 +63,7 @@ func (*verboseService) formatEvent(ev events.Event) string {
 		return "Startup complete"
 
 	case events.DeviceDiscovered:
-		data := ev.Data.(map[string]interface{})
+		data := ev.Data.(map[string]any)
 		return fmt.Sprintf("Discovered device %v at %v", data["device"], data["addrs"])
 
 	case events.DeviceConnected:
@@ -75,7 +75,7 @@ func (*verboseService) formatEvent(ev events.Event) string {
 		return fmt.Sprintf("Disconnected from device %v", data["id"])
 
 	case events.StateChanged:
-		data := ev.Data.(map[string]interface{})
+		data := ev.Data.(map[string]any)
 		return fmt.Sprintf("Folder %q is now %v", data["folder"], data["to"])
 
 	case events.LocalChangeDetected:
@@ -87,11 +87,11 @@ func (*verboseService) formatEvent(ev events.Event) string {
 		return fmt.Sprintf("Remote change detected in folder %q: %s %s %s", data["folder"], data["action"], data["type"], data["path"])
 
 	case events.LocalIndexUpdated:
-		data := ev.Data.(map[string]interface{})
+		data := ev.Data.(map[string]any)
 		return fmt.Sprintf("Local index update for %q with %d items (seq: %d)", data["folder"], data["items"], data["sequence"])
 
 	case events.RemoteIndexUpdated:
-		data := ev.Data.(map[string]interface{})
+		data := ev.Data.(map[string]any)
 		return fmt.Sprintf("Device %v sent an index update for %q with %d items (seq: %d)", data["device"], data["folder"], data["items"], data["sequence"])
 
 	case events.DeviceRejected:
@@ -107,9 +107,9 @@ func (*verboseService) formatEvent(ev events.Event) string {
 		return fmt.Sprintf("Started syncing %q / %q (%v %v)", data["folder"], data["item"], data["action"], data["type"])
 
 	case events.ItemFinished:
-		data := ev.Data.(map[string]interface{})
+		data := ev.Data.(map[string]any)
 		if err, ok := data["error"].(*string); ok && err != nil {
-			// If the err interface{} is not nil, it is a string pointer.
+			// If the err any is not nil, it is a string pointer.
 			// Dereference it to get the actual error or Sprintf will print
 			// the pointer value....
 			return fmt.Sprintf("Finished syncing %q / %q (%v %v): %v", data["folder"], data["item"], data["action"], data["type"], *err)
@@ -120,7 +120,7 @@ func (*verboseService) formatEvent(ev events.Event) string {
 		return "Configuration was saved"
 
 	case events.FolderCompletion:
-		data := ev.Data.(map[string]interface{})
+		data := ev.Data.(map[string]any)
 		return fmt.Sprintf("Completion for folder %q on device %v is %v%% (state: %s, seq: %d)", data["folder"], data["device"], data["completion"], data["remoteState"], data["sequence"])
 
 	case events.FolderSummary:
@@ -128,7 +128,7 @@ func (*verboseService) formatEvent(ev events.Event) string {
 		return folderSummaryRemoveDeprecatedRe.ReplaceAllString(fmt.Sprintf("Summary for folder %q is %+v", data.Folder, data.Summary), "")
 
 	case events.FolderScanProgress:
-		data := ev.Data.(map[string]interface{})
+		data := ev.Data.(map[string]any)
 		folder := data["folder"].(string)
 		current := data["current"].(int64)
 		total := data["total"].(int64)
@@ -166,14 +166,14 @@ func (*verboseService) formatEvent(ev events.Event) string {
 		return fmt.Sprintf("Folder %v (%v) was resumed", id, label)
 
 	case events.ListenAddressesChanged:
-		data := ev.Data.(map[string]interface{})
+		data := ev.Data.(map[string]any)
 		address := data["address"]
 		lan := data["lan"]
 		wan := data["wan"]
 		return fmt.Sprintf("Listen address %s resolution has changed: lan addresses: %s wan addresses: %s", address, lan, wan)
 
 	case events.LoginAttempt:
-		data := ev.Data.(map[string]interface{})
+		data := ev.Data.(map[string]any)
 		username := data["username"].(string)
 		var success string
 		if data["success"].(bool) {

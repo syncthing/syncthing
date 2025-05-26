@@ -68,7 +68,7 @@ func (c *folderSummaryService) String() string {
 	return fmt.Sprintf("FolderSummaryService@%p", c)
 }
 
-// FolderSummary replaces the previously used map[string]interface{}, and needs
+// FolderSummary replaces the previously used map[string]any, and needs
 // to keep the structure/naming for api backwards compatibility
 type FolderSummary struct {
 	Errors     int `json:"errors"`
@@ -270,7 +270,7 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 		return
 
 	case events.StateChanged:
-		data := ev.Data.(map[string]interface{})
+		data := ev.Data.(map[string]any)
 		if data["to"].(string) != "idle" {
 			return
 		}
@@ -301,7 +301,7 @@ func (c *folderSummaryService) processUpdate(ev events.Event) {
 		// This folder needs to be refreshed whenever we do the next
 		// refresh.
 
-		folder = ev.Data.(map[string]interface{})["folder"].(string)
+		folder = ev.Data.(map[string]any)["folder"].(string)
 	}
 
 	c.foldersMut.Lock()

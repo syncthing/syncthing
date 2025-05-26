@@ -296,7 +296,7 @@ type Wrapper struct {
 	unsubscribeArgsForCall []struct {
 		arg1 config.Committer
 	}
-	invocations      map[string][][]interface{}
+	invocations      map[string][][]any
 	invocationsMutex sync.RWMutex
 }
 
@@ -307,7 +307,7 @@ func (fake *Wrapper) ConfigPath() string {
 	}{})
 	stub := fake.ConfigPathStub
 	fakeReturns := fake.configPathReturns
-	fake.recordInvocation("ConfigPath", []interface{}{})
+	fake.recordInvocation("ConfigPath", []any{})
 	fake.configPathMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -360,7 +360,7 @@ func (fake *Wrapper) DefaultDevice() config.DeviceConfiguration {
 	}{})
 	stub := fake.DefaultDeviceStub
 	fakeReturns := fake.defaultDeviceReturns
-	fake.recordInvocation("DefaultDevice", []interface{}{})
+	fake.recordInvocation("DefaultDevice", []any{})
 	fake.defaultDeviceMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -413,7 +413,7 @@ func (fake *Wrapper) DefaultFolder() config.FolderConfiguration {
 	}{})
 	stub := fake.DefaultFolderStub
 	fakeReturns := fake.defaultFolderReturns
-	fake.recordInvocation("DefaultFolder", []interface{}{})
+	fake.recordInvocation("DefaultFolder", []any{})
 	fake.defaultFolderMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -466,7 +466,7 @@ func (fake *Wrapper) DefaultIgnores() config.Ignores {
 	}{})
 	stub := fake.DefaultIgnoresStub
 	fakeReturns := fake.defaultIgnoresReturns
-	fake.recordInvocation("DefaultIgnores", []interface{}{})
+	fake.recordInvocation("DefaultIgnores", []any{})
 	fake.defaultIgnoresMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -520,7 +520,7 @@ func (fake *Wrapper) Device(arg1 protocol.DeviceID) (config.DeviceConfiguration,
 	}{arg1})
 	stub := fake.DeviceStub
 	fakeReturns := fake.deviceReturns
-	fake.recordInvocation("Device", []interface{}{arg1})
+	fake.recordInvocation("Device", []any{arg1})
 	fake.deviceMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -583,7 +583,7 @@ func (fake *Wrapper) DeviceList() []config.DeviceConfiguration {
 	}{})
 	stub := fake.DeviceListStub
 	fakeReturns := fake.deviceListReturns
-	fake.recordInvocation("DeviceList", []interface{}{})
+	fake.recordInvocation("DeviceList", []any{})
 	fake.deviceListMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -636,7 +636,7 @@ func (fake *Wrapper) Devices() map[protocol.DeviceID]config.DeviceConfiguration 
 	}{})
 	stub := fake.DevicesStub
 	fakeReturns := fake.devicesReturns
-	fake.recordInvocation("Devices", []interface{}{})
+	fake.recordInvocation("Devices", []any{})
 	fake.devicesMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -690,7 +690,7 @@ func (fake *Wrapper) Folder(arg1 string) (config.FolderConfiguration, bool) {
 	}{arg1})
 	stub := fake.FolderStub
 	fakeReturns := fake.folderReturns
-	fake.recordInvocation("Folder", []interface{}{arg1})
+	fake.recordInvocation("Folder", []any{arg1})
 	fake.folderMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -753,7 +753,7 @@ func (fake *Wrapper) FolderList() []config.FolderConfiguration {
 	}{})
 	stub := fake.FolderListStub
 	fakeReturns := fake.folderListReturns
-	fake.recordInvocation("FolderList", []interface{}{})
+	fake.recordInvocation("FolderList", []any{})
 	fake.folderListMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -807,7 +807,7 @@ func (fake *Wrapper) FolderPasswords(arg1 protocol.DeviceID) map[string]string {
 	}{arg1})
 	stub := fake.FolderPasswordsStub
 	fakeReturns := fake.folderPasswordsReturns
-	fake.recordInvocation("FolderPasswords", []interface{}{arg1})
+	fake.recordInvocation("FolderPasswords", []any{arg1})
 	fake.folderPasswordsMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -867,7 +867,7 @@ func (fake *Wrapper) Folders() map[string]config.FolderConfiguration {
 	}{})
 	stub := fake.FoldersStub
 	fakeReturns := fake.foldersReturns
-	fake.recordInvocation("Folders", []interface{}{})
+	fake.recordInvocation("Folders", []any{})
 	fake.foldersMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -920,7 +920,7 @@ func (fake *Wrapper) GUI() config.GUIConfiguration {
 	}{})
 	stub := fake.GUIStub
 	fakeReturns := fake.gUIReturns
-	fake.recordInvocation("GUI", []interface{}{})
+	fake.recordInvocation("GUI", []any{})
 	fake.gUIMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -974,7 +974,7 @@ func (fake *Wrapper) IgnoredDevice(arg1 protocol.DeviceID) bool {
 	}{arg1})
 	stub := fake.IgnoredDeviceStub
 	fakeReturns := fake.ignoredDeviceReturns
-	fake.recordInvocation("IgnoredDevice", []interface{}{arg1})
+	fake.recordInvocation("IgnoredDevice", []any{arg1})
 	fake.ignoredDeviceMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -1034,7 +1034,7 @@ func (fake *Wrapper) IgnoredDevices() []config.ObservedDevice {
 	}{})
 	stub := fake.IgnoredDevicesStub
 	fakeReturns := fake.ignoredDevicesReturns
-	fake.recordInvocation("IgnoredDevices", []interface{}{})
+	fake.recordInvocation("IgnoredDevices", []any{})
 	fake.ignoredDevicesMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -1089,7 +1089,7 @@ func (fake *Wrapper) IgnoredFolder(arg1 protocol.DeviceID, arg2 string) bool {
 	}{arg1, arg2})
 	stub := fake.IgnoredFolderStub
 	fakeReturns := fake.ignoredFolderReturns
-	fake.recordInvocation("IgnoredFolder", []interface{}{arg1, arg2})
+	fake.recordInvocation("IgnoredFolder", []any{arg1, arg2})
 	fake.ignoredFolderMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -1149,7 +1149,7 @@ func (fake *Wrapper) LDAP() config.LDAPConfiguration {
 	}{})
 	stub := fake.LDAPStub
 	fakeReturns := fake.lDAPReturns
-	fake.recordInvocation("LDAP", []interface{}{})
+	fake.recordInvocation("LDAP", []any{})
 	fake.lDAPMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -1203,7 +1203,7 @@ func (fake *Wrapper) Modify(arg1 config.ModifyFunction) (config.Waiter, error) {
 	}{arg1})
 	stub := fake.ModifyStub
 	fakeReturns := fake.modifyReturns
-	fake.recordInvocation("Modify", []interface{}{arg1})
+	fake.recordInvocation("Modify", []any{arg1})
 	fake.modifyMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -1266,7 +1266,7 @@ func (fake *Wrapper) MyID() protocol.DeviceID {
 	}{})
 	stub := fake.MyIDStub
 	fakeReturns := fake.myIDReturns
-	fake.recordInvocation("MyID", []interface{}{})
+	fake.recordInvocation("MyID", []any{})
 	fake.myIDMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -1319,7 +1319,7 @@ func (fake *Wrapper) Options() config.OptionsConfiguration {
 	}{})
 	stub := fake.OptionsStub
 	fakeReturns := fake.optionsReturns
-	fake.recordInvocation("Options", []interface{}{})
+	fake.recordInvocation("Options", []any{})
 	fake.optionsMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -1372,7 +1372,7 @@ func (fake *Wrapper) RawCopy() config.Configuration {
 	}{})
 	stub := fake.RawCopyStub
 	fakeReturns := fake.rawCopyReturns
-	fake.recordInvocation("RawCopy", []interface{}{})
+	fake.recordInvocation("RawCopy", []any{})
 	fake.rawCopyMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -1426,7 +1426,7 @@ func (fake *Wrapper) RemoveDevice(arg1 protocol.DeviceID) (config.Waiter, error)
 	}{arg1})
 	stub := fake.RemoveDeviceStub
 	fakeReturns := fake.removeDeviceReturns
-	fake.recordInvocation("RemoveDevice", []interface{}{arg1})
+	fake.recordInvocation("RemoveDevice", []any{arg1})
 	fake.removeDeviceMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -1490,7 +1490,7 @@ func (fake *Wrapper) RemoveFolder(arg1 string) (config.Waiter, error) {
 	}{arg1})
 	stub := fake.RemoveFolderStub
 	fakeReturns := fake.removeFolderReturns
-	fake.recordInvocation("RemoveFolder", []interface{}{arg1})
+	fake.recordInvocation("RemoveFolder", []any{arg1})
 	fake.removeFolderMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -1553,7 +1553,7 @@ func (fake *Wrapper) RequiresRestart() bool {
 	}{})
 	stub := fake.RequiresRestartStub
 	fakeReturns := fake.requiresRestartReturns
-	fake.recordInvocation("RequiresRestart", []interface{}{})
+	fake.recordInvocation("RequiresRestart", []any{})
 	fake.requiresRestartMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -1606,7 +1606,7 @@ func (fake *Wrapper) Save() error {
 	}{})
 	stub := fake.SaveStub
 	fakeReturns := fake.saveReturns
-	fake.recordInvocation("Save", []interface{}{})
+	fake.recordInvocation("Save", []any{})
 	fake.saveMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -1660,7 +1660,7 @@ func (fake *Wrapper) Serve(arg1 context.Context) error {
 	}{arg1})
 	stub := fake.ServeStub
 	fakeReturns := fake.serveReturns
-	fake.recordInvocation("Serve", []interface{}{arg1})
+	fake.recordInvocation("Serve", []any{arg1})
 	fake.serveMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -1721,7 +1721,7 @@ func (fake *Wrapper) Subscribe(arg1 config.Committer) config.Configuration {
 	}{arg1})
 	stub := fake.SubscribeStub
 	fakeReturns := fake.subscribeReturns
-	fake.recordInvocation("Subscribe", []interface{}{arg1})
+	fake.recordInvocation("Subscribe", []any{arg1})
 	fake.subscribeMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -1780,7 +1780,7 @@ func (fake *Wrapper) Unsubscribe(arg1 config.Committer) {
 		arg1 config.Committer
 	}{arg1})
 	stub := fake.UnsubscribeStub
-	fake.recordInvocation("Unsubscribe", []interface{}{arg1})
+	fake.recordInvocation("Unsubscribe", []any{arg1})
 	fake.unsubscribeMutex.Unlock()
 	if stub != nil {
 		fake.UnsubscribeStub(arg1)
@@ -1806,7 +1806,7 @@ func (fake *Wrapper) UnsubscribeArgsForCall(i int) config.Committer {
 	return argsForCall.arg1
 }
 
-func (fake *Wrapper) Invocations() map[string][][]interface{} {
+func (fake *Wrapper) Invocations() map[string][][]any {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.configPathMutex.RLock()
@@ -1863,21 +1863,21 @@ func (fake *Wrapper) Invocations() map[string][][]interface{} {
 	defer fake.subscribeMutex.RUnlock()
 	fake.unsubscribeMutex.RLock()
 	defer fake.unsubscribeMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
+	copiedInvocations := map[string][][]any{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *Wrapper) recordInvocation(key string, args []interface{}) {
+func (fake *Wrapper) recordInvocation(key string, args []any) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
+		fake.invocations = map[string][][]any{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
+		fake.invocations[key] = [][]any{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

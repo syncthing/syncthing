@@ -438,7 +438,7 @@ func (c *configMuxBuilder) adjustLDAP(w http.ResponseWriter, r *http.Request, ld
 }
 
 // Unmarshals the content of the given body and stores it in to (i.e. to must be a pointer).
-func unmarshalTo(body io.ReadCloser, to interface{}) error {
+func unmarshalTo(body io.ReadCloser, to any) error {
 	bs, err := io.ReadAll(body)
 	body.Close()
 	if err != nil {

@@ -98,7 +98,7 @@ type mockedConnectionInfo struct {
 	typeReturnsOnCall map[int]struct {
 		result1 string
 	}
-	invocations      map[string][][]interface{}
+	invocations      map[string][][]any
 	invocationsMutex sync.RWMutex
 }
 
@@ -109,7 +109,7 @@ func (fake *mockedConnectionInfo) ConnectionID() string {
 	}{})
 	stub := fake.ConnectionIDStub
 	fakeReturns := fake.connectionIDReturns
-	fake.recordInvocation("ConnectionID", []interface{}{})
+	fake.recordInvocation("ConnectionID", []any{})
 	fake.connectionIDMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -162,7 +162,7 @@ func (fake *mockedConnectionInfo) Crypto() string {
 	}{})
 	stub := fake.CryptoStub
 	fakeReturns := fake.cryptoReturns
-	fake.recordInvocation("Crypto", []interface{}{})
+	fake.recordInvocation("Crypto", []any{})
 	fake.cryptoMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -215,7 +215,7 @@ func (fake *mockedConnectionInfo) EstablishedAt() time.Time {
 	}{})
 	stub := fake.EstablishedAtStub
 	fakeReturns := fake.establishedAtReturns
-	fake.recordInvocation("EstablishedAt", []interface{}{})
+	fake.recordInvocation("EstablishedAt", []any{})
 	fake.establishedAtMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -268,7 +268,7 @@ func (fake *mockedConnectionInfo) IsLocal() bool {
 	}{})
 	stub := fake.IsLocalStub
 	fakeReturns := fake.isLocalReturns
-	fake.recordInvocation("IsLocal", []interface{}{})
+	fake.recordInvocation("IsLocal", []any{})
 	fake.isLocalMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -321,7 +321,7 @@ func (fake *mockedConnectionInfo) Priority() int {
 	}{})
 	stub := fake.PriorityStub
 	fakeReturns := fake.priorityReturns
-	fake.recordInvocation("Priority", []interface{}{})
+	fake.recordInvocation("Priority", []any{})
 	fake.priorityMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -374,7 +374,7 @@ func (fake *mockedConnectionInfo) RemoteAddr() net.Addr {
 	}{})
 	stub := fake.RemoteAddrStub
 	fakeReturns := fake.remoteAddrReturns
-	fake.recordInvocation("RemoteAddr", []interface{}{})
+	fake.recordInvocation("RemoteAddr", []any{})
 	fake.remoteAddrMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -427,7 +427,7 @@ func (fake *mockedConnectionInfo) String() string {
 	}{})
 	stub := fake.StringStub
 	fakeReturns := fake.stringReturns
-	fake.recordInvocation("String", []interface{}{})
+	fake.recordInvocation("String", []any{})
 	fake.stringMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -480,7 +480,7 @@ func (fake *mockedConnectionInfo) Transport() string {
 	}{})
 	stub := fake.TransportStub
 	fakeReturns := fake.transportReturns
-	fake.recordInvocation("Transport", []interface{}{})
+	fake.recordInvocation("Transport", []any{})
 	fake.transportMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -533,7 +533,7 @@ func (fake *mockedConnectionInfo) Type() string {
 	}{})
 	stub := fake.TypeStub
 	fakeReturns := fake.typeReturns
-	fake.recordInvocation("Type", []interface{}{})
+	fake.recordInvocation("Type", []any{})
 	fake.typeMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -579,7 +579,7 @@ func (fake *mockedConnectionInfo) TypeReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *mockedConnectionInfo) Invocations() map[string][][]interface{} {
+func (fake *mockedConnectionInfo) Invocations() map[string][][]any {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.connectionIDMutex.RLock()
@@ -600,21 +600,21 @@ func (fake *mockedConnectionInfo) Invocations() map[string][][]interface{} {
 	defer fake.transportMutex.RUnlock()
 	fake.typeMutex.RLock()
 	defer fake.typeMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
+	copiedInvocations := map[string][][]any{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *mockedConnectionInfo) recordInvocation(key string, args []interface{}) {
+func (fake *mockedConnectionInfo) recordInvocation(key string, args []any) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
+		fake.invocations = map[string][][]any{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
+		fake.invocations[key] = [][]any{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

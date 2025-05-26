@@ -24,7 +24,7 @@ type Recorder struct {
 	sinceReturnsOnCall map[int]struct {
 		result1 []logger.Line
 	}
-	invocations      map[string][][]interface{}
+	invocations      map[string][][]any
 	invocationsMutex sync.RWMutex
 }
 
@@ -33,7 +33,7 @@ func (fake *Recorder) Clear() {
 	fake.clearArgsForCall = append(fake.clearArgsForCall, struct {
 	}{})
 	stub := fake.ClearStub
-	fake.recordInvocation("Clear", []interface{}{})
+	fake.recordInvocation("Clear", []any{})
 	fake.clearMutex.Unlock()
 	if stub != nil {
 		fake.ClearStub()
@@ -60,7 +60,7 @@ func (fake *Recorder) Since(arg1 time.Time) []logger.Line {
 	}{arg1})
 	stub := fake.SinceStub
 	fakeReturns := fake.sinceReturns
-	fake.recordInvocation("Since", []interface{}{arg1})
+	fake.recordInvocation("Since", []any{arg1})
 	fake.sinceMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -113,28 +113,28 @@ func (fake *Recorder) SinceReturnsOnCall(i int, result1 []logger.Line) {
 	}{result1}
 }
 
-func (fake *Recorder) Invocations() map[string][][]interface{} {
+func (fake *Recorder) Invocations() map[string][][]any {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.clearMutex.RLock()
 	defer fake.clearMutex.RUnlock()
 	fake.sinceMutex.RLock()
 	defer fake.sinceMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
+	copiedInvocations := map[string][][]any{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *Recorder) recordInvocation(key string, args []interface{}) {
+func (fake *Recorder) recordInvocation(key string, args []any) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
+		fake.invocations = map[string][][]any{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
+		fake.invocations[key] = [][]any{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

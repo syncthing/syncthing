@@ -185,7 +185,7 @@ func (p *proxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 	if strings.HasPrefix(ct, "application/json") {
 		// Special JSON handling; clean it up a bit.
-		var v interface{}
+		var v any
 		if err := json.NewDecoder(resp.Body).Decode(&v); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

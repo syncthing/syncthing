@@ -450,7 +450,7 @@ func printServiceTree(w io.Writer, sup supervisor, level int) {
 	}
 }
 
-func printService(w io.Writer, svc interface{}, level int) {
+func printService(w io.Writer, svc any, level int) {
 	type errorer interface{ Error() error }
 
 	t := "-"
