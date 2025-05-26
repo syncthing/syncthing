@@ -130,7 +130,7 @@ jobs:
           cache: false
           check-latest: true
 
-      - uses: mlugg/setup-zig@v1
+      - uses: mlugg/setup-zig@v2
 
       - uses: actions/cache@v4
         with:
@@ -237,7 +237,7 @@ jobs:
           go version
           echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
-      - uses: mlugg/setup-zig@v1
+      - uses: mlugg/setup-zig@v2
 
       - uses: actions/cache@v4
         with:
@@ -647,7 +647,7 @@ jobs:
         run: |
           gem install fpm
 
-      - uses: mlugg/setup-zig@v1
+      - uses: mlugg/setup-zig@v2
 
       - uses: actions/cache@v4
         with:
@@ -942,7 +942,7 @@ jobs:
           go version
           echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
-      - uses: mlugg/setup-zig@v1
+      - uses: mlugg/setup-zig@v2
 
       - uses: actions/cache@v4
         with:
