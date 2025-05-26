@@ -117,8 +117,8 @@ func (m *tokenManager) saveLocked() {
 		for token, expiry := range m.tokens.Tokens {
 			tokens = append(tokens, tokenExpiry{token, expiry})
 		}
-		slices.SortFunc(tokens, func(i, j tokenExpiry) int {
-			return int(i.expiry - j.expiry)
+		slices.SortFunc(tokens, func(a, b tokenExpiry) int {
+			return int(a.expiry - b.expiry)
 		})
 		// Remove the oldest tokens.
 		for _, token := range tokens[:len(tokens)-m.maxItems] {

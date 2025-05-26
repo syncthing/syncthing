@@ -18,7 +18,6 @@ import (
 	"os"
 	"reflect"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -338,8 +337,8 @@ func (cfg *Configuration) prepareDeviceList() map[protocol.DeviceID]*DeviceConfi
 	// - sorted by ID
 	// Happen before preparting folders as that needs a correct device list.
 	cfg.Devices = ensureNoDuplicateOrEmptyIDDevices(cfg.Devices)
-	sort.Slice(cfg.Devices, func(a, b int) bool {
-		return cfg.Devices[a].DeviceID.Compare(cfg.Devices[b].DeviceID) == -1
+	slices.SortFunc(cfg.Devices, func(a, b DeviceConfiguration) int {
+		return a.DeviceID.Compare(b.DeviceID)
 	})
 
 	// Build a list of available devices
