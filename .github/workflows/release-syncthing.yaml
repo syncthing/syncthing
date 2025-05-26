@@ -32,12 +32,14 @@ jobs:
           else
             next=$(svu prerelease --pre-release rc)
           fi
-          echo "VERSION=$ver" >> $GITHUB_ENV
-          echo "Next version is $ver"
+          echo "NEXT=$next" >> $GITHUB_ENV
+          echo "Next version is $next"
+
+          prev=$(git describe --exclude "*-*" --abbrev=0)
+          echo "PREV=$prev" >> $GITHUB_ENV
+          echo "Previous version is $prev"
 
       - name: Determine release notes
         run: |
-          prev=$(git describe --exclude "*-*" --abbrev=0)
-          echo "Previous version is $prev"
-
-          go run ./script/relnotes --new-ver "$VERSION" --branch "$GITHUB_REF_NAME" --prev-ver "$prev" > notes.md
+          go run ./script/relnotes.go --new-ver "$NEXT" --branch "$GITHUB_REF_NAME" --prev-ver "$PREV" > notes.md
+          cat notes.md
