@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime/pprof"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -443,7 +443,7 @@ func debugFacilities() string {
 			maxLen = len(name)
 		}
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 
 	// Format the choices
 	b := new(bytes.Buffer)

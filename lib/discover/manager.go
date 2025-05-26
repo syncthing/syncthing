@@ -13,7 +13,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"sort"
+	"slices"
 	"time"
 
 	"github.com/thejerf/suture/v4"
@@ -159,7 +159,7 @@ func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addre
 	m.mut.RUnlock()
 
 	addresses = stringutil.UniqueTrimmedStrings(addresses)
-	sort.Strings(addresses)
+	slices.Sort(addresses)
 
 	l.Debugln("lookup results for", deviceID)
 	l.Debugln("  addresses: ", addresses)

@@ -12,7 +12,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -109,7 +109,7 @@ func TagsList() []string {
 		tags = append(tags, Extra)
 	}
 
-	sort.Strings(tags)
+	slices.Sort(tags)
 	return tags
 }
 
