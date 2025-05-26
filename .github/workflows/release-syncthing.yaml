@@ -43,3 +43,5 @@ jobs:
         run: |
           go run ./script/relnotes.go --new-ver "$NEXT" --branch "$GITHUB_REF_NAME" --prev-ver "$PREV" > notes.md
           cat notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
