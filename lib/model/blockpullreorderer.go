@@ -7,7 +7,7 @@
 package model
 
 import (
-	"sort"
+	"slices"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -52,8 +52,8 @@ type standardBlockPullReorderer struct {
 
 func newStandardBlockPullReorderer(id protocol.DeviceID, otherDevices []protocol.DeviceID) *standardBlockPullReorderer {
 	allDevices := append(otherDevices, id)
-	sort.Slice(allDevices, func(i, j int) bool {
-		return allDevices[i].Compare(allDevices[j]) == -1
+	slices.SortFunc(allDevices, func(a, b protocol.DeviceID) int {
+		return a.Compare(b)
 	})
 	// Find our index
 	myIndex := -1

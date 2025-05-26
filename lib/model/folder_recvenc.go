@@ -8,7 +8,8 @@ package model
 
 import (
 	"fmt"
-	"sort"
+	"slices"
+	"strings"
 
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
@@ -104,7 +105,9 @@ func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string) {
 	go f.pullScannerRoutine(scanChan)
 	defer close(scanChan)
 
-	sort.Sort(sort.Reverse(sort.StringSlice(dirs)))
+	slices.SortFunc(dirs, func(a, b string) int {
+		return strings.Compare(b, a)
+	})
 	for _, dir := range dirs {
 		if err := f.deleteDirOnDisk(dir, scanChan); err != nil {
 			f.newScanError(dir, fmt.Errorf("deleting unexpected dir: %w", err))

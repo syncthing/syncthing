@@ -13,7 +13,7 @@ import (
 	"math/rand"
 	"path/filepath"
 	"slices"
-	"sort"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
@@ -1226,7 +1226,9 @@ func (f *folder) Errors() []FileError {
 	errors := make([]FileError, scanLen+len(f.pullErrors))
 	copy(errors[:scanLen], f.scanErrors)
 	copy(errors[scanLen:], f.pullErrors)
-	sort.Sort(fileErrorList(errors))
+	slices.SortFunc(errors, func(a, b FileError) int {
+		return strings.Compare(a.Path, b.Path)
+	})
 	return errors
 }
 

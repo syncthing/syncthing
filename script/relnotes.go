@@ -43,29 +43,38 @@ func main() {
 		log.Fatalln("Must set $GITHUB_TOKEN")
 	}
 
-	addl, err := additionalNotes(*ver)
+	notes, err := additionalNotes(*ver)
 	if err != nil {
 		log.Fatalln("Gathering additional notes:", err)
 	}
-	notes, err := generatedNotes(*ver, *branch, *prevVer)
+	gh, err := generatedNotes(*ver, *branch, *prevVer)
 	if err != nil {
 		log.Fatalln("Gathering github notes:", err)
 	}
+	notes = append(notes, gh)
 
-	if addl != "" {
-		fmt.Println(addl)
-	}
-	fmt.Println(notes)
+	fmt.Println(strings.Join(notes, "\n\n"))
 }
 
 // Load potential additional release notes from within the repo
-func additionalNotes(newVer string) (string, error) {
+func additionalNotes(newVer string) ([]string, error) {
+	var notes []string
 	ver, _, _ := strings.Cut(newVer, "-")
-	bs, err := os.ReadFile(fmt.Sprintf("relnotes/%s.md", ver))
-	if os.IsNotExist(err) {
-		return "", nil
+	for {
+		file := fmt.Sprintf("relnotes/%s.md", ver)
+		if bs, err := os.ReadFile(file); err == nil {
+			notes = append(notes, strings.TrimSpace(string(bs)))
+		} else if !os.IsNotExist(err) {
+			return nil, err
+		}
+
+		if idx := strings.LastIndex(ver, "."); idx > 0 {
+			ver = ver[:idx]
+		} else {
+			break
+		}
 	}
-	return string(bs), err
+	return notes, nil
 }
 
 // Load generated release notes (list of pull requests and contributors)
@@ -105,5 +114,5 @@ func generatedNotes(newVer, targetCommit, prevVer string) (string, error) {
 	if err := json.NewDecoder(res.Body).Decode(&resJSON); err != nil {
 		return "", err
 	}
-	return resJSON.Body, nil
+	return strings.TrimSpace(resJSON.Body), nil
 }

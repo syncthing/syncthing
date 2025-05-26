@@ -7,7 +7,8 @@
 package model
 
 import (
-	"sort"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/itererr"
@@ -208,7 +209,9 @@ func (q *deleteQueue) handle(fi protocol.FileInfo) (bool, error) {
 
 func (q *deleteQueue) flush() ([]string, error) {
 	// Process directories from the leaves inward.
-	sort.Sort(sort.Reverse(sort.StringSlice(q.dirs)))
+	slices.SortFunc(q.dirs, func(a, b string) int {
+		return strings.Compare(b, a)
+	})
 
 	var firstError error
 	var deleted []string

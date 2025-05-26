@@ -99,6 +99,11 @@ func main() {
 
 	// Write AUTHORS file
 
+	// Sort by author name
+	slices.SortFunc(authors, func(a, b author) int {
+		return strings.Compare(strings.ToLower(a.name), strings.ToLower(b.name))
+	})
+
 	out, err := os.Create("AUTHORS")
 	if err != nil {
 		log.Fatal(err)
