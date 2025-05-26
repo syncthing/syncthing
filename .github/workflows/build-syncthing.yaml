@@ -723,6 +723,8 @@ jobs:
     name: Publish release files
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/tags/v'))
     environment: release
+    permissions:
+      contents: write
     needs:
       - sign-for-upgrade
       - package-debian
@@ -801,6 +803,8 @@ jobs:
             packages/syncthing-*.tar.gz \
             packages/syncthing-*.zip \
             packages/syncthing*.deb
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   #
   # Push Debian/APT archive
