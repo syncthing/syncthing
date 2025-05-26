@@ -7,11 +7,12 @@
 package config
 
 import (
+	"cmp"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 
@@ -65,8 +66,8 @@ type migrationSet []migration
 func (ms migrationSet) apply(cfg *Configuration) {
 	// Make sure we apply the migrations in target version order regardless
 	// of how it was defined.
-	sort.Slice(ms, func(a, b int) bool {
-		return ms[a].targetVersion < ms[b].targetVersion
+	slices.SortFunc(ms, func(a, b migration) int {
+		return cmp.Compare(a.targetVersion, b.targetVersion)
 	})
 
 	// Apply all migrations.
@@ -349,7 +350,7 @@ func migrateToConfigV14(cfg *Configuration) {
 	cfg.Options.DeprecatedRelayServers = nil
 
 	// For consistency
-	sort.Strings(cfg.Options.RawListenAddresses)
+	slices.Sort(cfg.Options.RawListenAddresses)
 
 	var newAddrs []string
 	for _, addr := range cfg.Options.RawGlobalAnnServers {

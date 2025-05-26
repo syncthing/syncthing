@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -344,7 +344,7 @@ func fakefsForBenchmark(nfiles int, latency time.Duration) (Filesystem, []string
 		return nil, nil, errors.New("didn't find enough stuff")
 	}
 
-	sort.Strings(paths)
+	slices.Sort(paths)
 
 	return fsys, paths, nil
 }
