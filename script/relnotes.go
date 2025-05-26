@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"cmp"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -74,6 +75,9 @@ func generatedNotes(newVer, targetCommit, prevVer string) (string, error) {
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", err
+	}
+	if res.StatusCode != http.StatusOK {
+		return "", errors.New(res.Status)
 	}
 	defer res.Body.Close()
 
