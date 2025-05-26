@@ -13,11 +13,13 @@ jobs:
   create-release-tag:
     name: Create release tag
     runs-on: ubuntu-latest
+    environment: release
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
+          token: ${{ secrets.STRELEASE_GITHUB_TOKEN }}
 
       - uses: actions/setup-go@v5
         with:
@@ -45,11 +47,11 @@ jobs:
         run: |
           go run ./script/relnotes.go --new-ver "$NEXT" --branch "$GITHUB_REF_NAME" --prev-ver "$PREV" > notes.md
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.STRELEASE_GITHUB_TOKEN }}
 
       - name: Create and push tag
         run: |
           git config --global user.name 'Syncthing Release Automation'
           git config --global user.email 'release@syncthing.net'
-          git tag -a -F notes.md "$NEXT"
+          git tag -a -F notes.md --cleanup=whitespace "$NEXT"
           git push origin "$NEXT"
