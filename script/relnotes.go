@@ -64,8 +64,11 @@ func generatedNotes(newVer, targetCommit, prevVer string) (string, error) {
 		"target_commitish":  targetCommit,
 		"previous_tag_name": prevVer,
 	}
-	bs, _ := json.Marshal(fields)
-	req, err := http.NewRequest(http.MethodPost, "https://api.github.com/repos/"+githubRepo+"/releases/generate-notes", bytes.NewReader(bs))
+	bs, err := json.Marshal(fields)
+	if err != nil {
+		return "", err
+	}
+	req, err := http.NewRequest(http.MethodPost, "https://api.github.com/repos/"+githubRepo+"/releases/generate-notes", bytes.NewReader(bs)) //nolint:noctx
 	if err != nil {
 		return "", err
 	}
@@ -80,7 +83,7 @@ func generatedNotes(newVer, targetCommit, prevVer string) (string, error) {
 	if res.StatusCode != http.StatusOK {
 		bs, _ := io.ReadAll(res.Body)
 		log.Print(string(bs))
-		return "", errors.New(res.Status)
+		return "", errors.New(res.Status) //nolint:err113
 	}
 	defer res.Body.Close()
 
