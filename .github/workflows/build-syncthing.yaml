@@ -791,12 +791,12 @@ jobs:
           export GH_PROMPT_DISABLED=1
           if ! gh release view --json name "$VERSION" >/dev/null 2>&1 ; then
             gh release create \
-              "$TAG" \
+              "$VERSION" \
               $maybePrerelease \
               --title "$VERSION" \
               --notes-from-tag
           fi
-          gh release upload "$TAG" \
+          gh release upload "$VERSION" \
             packages/*.asc packages/*.json \
             packages/syncthing-*.tar.gz \
             packages/syncthing-*.zip \
