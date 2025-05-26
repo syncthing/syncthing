@@ -28,9 +28,9 @@ jobs:
       - name: Determine version to release
         run: |
           if [[ "$GITHUB_REF_NAME" == "release" ]] ; then
-            next=$(svu next --tag.mode current)
+            next=$(svu next)
           else
-            next=$(svu prerelease --tag.mode current --prerelease rc)
+            next=$(svu prerelease --pre-release rc)
           fi
           echo "VERSION=$ver" >> $GITHUB_ENV
           echo "Next version is $ver"
