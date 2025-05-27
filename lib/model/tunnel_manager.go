@@ -95,6 +95,8 @@ type tunnelInConfig struct {
 }
 
 type DeviceConnection struct {
+	ctx              context.Context
+	cancel           context.CancelFunc
 	tunnelOut        chan<- *protocol.TunnelData
 	serviceOfferings map[string]uint32
 }
@@ -565,18 +567,40 @@ func (tm *TunnelManager) deregisterLocalTunnelEndpoint(deviceID protocol.DeviceI
 }
 
 func (tm *TunnelManager) RegisterDeviceConnection(device protocol.DeviceID, tunnelIn <-chan *protocol.TunnelData, tunnelOut chan<- *protocol.TunnelData) {
+
 	tl.Debugln("Registering device connection, device ID:", device)
+	var ctxOuter context.Context = nil
 	tm.deviceConnections.DoProtected(func(dc *tm_deviceConnections) {
+		// Check if the device is already registered
+		if old, exists := dc.deviceConnections[device]; exists {
+			old.cancel() // Cancel the old context to stop any existing operations
+			tl.Debugln("Device connection already exists, replacing it:", device)
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
 		dc.deviceConnections[device] = &DeviceConnection{
+			ctx:              ctx,
+			cancel:           cancel,
 			tunnelOut:        tunnelOut,
 			serviceOfferings: make(map[string]uint32),
 		}
+		ctxOuter = ctx
 	})
 
-	// handle all incoming tunnel data for this device
+	// handle all incoming tunnel data for this device connection
 	go func() {
-		for data := range tunnelIn {
-			tm.forwardRemoteTunnelData(device, data)
+		for {
+			select {
+			case <-ctxOuter.Done():
+				tl.Debugln("Context done for device:", device)
+				return
+			case data, ok := <-tunnelIn:
+				if !ok {
+					tl.Debugln("TunnelIn channel closed for device:", device)
+					return
+				}
+				tm.forwardRemoteTunnelData(device, data)
+			}
 		}
 	}()
 
