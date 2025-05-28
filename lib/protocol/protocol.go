@@ -974,7 +974,9 @@ func (c *rawConnection) internalClose(err error) {
 			<-c.dispatcherLoopStopped
 		}
 
-		c.model.Closed(err)
+		// We don't want to call into the model while holding the
+		// startStopMut, so defer it into the background.
+		go c.model.Closed(err)
 	})
 }
 
