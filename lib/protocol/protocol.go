@@ -269,6 +269,15 @@ func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, clo
 func (c *rawConnection) Start() {
 	c.startStopMut.Lock()
 	defer c.startStopMut.Unlock()
+
+	select {
+	case <-c.closed:
+		// we have already closed the connection before starting processing
+		// on it.
+		return
+	default:
+	}
+
 	c.loopWG.Add(5)
 	go func() {
 		c.readerLoop()
@@ -291,6 +300,7 @@ func (c *rawConnection) Start() {
 		c.pingReceiver()
 		c.loopWG.Done()
 	}()
+
 	c.startTime = time.Now().Truncate(time.Second)
 	close(c.started)
 }
