@@ -20,6 +20,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -114,5 +115,9 @@ func generatedNotes(newVer, targetCommit, prevVer string) (string, error) {
 	if err := json.NewDecoder(res.Body).Decode(&resJSON); err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(resJSON.Body), nil
+	return strings.TrimSpace(removeHTMLComments(resJSON.Body)), nil
+}
+
+func removeHTMLComments(s string) string {
+	return regexp.MustCompile(`<!--.*?-->`).ReplaceAllString(s, "")
 }

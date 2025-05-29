@@ -5,7 +5,7 @@ go 1.23.0
 require (
 	github.com/AudriusButkevicius/recli v0.0.7-0.20220911121932-d000ce8fbf0f
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.1
-	github.com/alecthomas/kong v1.10.0
+	github.com/alecthomas/kong v1.11.0
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/calmh/incontainer v1.0.0
 	github.com/calmh/xdr v1.2.0
@@ -30,24 +30,24 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.22
 	github.com/prometheus/client_golang v1.22.0
 	github.com/puzpuzpuz/xsync/v3 v3.5.1
-	github.com/quic-go/quic-go v0.51.0
+	github.com/quic-go/quic-go v0.52.0
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9
 	github.com/shirou/gopsutil/v4 v4.25.4
-	github.com/syncthing/notify v0.0.0-20250207082249-f0fa8f99c2bc
+	github.com/syncthing/notify v0.0.0-20250528144937-c7027d4f7465
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d
 	github.com/thejerf/suture/v4 v4.0.6
 	github.com/urfave/cli v1.22.16
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	github.com/willabides/kongplete v0.4.0
 	go.uber.org/automaxprocs v1.6.0
-	golang.org/x/crypto v0.37.0
+	golang.org/x/crypto v0.38.0
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394
-	golang.org/x/net v0.39.0
-	golang.org/x/sys v0.32.0
-	golang.org/x/text v0.24.0
+	golang.org/x/net v0.40.0
+	golang.org/x/sys v0.33.0
+	golang.org/x/text v0.25.0
 	golang.org/x/time v0.11.0
-	golang.org/x/tools v0.32.0
+	golang.org/x/tools v0.33.0
 	google.golang.org/protobuf v1.36.6
 	modernc.org/sqlite v1.37.0
 	sigs.k8s.io/yaml v1.4.0
@@ -99,7 +99,7 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.uber.org/mock v0.5.2 // indirect
 	golang.org/x/mod v0.24.0 // indirect
-	golang.org/x/sync v0.13.0 // indirect
+	golang.org/x/sync v0.14.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/libc v1.62.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
