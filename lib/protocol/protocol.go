@@ -960,9 +960,9 @@ func (c *rawConnection) Close(err error) {
 
 // internalClose is called if there is an unexpected error during normal operation.
 func (c *rawConnection) internalClose(err error) {
-	c.startStopMut.Lock()
-	defer c.startStopMut.Unlock()
 	c.closeOnce.Do(func() {
+		c.startStopMut.Lock()
+
 		l.Debugf("close connection to %s at %s due to %v", c.deviceID.Short(), c.ConnectionInfo, err)
 		if cerr := c.closer.Close(); cerr != nil {
 			l.Debugf("failed to close underlying conn %s at %s %v:", c.deviceID.Short(), c.ConnectionInfo, cerr)
@@ -984,9 +984,11 @@ func (c *rawConnection) internalClose(err error) {
 			<-c.dispatcherLoopStopped
 		}
 
+		c.startStopMut.Unlock()
+
 		// We don't want to call into the model while holding the
-		// startStopMut, so defer it into the background.
-		go c.model.Closed(err)
+		// startStopMut.
+		c.model.Closed(err)
 	})
 }
 
