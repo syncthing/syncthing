@@ -269,6 +269,15 @@ func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, clo
 func (c *rawConnection) Start() {
 	c.startStopMut.Lock()
 	defer c.startStopMut.Unlock()
+
+	select {
+	case <-c.closed:
+		// we have already closed the connection before starting processing
+		// on it.
+		return
+	default:
+	}
+
 	c.loopWG.Add(5)
 	go func() {
 		c.readerLoop()
@@ -291,6 +300,7 @@ func (c *rawConnection) Start() {
 		c.pingReceiver()
 		c.loopWG.Done()
 	}()
+
 	c.startTime = time.Now().Truncate(time.Second)
 	close(c.started)
 }
@@ -950,9 +960,9 @@ func (c *rawConnection) Close(err error) {
 
 // internalClose is called if there is an unexpected error during normal operation.
 func (c *rawConnection) internalClose(err error) {
-	c.startStopMut.Lock()
-	defer c.startStopMut.Unlock()
 	c.closeOnce.Do(func() {
+		c.startStopMut.Lock()
+
 		l.Debugf("close connection to %s at %s due to %v", c.deviceID.Short(), c.ConnectionInfo, err)
 		if cerr := c.closer.Close(); cerr != nil {
 			l.Debugf("failed to close underlying conn %s at %s %v:", c.deviceID.Short(), c.ConnectionInfo, cerr)
@@ -974,6 +984,10 @@ func (c *rawConnection) internalClose(err error) {
 			<-c.dispatcherLoopStopped
 		}
 
+		c.startStopMut.Unlock()
+
+		// We don't want to call into the model while holding the
+		// startStopMut.
 		c.model.Closed(err)
 	})
 }
