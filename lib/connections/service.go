@@ -445,10 +445,10 @@ func (s *service) handleHellos(ctx context.Context) error {
 		rd, wr := s.limiter.getLimiters(remoteID, c, c.IsLocal())
 
 		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression.ToProtocol(), s.cfg.FolderPasswords(remoteID), s.keyGen)
-		s.accountAddedConnection(protoConn, hello, s.cfg.Options().ConnectionPriorityUpgradeThreshold)
+		s.accountAddedConnection(protoConn, hello, s.cfg.Options().ConnectionPriorityUpgradeThreshold, deviceCfg.Name)
 		go func() {
 			<-protoConn.Closed()
-			s.accountRemovedConnection(protoConn)
+			s.accountRemovedConnection(protoConn, deviceCfg.Name)
 			s.dialNowDevicesMut.Lock()
 			s.dialNowDevices[remoteID] = struct{}{}
 			s.scheduleDialNow()
@@ -849,7 +849,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	newDevices := make(map[protocol.DeviceID]bool, len(to.Devices))
 	for _, dev := range to.Devices {
 		newDevices[dev.DeviceID] = true
-		registerDeviceMetrics(dev.DeviceID.String())
+		registerDeviceMetrics(dev.DeviceID.String(), dev.Name)
 	}
 
 	for _, dev := range from.Devices {
@@ -857,7 +857,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 			warningLimitersMut.Lock()
 			delete(warningLimiters, dev.DeviceID)
 			warningLimitersMut.Unlock()
-			metricDeviceActiveConnections.DeleteLabelValues(dev.DeviceID.String())
+			metricDeviceActiveConnections.DeleteLabelValues(dev.DeviceID.String(), dev.Name)
 		}
 	}
 
@@ -1369,7 +1369,7 @@ type deviceConnectionTracker struct {
 	wantConnections map[protocol.DeviceID]int                   // number of connections they want
 }
 
-func (c *deviceConnectionTracker) accountAddedConnection(conn protocol.Connection, h protocol.Hello, upgradeThreshold int) {
+func (c *deviceConnectionTracker) accountAddedConnection(conn protocol.Connection, h protocol.Hello, upgradeThreshold int, deviceName string) {
 	c.connectionsMut.Lock()
 	defer c.connectionsMut.Unlock()
 	// Lazily initialize the maps
@@ -1385,13 +1385,13 @@ func (c *deviceConnectionTracker) accountAddedConnection(conn protocol.Connectio
 	l.Debugf("Added connection for %s (now %d), they want %d connections", d.Short(), len(c.connections[d]), h.NumConnections)
 
 	// Update active connections metric
-	metricDeviceActiveConnections.WithLabelValues(d.String()).Inc()
+	metricDeviceActiveConnections.WithLabelValues(d.String(), deviceName).Inc()
 
 	// Close any connections we no longer want to retain.
 	c.closeWorsePriorityConnectionsLocked(d, conn.Priority()-upgradeThreshold)
 }
 
-func (c *deviceConnectionTracker) accountRemovedConnection(conn protocol.Connection) {
+func (c *deviceConnectionTracker) accountRemovedConnection(conn protocol.Connection, deviceName string) {
 	c.connectionsMut.Lock()
 	defer c.connectionsMut.Unlock()
 	d := conn.DeviceID()
@@ -1410,7 +1410,7 @@ func (c *deviceConnectionTracker) accountRemovedConnection(conn protocol.Connect
 	}
 
 	// Update active connections metric
-	metricDeviceActiveConnections.WithLabelValues(d.String()).Dec()
+	metricDeviceActiveConnections.WithLabelValues(d.String(), deviceName).Dec()
 
 	l.Debugf("Removed connection for %s (now %d)", d.Short(), c.connections[d])
 }

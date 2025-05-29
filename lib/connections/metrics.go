@@ -16,10 +16,10 @@ var metricDeviceActiveConnections = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Subsystem: "connections",
 	Name:      "active",
 	Help:      "Number of currently active connections, per device. If value is 0, the device is disconnected.",
-}, []string{"device"})
+}, []string{"device", "name"})
 
-func registerDeviceMetrics(deviceID string) {
+func registerDeviceMetrics(deviceID, name string) {
 	// Register metrics for this device, so that counters & gauges are present even
 	// when zero.
-	metricDeviceActiveConnections.WithLabelValues(deviceID)
+	metricDeviceActiveConnections.WithLabelValues(deviceID, name)
 }
