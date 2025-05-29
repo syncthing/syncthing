@@ -2385,7 +2385,7 @@ func (m *model) scheduleConnectionPromotion() {
 // device connection.
 func (m *model) promoteConnections() {
 	// Slice of actions to take on connections after releasing the main
-	// mutex. We do this so that we don not perform blocking network actions
+	// mutex. We do this so that we do not perform blocking network actions
 	// inside the loop, and also to avoid a possible deadlock with calling
 	// Start() on connections that are already executing a Close() with a
 	// callback into the model...
