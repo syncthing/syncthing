@@ -129,7 +129,9 @@ type Connection interface {
 	// Send a Cluster Configuration message to the peer device. The message
 	// in the parameter may be altered by the connection and should not be
 	// used further by the caller.
-	ClusterConfig(config *ClusterConfig)
+	// For any folder that must be encrypted for the connected device, the
+	// password must be provided.
+	ClusterConfig(config *ClusterConfig, passwords map[string]string)
 
 	// Send a Download Progress message to the peer device. The message in
 	// the parameter may be altered by the connection and should not be used
@@ -137,7 +139,6 @@ type Connection interface {
 	DownloadProgress(ctx context.Context, dp *DownloadProgress)
 
 	Start()
-	SetFolderPasswords(passwords map[string]string)
 	Close(err error)
 	DeviceID() DeviceID
 	Statistics() Statistics
@@ -215,7 +216,7 @@ const (
 // Should not be modified in production code, just for testing.
 var CloseTimeout = 10 * time.Second
 
-func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, model Model, connInfo ConnectionInfo, compress Compression, passwords map[string]string, keyGen *KeyGenerator) Connection {
+func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer io.Closer, model Model, connInfo ConnectionInfo, compress Compression, keyGen *KeyGenerator) Connection {
 	// We create the wrapper for the model first, as it needs to be passed
 	// in at the lowest level in the stack. At the end of construction,
 	// before returning, we add the connection to cwm so that it can be used
@@ -225,7 +226,7 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, closer
 	// Encryption / decryption is first (outermost) before conversion to
 	// native path formats.
 	nm := makeNative(cwm)
-	em := newEncryptedModel(nm, newFolderKeyRegistry(keyGen, passwords), keyGen)
+	em := newEncryptedModel(nm, keyGen)
 
 	// We do the wire format conversion first (outermost) so that the
 	// metadata is in wire format when it reaches the encryption step.
@@ -382,7 +383,7 @@ func (c *rawConnection) Request(ctx context.Context, req *Request) ([]byte, erro
 }
 
 // ClusterConfig sends the cluster configuration message to the peer.
-func (c *rawConnection) ClusterConfig(config *ClusterConfig) {
+func (c *rawConnection) ClusterConfig(config *ClusterConfig, _ map[string]string) {
 	select {
 	case c.clusterConfigBox <- config:
 	case <-c.closed:
