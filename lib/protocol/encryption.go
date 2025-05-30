@@ -50,10 +50,10 @@ type encryptedModel struct {
 	keyGen     *KeyGenerator
 }
 
-func newEncryptedModel(model rawModel, folderKeys *folderKeyRegistry, keyGen *KeyGenerator) encryptedModel {
+func newEncryptedModel(model rawModel, keyGen *KeyGenerator) encryptedModel {
 	return encryptedModel{
 		model:      model,
-		folderKeys: folderKeys,
+		folderKeys: newFolderKeyRegistry(),
 		keyGen:     keyGen,
 	}
 }
@@ -187,10 +187,6 @@ func (e encryptedConnection) Start() {
 	e.conn.Start()
 }
 
-func (e encryptedConnection) SetFolderPasswords(passwords map[string]string) {
-	e.folderKeys.setPasswords(passwords)
-}
-
 func (e encryptedConnection) DeviceID() DeviceID {
 	return e.conn.DeviceID()
 }
@@ -262,8 +258,9 @@ func (e encryptedConnection) DownloadProgress(ctx context.Context, dp *DownloadP
 	// No need to send these
 }
 
-func (e encryptedConnection) ClusterConfig(config *ClusterConfig) {
-	e.conn.ClusterConfig(config)
+func (e encryptedConnection) ClusterConfig(config *ClusterConfig, passwords map[string]string) {
+	e.folderKeys.setPasswords(e.keyGen, passwords)
+	e.conn.ClusterConfig(config, passwords)
 }
 
 func (e encryptedConnection) Close(err error) {
@@ -680,15 +677,13 @@ func IsEncryptedParent(pathComponents []string) bool {
 }
 
 type folderKeyRegistry struct {
-	keyGen *KeyGenerator
-	keys   map[string]*[keySize]byte // folder ID -> key
-	mut    sync.RWMutex
+	keys map[string]*[keySize]byte // folder ID -> key
+	mut  sync.RWMutex
 }
 
-func newFolderKeyRegistry(keyGen *KeyGenerator, passwords map[string]string) *folderKeyRegistry {
+func newFolderKeyRegistry() *folderKeyRegistry {
 	return &folderKeyRegistry{
-		keyGen: keyGen,
-		keys:   keysFromPasswords(keyGen, passwords),
+		keys: make(map[string]*[keySize]byte),
 	}
 }
 
@@ -699,8 +694,8 @@ func (r *folderKeyRegistry) get(folder string) (*[keySize]byte, bool) {
 	return key, ok
 }
 
-func (r *folderKeyRegistry) setPasswords(passwords map[string]string) {
+func (r *folderKeyRegistry) setPasswords(keyGen *KeyGenerator, passwords map[string]string) {
 	r.mut.Lock()
-	r.keys = keysFromPasswords(r.keyGen, passwords)
+	r.keys = keysFromPasswords(keyGen, passwords)
 	r.mut.Unlock()
 }
