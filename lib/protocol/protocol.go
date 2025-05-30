@@ -266,12 +266,15 @@ func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, clo
 }
 
 // Start creates the goroutines for sending and receiving of messages. It must
-// be called exactly once after creating a connection.
+// be called once after creating a connection. It should only be called once,
+// subsequent calls will have no effect.
 func (c *rawConnection) Start() {
 	c.startStopMut.Lock()
 	defer c.startStopMut.Unlock()
 
 	select {
+	case <-c.started:
+		return
 	case <-c.closed:
 		// we have already closed the connection before starting processing
 		// on it.
