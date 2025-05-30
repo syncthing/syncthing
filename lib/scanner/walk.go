@@ -624,7 +624,7 @@ func (w *walker) applyNormalization(path, normPath string, info fs.FileInfo) (st
 		// We don't want to use the standard syncthing prefix here, as that will result in the file being ignored
 		// and eventually deleted by Syncthing if the rename back fails.
 
-		tempPath := fs.TempNameWithPrefix(normPath, "")
+		tempPath := fs.TempNameWithPrefix(normPath, "", "")
 		if err = w.Filesystem.Rename(path, tempPath); err != nil {
 			return "", err
 		}
