@@ -111,6 +111,8 @@ jobs:
       - package-debian
       - package-windows
       - govulncheck
+      - golangci
+      - meta
     steps:
       - uses: actions/checkout@v4
 
@@ -1055,3 +1057,41 @@ jobs:
           go run build.go assets
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
+
+  #
+  # golangci-lint runs a suite of static analysis checks on the code
+  #
+
+  golangci:
+    runs-on: ubuntu-latest
+    name: Run golangci-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: ensure asset generation
+        run: go run build.go assets
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          only-new-issues: true
+
+  #
+  # Meta checks for formatting, copyright, etc
+  #
+
+  meta:
+    name: Run meta checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - run: |
+          go run build.go assets
+          go test -v ./meta
