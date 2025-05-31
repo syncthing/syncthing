@@ -58,6 +58,7 @@ type Folder struct {
 	IgnoreDelete       bool
 	DisableTempIndexes bool
 	Paused             bool
+	OutOfSpace         bool
 	Devices            []Device
 }
 
@@ -74,6 +75,7 @@ func (f *Folder) toWire() *bep.Folder {
 		IgnoreDelete:       f.IgnoreDelete,
 		DisableTempIndexes: f.DisableTempIndexes,
 		Paused:             f.Paused,
+		OutOfSpace:         f.OutOfSpace,
 		Devices:            devices,
 	}
 }
@@ -91,6 +93,7 @@ func folderFromWire(w *bep.Folder) Folder {
 		IgnoreDelete:       w.IgnoreDelete,
 		DisableTempIndexes: w.DisableTempIndexes,
 		Paused:             w.Paused,
+		OutOfSpace:         w.OutOfSpace,
 		Devices:            devices,
 	}
 }
