@@ -1,0 +1,27 @@
+name: PR metadata
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - edited
+      - synchronize
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+
+  #
+  # Set labels on PRs, which are then used to categorise release notes
+  #
+
+  labels:
+    name: Set labels
+    runs-on: ubuntu-latest
+    steps:
+    - uses: srvaroa/labeler@v1
+      env:
+        GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

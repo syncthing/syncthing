@@ -18,7 +18,6 @@ import (
 	"path/filepath"
 	"runtime/pprof"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -2970,7 +2969,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 	nw := &testutil.NoopRW{}
 	ci := &protocolmocks.ConnectionInfo{}
 	ci.ConnectionIDReturns(srand.String(16))
-	m.AddConnection(protocol.NewConnection(device1, br, nw, testutil.NoopCloser{}, m, ci, protocol.CompressionNever, nil, m.keyGen), protocol.Hello{})
+	m.AddConnection(protocol.NewConnection(device1, br, nw, testutil.NoopCloser{}, m, ci, protocol.CompressionNever, m.keyGen), protocol.Hello{})
 	m.mut.RLock()
 	if len(m.closed) != 1 {
 		t.Fatalf("Expected just one conn (len(m.closed) == %v)", len(m.closed))
@@ -3629,11 +3628,11 @@ func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSec
 	cc1 := make(chan struct{}, 1)
 	cc2 := make(chan struct{}, 1)
 	fc1 := newFakeConnection(device1, m)
-	fc1.ClusterConfigCalls(func(_ *protocol.ClusterConfig) {
+	fc1.ClusterConfigCalls(func(_ *protocol.ClusterConfig, _ map[string]string) {
 		cc1 <- struct{}{}
 	})
 	fc2 := newFakeConnection(device2, m)
-	fc2.ClusterConfigCalls(func(_ *protocol.ClusterConfig) {
+	fc2.ClusterConfigCalls(func(_ *protocol.ClusterConfig, _ map[string]string) {
 		cc2 <- struct{}{}
 	})
 	m.AddConnection(fc1, protocol.Hello{})
@@ -4092,8 +4091,8 @@ func equalStringsInAnyOrder(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	sort.Strings(a)
-	sort.Strings(b)
+	slices.Sort(a)
+	slices.Sort(b)
 	for i := range a {
 		if a[i] != b[i] {
 			return false

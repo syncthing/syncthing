@@ -23,7 +23,6 @@ import (
 	"net"
 	"net/url"
 	"slices"
-	"sort"
 	"strings"
 	stdsync "sync"
 	"time"
@@ -445,7 +444,7 @@ func (s *service) handleHellos(ctx context.Context) error {
 		// connections are limited.
 		rd, wr := s.limiter.getLimiters(remoteID, c, c.IsLocal())
 
-		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression.ToProtocol(), s.cfg.FolderPasswords(remoteID), s.keyGen)
+		protoConn := protocol.NewConnection(remoteID, rd, wr, c, s.model, c, deviceCfg.Compression.ToProtocol(), s.keyGen)
 		s.accountAddedConnection(protoConn, hello, s.cfg.Options().ConnectionPriorityUpgradeThreshold)
 		go func() {
 			<-protoConn.Closed()
@@ -1151,7 +1150,7 @@ func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, 
 	}
 
 	// Sort the priorities so that we dial lowest first (which means highest...)
-	sort.Ints(priorities)
+	slices.Sort(priorities)
 
 	sema := semaphore.MultiSemaphore{semaphore.New(dialMaxParallelPerDevice), parentSema}
 	for _, prio := range priorities {

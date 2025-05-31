@@ -7,7 +7,8 @@
 package model
 
 import (
-	"sort"
+	"cmp"
+	"slices"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/rand"
@@ -157,40 +158,34 @@ func (q *jobQueue) SortSmallestFirst() {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	sort.Sort(smallestFirst(q.queued))
+	slices.SortFunc(q.queued, func(a, b jobQueueEntry) int {
+		return cmp.Compare(a.size, b.size)
+	})
 }
 
 func (q *jobQueue) SortLargestFirst() {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	sort.Sort(sort.Reverse(smallestFirst(q.queued)))
+	slices.SortFunc(q.queued, func(a, b jobQueueEntry) int {
+		return cmp.Compare(b.size, a.size)
+	})
 }
 
 func (q *jobQueue) SortOldestFirst() {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	sort.Sort(oldestFirst(q.queued))
+	slices.SortFunc(q.queued, func(a, b jobQueueEntry) int {
+		return cmp.Compare(a.modified, b.modified)
+	})
 }
 
 func (q *jobQueue) SortNewestFirst() {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	sort.Sort(sort.Reverse(oldestFirst(q.queued)))
+	slices.SortFunc(q.queued, func(a, b jobQueueEntry) int {
+		return cmp.Compare(b.modified, a.modified)
+	})
 }
-
-// The usual sort.Interface boilerplate
-
-type smallestFirst []jobQueueEntry
-
-func (q smallestFirst) Len() int           { return len(q) }
-func (q smallestFirst) Less(a, b int) bool { return q[a].size < q[b].size }
-func (q smallestFirst) Swap(a, b int)      { q[a], q[b] = q[b], q[a] }
-
-type oldestFirst []jobQueueEntry
-
-func (q oldestFirst) Len() int           { return len(q) }
-func (q oldestFirst) Less(a, b int) bool { return q[a].modified < q[b].modified }
-func (q oldestFirst) Swap(a, b int)      { q[a], q[b] = q[b], q[a] }

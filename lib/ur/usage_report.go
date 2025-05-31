@@ -16,7 +16,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -162,7 +162,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			l.Warnf("Unhandled versioning type for usage reports: %s", cfg.Versioning.Type)
 		}
 	}
-	sort.Ints(report.RescanIntvs)
+	slices.Sort(report.RescanIntvs)
 
 	for _, cfg := range s.cfg.Devices() {
 		if cfg.Introducer {
@@ -295,7 +295,7 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 				report.FolderUsesV3.SyncOwnership++
 			}
 		}
-		sort.Ints(report.FolderUsesV3.FsWatcherDelays)
+		slices.Sort(report.FolderUsesV3.FsWatcherDelays)
 
 		for _, cfg := range s.cfg.Devices() {
 			if cfg.Untrusted {
