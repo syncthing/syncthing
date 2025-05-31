@@ -7,12 +7,9 @@ on:
       - reopened
       - edited
       - synchronize
-  schedule:
-    - cron: "42 7 * * *"
 
 permissions:
   contents: read
-  issues: write
   pull-requests: write
 
 jobs:
