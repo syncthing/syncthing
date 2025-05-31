@@ -1021,7 +1021,15 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 		if err == nil {
 			err = osutil.Copy(f.CopyRangeMethod.ToFS(), f.mtimefs, f.mtimefs, source.Name, tempName)
 			if err == nil {
-				err = f.inWritableDir(f.versioner.Archive, source.Name)
+				if archiver, ok := f.versioner.(versioner.ArchiverForDeletedOnly); ok && archiver.ArchiveDeletedOnly() {
+					// The versioner is configured to only archive deletes, and this
+					// is a file rename (not a delete). Skip archiving and just remove the file.
+					err = f.inWritableDir(f.mtimefs.Remove, source.Name)
+				} else {
+					// Normal case - archive the old version and then remove it
+					err = f.inWritableDir(f.versioner.Archive, source.Name)
+				}
+
 			}
 		}
 	} else {
@@ -1638,7 +1646,21 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
 			}, curFile.Name)
 		} else {
-			err = f.deleteItemOnDisk(curFile, snap, scanChan)
+			shouldArchive := !curFile.IsSymlink() && !curFile.IsDirectory() && f.versioner != nil
+
+			if shouldArchive {
+				if archiver, ok := f.versioner.(versioner.ArchiverForDeletedOnly); ok && archiver.ArchiveDeletedOnly() {
+					// The versioner is configured to only archive deletes, and this
+					// is a file update (not a delete). Skip archiving and just remove the file.
+					err = f.inWritableDir(f.mtimefs.Remove, curFile.Name)
+				} else {
+					// Normal case - archive the old version and then remove it
+					err = f.deleteItemOnDisk(curFile, snap, scanChan)
+				}
+			} else {
+				// For symlinks, directories, or when versioning is disabled
+				err = f.deleteItemOnDisk(curFile, snap, scanChan)
+			}
 		}
 		if err != nil {
 			return fmt.Errorf("moving for conflict: %w", err)
