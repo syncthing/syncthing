@@ -165,6 +165,12 @@ jobs:
           name: unsigned-packages-windows
           path: "*.zip"
 
+  #
+  # Codesign binaries for Windows. This job runs only when called in the
+  # Syncthing repo for release branches and tags, as it requires our
+  # specific code signing keys etc.
+  #
+
   codesign-windows:
     name: Codesign for Windows
     if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
@@ -287,7 +293,6 @@ jobs:
 
   package-macos:
     name: Package for macOS
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
     environment: release
     env:
       CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
