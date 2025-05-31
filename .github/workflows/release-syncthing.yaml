@@ -19,7 +19,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
-          token: ${{ secrets.STRELEASE_GITHUB_TOKEN }}
+          token: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
 
       - uses: actions/setup-go@v5
         with:
@@ -47,7 +47,7 @@ jobs:
         run: |
           go run ./script/relnotes.go --new-ver "$NEXT" --branch "$GITHUB_REF_NAME" --prev-ver "$PREV" > notes.md
         env:
-          GITHUB_TOKEN: ${{ secrets.STRELEASE_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
 
       - name: Create and push tag
         run: |
