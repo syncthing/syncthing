@@ -71,7 +71,7 @@ func main() {
 			// We want a stable release. Simply remove the prerelease
 			// suffix.
 			latest.PreRelease = ""
-			fmt.Println(latest)
+			fmt.Println("v" + latest.String())
 			return
 		}
 
@@ -84,7 +84,7 @@ func main() {
 				if v, err := strconv.Atoi(p); err == nil {
 					parts[i] = strconv.Itoa(v + 1)
 					latest.PreRelease = semver.PreRelease(strings.Join(parts, "."))
-					fmt.Println(latest)
+					fmt.Println("v" + latest.String())
 					return
 				}
 			}
@@ -92,7 +92,7 @@ func main() {
 
 		// Otherwise we generate a new rc.1 for the correct next version.
 		next.PreRelease = suffix + ".1"
-		fmt.Println(next)
+		fmt.Println("v" + next.String())
 		return
 	}
 
@@ -105,7 +105,7 @@ func main() {
 		latest.PreRelease = suffix + ".1"
 	}
 
-	fmt.Println(latest)
+	fmt.Println("v" + latest.String())
 }
 
 func cmd(name string, args ...string) (string, error) {
