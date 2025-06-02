@@ -578,6 +578,7 @@ func syncthingMain(options serveOptions) {
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 	earlyService.Add(cfgWrapper)
+	config.RegisterInfoMetrics(cfgWrapper)
 
 	// Candidate builds should auto upgrade. Make sure the option is set,
 	// unless we are in a build where it's disabled or the STNOUPGRADE
