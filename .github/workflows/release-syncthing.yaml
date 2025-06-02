@@ -25,16 +25,12 @@ jobs:
         with:
           go-version: stable
 
-      - name: Get svu
-        run: |
-          go install github.com/caarlos0/svu@latest
-
       - name: Determine version to release
         run: |
           if [[ "$GITHUB_REF_NAME" == "release" ]] ; then
-            next=$(svu next)
+            next=$(go run ./script/next-version.go)
           else
-            next=$(svu prerelease --pre-release rc)
+            next=$(go run ./script/next-version.go --pre)
           fi
           echo "NEXT=$next" >> $GITHUB_ENV
           echo "Next version is $next"
