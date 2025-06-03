@@ -238,19 +238,18 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 			return
 		}
 
-		if panicFd == nil {
-			dst.Write([]byte(line))
+		dst.Write([]byte(line))
 
-			if strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") {
-				panicFd, err = os.Create(locations.GetTimestamped(locations.PanicLog))
-				if err != nil {
-					l.Warnln("Create panic log:", err)
-					continue
-				}
+		if panicFd == nil && (strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:")) {
+			panicFd, err = os.Create(locations.GetTimestamped(locations.PanicLog))
+			if err != nil {
+				l.Warnln("Create panic log:", err)
+				continue
+			}
 
-				l.Warnf("Panic detected, writing to \"%s\"", panicFd.Name())
-				if strings.Contains(line, "leveldb") && strings.Contains(line, "corrupt") {
-					l.Warnln(`
+			l.Warnf("Panic detected, writing to \"%s\"", panicFd.Name())
+			if strings.Contains(line, "leveldb") && strings.Contains(line, "corrupt") {
+				l.Warnln(`
 *********************************************************************************
 * Crash due to corrupt database.                                                *
 *                                                                               *
@@ -263,21 +262,20 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 *   https://docs.syncthing.net/users/faq.html#my-syncthing-database-is-corrupt  *
 *********************************************************************************
 `)
-				} else {
-					l.Warnln("Please check for existing issues with similar panic message at https://github.com/syncthing/syncthing/issues/")
-					l.Warnln("If no issue with similar panic message exists, please create a new issue with the panic log attached")
-				}
-
-				stdoutMut.Lock()
-				for _, line := range stdoutFirstLines {
-					panicFd.WriteString(line)
-				}
-				panicFd.WriteString("...\n")
-				for _, line := range stdoutLastLines {
-					panicFd.WriteString(line)
-				}
-				stdoutMut.Unlock()
+			} else {
+				l.Warnln("Please check for existing issues with similar panic message at https://github.com/syncthing/syncthing/issues/")
+				l.Warnln("If no issue with similar panic message exists, please create a new issue with the panic log attached")
 			}
+
+			stdoutMut.Lock()
+			for _, line := range stdoutFirstLines {
+				panicFd.WriteString(line)
+			}
+			panicFd.WriteString("...\n")
+			for _, line := range stdoutLastLines {
+				panicFd.WriteString(line)
+			}
+			stdoutMut.Unlock()
 
 			panicFd.WriteString("Panic at " + time.Now().Format(time.RFC3339) + "\n")
 		}
