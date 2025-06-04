@@ -7,6 +7,8 @@
 package serve
 
 import (
+	"context"
+	"log/slog"
 	"reflect"
 	"slices"
 	"strconv"
@@ -28,7 +30,7 @@ type metricsSet struct {
 	gaugeVecLabels map[string][]string
 	summaries      map[string]*metricSummary
 
-	collectMut    sync.Mutex
+	collectMut    sync.RWMutex
 	collectCutoff time.Duration
 }
 
@@ -106,6 +108,60 @@ func nameConstLabels(name string) (string, prometheus.Labels) {
 		m[k] = v
 	}
 	return name, m
+}
+
+func (s *metricsSet) Serve(ctx context.Context) error {
+	s.recalc()
+
+	const recalcInterval = 5 * time.Minute
+	next := time.Until(time.Now().Truncate(recalcInterval).Add(recalcInterval))
+	recalcTimer := time.NewTimer(next)
+	defer recalcTimer.Stop()
+
+	for {
+		select {
+		case <-recalcTimer.C:
+			s.recalc()
+			next := time.Until(time.Now().Truncate(recalcInterval).Add(recalcInterval))
+			recalcTimer.Reset(next)
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (s *metricsSet) recalc() {
+	s.collectMut.Lock()
+	defer s.collectMut.Unlock()
+
+	t0 := time.Now()
+	defer func() {
+		dur := time.Since(t0)
+		slog.Info("Metrics recalculated", "d", dur.String())
+		metricsRecalcSecondsLast.Set(dur.Seconds())
+		metricsRecalcSecondsTotal.Add(dur.Seconds())
+		metricsRecalcsTotal.Inc()
+	}()
+
+	for _, g := range s.gauges {
+		g.Set(0)
+	}
+	for _, g := range s.gaugeVecs {
+		g.Reset()
+	}
+	for _, g := range s.summaries {
+		g.Reset()
+	}
+
+	cutoff := time.Now().Add(s.collectCutoff)
+	s.srv.reports.Range(func(key string, r *contract.Report) bool {
+		if s.collectCutoff < 0 && r.Received.Before(cutoff) {
+			s.srv.reports.Delete(key)
+			return true
+		}
+		s.addReport(r)
+		return true
+	})
 }
 
 func (s *metricsSet) addReport(r *contract.Report) {
@@ -198,8 +254,8 @@ func (s *metricsSet) Describe(c chan<- *prometheus.Desc) {
 }
 
 func (s *metricsSet) Collect(c chan<- prometheus.Metric) {
-	s.collectMut.Lock()
-	defer s.collectMut.Unlock()
+	s.collectMut.RLock()
+	defer s.collectMut.RUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -208,26 +264,6 @@ func (s *metricsSet) Collect(c chan<- prometheus.Metric) {
 		metricsCollectSecondsTotal.Add(dur)
 		metricsCollectsTotal.Inc()
 	}()
-
-	for _, g := range s.gauges {
-		g.Set(0)
-	}
-	for _, g := range s.gaugeVecs {
-		g.Reset()
-	}
-	for _, g := range s.summaries {
-		g.Reset()
-	}
-
-	cutoff := time.Now().Add(s.collectCutoff)
-	s.srv.reports.Range(func(key string, r *contract.Report) bool {
-		if s.collectCutoff < 0 && r.Received.Before(cutoff) {
-			s.srv.reports.Delete(key)
-			return true
-		}
-		s.addReport(r)
-		return true
-	})
 
 	for _, g := range s.gauges {
 		c <- g
