@@ -787,7 +787,7 @@ jobs:
         with:
           args: sync -v objstore:release/${{ env.VERSION }} objstore:release/latest
 
-      - name: Create GitHub release and push binaries
+      - name: Create GitHub releases and push binaries
         run: |
           maybePrerelease=""
           if [[ $VERSION == *-* ]]; then
@@ -795,8 +795,7 @@ jobs:
           fi
           export GH_PROMPT_DISABLED=1
           if ! gh release view --json name "$VERSION" >/dev/null 2>&1 ; then
-            gh release create \
-              "$VERSION" \
+            gh release create "$VERSION" \
               $maybePrerelease \
               --title "$VERSION" \
               --notes-from-tag
@@ -805,9 +804,24 @@ jobs:
             packages/*.asc packages/*.json \
             packages/syncthing-*.tar.gz \
             packages/syncthing-*.zip \
-            packages/syncthing*.deb
+            packages/syncthing_*.deb
+
+          PKGS=$(pwd)/packages
+          cd /tmp # gh will not release for repo x while inside repo y
+          for repo in relaysrv discosrv ; do
+            export GH_REPO="syncthing/$repo"
+            if ! gh release view --json name "$VERSION" >/dev/null 2>&1 ; then
+              gh release create "$VERSION" \
+                $maybePrerelease \
+                --title "$VERSION" \
+                --notes "https://github.com/syncthing/syncthing/releases/tag/$VERSION"
+            fi
+            gh release upload "$VERSION" \
+              $PKGS/*.asc \
+              $PKGS/*${repo}*
+          done
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
 
   #
   # Push Debian/APT archive
