@@ -22,6 +22,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"text/template"
 )
 
 var (
@@ -59,12 +60,24 @@ func main() {
 
 // Load potential additional release notes from within the repo
 func additionalNotes(newVer string) ([]string, error) {
+	data := map[string]string{
+		"version": strings.TrimLeft(newVer, "v"),
+	}
+
 	var notes []string
 	ver, _, _ := strings.Cut(newVer, "-")
 	for {
 		file := fmt.Sprintf("relnotes/%s.md", ver)
 		if bs, err := os.ReadFile(file); err == nil {
-			notes = append(notes, strings.TrimSpace(string(bs)))
+			tpl, err := template.New("notes").Parse(string(bs))
+			if err != nil {
+				return nil, err
+			}
+			buf := new(bytes.Buffer)
+			if err := tpl.Execute(buf, data); err != nil {
+				return nil, err
+			}
+			notes = append(notes, strings.TrimSpace(buf.String()))
 		} else if !os.IsNotExist(err) {
 			return nil, err
 		}
