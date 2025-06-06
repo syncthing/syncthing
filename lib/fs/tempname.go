@@ -42,18 +42,24 @@ func IsTemporary(name string) bool {
 		strings.HasPrefix(name, UnixTempPrefix)
 }
 
-func TempNameWithPrefix(name, prefix string) string {
-	tdir := filepath.Dir(name)
+func TempNameWithPrefix(name, prefix, tempdir string) string {
+	var tdir, tname string
+	if tempdir != "" {
+		tdir = tempdir
+	} else {
+		tdir = filepath.Dir(name)
+	}
 	tbase := filepath.Base(name)
-	var tname string
-	if len(tbase) > maxFilenameLength {
-		tname = fmt.Sprintf("%s%x.tmp", prefix, sha256.Sum256([]byte(tbase)))
+	if tempdir != "" || len(tbase) > maxFilenameLength {
+		// Hash the full name to prevent collisions if the same tbase
+		// is being stored in different folders.
+		tname = fmt.Sprintf("%s%x.tmp", prefix, sha256.Sum256([]byte(name)))
 	} else {
 		tname = prefix + tbase + ".tmp"
 	}
 	return filepath.Join(tdir, tname)
 }
 
-func TempName(name string) string {
-	return TempNameWithPrefix(name, tempPrefix())
+func TempName(name, tempdir string) string {
+	return TempNameWithPrefix(name, tempPrefix(), tempdir)
 }

@@ -43,7 +43,7 @@ var blocks = []protocol.BlockInfo{
 }
 
 func prepareTmpFile(to fs.Filesystem) (string, error) {
-	tmpName := fs.TempName("file")
+	tmpName := fs.TempName("file", "")
 	in, err := os.Open("testdata/tmpfile")
 	if err != nil {
 		return "", err
@@ -228,10 +228,10 @@ func TestCopierFinder(t *testing.T) {
 	// After dropping out blocks found locally:
 	// Pull: 1, 5, 6, 8
 
-	tempFile := fs.TempName("file2")
+	tempFile := fs.TempName("file2", "")
 
 	existingBlocks := []int{0, 2, 3, 4, 0, 0, 7, 0}
-	existingFile := setupFile(fs.TempName("file"), existingBlocks)
+	existingFile := setupFile(fs.TempName("file", ""), existingBlocks)
 	existingFile.Size = 1
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
@@ -318,7 +318,7 @@ func TestWeakHash(t *testing.T) {
 	defer wcfgCancel()
 	ffs := fo.Filesystem(nil)
 
-	tempFile := fs.TempName("weakhash")
+	tempFile := fs.TempName("weakhash", "")
 	var shift int64 = 10
 	var size int64 = 1 << 20
 	expectBlocks := int(size / protocol.MinBlockSize)
@@ -1117,7 +1117,7 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 	remote.Version = protocol.Vector{}.Update(device1.Short())
 	remote.Name = strings.ToUpper(cur.Name)
 
-	temp := fs.TempName(remote.Name)
+	temp := fs.TempName(remote.Name, "")
 	writeFile(t, ffs, temp, contents)
 	scanChan := make(chan string, 1)
 	dbUpdateChan := make(chan dbUpdateJob, 1)
@@ -1213,7 +1213,7 @@ func TestPullTempFileCaseConflict(t *testing.T) {
 
 	file := protocol.FileInfo{Name: "foo"}
 	confl := "Foo"
-	tempNameConfl := fs.TempName(confl)
+	tempNameConfl := fs.TempName(confl, "")
 	if fd, err := f.mtimefs.Create(tempNameConfl); err != nil {
 		t.Fatal(err)
 	} else {

@@ -1014,7 +1014,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 		return err
 	}
 
-	tempName := fs.TempName(target.Name)
+	tempName := fs.TempName(target.Name, f.FolderConfiguration.TempDir)
 
 	if f.versioner != nil {
 		err = f.CheckAvailableSpace(uint64(source.Size))
@@ -1091,7 +1091,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 
 	have, _ := blockDiff(curFile.Blocks, file.Blocks)
 
-	tempName := fs.TempName(file.Name)
+	tempName := fs.TempName(file.Name, f.FolderConfiguration.TempDir)
 
 	populateOffsets(file.Blocks)
 
