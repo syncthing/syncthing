@@ -66,7 +66,8 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 	// about us. Lets check to see if we can start sending index
 	// updates directly or need to send the index from start...
 
-	if startInfo.local.IndexID == myIndexID {
+	switch startInfo.local.IndexID {
+	case myIndexID:
 		// They say they've seen our index ID before, so we can
 		// send a delta update only.
 
@@ -83,15 +84,17 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 			l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", conn.DeviceID().Short(), folder.Description(), startInfo.local.MaxSequence)
 			startSequence = startInfo.local.MaxSequence
 		}
-	} else if startInfo.local.IndexID != 0 {
+
+	case 0:
+		l.Debugf("Device %v folder %s has no index ID for us", conn.DeviceID().Short(), folder.Description())
+
+	default:
 		// They say they've seen an index ID from us, but it's
 		// not the right one. Either they are confused or we
 		// must have reset our database since last talking to
 		// them. We'll start with a full index transfer.
 		l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", conn.DeviceID().Short(), folder.Description(), startInfo.local.IndexID, myIndexID)
 		startSequence = 0
-	} else {
-		l.Debugf("Device %v folder %s has no index ID for us", conn.DeviceID().Short(), folder.Description())
 	}
 
 	// This is the other side's description of themselves. We

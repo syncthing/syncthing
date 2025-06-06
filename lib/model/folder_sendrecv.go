@@ -136,7 +136,7 @@ func newSendReceiveFolder(model *model, ignores *ignore.Matcher, cfg config.Fold
 		blockPullReorderer: newBlockPullReorderer(cfg.BlockPullOrder, model.id, cfg.DeviceIDs()),
 		writeLimiter:       semaphore.New(cfg.MaxConcurrentWrites),
 	}
-	f.folder.puller = f
+	f.puller = f
 
 	if f.Copiers == 0 {
 		f.Copiers = defaultCopiers
@@ -359,13 +359,14 @@ loop:
 			}
 
 		case file.IsDeleted():
-			if file.IsDirectory() {
+			switch {
+			case file.IsDirectory():
 				// Perform directory deletions at the end, as we may have
 				// files to delete inside them before we get to that point.
 				dirDeletions = append(dirDeletions, file)
-			} else if file.IsSymlink() {
+			case file.IsSymlink():
 				f.deleteFile(file, dbUpdateChan, scanChan)
-			} else {
+			default:
 				df, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
 				if err != nil {
 					return changed, nil, nil, err
@@ -1023,7 +1024,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 	tempName := fs.TempName(target.Name)
 
 	if f.versioner != nil {
-		err = f.CheckAvailableSpace(uint64(source.Size))
+		err = f.CheckAvailableSpace(uint64(source.Size)) //nolint:gosec
 		if err == nil {
 			err = osutil.Copy(f.CopyRangeMethod.ToFS(), f.mtimefs, f.mtimefs, source.Name, tempName)
 			if err == nil {
@@ -1295,7 +1296,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 	}
 
 	for state := range in {
-		if err := f.CheckAvailableSpace(uint64(state.file.Size)); err != nil {
+		if err := f.CheckAvailableSpace(uint64(state.file.Size)); err != nil { //nolint:gosec
 			state.fail(err)
 			// Nothing more to do for this failed file, since it would use to much disk space
 			out <- state.sharedPullerState
@@ -1461,7 +1462,7 @@ func (f *sendReceiveFolder) copyBlockFromFile(srcName string, srcOffset int64, s
 }
 
 func (*sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) error {
-	if len(buf) != int(block.Size) {
+	if len(buf) != block.Size {
 		return fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
 	}
 
@@ -1489,8 +1490,7 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 		// ongoing at any given time, based on the size of the blocks
 		// themselves.
 
-		state := state
-		bytes := int(state.block.Size)
+		bytes := state.block.Size
 
 		if err := requestLimiter.TakeWithContext(f.ctx, bytes); err != nil {
 			state.fail(err)
@@ -1713,7 +1713,7 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 		// sync directories
 		for dir := range changedDirs {
 			delete(changedDirs, dir)
-			if !f.FolderConfiguration.DisableFsync {
+			if !f.DisableFsync {
 				fd, err := f.mtimefs.Open(dir)
 				if err != nil {
 					l.Debugf("fsync %q failed: %v", dir, err)
@@ -1996,7 +1996,7 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, scanChan c
 			// Lets just assume the file has changed.
 			scanChan <- path
 			hasToBeScanned = true
-			return nil
+			return nil //nolint:nilerr
 		}
 		if !cf.IsEquivalentOptional(diskFile, protocol.FileInfoComparison{
 			ModTimeWindow:   f.modTimeWindow,
@@ -2055,7 +2055,7 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, scanChan c
 // not changed.
 func (f *sendReceiveFolder) scanIfItemChanged(name string, stat fs.FileInfo, item protocol.FileInfo, hasItem bool, fromDelete bool, scanChan chan<- string) (err error) {
 	defer func() {
-		if err == errModified {
+		if errors.Is(err, errModified) {
 			scanChan <- name
 		}
 	}()

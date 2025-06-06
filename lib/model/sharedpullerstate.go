@@ -384,7 +384,7 @@ func writeEncryptionTrailer(file protocol.FileInfo, writer io.WriterAt) (int64, 
 	if err != nil {
 		return 0, err
 	}
-	binary.BigEndian.PutUint32(bs[n:], uint32(n))
+	binary.BigEndian.PutUint32(bs[n:], uint32(n)) //nolint:gosec
 	bs = bs[:n+4]
 
 	if _, err := writer.WriteAt(bs, wireFile.Size); err != nil {
