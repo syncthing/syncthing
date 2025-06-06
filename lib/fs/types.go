@@ -26,8 +26,10 @@ type Option interface {
 type FilesystemFactory func(string, ...Option) (Filesystem, error)
 
 // For each registered file system type, a function to construct a file system.
-var filesystemFactories map[FilesystemType]FilesystemFactory = make(map[FilesystemType]FilesystemFactory)
-var filesystemFactoriesMutex sync.Mutex = sync.Mutex{}
+var (
+	filesystemFactories      map[FilesystemType]FilesystemFactory = make(map[FilesystemType]FilesystemFactory)
+	filesystemFactoriesMutex sync.Mutex                           = sync.Mutex{}
+)
 
 // Register a function to be called when a filesystem is to be constructed with
 // the specified fsType. The function will receive the URI for the file system as well

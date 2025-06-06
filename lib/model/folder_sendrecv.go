@@ -977,7 +977,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 	}
 	switch stat, serr := f.mtimefs.Lstat(target.Name); {
 	case serr != nil:
-		var caseErr *fs.ErrCaseConflict
+		var caseErr *fs.CaseConflictError
 		switch {
 		case errors.As(serr, &caseErr):
 			if caseErr.Real != source.Name {
@@ -1149,7 +1149,7 @@ func (f *sendReceiveFolder) reuseBlocks(blocks []protocol.BlockInfo, reused []in
 	// reuse.
 	tempBlocks, err := scanner.HashFile(f.ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil)
 	if err != nil {
-		var caseErr *fs.ErrCaseConflict
+		var caseErr *fs.CaseConflictError
 		if errors.As(err, &caseErr) {
 			if rerr := f.mtimefs.Rename(caseErr.Real, tempName); rerr == nil {
 				tempBlocks, err = scanner.HashFile(f.ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil)

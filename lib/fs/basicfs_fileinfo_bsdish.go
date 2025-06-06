@@ -15,7 +15,7 @@ import (
 )
 
 func (fi basicFileInfo) InodeChangeTime() time.Time {
-	if sys, ok := fi.FileInfo.Sys().(*syscall.Stat_t); ok {
+	if sys, ok := fi.Sys().(*syscall.Stat_t); ok {
 		return time.Unix(0, sys.Ctimespec.Nano())
 	}
 	return time.Time{}

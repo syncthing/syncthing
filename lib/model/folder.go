@@ -1077,7 +1077,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 			f.setWatchError(err, next)
 			// This error was previously a panic and should never occur, so generate
 			// a warning, but don't do it repetitively.
-			var errOutside *fs.ErrWatchEventOutsideRoot
+			var errOutside *fs.WatchEventOutsideRootError
 			if errors.As(err, &errOutside) {
 				if !warnedOutside {
 					l.Warnln(err)
