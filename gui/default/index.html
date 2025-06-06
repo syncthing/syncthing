@@ -561,6 +561,9 @@
                             <span ng-switch-when="external" tooltip data-original-title="{{folder.versioning.params.command}}" translate>External</span>
                           </span>
                           <span ng-if="folder.versioning.type != 'external'">
+                            <span ng-if="(folder.versioning.type == 'trashcan') && (folder.versioning.params.archiveDeletedOnly === 'true')" tooltip data-original-title="{{'Version Deleted Only' | translate}}">
+                              &ensp;<span class="fa fa-archive"></span>&nbsp;<span ng-if="folder.versioning.params.archiveDeletedOnly" translate>Deleted Only</span>
+                            </span>
                             <span ng-if="(folder.versioning.type == 'trashcan' || folder.versioning.type == 'simple')" tooltip data-original-title="{{'Clean out after' | translate}}">
                               &ensp;<span class="fa fa-calendar"></span>&nbsp;<span ng-if="folder.versioning.params.cleanoutDays == 0" translate>Disabled</span><span ng-if="folder.versioning.params.cleanoutDays > 0">{{folder.versioning.params.cleanoutDays * 86400 | duration:"d"}}</span>
                             </span>
