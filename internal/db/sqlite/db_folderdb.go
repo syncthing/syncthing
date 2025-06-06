@@ -255,7 +255,7 @@ func (s *DB) ListDevicesForFolder(folder string) ([]protocol.DeviceID, error) {
 func (s *DB) RemoteSequences(folder string) (map[protocol.DeviceID]int64, error) {
 	fdb, err := s.getFolderDB(folder, false)
 	if errors.Is(err, errNoSuchFolder) {
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}
 	if err != nil {
 		return nil, err

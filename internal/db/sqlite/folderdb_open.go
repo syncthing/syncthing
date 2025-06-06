@@ -32,8 +32,12 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 		"sql/schema/common/*",
 		"sql/schema/folder/*",
 	}
+	migrations := []string{
+		"sql/migrations/common/*",
+		"sql/migrations/folder/*",
+	}
 
-	base, err := openBase(path, maxDBConns, pragmas, schemas, nil)
+	base, err := openBase(path, maxDBConns, pragmas, schemas, migrations)
 	if err != nil {
 		return nil, err
 	}
