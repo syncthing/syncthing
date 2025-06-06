@@ -192,7 +192,7 @@ func CommonPrefix(first, second string) string {
 	}
 
 	common := make([]string, 0, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		if firstParts[i] != secondParts[i] {
 			break
 		}
