@@ -433,7 +433,7 @@ type fileRow struct {
 
 func (e fileRow) Compare(other fileRow) int {
 	// From FileInfo.WinsConflict
-	vc := e.Version.Vector.Compare(other.Version.Vector)
+	vc := e.Version.Compare(other.Version.Vector)
 	switch vc {
 	case protocol.Equal:
 		if e.Invalid != other.Invalid {
@@ -519,11 +519,12 @@ func (s *folderDB) periodicCheckpointLocked(fs []protocol.FileInfo) {
 		// failed, we'll keep trying it until we succeed. Increase it faster
 		// when we fail to checkpoint, as it's more likely the WAL is
 		// growing and will need truncation when we get out of this state.
-		if res == 1 {
+		switch {
+		case res == 1:
 			s.checkpointsCount += 10
-		} else if res == 0 && checkpointType == "TRUNCATE" {
+		case res == 0 && checkpointType == "TRUNCATE":
 			s.checkpointsCount = 0
-		} else {
+		default:
 			s.checkpointsCount++
 		}
 		s.updatePoints = 0

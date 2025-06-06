@@ -8,12 +8,14 @@ linters:
     - exhaustive
     - exhaustruct
     - forbidigo
+    - funcorder
     - funlen
     - gochecknoglobals
     - gochecknoinits
     - gocognit
     - goconst
     - gocyclo
+    - godot
     - godox
     - gomoddirectives
     - inamedparam
