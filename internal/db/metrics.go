@@ -21,6 +21,7 @@ var (
 		Namespace: "syncthing",
 		Subsystem: "db",
 		Name:      "operations_current",
+		Help:      "Number of database operations currently ongoing, per folder and operation",
 	}, []string{"folder", "operation"})
 	metricTotalOperationSeconds = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "syncthing",

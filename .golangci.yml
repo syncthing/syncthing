@@ -51,6 +51,7 @@ linters:
       - std-error-handling
     paths:
       - internal/gen
+      - internal/db/olddb
       - cmd/dev
       - repos
       - third_party$
