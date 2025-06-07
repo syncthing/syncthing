@@ -698,7 +698,8 @@ jobs:
         run: |
           for tgt in syncthing stdiscosrv strelaysrv ; do
             go run build.go -no-upgrade -installsuffix=no-upgrade -tags "${{env.TAGS}}" -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" deb "$tgt"
-            go run build.go -no-upgrade -installsuffix=no-upgrade -tags "${{env.TAGS}}" -goos linux -goarch arm -cc "zig cc -target arm-linux-musleabi -mcpu=arm1136j_s" deb "$tgt"
+            go run build.go -no-upgrade -installsuffix=no-upgrade -tags "${{env.TAGS}}" -goos linux -goarch armel -cc "zig cc -target arm-linux-musleabi -mcpu=arm1136j_s" deb "$tgt"
+            go run build.go -no-upgrade -installsuffix=no-upgrade -tags "${{env.TAGS}}" -goos linux -goarch armhf -cc "zig cc -target arm-linux-musleabi -mcpu=arm1136j_s" deb "$tgt"
             go run build.go -no-upgrade -installsuffix=no-upgrade -tags "${{env.TAGS}}" -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" deb "$tgt"
           done
         env:
