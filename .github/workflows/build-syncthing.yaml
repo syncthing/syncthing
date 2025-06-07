@@ -173,15 +173,13 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
-      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - uses: mlugg/setup-zig@v2
 
@@ -190,7 +188,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-windows-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-windows-${{ hashFiles('**/go.sum') }}
 
       - name: Install dependencies
         run: |
@@ -284,15 +282,13 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
-      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - uses: mlugg/setup-zig@v2
 
@@ -301,7 +297,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('**/go.sum') }}
 
       - name: Create packages
         run: |
@@ -350,22 +346,20 @@ jobs:
       CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
-      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('**/go.sum') }}
 
       - name: Import signing certificate
         if: env.CODESIGN_IDENTITY != ''
@@ -480,22 +474,20 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
-      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-cross-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-cross-${{ hashFiles('**/go.sum') }}
 
       - name: Create packages
         run: |
@@ -548,15 +540,13 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
-      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - name: Package source
         run: |
@@ -597,7 +587,6 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
-      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -612,9 +601,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - name: Install signing tool
         run: |
@@ -681,15 +669,13 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
-      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - uses: ruby/setup-ruby@v1
         with:
@@ -706,7 +692,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-debian-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-debian-${{ hashFiles('**/go.sum') }}
 
       - name: Package for Debian (CGO)
         run: |
@@ -737,8 +723,6 @@ jobs:
     needs:
       - sign-for-upgrade
       - facts
-    env:
-      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -754,9 +738,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - name: Create release json
         run: |
@@ -795,7 +778,6 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
-      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -814,9 +796,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - name: Push to object store (${{ env.VERSION }})
         uses: docker://docker.io/rclone/rclone:latest
@@ -961,7 +942,6 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
-      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     strategy:
       matrix:
         pkg:
@@ -983,9 +963,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - uses: mlugg/setup-zig@v2
 
@@ -994,7 +973,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-docker-${{ matrix.pkg }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-docker-${{ matrix.pkg }}-${{ hashFiles('**/go.sum') }}
 
       - name: Build binaries (CGO)
         run: |
@@ -1090,14 +1069,15 @@ jobs:
   govulncheck:
     runs-on: ubuntu-latest
     name: Run govulncheck
+    needs:
+      - facts
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - name: run govulncheck
         run: |
