@@ -44,6 +44,9 @@ jobs:
   facts:
     name: Gather common facts for this build run
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+      release-kind: ${{ steps.get-version.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,10 +60,13 @@ jobs:
           check-latest: true
 
       - name: Get current version
+        id: get-version
         run: |
           version=$(go run build.go version)
           echo "VERSION=$version" >> "$GITHUB_ENV"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version: $version"
+
           kind=stable
           if [[ $VERSION == *-rc.[0-9] || $VERSION == *-rc.[0-9][0-9] ]] ; then
             kind=candidate
@@ -69,6 +75,7 @@ jobs:
           fi
           echo "RELEASE_KIND=$kind" >> "$GITHUB_ENV"
           echo "release-kind=$kind" >> "$GITHUB_OUTPUT"
+          echo "Release kind: $RELEASE_KIND"
 
 
   #
@@ -159,6 +166,9 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
 
@@ -266,6 +276,9 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
 
@@ -329,11 +342,13 @@ jobs:
     name: Package for macOS
     if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
     environment: release
-    env:
-      CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
     runs-on: macos-latest
     needs:
       - facts
+    env:
+      CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
 
@@ -465,6 +480,9 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
 
@@ -534,6 +552,9 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
 
@@ -545,19 +566,18 @@ jobs:
 
       - name: Package source
         run: |
-          version=$(go run build.go version)
-          echo "$version" > RELEASE
+          echo "$VERSION" > RELEASE
 
           go mod vendor
           go run build.go assets
 
           cd ..
 
-          tar c -z -f "syncthing-source-$version.tar.gz" \
+          tar c -z -f "syncthing-source-$VERSION.tar.gz" \
             --exclude .git \
             syncthing
 
-          mv "syncthing-source-$version.tar.gz" syncthing
+          mv "syncthing-source-$VERSION.tar.gz" syncthing
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
@@ -580,6 +600,9 @@ jobs:
       - package-cross
       - package-source
       - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -660,6 +683,9 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
 
@@ -772,6 +798,9 @@ jobs:
       - sign-for-upgrade
       - package-debian
       - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -872,6 +901,9 @@ jobs:
     needs:
       - package-debian
       - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -936,6 +968,9 @@ jobs:
       packages: write
     needs:
       - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     strategy:
       matrix:
         pkg:
