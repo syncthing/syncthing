@@ -38,6 +38,40 @@ env:
 jobs:
 
   #
+  # Source
+  #
+
+  facts:
+    name: Gather common facts for this build run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
+
+      - name: Get current version
+        run: |
+          version=$(go run build.go version)
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          kind=stable
+          if [[ $VERSION == *-rc.[0-9] || $VERSION == *-rc.[0-9][0-9] ]] ; then
+            kind=candidate
+          elif [[ $VERSION == *-* ]] ; then
+            kind=nightly
+          fi
+          echo "RELEASE_KIND=$kind" >> "$GITHUB_ENV"
+          echo "release-kind=$kind" >> "$GITHUB_OUTPUT"
+
+
+  #
   # Tests for all platforms. Runs a matrix build on Windows, Linux and Mac,
   # with the list of expected supported Go versions (current, previous).
   #
@@ -123,11 +157,10 @@ jobs:
   package-windows:
     name: Package for Windows
     runs-on: ubuntu-latest
+    needs:
+      - facts
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
@@ -231,11 +264,10 @@ jobs:
   package-linux:
     name: Package for Linux
     runs-on: ubuntu-latest
+    needs:
+      - facts
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
@@ -300,11 +332,10 @@ jobs:
     env:
       CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
     runs-on: macos-latest
+    needs:
+      - facts
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
@@ -432,11 +463,10 @@ jobs:
   package-cross:
     name: Package cross compiled
     runs-on: ubuntu-latest
+    needs:
+      - facts
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
@@ -502,11 +532,10 @@ jobs:
   package-source:
     name: Package source code
     runs-on: ubuntu-latest
+    needs:
+      - facts
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
@@ -550,18 +579,15 @@ jobs:
       - package-macos
       - package-cross
       - package-source
+      - facts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/checkout@v4
         with:
           repository: syncthing/release-tools
           path: tools
-          fetch-depth: 0
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -596,9 +622,6 @@ jobs:
           sha1sum "${files[@]}" > sha1sum.txt
           sha256sum "${files[@]}" > sha256sum.txt
           popd
-
-          version=$(go run build.go version)
-          echo "VERSION=$version" >> $GITHUB_ENV
 
       - name: Sign shasum files
         uses: docker://ghcr.io/kastelo/ezapt:latest
@@ -635,11 +658,10 @@ jobs:
   package-debian:
     name: Package for Debian
     runs-on: ubuntu-latest
+    needs:
+      - facts
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
@@ -703,7 +725,6 @@ jobs:
         with:
           repository: syncthing/release-tools
           path: tools
-          fetch-depth: 0
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -750,12 +771,10 @@ jobs:
     needs:
       - sign-for-upgrade
       - package-debian
+      - facts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - name: Download signed packages
         uses: actions/download-artifact@v4
@@ -852,12 +871,10 @@ jobs:
     environment: release
     needs:
       - package-debian
+      - facts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - name: Download packages
         uses: actions/download-artifact@v4
@@ -865,24 +882,11 @@ jobs:
           name: debian-packages
           path: packages
 
-      - name: Set version
-        run: |
-          version=$(go run build.go version)
-          echo "Version: $version"
-          echo "VERSION=$version" >> $GITHUB_ENV
-
       # Decide whether packages should go to stable, candidate or nightly
       - name: Prepare packages
         run: |
-          kind=stable
-          if [[ $VERSION == *-rc.[0-9] || $VERSION == *-rc.[0-9][0-9] ]] ; then
-            kind=candidate
-          elif [[ $VERSION == *-* ]] ; then
-            kind=nightly
-          fi
-          echo "Kind: $kind"
-          mkdir -p packages/syncthing/$kind
-          mv packages/*.deb packages/syncthing/$kind
+          mkdir -p packages/syncthing/$RELEASE_KIND
+          mv packages/*.deb packages/syncthing/$RELEASE_KIND
 
       - name: Pull archive
         uses: docker://docker.io/rclone/rclone:latest
@@ -930,6 +934,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+    needs:
+      - facts
     strategy:
       matrix:
         pkg:
@@ -948,9 +954,6 @@ jobs:
             image: discosrv
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
@@ -1002,8 +1005,7 @@ jobs:
 
       - name: Set version tags
         run: |
-          version=$(go run build.go version)
-          version=${version#v}
+          version=${VERSION#v}
           repo=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
           ref="${{github.ref_name}}"
           ref=${ref//\//-} # slashes to dashes
@@ -1022,9 +1024,7 @@ jobs:
           fi
 
           echo Pushing to $tags
-
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
-          echo "VERSION=$version" >> $GITHUB_ENV
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
