@@ -47,6 +47,7 @@ jobs:
     outputs:
       version: ${{ steps.get-version.outputs.version }}
       release-kind: ${{ steps.get-version.outputs.release-kind }}
+      go-version: ${{ steps.get-go.outputs.go-version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -63,7 +64,6 @@ jobs:
         id: get-version
         run: |
           version=$(go run build.go version)
-          echo "VERSION=$version" >> "$GITHUB_ENV"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Version: $version"
 
@@ -73,10 +73,14 @@ jobs:
           elif [[ $VERSION == *-* ]] ; then
             kind=nightly
           fi
-          echo "RELEASE_KIND=$kind" >> "$GITHUB_ENV"
           echo "release-kind=$kind" >> "$GITHUB_OUTPUT"
-          echo "Release kind: $RELEASE_KIND"
+          echo "Release kind: $kind"
 
+      - name: Get actual Go version
+        id: get-go
+        run: |
+          go version
+          echo "go-version=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_OUTPUT
 
   #
   # Tests for all platforms. Runs a matrix build on Windows, Linux and Mac,
@@ -169,6 +173,7 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
+      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -279,6 +284,7 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
+      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -287,11 +293,6 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
           check-latest: true
-
-      - name: Get actual Go version
-        run: |
-          go version
-          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: mlugg/setup-zig@v2
 
@@ -349,6 +350,7 @@ jobs:
       CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
+      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -357,11 +359,6 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
           check-latest: true
-
-      - name: Get actual Go version
-        run: |
-          go version
-          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: actions/cache@v4
         with:
@@ -483,6 +480,7 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
+      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -491,11 +489,6 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
           check-latest: true
-
-      - name: Get actual Go version
-        run: |
-          go version
-          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: actions/cache@v4
         with:
@@ -555,6 +548,7 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
+      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -603,6 +597,7 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
+      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -686,6 +681,7 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
+      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -694,11 +690,6 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
           check-latest: true
-
-      - name: Get actual Go version
-        run: |
-          go version
-          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: ruby/setup-ruby@v1
         with:
@@ -745,6 +736,9 @@ jobs:
     environment: release
     needs:
       - sign-for-upgrade
+      - facts
+    env:
+      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -801,6 +795,7 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
+      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -822,11 +817,6 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
           check-latest: true
-
-      - name: Set version
-        run: |
-          version=$(go run build.go version)
-          echo "VERSION=$version" >> $GITHUB_ENV
 
       - name: Push to object store (${{ env.VERSION }})
         uses: docker://docker.io/rclone/rclone:latest
@@ -971,6 +961,7 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
+      GO_VERSION: ${{ needs.facts.outputs.go-version }}
     strategy:
       matrix:
         pkg:
@@ -995,11 +986,6 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
           check-latest: true
-
-      - name: Get actual Go version
-        run: |
-          go version
-          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: mlugg/setup-zig@v2
 
