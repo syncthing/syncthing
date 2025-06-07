@@ -51,3 +51,9 @@ jobs:
           git config --global user.email 'release@syncthing.net'
           git tag -a -F notes.md --cleanup=whitespace "$NEXT"
           git push origin "$NEXT"
+
+      - name: Trigger the build
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: build-syncthing.yaml
+          ref: refs/tags/$NEXT
