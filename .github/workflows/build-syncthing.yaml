@@ -42,7 +42,7 @@ jobs:
   #
 
   facts:
-    name: Gather common facts for this build run
+    name: Gather common facts
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get-version.outputs.version }}
@@ -60,7 +60,7 @@ jobs:
           cache: false
           check-latest: true
 
-      - name: Get current version
+      - name: Get Syncthing version
         id: get-version
         run: |
           version=$(go run build.go version)
@@ -68,15 +68,15 @@ jobs:
           echo "Version: $version"
 
           kind=stable
-          if [[ $VERSION == *-rc.[0-9] || $VERSION == *-rc.[0-9][0-9] ]] ; then
+          if [[ $version == *-rc.[0-9] || $version == *-rc.[0-9][0-9] ]] ; then
             kind=candidate
-          elif [[ $VERSION == *-* ]] ; then
+          elif [[ $version == *-* ]] ; then
             kind=nightly
           fi
           echo "release-kind=$kind" >> "$GITHUB_OUTPUT"
           echo "Release kind: $kind"
 
-      - name: Get actual Go version
+      - name: Get Go version
         id: get-go
         run: |
           go version
