@@ -10,6 +10,7 @@ require (
 	github.com/calmh/incontainer v1.0.0
 	github.com/calmh/xdr v1.2.0
 	github.com/ccding/go-stun v0.1.5
+	github.com/coreos/go-semver v0.3.1
 	github.com/d4l3k/messagediff v1.2.1
 	github.com/getsentry/raven-go v0.2.0
 	github.com/go-ldap/ldap/v3 v3.4.11
