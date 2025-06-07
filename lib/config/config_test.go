@@ -110,6 +110,7 @@ func TestDefaultValues(t *testing.T) {
 				FSWatcherEnabled: true,
 				FSWatcherDelayS:  10,
 				IgnorePerms:      false,
+				PullerDelayS:     1,
 				AutoNormalize:    true,
 				MinDiskFree:      size,
 				Versioning: VersioningConfiguration{
@@ -117,10 +118,9 @@ func TestDefaultValues(t *testing.T) {
 					CleanupIntervalS: 3600,
 					Params:           map[string]string{},
 				},
-				MaxConflicts:         10,
-				WeakHashThresholdPct: 25,
-				MarkerName:           ".stfolder",
-				MaxConcurrentWrites:  2,
+				MaxConflicts:        10,
+				MarkerName:          ".stfolder",
+				MaxConcurrentWrites: 2,
 				XattrFilter: XattrFilter{
 					Entries:            []XattrFilterEntry{},
 					MaxSingleEntrySize: 1024,
@@ -187,6 +187,7 @@ func TestDeviceConfig(t *testing.T) {
 				FSWatcherDelayS:  10,
 				Copiers:          0,
 				Hashers:          0,
+				PullerDelayS:     1,
 				AutoNormalize:    true,
 				MinDiskFree:      Size{1, "%"},
 				MaxConflicts:     -1,
@@ -195,10 +196,9 @@ func TestDeviceConfig(t *testing.T) {
 					FSType:           FilesystemTypeBasic,
 					Params:           map[string]string{},
 				},
-				WeakHashThresholdPct: 25,
-				MarkerName:           DefaultMarkerName,
-				JunctionsAsDirs:      true,
-				MaxConcurrentWrites:  maxConcurrentWritesDefault,
+				MarkerName:          DefaultMarkerName,
+				JunctionsAsDirs:     true,
+				MaxConcurrentWrites: maxConcurrentWritesDefault,
 				XattrFilter: XattrFilter{
 					MaxSingleEntrySize: 1024,
 					MaxTotalSize:       4096,
@@ -495,7 +495,7 @@ func TestIssue1262(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	actual := cfg.Folders()["test"].Filesystem(nil).URI()
+	actual := cfg.Folders()["test"].Filesystem().URI()
 	expected := `e:\`
 
 	if actual != expected {
@@ -533,7 +533,7 @@ func TestFolderPath(t *testing.T) {
 		Path:           "~/tmp",
 	}
 
-	realPath := folder.Filesystem(nil).URI()
+	realPath := folder.Filesystem().URI()
 	if !filepath.IsAbs(realPath) {
 		t.Error(realPath, "should be absolute")
 	}

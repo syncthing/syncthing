@@ -16,9 +16,8 @@ env:
   GO_VERSION: "~1.24.0"
 
   # Optimize compatibility on the slow archictures.
-  GO386: softfloat
-  GOARM: "5"
   GOMIPS: softfloat
+  GOARM: "6"
 
   # Avoid hilarious amounts of obscuring log output when running tests.
   LOGGER_DISCARD: "1"
@@ -26,6 +25,8 @@ env:
   # Our build metadata
   BUILD_USER: builder
   BUILD_HOST: github.syncthing.net
+
+  TAGS: "netgo osusergo sqlite_omit_load_extension sqlite_dbstat"
 
 # A note on actions and third party code... The actions under actions/ (like
 # `uses: actions/checkout`) are maintained by GitHub, and we need to trust
@@ -35,6 +36,51 @@ env:
 # that lead up to code being packaged and signed.
 
 jobs:
+
+  #
+  # Source
+  #
+
+  facts:
+    name: Gather common facts
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+      release-kind: ${{ steps.get-version.outputs.release-kind }}
+      go-version: ${{ steps.get-go.outputs.go-version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
+
+      - name: Get Syncthing version
+        id: get-version
+        run: |
+          version=$(go run build.go version)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version: $version"
+
+          kind=stable
+          if [[ $version == *-rc.[0-9] || $version == *-rc.[0-9][0-9] ]] ; then
+            kind=candidate
+          elif [[ $version == *-* ]] ; then
+            kind=nightly
+          fi
+          echo "release-kind=$kind" >> "$GITHUB_OUTPUT"
+          echo "Release kind: $kind"
+
+      - name: Get Go version
+        id: get-go
+        run: |
+          go version
+          echo "go-version=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_OUTPUT
 
   #
   # Tests for all platforms. Runs a matrix build on Windows, Linux and Mac,
@@ -88,6 +134,7 @@ jobs:
           LOKI_USER: ${{ secrets.LOKI_USER }}
           LOKI_PASSWORD: ${{ secrets.LOKI_PASSWORD }}
           LOKI_LABELS: "go=${{ matrix.go }},runner=${{ matrix.runner }},repo=${{ github.repository }},ref=${{ github.ref }}"
+          CGO_ENABLED: "1"
 
   #
   # The basic checks job is a virtual one that depends on the matrix tests,
@@ -109,6 +156,8 @@ jobs:
       - package-debian
       - package-windows
       - govulncheck
+      - golangci
+      - meta
     steps:
       - uses: actions/checkout@v4
 
@@ -118,39 +167,28 @@ jobs:
 
   package-windows:
     name: Package for Windows
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
+    needs:
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
-      - name: Set git to use LF
-        # Without this, the checkout will happen with CRLF line endings,
-        # which is fine for the source code but messes up tests that depend
-        # on data on disk being as expected. Ideally, those tests should be
-        # fixed, but not today.
-        run: |
-          git config --global core.autocrlf false
-          git config --global core.eol lf
-
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
-      - name: Get actual Go version
-        run: |
-          go version
-          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
+      - uses: mlugg/setup-zig@v2
 
       - uses: actions/cache@v4
         with:
           path: |
-            ~\AppData\Local\go-build
-            ~\go\pkg\mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-windows-${{ hashFiles('**/go.sum') }}
 
       - name: Install dependencies
         run: |
@@ -158,15 +196,14 @@ jobs:
 
       - name: Create packages
         run: |
-          $targets = 'syncthing', 'stdiscosrv', 'strelaysrv'
-          $archs = 'amd64', 'arm', 'arm64', '386'
-          foreach ($arch in $archs) {
-            foreach ($tgt in $targets) {
-              go run build.go -goarch $arch zip $tgt
-            }
-          }
+          for tgt in syncthing stdiscosrv strelaysrv ; do
+            go run build.go -tags "${{env.TAGS}}" -goos windows -goarch amd64 -cc "zig cc -target x86_64-windows" zip $tgt
+            go run build.go -tags "${{env.TAGS}}" -goos windows -goarch 386 -cc "zig cc -target x86-windows" zip $tgt
+            go run build.go -tags "${{env.TAGS}}" -goos windows -goarch arm64 -cc "zig cc -target aarch64-windows" zip $tgt
+            # go run build.go -tags "${{env.TAGS}}" -goos windows -goarch arm -cc "zig cc -target thumb-windows" zip $tgt # failes with linker errors
+          done
         env:
-          CGO_ENABLED: "0"
+          CGO_ENABLED: "1"
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
@@ -174,9 +211,15 @@ jobs:
           name: unsigned-packages-windows
           path: "*.zip"
 
+  #
+  # Codesign binaries for Windows. This job runs only when called in the
+  # Syncthing repo for release branches and tags, as it requires our
+  # specific code signing keys etc.
+  #
+
   codesign-windows:
     name: Codesign for Windows
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
+    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
     environment: release
     runs-on: windows-latest
     needs:
@@ -234,40 +277,49 @@ jobs:
   package-linux:
     name: Package for Linux
     runs-on: ubuntu-latest
+    needs:
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
-      - name: Get actual Go version
-        run: |
-          go version
-          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
+      - uses: mlugg/setup-zig@v2
 
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('**/go.sum') }}
 
       - name: Create packages
         run: |
-          archs=$(go tool dist list | grep linux | sed 's#linux/##')
-          for goarch in $archs ; do
-            for tgt in syncthing stdiscosrv strelaysrv ; do
-              go run build.go -goarch "$goarch" tar "$tgt"
-            done
+          sudo apt-get install -y gcc-mips64-linux-gnuabi64 gcc-mips64el-linux-gnuabi64
+          for tgt in syncthing stdiscosrv strelaysrv ; do
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch 386 -cc "zig cc -target x86-linux-musl" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch arm -cc "zig cc -target arm-linux-musleabi -mcpu=arm1136j_s" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch mips -cc "zig cc -target mips-linux-musleabi" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch mipsle -cc "zig cc -target mipsel-linux-musleabi" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch mips64 -cc mips64-linux-gnuabi64-gcc tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch mips64le -cc mips64el-linux-gnuabi64-gcc tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch riscv64 -cc "zig cc -target riscv64-linux-musl" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch s390x -cc "zig cc -target s390x-linux-musl" tar "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch loong64 -cc "zig cc -target loongarch64-linux-musl" tar "$tgt"
+            # go run build.go -tags "${{env.TAGS}}" -goos linux -goarch ppc64 -cc "zig cc -target powerpc64-linux-musl" tar "$tgt" # fails with linkmode not supported
+            go run build.go -tags "${{env.TAGS}}" -goos linux -goarch ppc64le -cc "zig cc -target powerpc64le-linux-musl" tar "$tgt"
           done
         env:
-          CGO_ENABLED: "0"
+          CGO_ENABLED: "1"
+          EXTRA_LDFLAGS: "-linkmode=external -extldflags=-static"
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
@@ -278,39 +330,39 @@ jobs:
             compat.json
 
   #
-  # macOS
+  # macOS. The entire build runs in the release environment because code
+  # signing is part of the build process, so it is limited to release
+  # branches on the Syncthing repo.
   #
 
   package-macos:
     name: Package for macOS
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
+    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
     environment: release
     runs-on: macos-latest
+    needs:
+      - facts
+    env:
+      CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
-
-      - name: Get actual Go version
-        run: |
-          go version
-          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('**/go.sum') }}
 
       - name: Import signing certificate
+        if: env.CODESIGN_IDENTITY != ''
         run: |
           # Set up a run-specific keychain, making it available for the
           # `codesign` tool.
@@ -338,7 +390,7 @@ jobs:
       - name: Create package (amd64)
         run: |
           for tgt in syncthing stdiscosrv strelaysrv ; do
-            go run build.go -goarch amd64 zip "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -goarch amd64 zip "$tgt"
           done
         env:
           CGO_ENABLED: "1"
@@ -354,7 +406,7 @@ jobs:
           EOT
           chmod 755 xgo.sh
           for tgt in syncthing stdiscosrv strelaysrv ; do
-            go run build.go -gocmd ./xgo.sh -goarch arm64 zip "$tgt"
+            go run build.go -tags "${{env.TAGS}}" -gocmd ./xgo.sh -goarch arm64 zip "$tgt"
           done
         env:
           CGO_ENABLED: "1"
@@ -383,7 +435,7 @@ jobs:
 
   notarize-macos:
     name: Notarize for macOS
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
+    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
     environment: release
     needs:
       - package-macos
@@ -417,29 +469,25 @@ jobs:
   package-cross:
     name: Package cross compiled
     runs-on: ubuntu-latest
+    needs:
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
-
-      - name: Get actual Go version
-        run: |
-          go version
-          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-cross-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-cross-${{ hashFiles('**/go.sum') }}
 
       - name: Create packages
         run: |
@@ -465,7 +513,7 @@ jobs:
             goarch="${plat#*/}"
             echo "::group ::$plat"
             for tgt in syncthing stdiscosrv strelaysrv ; do
-              if ! go run build.go -goos "$goos" -goarch "$goarch" tar "$tgt" 2>/dev/null; then
+              if ! go run build.go -goos "$goos" -goarch "$goarch" tar "$tgt" ; then
                 echo "::warning ::Failed to build $tgt for $plat"
               fi
             done
@@ -487,33 +535,33 @@ jobs:
   package-source:
     name: Package source code
     runs-on: ubuntu-latest
+    needs:
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - name: Package source
         run: |
-          version=$(go run build.go version)
-          echo "$version" > RELEASE
+          echo "$VERSION" > RELEASE
 
           go mod vendor
           go run build.go assets
 
           cd ..
 
-          tar c -z -f "syncthing-source-$version.tar.gz" \
+          tar c -z -f "syncthing-source-$VERSION.tar.gz" \
             --exclude .git \
             syncthing
 
-          mv "syncthing-source-$version.tar.gz" syncthing
+          mv "syncthing-source-$VERSION.tar.gz" syncthing
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
@@ -527,7 +575,7 @@ jobs:
 
   sign-for-upgrade:
     name: Sign for upgrade
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
+    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
     environment: release
     needs:
       - codesign-windows
@@ -535,27 +583,26 @@ jobs:
       - package-macos
       - package-cross
       - package-source
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/checkout@v4
         with:
           repository: syncthing/release-tools
           path: tools
-          fetch-depth: 0
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - name: Install signing tool
         run: |
@@ -581,9 +628,6 @@ jobs:
           sha1sum "${files[@]}" > sha1sum.txt
           sha256sum "${files[@]}" > sha256sum.txt
           popd
-
-          version=$(go run build.go version)
-          echo "VERSION=$version" >> $GITHUB_ENV
 
       - name: Sign shasum files
         uses: docker://ghcr.io/kastelo/ezapt:latest
@@ -620,22 +664,18 @@ jobs:
   package-debian:
     name: Package for Debian
     runs-on: ubuntu-latest
+    needs:
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
-
-      - name: Get actual Go version
-        run: |
-          go version
-          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: ruby/setup-ruby@v1
         with:
@@ -645,22 +685,26 @@ jobs:
         run: |
           gem install fpm
 
+      - uses: mlugg/setup-zig@v2
+
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-debian-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-debian-${{ hashFiles('**/go.sum') }}
 
-      - name: Package for Debian
+      - name: Package for Debian (CGO)
         run: |
-          for arch in amd64 i386 armhf armel arm64 ; do
-            for tgt in syncthing stdiscosrv strelaysrv ; do
-              go run build.go -no-upgrade -installsuffix=no-upgrade -goarch "$arch" deb "$tgt"
-            done
+          for tgt in syncthing stdiscosrv strelaysrv ; do
+            go run build.go -no-upgrade -installsuffix=no-upgrade -tags "${{env.TAGS}}" -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" deb "$tgt"
+            go run build.go -no-upgrade -installsuffix=no-upgrade -tags "${{env.TAGS}}" -goos linux -goarch arm -cc "zig cc -target arm-linux-musleabi -mcpu=arm1136j_s" deb "$tgt"
+            go run build.go -no-upgrade -installsuffix=no-upgrade -tags "${{env.TAGS}}" -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" deb "$tgt"
           done
         env:
           BUILD_USER: debian
+          CGO_ENABLED: "1"
+          EXTRA_LDFLAGS: "-linkmode=external -extldflags=-static"
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
@@ -674,17 +718,17 @@ jobs:
 
   publish-nightly:
     name: Publish nightly build
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/release-nightly')
+    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/release-nightly')
     environment: release
     needs:
       - sign-for-upgrade
+      - facts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           repository: syncthing/release-tools
           path: tools
-          fetch-depth: 0
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -694,9 +738,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - name: Create release json
         run: |
@@ -724,19 +767,20 @@ jobs:
 
   publish-release-files:
     name: Publish release files
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/tags/v'))
+    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/tags/v'))
     environment: release
     permissions:
       contents: write
     needs:
       - sign-for-upgrade
       - package-debian
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - name: Download signed packages
         uses: actions/download-artifact@v4
@@ -752,14 +796,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
-
-      - name: Set version
-        run: |
-          version=$(go run build.go version)
-          echo "VERSION=$version" >> $GITHUB_ENV
 
       - name: Push to object store (${{ env.VERSION }})
         uses: docker://docker.io/rclone/rclone:latest
@@ -829,16 +867,17 @@ jobs:
 
   publish-apt:
     name: Publish APT
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
+    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
     environment: release
     needs:
       - package-debian
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - name: Download packages
         uses: actions/download-artifact@v4
@@ -846,24 +885,11 @@ jobs:
           name: debian-packages
           path: packages
 
-      - name: Set version
-        run: |
-          version=$(go run build.go version)
-          echo "Version: $version"
-          echo "VERSION=$version" >> $GITHUB_ENV
-
       # Decide whether packages should go to stable, candidate or nightly
       - name: Prepare packages
         run: |
-          kind=stable
-          if [[ $VERSION == *-rc.[0-9] ]] ; then
-            kind=candidate
-          elif [[ $VERSION == *-* ]] ; then
-            kind=nightly
-          fi
-          echo "Kind: $kind"
-          mkdir -p packages/syncthing/$kind
-          mv packages/*.deb packages/syncthing/$kind
+          mkdir -p packages/syncthing/$RELEASE_KIND
+          mv packages/*.deb packages/syncthing/$RELEASE_KIND
 
       - name: Pull archive
         uses: docker://docker.io/rclone/rclone:latest
@@ -902,17 +928,20 @@ jobs:
           args: sync -v --no-update-modtime dists objstore:apt/dists
 
   #
-  # Build and push to Docker Hub
+  # Build and push (except for PRs) to GHCR.
   #
 
-  docker-syncthing:
-    name: Build and push Docker images
+  docker-ghcr:
+    name: Build and push Docker images (GHCR)
     runs-on: ubuntu-latest
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release-nightly' || github.ref == 'refs/heads/infrastructure' || startsWith(github.ref, 'refs/tags/v'))
-    environment: docker
     permissions:
       contents: read
       packages: write
+    needs:
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     strategy:
       matrix:
         pkg:
@@ -922,64 +951,50 @@ jobs:
         include:
           - pkg: syncthing
             dockerfile: Dockerfile
-            image: syncthing/syncthing
+            image: syncthing
           - pkg: strelaysrv
             dockerfile: Dockerfile.strelaysrv
-            image: syncthing/relaysrv
+            image: relaysrv
           - pkg: stdiscosrv
             dockerfile: Dockerfile.stdiscosrv
-            image: syncthing/discosrv
+            image: discosrv
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
-      - name: Get actual Go version
-        run: |
-          go version
-          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
+      - uses: mlugg/setup-zig@v2
 
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-docker-${{ matrix.pkg }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-docker-${{ matrix.pkg }}-${{ hashFiles('**/go.sum') }}
 
-      - name: Build binaries
+      - name: Build binaries (CGO)
         run: |
-          for arch in amd64 arm64 arm; do
-            go run build.go -goos linux -goarch "$arch" -no-upgrade build ${{ matrix.pkg }}
-            mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-"$arch"
-          done
+          # amd64
+          go run build.go -goos linux -goarch amd64 -tags "${{env.TAGS}}" -cc "zig cc -target x86_64-linux-musl" -no-upgrade build ${{ matrix.pkg }}
+          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-amd64
+
+          # arm64
+          go run build.go -goos linux -goarch arm64 -tags "${{env.TAGS}}" -cc "zig cc -target aarch64-linux-musl" -no-upgrade build ${{ matrix.pkg }}
+          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm64
+
+          # arm
+          go run build.go -goos linux -goarch arm -tags "${{env.TAGS}}" -cc "zig cc -target arm-linux-musleabi -mcpu=arm1136j_s" -no-upgrade build ${{ matrix.pkg }}
+          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm
         env:
-          CGO_ENABLED: "0"
+          CGO_ENABLED: "1"
           BUILD_USER: docker
-
-      - name: Check if we will be able to push images
-        run: |
-          if [[ "${{ secrets.DOCKERHUB_TOKEN }}" != "" ]]; then
-            echo "DOCKER_PUSH=true" >> $GITHUB_ENV;
-          fi
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        if: env.DOCKER_PUSH == 'true'
-        with:
-          registry: docker.io
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          EXTRA_LDFLAGS: "-linkmode=external -extldflags=-static"
 
       - name: Login to GHCR
         uses: docker/login-action@v3
-        if: env.DOCKER_PUSH == 'true'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -990,22 +1005,26 @@ jobs:
 
       - name: Set version tags
         run: |
-          version=$(go run build.go version)
-          version=${version#v}
+          version=${VERSION#v}
+          repo=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          ref="${{github.ref_name}}"
+          ref=${ref//\//-} # slashes to dashes
+
+          # List of tags for ghcr.io
           if [[ $version == @([0-9]|[0-9][0-9]).@([0-9]|[0-9][0-9]).@([0-9]|[0-9][0-9]) ]] ; then
-            echo Release version, pushing to :latest and version tags
             major=${version%.*.*}
             minor=${version%.*}
-            tags=docker.io/${{ matrix.image }}:$version,ghcr.io/${{ matrix.image }}:$version,docker.io/${{ matrix.image }}:$major,ghcr.io/${{ matrix.image }}:$major,docker.io/${{ matrix.image }}:$minor,ghcr.io/${{ matrix.image }}:$minor,docker.io/${{ matrix.image }}:latest,ghcr.io/${{ matrix.image }}:latest
+            tags=$repo:$version,$repo:$major,$repo:$minor,$repo:latest
           elif [[ $version == *-rc.@([0-9]|[0-9][0-9]) ]] ; then
-            echo Release candidate, pushing to :rc and version tags
-            tags=docker.io/${{ matrix.image }}:$version,ghcr.io/${{ matrix.image }}:$version,docker.io/${{ matrix.image }}:rc,ghcr.io/${{ matrix.image }}:rc
+            tags=$repo:$version,$repo:rc
+          elif [[ $ref == "main" ]] ; then
+            tags=$repo:edge
           else
-            echo Development version, pushing to :edge
-            tags=docker.io/${{ matrix.image }}:edge,ghcr.io/${{ matrix.image }}:edge
+            tags=$repo:$ref
           fi
+
+          echo Pushing to $tags
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
-          echo "VERSION=$version" >> $GITHUB_ENV
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -1013,11 +1032,35 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64,linux/arm/7
-          push: ${{ env.DOCKER_PUSH == 'true' }}
           tags: ${{ env.DOCKER_TAGS }}
+          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
           labels: |
             org.opencontainers.image.version=${{ env.VERSION }}
             org.opencontainers.image.revision=${{ github.sha }}
+
+  #
+  # Sync images to Docker hub. This takes the images already pushed to GHCR
+  # and copies them to Docker hub. Runs for releases only.
+  #
+
+  docker-hub:
+    name: Sync images to Docker hub
+    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release-nightly' || github.ref == 'refs/heads/infrastructure' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    needs:
+      - docker-ghcr
+    environment: docker
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sync images
+        uses: docker://docker.io/regclient/regsync:latest
+        with:
+          args:
+            -c ./.github/regsync.yml
+            once
 
   #
   # Check for known vulnerabilities in Go dependencies
@@ -1026,17 +1069,56 @@ jobs:
   govulncheck:
     runs-on: ubuntu-latest
     name: Run govulncheck
+    needs:
+      - facts
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - name: run govulncheck
         run: |
           go run build.go assets
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
+
+  #
+  # golangci-lint runs a suite of static analysis checks on the code
+  #
+
+  golangci:
+    runs-on: ubuntu-latest
+    name: Run golangci-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: ensure asset generation
+        run: go run build.go assets
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          only-new-issues: true
+
+  #
+  # Meta checks for formatting, copyright, etc
+  #
+
+  meta:
+    name: Run meta checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - run: |
+          go run build.go assets
+          go test -v ./meta

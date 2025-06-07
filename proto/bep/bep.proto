@@ -145,7 +145,7 @@ message BlockInfo {
   bytes hash = 3;
   int64 offset = 1;
   int32 size = 2;
-  uint32 weak_hash = 4;
+  reserved 4;
 }
 
 message Vector {
@@ -203,8 +203,8 @@ message Request {
   int32 size = 5;
   bytes hash = 6;
   bool from_temporary = 7;
-  uint32 weak_hash = 8;
   int32 block_no = 9;
+  reserved 8;
 }
 
 // Response

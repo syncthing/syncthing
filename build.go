@@ -38,27 +38,26 @@ import (
 )
 
 var (
-	goarch         string
-	goos           string
-	noupgrade      bool
-	version        string
-	goCmd          string
-	race           bool
-	debug          = os.Getenv("BUILDDEBUG") != ""
-	extraTags      string
-	installSuffix  string
-	pkgdir         string
-	cc             string
-	run            string
-	benchRun       string
-	buildOut       string
-	debugBinary    bool
-	coverage       bool
-	long           bool
-	timeout        = "120s"
-	longTimeout    = "600s"
-	numVersions    = 5
-	withNextGenGUI = os.Getenv("BUILD_NEXT_GEN_GUI") != ""
+	goarch        string
+	goos          string
+	noupgrade     bool
+	version       string
+	goCmd         string
+	race          bool
+	debug         = os.Getenv("BUILDDEBUG") != ""
+	extraTags     string
+	installSuffix string
+	pkgdir        string
+	cc            string
+	run           string
+	benchRun      string
+	buildOut      string
+	debugBinary   bool
+	coverage      bool
+	long          bool
+	timeout       = "120s"
+	longTimeout   = "600s"
+	numVersions   = 5
 )
 
 type target struct {
@@ -289,10 +288,10 @@ func runCommand(cmd string, target target) {
 		build(target, tags)
 
 	case "test":
-		test(strings.Fields(extraTags), "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
+		test(strings.Fields(extraTags), "github.com/syncthing/syncthing/internal/...", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
 
 	case "bench":
-		bench(strings.Fields(extraTags), "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
+		bench(strings.Fields(extraTags), "github.com/syncthing/syncthing/internal/...", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
 
 	case "integration":
 		integration(false)
@@ -380,7 +379,6 @@ func parseFlags() {
 	flag.IntVar(&numVersions, "num-versions", numVersions, "Number of versions for changelog command")
 	flag.StringVar(&run, "run", "", "Specify which tests to run")
 	flag.StringVar(&benchRun, "bench", "", "Specify which benchmarks to run")
-	flag.BoolVar(&withNextGenGUI, "with-next-gen-gui", withNextGenGUI, "Also build 'newgui'")
 	flag.StringVar(&buildOut, "build-out", "", "Set the '-o' value for 'go build'")
 	flag.Parse()
 }
@@ -453,10 +451,6 @@ func benchArgs() []string {
 }
 
 func install(target target, tags []string) {
-	if (target.name == "syncthing" || target.name == "") && !withNextGenGUI {
-		log.Println("Notice: Next generation GUI will not be built; see --with-next-gen-gui.")
-	}
-
 	lazyRebuildAssets()
 
 	tags = append(target.tags, tags...)
@@ -480,16 +474,12 @@ func install(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	args := []string{"install", "-v"}
+	args := []string{"install"}
 	args = appendParameters(args, tags, target.buildPkgs...)
 	runPrint(goCmd, args...)
 }
 
 func build(target target, tags []string) {
-	if (target.name == "syncthing" || target.name == "") && !withNextGenGUI {
-		log.Println("Notice: Next generation GUI will not be built; see --with-next-gen-gui.")
-	}
-
 	lazyRebuildAssets()
 	tags = append(target.tags, tags...)
 
@@ -512,7 +502,7 @@ func build(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	args := []string{"build", "-v"}
+	args := []string{"build"}
 	if buildOut != "" {
 		args = append(args, "-o", buildOut)
 	}
@@ -524,13 +514,6 @@ func setBuildEnvVars() {
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
 	os.Setenv("CC", cc)
-	if os.Getenv("CGO_ENABLED") == "" {
-		switch goos {
-		case "darwin", "solaris":
-		default:
-			os.Setenv("CGO_ENABLED", "0")
-		}
-	}
 }
 
 func appendParameters(args []string, tags []string, pkgs ...string) []string {
@@ -749,12 +732,9 @@ func shouldBuildSyso(dir string) (string, error) {
 	sysoPath := filepath.Join(dir, "cmd", "syncthing", "resource.syso")
 
 	// See https://github.com/josephspurrier/goversioninfo#command-line-flags
-	armOption := ""
-	if strings.Contains(goarch, "arm") {
-		armOption = "-arm=true"
-	}
-
-	if _, err := runError("goversioninfo", "-o", sysoPath, armOption); err != nil {
+	arm := strings.HasPrefix(goarch, "arm")
+	a64 := strings.Contains(goarch, "64")
+	if _, err := runError("goversioninfo", "-o", sysoPath, fmt.Sprintf("-arm=%v", arm), fmt.Sprintf("-64=%v", a64)); err != nil {
 		return "", errors.New("failed to create " + sysoPath + ": " + err.Error())
 	}
 
@@ -826,41 +806,9 @@ func lazyRebuildAssets() {
 	shouldRebuild := shouldRebuildAssets("lib/api/auto/gui.files.go", "gui") ||
 		shouldRebuildAssets("cmd/infra/strelaypoolsrv/auto/gui.files.go", "cmd/infra/strelaypoolsrv/gui")
 
-	if withNextGenGUI {
-		shouldRebuild = buildNextGenGUI() || shouldRebuild
-	}
-
 	if shouldRebuild {
 		rebuildAssets()
 	}
-}
-
-func buildNextGenGUI() bool {
-	// Check if we need to run the npm process, and if so also set the flag
-	// to rebuild Go assets afterwards. The index.html is regenerated every
-	// time by the build process. This assumes the new GUI ends up in
-	// next-gen-gui/dist/next-gen-gui.
-
-	if !shouldRebuildAssets("gui/next-gen-gui/index.html", "next-gen-gui") {
-		// The GUI is up to date.
-		return false
-	}
-
-	runPrintInDir("next-gen-gui", "npm", "install")
-	runPrintInDir("next-gen-gui", "npm", "run", "build", "--", "--prod", "--subresource-integrity")
-
-	rmr("gui/tech-ui")
-
-	for _, src := range listFiles("next-gen-gui/dist") {
-		rel, _ := filepath.Rel("next-gen-gui/dist", src)
-		dst := filepath.Join("gui", rel)
-		if err := copyFile(src, dst, 0o644); err != nil {
-			fmt.Println("copy:", err)
-			os.Exit(1)
-		}
-	}
-
-	return true
 }
 
 func shouldRebuildAssets(target, srcdir string) bool {
@@ -974,6 +922,9 @@ func rmr(paths ...string) {
 }
 
 func getReleaseVersion() (string, error) {
+	if ver := os.Getenv("VERSION"); ver != "" {
+		return strings.TrimSpace(ver), nil
+	}
 	bs, err := os.ReadFile("RELEASE")
 	if err != nil {
 		return "", err
@@ -1018,7 +969,7 @@ func getGitVersion() (string, error) {
 }
 
 func getVersion() string {
-	// First try for a RELEASE file,
+	// First try for a RELEASE file or $VERSION env var,
 	if ver, err := getReleaseVersion(); err == nil {
 		return ver
 	}

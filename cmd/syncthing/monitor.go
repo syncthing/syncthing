@@ -43,7 +43,7 @@ const (
 	panicUploadNoticeWait = 10 * time.Second
 )
 
-func monitorMain(options serveOptions) {
+func (c *serveCmd) monitorMain() {
 	l.SetPrefix("[monitor] ")
 
 	var dst io.Writer = os.Stdout
@@ -58,8 +58,8 @@ func monitorMain(options serveOptions) {
 		open := func(name string) (io.WriteCloser, error) {
 			return newAutoclosedFile(name, logFileAutoCloseDelay, logFileMaxOpenTime)
 		}
-		if options.LogMaxSize > 0 {
-			fileDst, err = newRotatedFile(logFile, open, int64(options.LogMaxSize), options.LogMaxFiles)
+		if c.LogMaxSize > 0 {
+			fileDst, err = newRotatedFile(logFile, open, int64(c.LogMaxSize), c.LogMaxFiles)
 		} else {
 			fileDst, err = open(logFile)
 		}
@@ -178,7 +178,7 @@ func monitorMain(options serveOptions) {
 
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			exitCode := exiterr.ExitCode()
-			if stopped || options.NoRestart {
+			if stopped || c.NoRestart {
 				os.Exit(exitCode)
 			}
 			if exitCode == svcutil.ExitUpgrade.AsInt() {
@@ -192,7 +192,7 @@ func monitorMain(options serveOptions) {
 			}
 		}
 
-		if options.NoRestart {
+		if c.NoRestart {
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 

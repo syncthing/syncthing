@@ -163,7 +163,7 @@ func TestVerify(t *testing.T) {
 	progress := newByteCounter()
 	defer progress.Close()
 
-	blocks, err := Blocks(context.TODO(), buf, blocksize, -1, progress, false)
+	blocks, err := Blocks(context.TODO(), buf, blocksize, -1, progress)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -633,7 +633,7 @@ func BenchmarkHashFile(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := HashFile(context.TODO(), "", testFs, testdataName, protocol.MinBlockSize, nil, true); err != nil {
+		if _, err := HashFile(context.TODO(), "", testFs, testdataName, protocol.MinBlockSize, nil); err != nil {
 			b.Fatal(err)
 		}
 	}
