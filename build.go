@@ -922,7 +922,7 @@ func rmr(paths ...string) {
 }
 
 func getReleaseVersion() (string, error) {
-	if ver := os.Getenv("RELEASE_VERSION"); ver != "" {
+	if ver := os.Getenv("VERSION"); ver != "" {
 		return strings.TrimSpace(ver), nil
 	}
 	bs, err := os.ReadFile("RELEASE")
@@ -969,7 +969,7 @@ func getGitVersion() (string, error) {
 }
 
 func getVersion() string {
-	// First try for a RELEASE file or $RELEASE_VERSION env var,
+	// First try for a RELEASE file or $VERSION env var,
 	if ver, err := getReleaseVersion(); err == nil {
 		return ver
 	}
