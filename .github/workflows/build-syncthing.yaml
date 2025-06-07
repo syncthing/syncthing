@@ -38,6 +38,51 @@ env:
 jobs:
 
   #
+  # Source
+  #
+
+  facts:
+    name: Gather common facts
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+      release-kind: ${{ steps.get-version.outputs.release-kind }}
+      go-version: ${{ steps.get-go.outputs.go-version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+          check-latest: true
+
+      - name: Get Syncthing version
+        id: get-version
+        run: |
+          version=$(go run build.go version)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version: $version"
+
+          kind=stable
+          if [[ $version == *-rc.[0-9] || $version == *-rc.[0-9][0-9] ]] ; then
+            kind=candidate
+          elif [[ $version == *-* ]] ; then
+            kind=nightly
+          fi
+          echo "release-kind=$kind" >> "$GITHUB_OUTPUT"
+          echo "Release kind: $kind"
+
+      - name: Get Go version
+        id: get-go
+        run: |
+          go version
+          echo "go-version=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_OUTPUT
+
+  #
   # Tests for all platforms. Runs a matrix build on Windows, Linux and Mac,
   # with the list of expected supported Go versions (current, previous).
   #
@@ -123,17 +168,18 @@ jobs:
   package-windows:
     name: Package for Windows
     runs-on: ubuntu-latest
+    needs:
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - uses: mlugg/setup-zig@v2
 
@@ -142,7 +188,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-windows-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-windows-${{ hashFiles('**/go.sum') }}
 
       - name: Install dependencies
         run: |
@@ -231,22 +277,18 @@ jobs:
   package-linux:
     name: Package for Linux
     runs-on: ubuntu-latest
+    needs:
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
-
-      - name: Get actual Go version
-        run: |
-          go version
-          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: mlugg/setup-zig@v2
 
@@ -255,7 +297,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('**/go.sum') }}
 
       - name: Create packages
         run: |
@@ -297,32 +339,27 @@ jobs:
     name: Package for macOS
     if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
     environment: release
+    runs-on: macos-latest
+    needs:
+      - facts
     env:
       CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
-    runs-on: macos-latest
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
-
-      - name: Get actual Go version
-        run: |
-          go version
-          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-package-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('**/go.sum') }}
 
       - name: Import signing certificate
         if: env.CODESIGN_IDENTITY != ''
@@ -432,29 +469,25 @@ jobs:
   package-cross:
     name: Package cross compiled
     runs-on: ubuntu-latest
+    needs:
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
-
-      - name: Get actual Go version
-        run: |
-          go version
-          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-cross-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-cross-${{ hashFiles('**/go.sum') }}
 
       - name: Create packages
         run: |
@@ -502,33 +535,33 @@ jobs:
   package-source:
     name: Package source code
     runs-on: ubuntu-latest
+    needs:
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - name: Package source
         run: |
-          version=$(go run build.go version)
-          echo "$version" > RELEASE
+          echo "$VERSION" > RELEASE
 
           go mod vendor
           go run build.go assets
 
           cd ..
 
-          tar c -z -f "syncthing-source-$version.tar.gz" \
+          tar c -z -f "syncthing-source-$VERSION.tar.gz" \
             --exclude .git \
             syncthing
 
-          mv "syncthing-source-$version.tar.gz" syncthing
+          mv "syncthing-source-$VERSION.tar.gz" syncthing
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
@@ -550,27 +583,26 @@ jobs:
       - package-macos
       - package-cross
       - package-source
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/checkout@v4
         with:
           repository: syncthing/release-tools
           path: tools
-          fetch-depth: 0
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - name: Install signing tool
         run: |
@@ -596,9 +628,6 @@ jobs:
           sha1sum "${files[@]}" > sha1sum.txt
           sha256sum "${files[@]}" > sha256sum.txt
           popd
-
-          version=$(go run build.go version)
-          echo "VERSION=$version" >> $GITHUB_ENV
 
       - name: Sign shasum files
         uses: docker://ghcr.io/kastelo/ezapt:latest
@@ -635,22 +664,18 @@ jobs:
   package-debian:
     name: Package for Debian
     runs-on: ubuntu-latest
+    needs:
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
-
-      - name: Get actual Go version
-        run: |
-          go version
-          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: ruby/setup-ruby@v1
         with:
@@ -667,7 +692,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-debian-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-debian-${{ hashFiles('**/go.sum') }}
 
       - name: Package for Debian (CGO)
         run: |
@@ -697,13 +722,13 @@ jobs:
     environment: release
     needs:
       - sign-for-upgrade
+      - facts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           repository: syncthing/release-tools
           path: tools
-          fetch-depth: 0
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -713,9 +738,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - name: Create release json
         run: |
@@ -750,12 +774,13 @@ jobs:
     needs:
       - sign-for-upgrade
       - package-debian
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - name: Download signed packages
         uses: actions/download-artifact@v4
@@ -771,14 +796,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
-
-      - name: Set version
-        run: |
-          version=$(go run build.go version)
-          echo "VERSION=$version" >> $GITHUB_ENV
 
       - name: Push to object store (${{ env.VERSION }})
         uses: docker://docker.io/rclone/rclone:latest
@@ -852,12 +871,13 @@ jobs:
     environment: release
     needs:
       - package-debian
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - name: Download packages
         uses: actions/download-artifact@v4
@@ -865,24 +885,11 @@ jobs:
           name: debian-packages
           path: packages
 
-      - name: Set version
-        run: |
-          version=$(go run build.go version)
-          echo "Version: $version"
-          echo "VERSION=$version" >> $GITHUB_ENV
-
       # Decide whether packages should go to stable, candidate or nightly
       - name: Prepare packages
         run: |
-          kind=stable
-          if [[ $VERSION == *-rc.[0-9] || $VERSION == *-rc.[0-9][0-9] ]] ; then
-            kind=candidate
-          elif [[ $VERSION == *-* ]] ; then
-            kind=nightly
-          fi
-          echo "Kind: $kind"
-          mkdir -p packages/syncthing/$kind
-          mv packages/*.deb packages/syncthing/$kind
+          mkdir -p packages/syncthing/$RELEASE_KIND
+          mv packages/*.deb packages/syncthing/$RELEASE_KIND
 
       - name: Pull archive
         uses: docker://docker.io/rclone/rclone:latest
@@ -930,6 +937,11 @@ jobs:
     permissions:
       contents: read
       packages: write
+    needs:
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     strategy:
       matrix:
         pkg:
@@ -948,20 +960,11 @@ jobs:
             image: discosrv
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
-
-      - name: Get actual Go version
-        run: |
-          go version
-          echo "GO_VERSION=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_ENV
 
       - uses: mlugg/setup-zig@v2
 
@@ -970,7 +973,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-docker-${{ matrix.pkg }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-docker-${{ matrix.pkg }}-${{ hashFiles('**/go.sum') }}
 
       - name: Build binaries (CGO)
         run: |
@@ -1002,8 +1005,7 @@ jobs:
 
       - name: Set version tags
         run: |
-          version=$(go run build.go version)
-          version=${version#v}
+          version=${VERSION#v}
           repo=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
           ref="${{github.ref_name}}"
           ref=${ref//\//-} # slashes to dashes
@@ -1022,9 +1024,7 @@ jobs:
           fi
 
           echo Pushing to $tags
-
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
-          echo "VERSION=$version" >> $GITHUB_ENV
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -1069,14 +1069,15 @@ jobs:
   govulncheck:
     runs-on: ubuntu-latest
     name: Run govulncheck
+    needs:
+      - facts
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
-          check-latest: true
 
       - name: run govulncheck
         run: |
