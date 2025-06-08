@@ -347,54 +347,60 @@ func (s *folderDB) recalcGlobalForFile(txp *txPreparedStmts, file string) error 
 	// Sort the entries; the global entry is at the head of the list
 	slices.SortFunc(es, fileRow.Compare)
 
-	// The global version is the first one in the list that is not invalid,
-	// or just the first one in the list if all are invalid.
-	var global fileRow
+	// The global version is the first one in the list that is not invalid.
+	// If all are invalid, the global one is the first (only) in the list
+	// that is local. If there is no local entry then there is in fact no
+	// global version of this file and it should be disregarded from counts
+	// and need lists, etc.
+	globalSequence := int64(-1)
 	globIdx := slices.IndexFunc(es, func(e fileRow) bool { return !e.Invalid })
 	if globIdx < 0 {
-		globIdx = 0
+		globIdx = slices.IndexFunc(es, func(e fileRow) bool { return e.DeviceIdx == s.localDeviceIdx })
 	}
-	global = es[globIdx]
+	if globIdx >= 0 {
+		global := es[globIdx]
+		globalSequence = global.Sequence
 
-	// We "have" the file if the position in the list of versions is at the
-	// global version or better, or if the version is the same as the global
-	// file (we might be further down the list due to invalid flags), or if
-	// the global is deleted and we don't have it at all...
-	localIdx := slices.IndexFunc(es, func(e fileRow) bool { return e.DeviceIdx == s.localDeviceIdx })
-	hasLocal := localIdx >= 0 && localIdx <= globIdx || // have a better or equal version
-		localIdx >= 0 && es[localIdx].Version.Equal(global.Version.Vector) || // have an equal version but invalid/ignored
-		localIdx < 0 && global.Deleted // missing it, but the global is also deleted
+		// We "have" the file if the position in the list of versions is at the
+		// global version or better, or if the version is the same as the global
+		// file (we might be further down the list due to invalid flags), or if
+		// the global is deleted and we don't have it at all...
+		localIdx := slices.IndexFunc(es, func(e fileRow) bool { return e.DeviceIdx == s.localDeviceIdx })
+		hasLocal := localIdx >= 0 && localIdx <= globIdx || // have a better or equal version
+			localIdx >= 0 && es[localIdx].Version.Equal(global.Version.Vector) || // have an equal version but invalid/ignored
+			localIdx < 0 && global.Deleted // missing it, but the global is also deleted
 
-	// Set the global flag on the global entry. Set the need flag if the
-	// local device needs this file, unless it's invalid.
-	global.LocalFlags |= protocol.FlagLocalGlobal
-	if hasLocal || global.Invalid {
-		global.LocalFlags &= ^protocol.FlagLocalNeeded
-	} else {
-		global.LocalFlags |= protocol.FlagLocalNeeded
-	}
-	//nolint:sqlclosecheck
-	upStmt, err := txp.Preparex(`
+		// Set the global flag on the global entry. Set the need flag if the
+		// local device needs this file, unless it's invalid.
+		global.LocalFlags |= protocol.FlagLocalGlobal
+		if hasLocal || global.Invalid {
+			global.LocalFlags &= ^protocol.FlagLocalNeeded
+		} else {
+			global.LocalFlags |= protocol.FlagLocalNeeded
+		}
+		//nolint:sqlclosecheck
+		upStmt, err := txp.Preparex(`
 		UPDATE files SET local_flags = ?
 		WHERE device_idx = ? AND sequence = ?
 	`)
-	if err != nil {
-		return wrap(err)
-	}
-	if _, err := upStmt.Exec(global.LocalFlags, global.DeviceIdx, global.Sequence); err != nil {
-		return wrap(err)
+		if err != nil {
+			return wrap(err)
+		}
+		if _, err := upStmt.Exec(global.LocalFlags, global.DeviceIdx, global.Sequence); err != nil {
+			return wrap(err)
+		}
 	}
 
 	// Clear the need and global flags on all other entries
 	//nolint:sqlclosecheck
-	upStmt, err = txp.Preparex(`
+	upStmt, err := txp.Preparex(`
 		UPDATE files SET local_flags = local_flags & ?
 		WHERE name = ? AND sequence != ? AND local_flags & ? != 0
 	`)
 	if err != nil {
 		return wrap(err)
 	}
-	if _, err := upStmt.Exec(^(protocol.FlagLocalNeeded | protocol.FlagLocalGlobal), global.Name, global.Sequence, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal); err != nil {
+	if _, err := upStmt.Exec(^(protocol.FlagLocalNeeded | protocol.FlagLocalGlobal), file, globalSequence, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal); err != nil {
 		return wrap(err)
 	}
 
