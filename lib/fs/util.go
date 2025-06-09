@@ -48,32 +48,44 @@ func getHomeDir() (string, error) {
 	return os.UserHomeDir()
 }
 
-const windowsDisallowedCharacters = (`<>:"|?*` +
+// On Android, the following characters are disallowed on user storage
+// even if the filesystem is not FAT. On Windows, they apply to both FAT
+// and NTFS.
+// Ref: https://cs.android.com/android/platform/superproject/main/+/main:packages/providers/MediaProvider/src/com/android/providers/media/util/FileUtils.java;drc=9d054a9eb6a8d8c3d79e007ea6d2f89c94a52f06;l=485
+const fatDisallowedCharacters = (`/\<>:"|?*` +
 	"\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f" +
 	"\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f")
 
-func WindowsInvalidFilename(name string) error {
+func OsInvalidFilename(name string) error {
 	// The path must not contain any disallowed characters.
-	if idx := strings.IndexAny(name, windowsDisallowedCharacters); idx != -1 {
-		return fmt.Errorf("%w: %q", errInvalidFilenameWindowsReservedChar, name[idx:idx+1])
+	var errMsg error
+	if build.IsAndroid {
+		errMsg = errInvalidFilenameAndroidReservedChar
+	} else if build.IsWindows {
+		errMsg = errInvalidFilenameWindowsReservedChar
+	}
+	if idx := strings.IndexAny(name, fatDisallowedCharacters); idx != -1 && errMsg != nil {
+		return fmt.Errorf("%w: %q", errMsg, name[idx:idx+1])
 	}
 
-	// None of the path components should end in space or period, or be a
-	// reserved name.
-	for len(name) > 0 {
-		part, rest, _ := strings.Cut(name, `\`)
-		name = rest
+	if build.IsWindows {
+		// None of the path components should end in space or period, or be a
+		// reserved name.
+		for len(name) > 0 {
+			part, rest, _ := strings.Cut(name, `\`)
+			name = rest
 
-		if part == "" {
-			continue
-		}
-		switch part[len(part)-1] {
-		case ' ', '.':
-			// Names ending in space or period are not valid.
-			return errInvalidFilenameWindowsSpacePeriod
-		}
-		if reserved := windowsReservedNamePart(part); reserved != "" {
-			return fmt.Errorf("%w: %q", errInvalidFilenameWindowsReservedName, reserved)
+			if part == "" {
+				continue
+			}
+			switch part[len(part)-1] {
+			case ' ', '.':
+				// Names ending in space or period are not valid.
+				return errInvalidFilenameWindowsSpacePeriod
+			}
+			if reserved := windowsReservedNamePart(part); reserved != "" {
+				return fmt.Errorf("%w: %q", errInvalidFilenameWindowsReservedName, reserved)
+			}
 		}
 	}
 
@@ -102,7 +114,7 @@ func WindowsInvalidFilename(name string) error {
 func SanitizePath(path string) string {
 	var b strings.Builder
 
-	const disallowed = `'/\[]{};:!@$%&^#` + windowsDisallowedCharacters
+	const disallowed = `'[]{};!@$%&^#` + fatDisallowedCharacters
 	prev := ' '
 	for _, c := range path {
 		if !unicode.IsPrint(c) || c == unicode.ReplacementChar ||
