@@ -611,8 +611,7 @@ func setupSignalHandling(app *syncthing.App) {
 	// Exit cleanly with "restarting" code on SIGHUP.
 
 	restartSign := make(chan os.Signal, 1)
-	sigHup := syscall.Signal(1)
-	signal.Notify(restartSign, sigHup)
+	signal.Notify(restartSign, syscall.SIGHUP)
 	go func() {
 		<-restartSign
 		app.Stop(svcutil.ExitRestart)
