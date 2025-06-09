@@ -481,8 +481,6 @@ func (s *indexHandler) logSequenceAnomaly(msg string, extra map[string]any) {
 }
 
 func prepareFileInfoForIndex(f protocol.FileInfo) protocol.FileInfo {
-	// Mark the file as invalid if any of the local bad stuff flags are set.
-	f.RawInvalid = f.IsInvalid()
 	// If the file is marked LocalReceive (i.e., changed locally on a
 	// receive only folder) we do not want it to ever become the
 	// globally best version, invalid or not.

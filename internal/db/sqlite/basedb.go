@@ -103,6 +103,7 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 		"FlagLocalReceiveOnly": protocol.FlagLocalReceiveOnly,
 		"FlagLocalGlobal":      protocol.FlagLocalGlobal,
 		"FlagLocalNeeded":      protocol.FlagLocalNeeded,
+		"LocalInvalidFlags":    protocol.LocalInvalidFlags,
 		"SyncthingVersion":     build.LongVersion,
 	}
 
