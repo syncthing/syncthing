@@ -129,12 +129,13 @@ func (t *quicListener) serve(ctx context.Context) error {
 	defer l.Infof("QUIC listener (%v) shutting down", udpConn.LocalAddr())
 
 	var ipVersion nat.IPVersion
-	if t.uri.Scheme == "quic4" {
-		ipVersion = nat.IPv4Only
-	} else if t.uri.Scheme == "quic6" {
-		ipVersion = nat.IPv6Only
-	} else {
-		ipVersion = nat.IPvAny
+	switch t.uri.Scheme {
+		case "quic4":
+			ipVersion = nat.IPv4Only
+		case "quic6":
+			ipVersion = nat.IPv6Only
+		default:
+			ipVersion = nat.IPvAny
 	}
 	mapping := t.natService.NewMapping(nat.UDP, ipVersion, udpAddr.IP, udpAddr.Port)
 	mapping.OnChanged(func() {
