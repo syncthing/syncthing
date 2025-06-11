@@ -185,7 +185,7 @@ func (f *BasicFilesystem) Lstat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return basicFileInfo{fi}, err
+	return basicFileInfo{fi, name}, err
 }
 
 func (f *BasicFilesystem) RemoveAll(name string) error {
@@ -217,7 +217,7 @@ func (f *BasicFilesystem) Stat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return basicFileInfo{fi}, err
+	return basicFileInfo{fi, name}, err
 }
 
 func (f *BasicFilesystem) DirNames(name string) ([]string, error) {
@@ -351,12 +351,13 @@ func (f basicFile) Stat() (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return basicFileInfo{info}, nil
+	return basicFileInfo{info, f.File.Name()}, nil
 }
 
 // basicFileInfo implements the fs.FileInfo interface on top of an os.FileInfo.
 type basicFileInfo struct {
 	os.FileInfo
+	rootedName string
 }
 
 func (e basicFileInfo) IsSymlink() bool {

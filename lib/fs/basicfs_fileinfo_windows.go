@@ -11,6 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 var execExts map[string]bool
@@ -58,7 +61,33 @@ func (e basicFileInfo) Group() int {
 	return -1
 }
 
-func (basicFileInfo) InodeChangeTime() time.Time {
+func (e basicFileInfo) InodeChangeTime() time.Time {
+	pathp, err := windows.UTF16PtrFromString(e.rootedName)
+	if err != nil {
+		return time.Time{}
+	}
+
+	attrs := uint32(windows.FILE_FLAG_BACKUP_SEMANTICS | windows.FILE_FLAG_OPEN_REPARSE_POINT)
+
+	h, err := windows.CreateFile(pathp, 0, 0, nil, windows.OPEN_EXISTING, attrs, 0)
+	if err != nil {
+		return time.Time{}
+	}
+	defer windows.CloseHandle(h) //nolint:errcheck // quiet linter
+
+	var bi FILE_BASIC_INFO
+	err = windows.GetFileInformationByHandleEx(h, windows.FileBasicInfo, (*byte)(unsafe.Pointer(&bi)), uint32(unsafe.Sizeof(bi)))
+	if err == nil {
+		// ChangedTime is 100-nanosecond intervals since January 1, 1601.
+		nsec := bi.ChangedTime
+		// Change starting time to the Unix epoch (00:00:00 UTC, January 1, 1970).
+		nsec -= 116444736000000000
+		// Convert into nanoseconds.
+		nsec *= 100
+
+		return time.Unix(0, nsec)
+	}
+
 	return time.Time{}
 }
 
@@ -70,4 +99,15 @@ func (e *basicFileInfo) osFileInfo() os.FileInfo {
 		return fi.FileInfo
 	}
 	return fi
+}
+
+// See https://github.com/golang/go/blob/dbaa2d3e/src/internal/syscall/windows/syscall_windows.go#L162
+type FILE_BASIC_INFO struct {
+	CreationTime   int64
+	LastAccessTime int64
+	LastWriteTime  int64
+	ChangedTime    int64
+	FileAttributes uint32
+	// Pad out to 8-byte alignment.
+	_ uint32
 }
