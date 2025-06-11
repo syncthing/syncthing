@@ -130,12 +130,12 @@ func (t *quicListener) serve(ctx context.Context) error {
 
 	var ipVersion nat.IPVersion
 	switch t.uri.Scheme {
-		case "quic4":
-			ipVersion = nat.IPv4Only
-		case "quic6":
-			ipVersion = nat.IPv6Only
-		default:
-			ipVersion = nat.IPvAny
+	case "quic4":
+		ipVersion = nat.IPv4Only
+	case "quic6":
+		ipVersion = nat.IPv6Only
+	default:
+		ipVersion = nat.IPvAny
 	}
 	mapping := t.natService.NewMapping(nat.UDP, ipVersion, udpAddr.IP, udpAddr.Port)
 	mapping.OnChanged(func() {
