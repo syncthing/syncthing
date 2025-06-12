@@ -22,7 +22,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const currentSchemaVersion = 1
+const currentSchemaVersion = 2
 
 //go:embed sql/**
 var embedded embed.FS
