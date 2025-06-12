@@ -8,7 +8,7 @@ package model
 
 import (
 	"reflect"
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -65,8 +65,8 @@ func Test_inOrderBlockPullReorderer_Reorder(t *testing.T) {
 func Test_standardBlockPullReorderer_Reorder(t *testing.T) {
 	// Order the devices, so we know their ordering ahead of time.
 	devices := []protocol.DeviceID{myID, device1, device2}
-	sort.Slice(devices, func(i, j int) bool {
-		return devices[i].Compare(devices[j]) == -1
+	slices.SortFunc(devices, func(a, b protocol.DeviceID) int {
+		return a.Compare(b)
 	})
 
 	blocks := func(i ...int) []protocol.BlockInfo {

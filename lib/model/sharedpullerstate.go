@@ -285,15 +285,6 @@ func (s *sharedPullerState) skippedSparseBlock(bytes int) {
 	metricFolderProcessedBytesTotal.WithLabelValues(s.folder, metricSourceSkipped).Add(float64(bytes))
 }
 
-func (s *sharedPullerState) copiedFromOriginShifted(bytes int) {
-	s.mut.Lock()
-	s.copyOrigin++
-	s.copyOriginShifted++
-	s.updated = time.Now()
-	s.mut.Unlock()
-	metricFolderProcessedBytesTotal.WithLabelValues(s.folder, metricSourceLocalShifted).Add(float64(bytes))
-}
-
 func (s *sharedPullerState) pullStarted() {
 	s.mut.Lock()
 	s.copyTotal--
@@ -393,7 +384,7 @@ func writeEncryptionTrailer(file protocol.FileInfo, writer io.WriterAt) (int64, 
 	if err != nil {
 		return 0, err
 	}
-	binary.BigEndian.PutUint32(bs[n:], uint32(n))
+	binary.BigEndian.PutUint32(bs[n:], uint32(n)) //nolint:gosec
 	bs = bs[:n+4]
 
 	if _, err := writer.WriteAt(bs, wireFile.Size); err != nil {

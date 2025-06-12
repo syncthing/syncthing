@@ -17,7 +17,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -31,7 +31,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 37
+	CurrentVersion       = 50
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -337,8 +337,8 @@ func (cfg *Configuration) prepareDeviceList() map[protocol.DeviceID]*DeviceConfi
 	// - sorted by ID
 	// Happen before preparting folders as that needs a correct device list.
 	cfg.Devices = ensureNoDuplicateOrEmptyIDDevices(cfg.Devices)
-	sort.Slice(cfg.Devices, func(a, b int) bool {
-		return cfg.Devices[a].DeviceID.Compare(cfg.Devices[b].DeviceID) == -1
+	slices.SortFunc(cfg.Devices, func(a, b DeviceConfiguration) int {
+		return a.DeviceID.Compare(b.DeviceID)
 	})
 
 	// Build a list of available devices
@@ -380,8 +380,8 @@ func (cfg *Configuration) prepareFolders(myID protocol.DeviceID, existingDevices
 		}
 	}
 	// Ensure that the folder list is sorted by ID
-	sort.Slice(cfg.Folders, func(a, b int) bool {
-		return cfg.Folders[a].ID < cfg.Folders[b].ID
+	slices.SortFunc(cfg.Folders, func(a, b FolderConfiguration) int {
+		return strings.Compare(a.ID, b.ID)
 	})
 	return sharedFolders, nil
 }

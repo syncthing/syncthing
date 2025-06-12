@@ -16,7 +16,8 @@ import (
 	"os"
 	"path/filepath"
 	rdebug "runtime/debug"
-	"sort"
+	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -145,7 +146,7 @@ func TestWalk(t *testing.T) {
 		}
 		tmp = append(tmp, f.File)
 	}
-	sort.Sort(fileList(tmp))
+	slices.SortFunc(fileList(tmp), compareByName)
 	files := fileList(tmp).testfiles()
 
 	if diff, equal := messagediff.PrettyDiff(testdata, files); !equal {
@@ -162,7 +163,7 @@ func TestVerify(t *testing.T) {
 	progress := newByteCounter()
 	defer progress.Close()
 
-	blocks, err := Blocks(context.TODO(), buf, blocksize, -1, progress, false)
+	blocks, err := Blocks(context.TODO(), buf, blocksize, -1, progress)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -584,23 +585,15 @@ func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler, matcher *ignore.
 			tmp = append(tmp, f.File)
 		}
 	}
-	sort.Sort(fileList(tmp))
+	slices.SortFunc(fileList(tmp), compareByName)
 
 	return tmp
 }
 
 type fileList []protocol.FileInfo
 
-func (l fileList) Len() int {
-	return len(l)
-}
-
-func (l fileList) Less(a, b int) bool {
-	return l[a].Name < l[b].Name
-}
-
-func (l fileList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
+func compareByName(a, b protocol.FileInfo) int {
+	return strings.Compare(a.Name, b.Name)
 }
 
 func (l fileList) testfiles() testfileList {
@@ -640,7 +633,7 @@ func BenchmarkHashFile(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := HashFile(context.TODO(), "", testFs, testdataName, protocol.MinBlockSize, nil, true); err != nil {
+		if _, err := HashFile(context.TODO(), "", testFs, testdataName, protocol.MinBlockSize, nil); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -825,7 +818,7 @@ func TestIssue4841(t *testing.T) {
 		}
 		files = append(files, f.File)
 	}
-	sort.Sort(fileList(files))
+	slices.SortFunc(fileList(files), compareByName)
 
 	if len(files) != 1 {
 		t.Fatalf("Expected 1 file, got %d: %v", len(files), files)

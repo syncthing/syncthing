@@ -39,7 +39,7 @@ func newExternal(cfg config.FolderConfiguration) Versioner {
 
 	s := external{
 		command:    command,
-		filesystem: cfg.Filesystem(nil),
+		filesystem: cfg.Filesystem(),
 	}
 
 	l.Debugf("instantiated %#v", s)

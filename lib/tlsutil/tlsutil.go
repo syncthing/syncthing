@@ -8,6 +8,7 @@ package tlsutil
 
 import (
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rsa"
 	"crypto/tls"
@@ -87,9 +88,28 @@ func SecureDefaultWithTLS12() *tls.Config {
 	}
 }
 
-// generateCertificate generates a PEM formatted key pair and self-signed certificate in memory.
-func generateCertificate(commonName string, lifetimeDays int) (*pem.Block, *pem.Block, error) {
-	priv, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+// generateCertificate generates a PEM formatted key pair and self-signed
+// certificate in memory. The compatible flag indicates whether we aim for
+// compatibility (browsers) or maximum efficiency/security (sync
+// connections).
+func generateCertificate(commonName string, lifetimeDays int, compatible bool) (*pem.Block, *pem.Block, error) {
+	var pub, priv any
+	var err error
+	var sigAlgo x509.SignatureAlgorithm
+	if compatible {
+		// For browser connections we prefer ECDSA-P256
+		sigAlgo = x509.ECDSAWithSHA256
+		var pk *ecdsa.PrivateKey
+		pk, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err == nil {
+			priv = pk
+			pub = pk.Public()
+		}
+	} else {
+		// For sync connections we use Ed25519
+		sigAlgo = x509.PureEd25519
+		pub, priv, err = ed25519.GenerateKey(rand.Reader)
+	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("generate key: %w", err)
 	}
@@ -110,13 +130,13 @@ func generateCertificate(commonName string, lifetimeDays int) (*pem.Block, *pem.
 		DNSNames:              []string{commonName},
 		NotBefore:             notBefore,
 		NotAfter:              notAfter,
-		SignatureAlgorithm:    x509.ECDSAWithSHA256,
+		SignatureAlgorithm:    sigAlgo,
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 	}
 
-	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, priv.Public(), priv)
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, pub, priv)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create cert: %w", err)
 	}
@@ -130,9 +150,12 @@ func generateCertificate(commonName string, lifetimeDays int) (*pem.Block, *pem.
 	return certBlock, keyBlock, nil
 }
 
-// NewCertificate generates and returns a new TLS certificate, saved to the given PEM files.
-func NewCertificate(certFile, keyFile string, commonName string, lifetimeDays int) (tls.Certificate, error) {
-	certBlock, keyBlock, err := generateCertificate(commonName, lifetimeDays)
+// NewCertificate generates and returns a new TLS certificate, saved to the
+// given PEM files. The compatible flag indicates whether we aim for
+// compatibility (browsers) or maximum efficiency/security (sync
+// connections).
+func NewCertificate(certFile, keyFile string, commonName string, lifetimeDays int, compatible bool) (tls.Certificate, error) {
+	certBlock, keyBlock, err := generateCertificate(commonName, lifetimeDays, compatible)
 	if err != nil {
 		return tls.Certificate{}, err
 	}
@@ -162,9 +185,10 @@ func NewCertificate(certFile, keyFile string, commonName string, lifetimeDays in
 	return tls.X509KeyPair(pem.EncodeToMemory(certBlock), pem.EncodeToMemory(keyBlock))
 }
 
-// NewCertificateInMemory generates and returns a new TLS certificate, kept only in memory.
+// NewCertificateInMemory generates and returns a new TLS certificate, kept
+// only in memory.
 func NewCertificateInMemory(commonName string, lifetimeDays int) (tls.Certificate, error) {
-	certBlock, keyBlock, err := generateCertificate(commonName, lifetimeDays)
+	certBlock, keyBlock, err := generateCertificate(commonName, lifetimeDays, false)
 	if err != nil {
 		return tls.Certificate{}, err
 	}
@@ -246,7 +270,13 @@ func pemBlockForKey(priv interface{}) (*pem.Block, error) {
 			return nil, err
 		}
 		return &pem.Block{Type: "EC PRIVATE KEY", Bytes: b}, nil
+	case ed25519.PrivateKey:
+		bs, err := x509.MarshalPKCS8PrivateKey(k)
+		if err != nil {
+			return nil, err
+		}
+		return &pem.Block{Type: "PRIVATE KEY", Bytes: bs}, nil
 	default:
-		return nil, errors.New("unknown key type")
+		return nil, fmt.Errorf("unknown key type: %T", priv)
 	}
 }

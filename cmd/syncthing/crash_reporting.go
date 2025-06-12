@@ -14,7 +14,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 )
@@ -37,7 +37,9 @@ func uploadPanicLogs(ctx context.Context, urlBase, dir string) {
 		return
 	}
 
-	sort.Sort(sort.Reverse(sort.StringSlice(files)))
+	slices.SortFunc(files, func(a, b string) int {
+		return strings.Compare(b, a)
+	})
 	for _, file := range files {
 		if strings.Contains(file, ".reported.") {
 			// We've already sent this file. It'll be cleaned out at some

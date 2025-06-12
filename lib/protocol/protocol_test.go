@@ -10,10 +10,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"io"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -35,14 +33,14 @@ func TestPing(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := getRawConnection(NewConnection(c0ID, ar, bw, testutil.NoopCloser{}, newTestModel(), new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
+	c0 := getRawConnection(NewConnection(c0ID, ar, bw, testutil.NoopCloser{}, newTestModel(), new(mockedConnectionInfo), CompressionAlways, testKeyGen))
 	c0.Start()
 	defer closeAndWait(c0, ar, bw)
-	c1 := getRawConnection(NewConnection(c1ID, br, aw, testutil.NoopCloser{}, newTestModel(), new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
+	c1 := getRawConnection(NewConnection(c1ID, br, aw, testutil.NoopCloser{}, newTestModel(), new(mockedConnectionInfo), CompressionAlways, testKeyGen))
 	c1.Start()
 	defer closeAndWait(c1, ar, bw)
-	c0.ClusterConfig(&ClusterConfig{})
-	c1.ClusterConfig(&ClusterConfig{})
+	c0.ClusterConfig(&ClusterConfig{}, nil)
+	c1.ClusterConfig(&ClusterConfig{}, nil)
 
 	if ok := c0.ping(); !ok {
 		t.Error("c0 ping failed")
@@ -61,14 +59,14 @@ func TestClose(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := getRawConnection(NewConnection(c0ID, ar, bw, testutil.NoopCloser{}, m0, new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
+	c0 := getRawConnection(NewConnection(c0ID, ar, bw, testutil.NoopCloser{}, m0, new(mockedConnectionInfo), CompressionAlways, testKeyGen))
 	c0.Start()
 	defer closeAndWait(c0, ar, bw)
-	c1 := NewConnection(c1ID, br, aw, testutil.NoopCloser{}, m1, new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen)
+	c1 := NewConnection(c1ID, br, aw, testutil.NoopCloser{}, m1, new(mockedConnectionInfo), CompressionAlways, testKeyGen)
 	c1.Start()
 	defer closeAndWait(c1, ar, bw)
-	c0.ClusterConfig(&ClusterConfig{})
-	c1.ClusterConfig(&ClusterConfig{})
+	c0.ClusterConfig(&ClusterConfig{}, nil)
+	c1.ClusterConfig(&ClusterConfig{}, nil)
 
 	c0.internalClose(errManual)
 
@@ -106,7 +104,7 @@ func TestCloseOnBlockingSend(t *testing.T) {
 	m := newTestModel()
 
 	rw := testutil.NewBlockingRW()
-	c := getRawConnection(NewConnection(c0ID, rw, rw, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
+	c := getRawConnection(NewConnection(c0ID, rw, rw, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, testKeyGen))
 	c.Start()
 	defer closeAndWait(c, rw)
 
@@ -114,7 +112,7 @@ func TestCloseOnBlockingSend(t *testing.T) {
 
 	wg.Add(1)
 	go func() {
-		c.ClusterConfig(&ClusterConfig{})
+		c.ClusterConfig(&ClusterConfig{}, nil)
 		wg.Done()
 	}()
 
@@ -157,14 +155,14 @@ func TestCloseRace(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	c0 := getRawConnection(NewConnection(c0ID, ar, bw, testutil.NoopCloser{}, m0, new(mockedConnectionInfo), CompressionNever, nil, testKeyGen))
+	c0 := getRawConnection(NewConnection(c0ID, ar, bw, testutil.NoopCloser{}, m0, new(mockedConnectionInfo), CompressionNever, testKeyGen))
 	c0.Start()
 	defer closeAndWait(c0, ar, bw)
-	c1 := NewConnection(c1ID, br, aw, testutil.NoopCloser{}, m1, new(mockedConnectionInfo), CompressionNever, nil, testKeyGen)
+	c1 := NewConnection(c1ID, br, aw, testutil.NoopCloser{}, m1, new(mockedConnectionInfo), CompressionNever, testKeyGen)
 	c1.Start()
 	defer closeAndWait(c1, ar, bw)
-	c0.ClusterConfig(&ClusterConfig{})
-	c1.ClusterConfig(&ClusterConfig{})
+	c0.ClusterConfig(&ClusterConfig{}, nil)
+	c1.ClusterConfig(&ClusterConfig{}, nil)
 
 	c1.Index(context.Background(), &Index{Folder: "default"})
 	select {
@@ -197,7 +195,7 @@ func TestClusterConfigFirst(t *testing.T) {
 	m := newTestModel()
 
 	rw := testutil.NewBlockingRW()
-	c := getRawConnection(NewConnection(c0ID, rw, &testutil.NoopRW{}, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
+	c := getRawConnection(NewConnection(c0ID, rw, &testutil.NoopRW{}, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, testKeyGen))
 	c.Start()
 	defer closeAndWait(c, rw)
 
@@ -208,7 +206,7 @@ func TestClusterConfigFirst(t *testing.T) {
 		// Allow some time for c.writerLoop to set up after c.Start
 	}
 
-	c.ClusterConfig(&ClusterConfig{})
+	c.ClusterConfig(&ClusterConfig{}, nil)
 
 	done := make(chan struct{})
 	if ok := c.send(context.Background(), &bep.Ping{}, done); !ok {
@@ -249,7 +247,7 @@ func TestCloseTimeout(t *testing.T) {
 	m := newTestModel()
 
 	rw := testutil.NewBlockingRW()
-	c := getRawConnection(NewConnection(c0ID, rw, rw, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
+	c := getRawConnection(NewConnection(c0ID, rw, rw, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, testKeyGen))
 	c.Start()
 	defer closeAndWait(c, rw)
 
@@ -278,28 +276,6 @@ func TestUnmarshalFDPUv16v17(t *testing.T) {
 	if err := proto.Unmarshal(m1, &fdpu); err != nil {
 		t.Fatal("Unmarshalling message from v0.14.16:", err)
 	}
-}
-
-func testMarshal(t *testing.T, prefix string, m1, m2 proto.Message) bool {
-	buf, err := proto.Marshal(m1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = proto.Unmarshal(buf, m2)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	bs1, _ := json.MarshalIndent(m1, "", "  ")
-	bs2, _ := json.MarshalIndent(m2, "", "  ")
-	if !bytes.Equal(bs1, bs2) {
-		os.WriteFile(prefix+"-1.txt", bs1, 0o644)
-		os.WriteFile(prefix+"-2.txt", bs2, 0o644)
-		return false
-	}
-
-	return true
 }
 
 func TestWriteCompressed(t *testing.T) {
@@ -531,7 +507,7 @@ func TestClusterConfigAfterClose(t *testing.T) {
 	m := newTestModel()
 
 	rw := testutil.NewBlockingRW()
-	c := getRawConnection(NewConnection(c0ID, rw, rw, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
+	c := getRawConnection(NewConnection(c0ID, rw, rw, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, testKeyGen))
 	c.Start()
 	defer closeAndWait(c, rw)
 
@@ -539,7 +515,7 @@ func TestClusterConfigAfterClose(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		c.ClusterConfig(&ClusterConfig{})
+		c.ClusterConfig(&ClusterConfig{}, nil)
 		close(done)
 	}()
 
@@ -555,7 +531,7 @@ func TestDispatcherToCloseDeadlock(t *testing.T) {
 	// the model callbacks (ClusterConfig).
 	m := newTestModel()
 	rw := testutil.NewBlockingRW()
-	c := getRawConnection(NewConnection(c0ID, rw, &testutil.NoopRW{}, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, nil, testKeyGen))
+	c := getRawConnection(NewConnection(c0ID, rw, &testutil.NoopRW{}, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, testKeyGen))
 	m.ccFn = func(*ClusterConfig) {
 		c.Close(errManual)
 	}

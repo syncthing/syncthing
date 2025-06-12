@@ -8,6 +8,7 @@ package api
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -24,7 +25,7 @@ import (
 	"reflect"
 	"runtime"
 	"runtime/pprof"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -40,10 +41,10 @@ import (
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -91,7 +92,7 @@ type service struct {
 	startupErr           error
 	listenerAddr         net.Addr
 	exitChan             chan *svcutil.FatalErr
-	miscDB               *db.NamespacedKV
+	miscDB               *db.Typed
 	shutdownTimeout      time.Duration
 
 	guiErrors logger.Recorder
@@ -106,7 +107,7 @@ type Service interface {
 	WaitForStart() error
 }
 
-func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, noUpgrade bool, miscDB *db.NamespacedKV) Service {
+func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, noUpgrade bool, miscDB *db.Typed) Service {
 	return &service{
 		id:      id,
 		cfg:     cfg,
@@ -165,7 +166,7 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 			name = s.tlsDefaultCommonName
 		}
 
-		cert, err = tlsutil.NewCertificate(httpsCertFile, httpsKeyFile, name, httpsCertLifetimeDays)
+		cert, err = tlsutil.NewCertificate(httpsCertFile, httpsKeyFile, name, httpsCertLifetimeDays, true)
 	}
 	if err != nil {
 		return nil, err
@@ -750,7 +751,7 @@ func (*service) getSystemVersion(w http.ResponseWriter, _ *http.Request) {
 func (*service) getSystemDebug(w http.ResponseWriter, _ *http.Request) {
 	names := l.Facilities()
 	enabled := l.FacilityDebugging()
-	sort.Strings(enabled)
+	slices.Sort(enabled)
 	sendJSON(w, map[string]interface{}{
 		"facilities": names,
 		"enabled":    enabled,
@@ -984,16 +985,11 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	mtimeMapping, mtimeErr := s.model.GetMtimeMapping(folder, file)
 
 	sendJSON(w, map[string]interface{}{
 		"global":       jsonFileInfo(gf),
 		"local":        jsonFileInfo(lf),
 		"availability": av,
-		"mtime": map[string]interface{}{
-			"err":   mtimeErr,
-			"value": mtimeMapping,
-		},
 	})
 }
 
@@ -1002,28 +998,14 @@ func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
 	folder := qs.Get("folder")
 	file := qs.Get("file")
 
-	snap, err := s.model.DBSnapshot(folder)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-
-	mtimeMapping, mtimeErr := s.model.GetMtimeMapping(folder, file)
-
-	lf, _ := snap.Get(protocol.LocalDeviceID, file)
-	gf, _ := snap.GetGlobal(file)
-	av := snap.Availability(file)
-	vl := snap.DebugGlobalVersions(file)
+	lf, _, _ := s.model.CurrentFolderFile(folder, file)
+	gf, _, _ := s.model.CurrentGlobalFile(folder, file)
+	av, _ := s.model.Availability(folder, protocol.FileInfo{Name: file}, protocol.BlockInfo{})
 
 	sendJSON(w, map[string]interface{}{
-		"global":         jsonFileInfo(gf),
-		"local":          jsonFileInfo(lf),
-		"availability":   av,
-		"globalVersions": vl.String(),
-		"mtime": map[string]interface{}{
-			"err":   mtimeErr,
-			"value": mtimeMapping,
-		},
+		"global":       jsonFileInfo(gf),
+		"local":        jsonFileInfo(lf),
+		"availability": av,
 	})
 }
 
@@ -1535,8 +1517,8 @@ func (*service) getLang(w http.ResponseWriter, r *http.Request) {
 		langs = append(langs, code)
 	}
 	// Reorder by descending q value
-	sort.SliceStable(langs, func(i, j int) bool {
-		return weights[langs[i]] > weights[langs[j]]
+	slices.SortStableFunc(langs, func(i, j string) int {
+		return cmp.Compare(weights[j], weights[i])
 	})
 	sendJSON(w, langs)
 }
@@ -1822,8 +1804,8 @@ func browseFiles(ffs fs.Filesystem, search string) []string {
 	}
 
 	// sort to return matches in deterministic order (don't depend on file system order)
-	sort.Strings(exactMatches)
-	sort.Strings(caseInsMatches)
+	slices.Sort(exactMatches)
+	slices.Sort(caseInsMatches)
 	return append(exactMatches, caseInsMatches...)
 }
 
@@ -1920,7 +1902,7 @@ func dirNames(dir string) []string {
 		}
 	}
 
-	sort.Strings(dirs)
+	slices.Sort(dirs)
 	return dirs
 }
 

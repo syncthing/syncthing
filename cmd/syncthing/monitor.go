@@ -43,7 +43,7 @@ const (
 	panicUploadNoticeWait = 10 * time.Second
 )
 
-func monitorMain(options serveOptions) {
+func (c *serveCmd) monitorMain() {
 	l.SetPrefix("[monitor] ")
 
 	var dst io.Writer = os.Stdout
@@ -58,8 +58,8 @@ func monitorMain(options serveOptions) {
 		open := func(name string) (io.WriteCloser, error) {
 			return newAutoclosedFile(name, logFileAutoCloseDelay, logFileMaxOpenTime)
 		}
-		if options.LogMaxSize > 0 {
-			fileDst, err = newRotatedFile(logFile, open, int64(options.LogMaxSize), options.LogMaxFiles)
+		if c.LogMaxSize > 0 {
+			fileDst, err = newRotatedFile(logFile, open, int64(c.LogMaxSize), c.LogMaxFiles)
 		} else {
 			fileDst, err = open(logFile)
 		}
@@ -178,7 +178,7 @@ func monitorMain(options serveOptions) {
 
 		if exiterr, ok := err.(*exec.ExitError); ok {
 			exitCode := exiterr.ExitCode()
-			if stopped || options.NoRestart {
+			if stopped || c.NoRestart {
 				os.Exit(exitCode)
 			}
 			if exitCode == svcutil.ExitUpgrade.AsInt() {
@@ -192,7 +192,7 @@ func monitorMain(options serveOptions) {
 			}
 		}
 
-		if options.NoRestart {
+		if c.NoRestart {
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 
@@ -238,19 +238,18 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 			return
 		}
 
-		if panicFd == nil {
-			dst.Write([]byte(line))
+		dst.Write([]byte(line))
 
-			if strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") {
-				panicFd, err = os.Create(locations.GetTimestamped(locations.PanicLog))
-				if err != nil {
-					l.Warnln("Create panic log:", err)
-					continue
-				}
+		if panicFd == nil && (strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:")) {
+			panicFd, err = os.Create(locations.GetTimestamped(locations.PanicLog))
+			if err != nil {
+				l.Warnln("Create panic log:", err)
+				continue
+			}
 
-				l.Warnf("Panic detected, writing to \"%s\"", panicFd.Name())
-				if strings.Contains(line, "leveldb") && strings.Contains(line, "corrupt") {
-					l.Warnln(`
+			l.Warnf("Panic detected, writing to \"%s\"", panicFd.Name())
+			if strings.Contains(line, "leveldb") && strings.Contains(line, "corrupt") {
+				l.Warnln(`
 *********************************************************************************
 * Crash due to corrupt database.                                                *
 *                                                                               *
@@ -263,21 +262,20 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 *   https://docs.syncthing.net/users/faq.html#my-syncthing-database-is-corrupt  *
 *********************************************************************************
 `)
-				} else {
-					l.Warnln("Please check for existing issues with similar panic message at https://github.com/syncthing/syncthing/issues/")
-					l.Warnln("If no issue with similar panic message exists, please create a new issue with the panic log attached")
-				}
-
-				stdoutMut.Lock()
-				for _, line := range stdoutFirstLines {
-					panicFd.WriteString(line)
-				}
-				panicFd.WriteString("...\n")
-				for _, line := range stdoutLastLines {
-					panicFd.WriteString(line)
-				}
-				stdoutMut.Unlock()
+			} else {
+				l.Warnln("Please check for existing issues with similar panic message at https://github.com/syncthing/syncthing/issues/")
+				l.Warnln("If no issue with similar panic message exists, please create a new issue with the panic log attached")
 			}
+
+			stdoutMut.Lock()
+			for _, line := range stdoutFirstLines {
+				panicFd.WriteString(line)
+			}
+			panicFd.WriteString("...\n")
+			for _, line := range stdoutLastLines {
+				panicFd.WriteString(line)
+			}
+			stdoutMut.Unlock()
 
 			panicFd.WriteString("Panic at " + time.Now().Format(time.RFC3339) + "\n")
 		}

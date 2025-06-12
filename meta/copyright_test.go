@@ -19,11 +19,12 @@ import (
 
 // File extensions to check
 var copyrightCheckExts = map[string]bool{
-	".go": true,
+	".go":  true,
+	".sql": true,
 }
 
 // Directories to search
-var copyrightCheckDirs = []string{".", "../cmd", "../lib", "../test", "../script"}
+var copyrightCheckDirs = []string{".", "../cmd", "../internal", "../lib", "../test", "../script"}
 
 // Valid copyright headers, searched for in the top five lines in each file.
 var copyrightRegexps = []string{
