@@ -215,24 +215,9 @@ func (t *quicListener) WANAddresses() []*url.URL {
 	if t.address != nil {
 		uris = append(uris, t.address)
 	}
-	if t.mapping != nil {
-		addrs := t.mapping.ExternalAddresses()
-		for _, addr := range addrs {
-			uri := *t.uri
-			// Does net.JoinHostPort internally
-			uri.Host = addr.String()
-			uris = append(uris, &uri)
 
-			// For every address with a specified IP, add one without an IP,
-			// just in case the specified IP is still internal (router behind DMZ).
-			if len(addr.IP) != 0 && !addr.IP.IsUnspecified() {
-				zeroUri := *t.uri
-				addr.IP = nil
-				zeroUri.Host = addr.String()
-				uris = append(uris, &zeroUri)
-			}
-		}
-	}
+	uris = append(uris, portMappingURIs(t.mapping, *t.uri)...)
+
 	t.mut.Unlock()
 	return uris
 }
