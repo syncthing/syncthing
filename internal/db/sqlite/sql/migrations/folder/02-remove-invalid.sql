@@ -8,5 +8,6 @@
 UPDATE files SET local_flags = local_flags | {{.FlagLocalRemoteInvalid}} WHERE invalid
 ;
 
+-- The invalid column goes away.
 ALTER TABLE files DROP COLUMN invalid
 ;
