@@ -61,8 +61,8 @@ func (e basicFileInfo) Group() int {
 	return -1
 }
 
-func (e basicFileInfo) InodeChangeTime() time.Time {
-	pathp, err := windows.UTF16PtrFromString(e.rootedName)
+func inodeChangeTime(_ os.FileInfo, name string) time.Time {
+	pathp, err := windows.UTF16PtrFromString(name)
 	if err != nil {
 		return time.Time{}
 	}

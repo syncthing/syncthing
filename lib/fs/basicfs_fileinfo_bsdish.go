@@ -10,11 +10,12 @@
 package fs
 
 import (
+	"os"
 	"syscall"
 	"time"
 )
 
-func (fi basicFileInfo) InodeChangeTime() time.Time {
+func inodeChangeTime(fi os.FileInfo, _ string) time.Time {
 	if sys, ok := fi.Sys().(*syscall.Stat_t); ok {
 		return time.Unix(0, sys.Ctimespec.Nano())
 	}

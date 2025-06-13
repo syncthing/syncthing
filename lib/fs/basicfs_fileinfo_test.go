@@ -16,142 +16,123 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 )
 
+const maxDifference = time.Duration(100) * time.Millisecond
+
+// See https://github.com/syncthing/syncthing/pull/10172#discussion_r2143661512
 func TestFileInfo(t *testing.T) {
+	t.Parallel()
+
 	fs, dir := setup(t)
-	path := filepath.Join(dir, "file")
+	basename := "fileinfo.txt"
+	path := filepath.Join(dir, basename)
 
-	fd, err := fs.Create("file")
-	if err != nil {
-		t.Error(err)
-	}
-	defer fd.Close()
-
-	ofi, err := os.Stat(path)
-	if err != nil {
-		t.Error(err)
+	// Sleep until the next 0.1s mark, to attempt to create the file with
+	// fractional seconds.
+	const target = 100_000_000 // 0.1s in ns
+	remainder := time.Now().Nanosecond() % target
+	if remainder != 0 {
+		time.Sleep(time.Duration(target - remainder))
 	}
 
-	bfi, err := fd.Stat()
-	if err != nil {
-		t.Error(err)
-	}
-
-	sfi, err := fs.Stat(fd.Name())
+	err := WriteFile(fs, basename, []byte("some text"), 0o644)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if bfi.Name() != ofi.Name() {
-		t.Errorf("Name(): got %v, want %v", bfi.Name(), ofi.Name())
+	// collect baseline timestamps via Lstat and InodeChangeTime
+	osfi, err := os.Lstat(path)
+	if err != nil {
+		t.Error(err)
 	}
-	if bfi.Name() != sfi.Name() {
-		t.Errorf("Name(): got %v, want %v", bfi.Name(), sfi.Name())
+
+	// stat and compare -- modtime should have changed from the baseline, inode change time should not
+	fi, err := fs.Lstat(basename)
+	if err != nil {
+		t.Error(err)
 	}
-	if bfi.Size() != ofi.Size() {
-		t.Errorf("Size(): got %v, want %v", bfi.Size(), ofi.Size())
+
+	if fi.Name() != osfi.Name() {
+		t.Errorf("Name(): got %v, want %v", fi.Name(), osfi.Name())
 	}
-	if bfi.Size() != sfi.Size() {
-		t.Errorf("Size(): got %v, want %v", bfi.Size(), sfi.Size())
+	if fi.Size() != osfi.Size() {
+		t.Errorf("Size(): got %v, want %v", fi.Size(), osfi.Size())
 	}
-	if bfi.ModTime() != ofi.ModTime() {
-		t.Errorf("ModTime(): got %v, want %v", bfi.ModTime(), ofi.ModTime())
+	if fi.ModTime() != osfi.ModTime() {
+		t.Errorf("ModTime(): got %v, want %v", fi.ModTime(), osfi.ModTime())
 	}
-	if bfi.ModTime() != sfi.ModTime() {
-		t.Errorf("ModTime(): got %v, want %v", bfi.ModTime(), sfi.ModTime())
-	}
-	omode := uint32(ofi.Mode())
-	bmode := uint32(bfi.Mode())
-	smode := uint32(sfi.Mode())
+	mode := uint32(fi.Mode())
+	osmode := uint32(osfi.Mode())
 	if build.IsWindows {
-		omode &^= uint32(0o022)
+		osmode &^= uint32(0o022)
 	}
-	if omode != bmode {
-		t.Errorf("Mode(): got 0o%o, want 0o%o", omode, bmode)
+	if mode != osmode {
+		t.Errorf("Mode(): got 0o%o, want 0o%o", mode, osmode)
 	}
-	if omode != smode {
-		t.Errorf("Mode(): got 0o%o, want 0o%o", omode, smode)
-	}
-	if bmode != smode {
-		t.Errorf("Mode(): got 0o%o, want 0o%o", bmode, smode)
-	}
-
-	if bfi.InodeChangeTime() != sfi.InodeChangeTime() {
-		t.Errorf("InodeChangeTime(): got %v, want %v", bfi.InodeChangeTime(), sfi.InodeChangeTime())
-	}
-
-	if bfi.InodeChangeTime().IsZero() {
-		t.Log("InodeChangeTime() is 0 on" + runtime.GOOS)
-		return
-	}
-	if sfi.InodeChangeTime().IsZero() {
+	if fi.InodeChangeTime().IsZero() {
 		t.Log("InodeChangeTime() is 0 on" + runtime.GOOS)
 		return
 	}
 
-	if !withinASecond(bfi.InodeChangeTime(), bfi.ModTime()) {
-		t.Errorf("InodeChangeTime(): %v != %v", bfi.InodeChangeTime(), bfi.ModTime())
-	}
-	if !withinASecond(sfi.InodeChangeTime(), sfi.ModTime()) {
-		t.Errorf("InodeChangeTime(): %v != %v", sfi.InodeChangeTime(), sfi.ModTime())
+	diff := fi.InodeChangeTime().Sub(fi.ModTime())
+	if diff.Abs() > maxDifference {
+		t.Errorf("InodeChangeTime(): diff > %v: %v, %v", maxDifference, fi.InodeChangeTime(), fi.ModTime())
 	}
 
-	time.Sleep(time.Duration(2) * time.Second)
+	if fi.ModTime().Nanosecond() == 0 {
+		// if the timestamps returned are second precision only (no nanoseconds part),
+		// skip the rest of the test as we're running on a bad fs...
+		return
+	}
 
-	err = appendToFile(path, "some text")
+	time.Sleep(maxDifference * 2)
+
+	err = appendToFile(path, "more text")
 	if err != nil {
 		t.Error(err)
 	}
 
-	bfi, err = fd.Stat()
+	fi2, err := fs.Lstat(basename)
 	if err != nil {
 		t.Error(err)
 	}
 
-	sfi, err = fs.Stat(fd.Name())
+	// stat and compare -- modtime should have changed from the baseline, inode change time should not
+	diff = fi2.ModTime().Sub(fi.ModTime())
+	if diff < maxDifference {
+		t.Errorf("ModTime(): diff = %v: %v %v", diff, fi2.ModTime(), fi.ModTime())
+	}
+
+	diff = fi2.InodeChangeTime().Sub(fi.InodeChangeTime())
+	if diff != 0 {
+		if build.IsWindows || build.IsAndroid {
+			// On windows (and Android?), the changeTime is updated when a file is appended to.
+			t.Logf("InodeChangeTime(): diff = %v: %v %v", diff, fi2.InodeChangeTime(), fi.InodeChangeTime())
+		} else {
+			t.Errorf("InodeChangeTime(): diff = %v: %v %v", diff, fi2.InodeChangeTime(), fi.InodeChangeTime())
+		}
+	}
+
+	// chmod the file, once is enough
+	err = os.Chmod(path, 0o400)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if !withinASecond(bfi.InodeChangeTime(), bfi.ModTime()) {
-		t.Errorf("InodeChangeTime(): %v != %v", bfi.InodeChangeTime(), bfi.ModTime())
-	}
-	if !withinASecond(sfi.InodeChangeTime(), sfi.ModTime()) {
-		t.Errorf("InodeChangeTime(): %v != %v", sfi.InodeChangeTime(), sfi.ModTime())
-	}
-
-	time.Sleep(time.Duration(2) * time.Second)
-
-	err = os.Chmod(path, 0o444)
-	if err != nil {
-		t.Error(err)
-	}
-	err = os.Chmod(path, 0o666)
+	// stat and compare -- modtime should not have changed since last time, inode change time should have changed
+	fi3, err := fs.Lstat(basename)
 	if err != nil {
 		t.Error(err)
 	}
 
-	bfi, err = fd.Stat()
-	if err != nil {
-		t.Error(err)
+	diff = fi3.ModTime().Sub(fi2.ModTime())
+	if diff != 0 {
+		t.Errorf("ModTime(): diff = %v: %v %v", diff, fi3.ModTime(), fi2.ModTime())
 	}
 
-	sfi, err = fs.Stat(fd.Name())
-	if err != nil {
-		t.Error(err)
+	diff = fi3.InodeChangeTime().Sub(fi2.InodeChangeTime())
+	if diff == 0 {
+		t.Errorf("InodeChangeTime(): diff = %v: %v %v", diff, fi3.InodeChangeTime(), fi2.InodeChangeTime())
 	}
-
-	diff := bfi.InodeChangeTime().Sub(bfi.ModTime()).Seconds()
-	if diff < 1 {
-		t.Errorf("InodeChangeTime(): %v - %v = %v", bfi.InodeChangeTime(), bfi.ModTime(), diff)
-	}
-	diff = sfi.InodeChangeTime().Sub(sfi.ModTime()).Seconds()
-	if diff < 1 {
-		t.Errorf("InodeChangeTime(): %v - %v = %v", sfi.InodeChangeTime(), sfi.ModTime(), diff)
-	}
-}
-
-func withinASecond(a, b time.Time) bool {
-	return a.Sub(b).Abs() < 1*time.Second
 }
 
 func appendToFile(path, data string) error {
