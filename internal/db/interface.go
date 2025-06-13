@@ -100,7 +100,7 @@ type FileMetadata struct {
 	Sequence   int64
 	ModNanos   int64
 	Size       int64
-	LocalFlags int64
+	LocalFlags protocol.FlagLocal
 	Type       protocol.FileInfoType
 	Deleted    bool
 	Invalid    bool

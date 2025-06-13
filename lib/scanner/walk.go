@@ -54,7 +54,7 @@ type Config struct {
 	// events are emitted. Negative number means disabled.
 	ProgressTickIntervalS int
 	// Local flags to set on scanned files
-	LocalFlags uint32
+	LocalFlags protocol.FlagLocal
 	// Modification time is to be considered unchanged if the difference is lower.
 	ModTimeWindow time.Duration
 	// Event logger to which the scan progress events are sent

@@ -44,7 +44,7 @@ type folder struct {
 	*stats.FolderStatisticsReference
 	ioLimiter *semaphore.Semaphore
 
-	localFlags uint32
+	localFlags protocol.FlagLocal
 
 	model         *model
 	shortID       protocol.ShortID
