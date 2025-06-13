@@ -8,4 +8,5 @@
 UPDATE files SET local_flags = local_flags | {{.FlagLocalRemoteInvalid}} WHERE invalid
 ;
 
-ALTER TABLE files DROP COLUMN invalid;
+ALTER TABLE files DROP COLUMN invalid
+;
