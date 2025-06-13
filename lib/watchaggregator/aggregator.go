@@ -440,7 +440,7 @@ func (a *aggregator) updateConfig(folderCfg config.FolderConfiguration) {
 	if maxDelay := folderCfg.FSWatcherTimeoutS; maxDelay > 0 {
 		// FSWatcherTimeoutS is set explicitly so use that, but it also
 		// can't be lower than FSWatcherDelayS
-		a.notifyTimeout = time.Duration(max(maxDelay, folderCfg.FSWatcherDelayS)) * time.Second
+		a.notifyTimeout = time.Duration(max(maxDelay, folderCfg.FSWatcherDelayS) * float64(time.Second))
 	} else {
 		// Use the default FSWatcherTimeoutS calculation
 		a.notifyTimeout = notifyTimeout(folderCfg.FSWatcherDelayS)
@@ -471,10 +471,10 @@ func notifyTimeout(eventDelayS float64) time.Duration {
 		longDelayTimeout        = time.Minute
 	)
 	if eventDelayS < shortDelayS {
-		return time.Duration(eventDelayS*shortDelayMultiplicator) * time.Second
+		return time.Duration(eventDelayS*shortDelayMultiplicator * float64(time.Second))
 	}
 	if eventDelayS < longDelayS {
 		return longDelayTimeout
 	}
-	return time.Duration(eventDelayS) * time.Second
+	return time.Duration(eventDelayS * float64(time.Second))
 }
