@@ -4,4 +4,8 @@
 -- License, v. 2.0. If a copy of the MPL was not distributed with this file,
 -- You can obtain one at https://mozilla.org/MPL/2.0/.
 
--- The next migration should be number two.
+-- Files with the invalid bit instead gain the RemoteInvalid local flag.
+UPDATE files SET local_flags = local_flags | {{.FlagLocalRemoteInvalid}} WHERE invalid
+;
+
+ALTER TABLE files DROP COLUMN invalid;
