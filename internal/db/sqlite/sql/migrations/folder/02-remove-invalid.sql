@@ -5,7 +5,9 @@
 -- You can obtain one at https://mozilla.org/MPL/2.0/.
 
 -- Files with the invalid bit instead gain the RemoteInvalid local flag.
-UPDATE files SET local_flags = local_flags | {{.FlagLocalRemoteInvalid}} WHERE invalid
+UPDATE files
+    SET local_flags = local_flags | {{.FlagLocalRemoteInvalid}}
+    WHERE invalid AND device_idx != {{.LocalDeviceIdx}}
 ;
 
 -- The invalid column goes away.
