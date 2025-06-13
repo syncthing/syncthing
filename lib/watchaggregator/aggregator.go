@@ -471,7 +471,7 @@ func notifyTimeout(eventDelayS float64) time.Duration {
 		longDelayTimeout        = time.Minute
 	)
 	if eventDelayS < shortDelayS {
-		return time.Duration(eventDelayS*shortDelayMultiplicator * float64(time.Second))
+		return time.Duration(eventDelayS * shortDelayMultiplicator * float64(time.Second))
 	}
 	if eventDelayS < longDelayS {
 		return longDelayTimeout
