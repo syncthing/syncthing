@@ -152,11 +152,8 @@ func (s *baseDB) stmt(tpl string) stmt {
 		return stmt
 	}
 
-	// Apply template expansions
-	tpl = s.expandTemplateVars(tpl)
-
 	// Prepare and cache
-	stmt, err := s.sql.Preparex(tpl)
+	stmt, err := s.sql.Preparex(s.expandTemplateVars(tpl))
 	if err != nil {
 		return failedStmt{err}
 	}
@@ -164,8 +161,9 @@ func (s *baseDB) stmt(tpl string) stmt {
 	return stmt
 }
 
+// expandTemplateVars just applies template expansions to the template
+// string, or dies trying
 func (s *baseDB) expandTemplateVars(tpl string) string {
-	// Apply template expansions
 	var sb strings.Builder
 	compTpl := template.Must(template.New("tpl").Funcs(tplFuncs).Parse(tpl))
 	if err := compTpl.Execute(&sb, s.tplInput); err != nil {
