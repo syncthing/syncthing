@@ -62,6 +62,17 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 		baseName:   filepath.Base(path),
 		sql:        sqlDB,
 		statements: make(map[string]*sqlx.Stmt),
+		tplInput: map[string]any{
+			"FlagLocalUnsupported":   protocol.FlagLocalUnsupported,
+			"FlagLocalIgnored":       protocol.FlagLocalIgnored,
+			"FlagLocalMustRescan":    protocol.FlagLocalMustRescan,
+			"FlagLocalReceiveOnly":   protocol.FlagLocalReceiveOnly,
+			"FlagLocalGlobal":        protocol.FlagLocalGlobal,
+			"FlagLocalNeeded":        protocol.FlagLocalNeeded,
+			"FlagLocalRemoteInvalid": protocol.FlagLocalRemoteInvalid,
+			"LocalInvalidFlags":      protocol.LocalInvalidFlags,
+			"SyncthingVersion":       build.LongVersion,
+		},
 	}
 
 	for _, script := range schemaScripts {
@@ -94,17 +105,6 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 	// Set the current schema version, if not already set
 	if err := db.setAppliedSchemaVersion(currentSchemaVersion); err != nil {
 		return nil, wrap(err)
-	}
-
-	db.tplInput = map[string]any{
-		"FlagLocalUnsupported": protocol.FlagLocalUnsupported,
-		"FlagLocalIgnored":     protocol.FlagLocalIgnored,
-		"FlagLocalMustRescan":  protocol.FlagLocalMustRescan,
-		"FlagLocalReceiveOnly": protocol.FlagLocalReceiveOnly,
-		"FlagLocalGlobal":      protocol.FlagLocalGlobal,
-		"FlagLocalNeeded":      protocol.FlagLocalNeeded,
-		"LocalInvalidFlags":    protocol.LocalInvalidFlags,
-		"SyncthingVersion":     build.LongVersion,
 	}
 
 	return db, nil
@@ -153,19 +153,25 @@ func (s *baseDB) stmt(tpl string) stmt {
 	}
 
 	// Apply template expansions
-	var sb strings.Builder
-	compTpl := template.Must(template.New("tpl").Funcs(tplFuncs).Parse(tpl))
-	if err := compTpl.Execute(&sb, s.tplInput); err != nil {
-		panic("bug: bad template: " + err.Error())
-	}
+	tpl = s.expandTemplateVars(tpl)
 
 	// Prepare and cache
-	stmt, err := s.sql.Preparex(sb.String())
+	stmt, err := s.sql.Preparex(tpl)
 	if err != nil {
 		return failedStmt{err}
 	}
 	s.statements[tpl] = stmt
 	return stmt
+}
+
+func (s *baseDB) expandTemplateVars(tpl string) string {
+	// Apply template expansions
+	var sb strings.Builder
+	compTpl := template.Must(template.New("tpl").Funcs(tplFuncs).Parse(tpl))
+	if err := compTpl.Execute(&sb, s.tplInput); err != nil {
+		panic("bug: bad template: " + err.Error())
+	}
+	return sb.String()
 }
 
 type stmt interface {
@@ -212,7 +218,7 @@ nextScript:
 		// separately. We require it on a separate line because there are
 		// also statement-internal semicolons in the triggers.
 		for _, stmt := range strings.Split(string(bs), "\n;") {
-			if _, err := tx.Exec(stmt); err != nil {
+			if _, err := tx.Exec(s.expandTemplateVars(stmt)); err != nil {
 				return wrap(err, stmt)
 			}
 		}

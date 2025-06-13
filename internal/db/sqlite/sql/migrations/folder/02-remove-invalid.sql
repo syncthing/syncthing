@@ -8,7 +8,11 @@
 -- flag.
 UPDATE files
     SET local_flags = local_flags | {{.FlagLocalRemoteInvalid}}
-    WHERE invalid AND device_idx != {{.LocalDeviceIdx}}
+    FROM (
+        SELECT idx FROM devices
+        WHERE device_id = '7777777-777777N-7777777-777777N-7777777-777777N-7777777-77777Q4'
+    ) AS local_device
+    WHERE invalid AND device_idx != local_device.idx
 ;
 
 -- The invalid column goes away.
