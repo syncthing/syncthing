@@ -77,18 +77,18 @@ func inodeChangeTime(_ os.FileInfo, name string) time.Time {
 
 	var bi FILE_BASIC_INFO
 	err = windows.GetFileInformationByHandleEx(h, windows.FileBasicInfo, (*byte)(unsafe.Pointer(&bi)), uint32(unsafe.Sizeof(bi)))
-	if err == nil {
-		// ChangedTime is 100-nanosecond intervals since January 1, 1601.
-		nsec := bi.ChangedTime
-		// Change starting time to the Unix epoch (00:00:00 UTC, January 1, 1970).
-		nsec -= 116444736000000000
-		// Convert into nanoseconds.
-		nsec *= 100
-
-		return time.Unix(0, nsec)
+	if err != nil {
+		return time.Time{}
 	}
 
-	return time.Time{}
+	// ChangedTime is 100-nanosecond intervals since January 1, 1601.
+	nsec := bi.ChangedTime
+	// Change starting time to the Unix epoch (00:00:00 UTC, January 1, 1970).
+	nsec -= 116444736000000000
+	// Convert into nanoseconds.
+	nsec *= 100
+
+	return time.Unix(0, nsec)
 }
 
 // osFileInfo converts e to os.FileInfo that is suitable
