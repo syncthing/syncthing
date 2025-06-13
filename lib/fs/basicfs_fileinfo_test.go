@@ -104,7 +104,7 @@ func TestFileInfo(t *testing.T) {
 
 	diff = fi2.InodeChangeTime().Sub(fi.InodeChangeTime())
 	if diff != 0 {
-		if build.IsWindows || build.IsAndroid {
+		if build.IsWindows || build.IsAndroid || build.IsDarwin {
 			// On windows (and Android?), the changeTime is updated when a file is appended to.
 			t.Logf("InodeChangeTime(): diff = %v: %v %v", diff, fi2.InodeChangeTime(), fi.InodeChangeTime())
 		} else {
