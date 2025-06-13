@@ -196,6 +196,42 @@ func TestIsEquivalent(t *testing.T) {
 			b:  FileInfo{Type: FileInfoTypeFile, SymlinkTarget: []byte("b")},
 			eq: true,
 		},
+		// Unix Ownership should be the same
+		{
+			a:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "A", GroupName: "A", UID: 1000, GID: 1000}}},
+			b:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "A", GroupName: "A", UID: 1000, GID: 1000}}},
+			eq: true,
+		},
+		// ... but matching ID is enough
+		{
+			a:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "A", GroupName: "A", UID: 1000, GID: 1000}}},
+			b:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "B", GroupName: "B", UID: 1000, GID: 1000}}},
+			eq: true,
+		},
+		// ... or matching name
+		{
+			a:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "A", GroupName: "A", UID: 1000, GID: 1000}}},
+			b:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "A", GroupName: "A", UID: 1001, GID: 1001}}},
+			eq: true,
+		},
+		// ... or empty name
+		{
+			a:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "A", GroupName: "A", UID: 1000, GID: 1000}}},
+			b:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "", GroupName: "", UID: 1000, GID: 1000}}},
+			eq: true,
+		},
+		// ... but not different ownership
+		{
+			a:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "A", GroupName: "A", UID: 1000, GID: 1000}}},
+			b:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "B", GroupName: "B", UID: 1001, GID: 1001}}},
+			eq: false,
+		},
+		// or missing ownership
+		{
+			a:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "A", GroupName: "A", UID: 1000, GID: 1000}}},
+			b:  FileInfo{Platform: PlatformData{}},
+			eq: false,
+		},
 	}
 
 	if build.IsWindows {
