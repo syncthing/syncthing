@@ -96,23 +96,23 @@ func TestFileInfo(t *testing.T) {
 		t.Error(err)
 	}
 
-	// stat and compare -- modtime should have changed from the baseline, inode change time should not
+	// stat and compare -- modtime should have changed from the baseline, inode change time should not (but often does)
 	diff = fi2.ModTime().Sub(fi.ModTime())
 	if diff < maxDifference {
 		t.Errorf("ModTime(): diff = %v: %v %v", diff, fi2.ModTime(), fi.ModTime())
 	}
 
 	diff = fi2.InodeChangeTime().Sub(fi.InodeChangeTime())
-	if diff != 0 {
-		if build.IsWindows || build.IsAndroid || build.IsDarwin {
-			// On windows (and Android?), the changeTime is updated when a file is appended to.
-			t.Logf("InodeChangeTime(): diff = %v: %v %v", diff, fi2.InodeChangeTime(), fi.InodeChangeTime())
-		} else {
-			t.Errorf("InodeChangeTime(): diff = %v: %v %v", diff, fi2.InodeChangeTime(), fi.InodeChangeTime())
-		}
+	// On a least Darwin, Linux, and Windows, the inode change time is updated when a file is appended to.
+	// But let's not report an error, as this may not be the case on all filesystems.
+	if diff == 0 {
+		t.Logf("InodeChangeTime(): diff = %v: %v %v", diff, fi2.InodeChangeTime(), fi.InodeChangeTime())
 	}
 
-	// chmod the file, once is enough
+	// required since ModTime and InodeChangeTime are often the same.
+	time.Sleep(maxDifference * 2)
+
+	// Reset the user write bit, as that's the only bit that Windows will update.
 	err = os.Chmod(path, 0o400)
 	if err != nil {
 		t.Error(err)
