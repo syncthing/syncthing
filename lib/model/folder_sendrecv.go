@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -282,7 +283,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 		doneWg.Done()
 	}()
 
-	changed, fileDeletions, dirDeletions, err := f.processNeeded(dbUpdateChan, copyChan, scanChan)
+	changed, err := f.processNeeded(dbUpdateChan, copyChan, scanChan)
 
 	// Signal copy and puller routines that we are done with the in data for
 	// this iteration. Wait for them to finish.
@@ -297,7 +298,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 	doneWg.Wait()
 
 	if err == nil {
-		f.processDeletions(fileDeletions, dirDeletions, dbUpdateChan, scanChan)
+		f.processDeletions(dbUpdateChan, scanChan)
 	}
 
 	// Wait for db updates and scan scheduling to complete
@@ -309,21 +310,21 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 	return changed, err
 }
 
-func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
+func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, error) {
 	// Iterate the list of items that we need and sort them into piles.
 	// Regular files to pull goes into the file queue, everything else
 	// (directories, symlinks and deletes) goes into the "process directly"
 	// pile.
-	changed, dirDeletions, fileDeletions, buckets, err := f.categorizeNeeded(dbUpdateChan, scanChan)
+	changed, fileDeletions, buckets, err := f.categorizeNeeded(dbUpdateChan, scanChan)
 	if err != nil {
-		return changed, nil, nil, err
+		return changed, err
 	}
 
 	// Process the file queue.
 	for {
 		select {
 		case <-f.ctx.Done():
-			return changed, nil, nil, f.ctx.Err()
+			return changed, f.ctx.Err()
 		default:
 		}
 
@@ -333,26 +334,25 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 		}
 
 		if err := f.processFile(fileName, fileDeletions, buckets, scanChan, dbUpdateChan, copyChan); err != nil {
-			return changed, nil, nil, err
+			return changed, err
 		}
 	}
 
-	return changed, fileDeletions, dirDeletions, nil
+	return changed, nil
 }
 
-func (f *sendReceiveFolder) categorizeNeeded(dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) (int, []protocol.FileInfo, map[string]protocol.FileInfo, map[string][]protocol.FileInfo, error) {
+func (f *sendReceiveFolder) categorizeNeeded(dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) (int, map[string]protocol.FileInfo, map[string][]protocol.FileInfo, error) {
 	changed := 0
-	var dirDeletions []protocol.FileInfo
 	fileDeletions := map[string]protocol.FileInfo{}
 	buckets := map[string][]protocol.FileInfo{}
 
-	for file, err := range itererr.Zip(f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, f.Order, 0, 0)) {
+	for file, err := range f.iterAllNeeded(f.Order) {
 		if err != nil {
-			return 0, nil, nil, nil, err
+			return 0, nil, nil, err
 		}
 		select {
 		case <-f.ctx.Done():
-			return 0, nil, nil, nil, f.ctx.Err()
+			return 0, nil, nil, f.ctx.Err()
 		default:
 		}
 
@@ -389,13 +389,12 @@ func (f *sendReceiveFolder) categorizeNeeded(dbUpdateChan chan<- dbUpdateJob, sc
 			case file.IsDirectory():
 				// Perform directory deletions at the end, as we may have
 				// files to delete inside them before we get to that point.
-				dirDeletions = append(dirDeletions, file)
 			case file.IsSymlink():
 				f.deleteFile(file, dbUpdateChan, scanChan)
 			default:
 				df, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
 				if err != nil {
-					return changed, nil, nil, nil, err
+					return changed, nil, nil, err
 				}
 				// Local file can be already deleted, but with a lower version
 				// number, hence the deletion coming in again as part of
@@ -414,7 +413,7 @@ func (f *sendReceiveFolder) categorizeNeeded(dbUpdateChan chan<- dbUpdateJob, sc
 		case file.Type == protocol.FileInfoTypeFile:
 			curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
 			if err != nil {
-				return changed, nil, nil, nil, err
+				return changed, nil, nil, err
 			}
 			if hasCurFile && file.BlocksEqual(curFile) {
 				// We are supposed to copy the entire file, and then fetch nothing. We
@@ -453,7 +452,7 @@ func (f *sendReceiveFolder) categorizeNeeded(dbUpdateChan chan<- dbUpdateJob, sc
 		}
 	}
 
-	return changed, dirDeletions, fileDeletions, buckets, nil
+	return changed, fileDeletions, buckets, nil
 }
 
 func (f *sendReceiveFolder) processFile(fileName string, fileDeletions map[string]protocol.FileInfo, buckets map[string][]protocol.FileInfo, scanChan chan<- string, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState) error {
@@ -522,29 +521,36 @@ func popCandidate(buckets map[string][]protocol.FileInfo, key string) (protocol.
 	return cands[0], true
 }
 
-func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.FileInfo, dirDeletions []protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
-	for _, file := range fileDeletions {
-		select {
-		case <-f.ctx.Done():
-			return
-		default:
-		}
 
-		f.deleteFile(file, dbUpdateChan, scanChan)
-	}
-
+func (f *sendReceiveFolder) processDeletions(dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Process in reverse order to delete depth first
-	for i := range dirDeletions {
+	for needed, err := range f.iterAllNeeded(config.PullOrderAlphabeticInverse) {
+		if err != nil {
+			return
+		}
+
 		select {
 		case <-f.ctx.Done():
 			return
 		default:
 		}
 
-		dir := dirDeletions[len(dirDeletions)-i-1]
-		l.Debugln(f, "Deleting dir", dir.Name)
-		f.deleteDir(dir, dbUpdateChan, scanChan)
+		if !needed.IsDeleted() {
+			continue
+		}
+
+		switch {
+		case needed.IsDirectory():
+			l.Debugln(f, "Deleting dir", needed.Name)
+			f.deleteDir(needed, dbUpdateChan, scanChan)
+		case needed.Type == protocol.FileInfoTypeFile:
+			f.deleteFile(needed, dbUpdateChan, scanChan)
+		}
 	}
+}
+
+func (f *sendReceiveFolder) iterAllNeeded(order config.PullOrder)  iter.Seq2[protocol.FileInfo, error] {
+	return itererr.Zip(f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, order, 0, 0))
 }
 
 // handleDir creates or updates the given directory

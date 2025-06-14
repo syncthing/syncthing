@@ -110,6 +110,8 @@ func (s *folderDB) AllNeededGlobalFiles(device protocol.DeviceID, order config.P
 		selectOpts = "ORDER BY RANDOM()"
 	case config.PullOrderAlphabetic:
 		selectOpts = "ORDER BY g.name ASC"
+	case config.PullOrderAlphabeticInverse:
+		selectOpts = "ORDER BY g.name DESC"
 	case config.PullOrderSmallestFirst:
 		selectOpts = "ORDER BY g.size ASC"
 	case config.PullOrderLargestFirst:
