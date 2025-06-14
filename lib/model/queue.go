@@ -95,30 +95,58 @@ func (q *jobQueue) Jobs(page, perpage int) ([]string, []string, []string, int) {
 
 	totalToSkip := (page - 1) * perpage
 	toSkip := totalToSkip
-	progresstotal := len(q.progress)
+	progressTotal := len(q.progress)
 
-	if progresstotal >= toSkip+perpage {
+	// progress
+
+	if progressTotal >= toSkip+perpage {
 		progress := make([]string, perpage)
 		copy(progress, q.progress[toSkip:toSkip+perpage])
 		return progress, nil, nil, toSkip
 	}
 
 	var progress []string
-	if progresstotal > toSkip {
-		progress = make([]string, progresstotal-toSkip)
-		copy(progress, q.progress[toSkip:progresstotal])
+	if progressTotal > toSkip {
+		progress = make([]string, progressTotal-toSkip)
+		copy(progress, q.progress[toSkip:])
 		toSkip = 0
 	} else {
-		toSkip -= progresstotal
+		toSkip -= progressTotal
 	}
 
+	// prioritized -> queued
+
 	progressLen := len(progress)
-	var queued, rest []string
+	if len(q.prioritized) + progressLen >= toSkip+perpage {
+		queued := make([]string, perpage - progressLen)
+		copy(queued, q.prioritized[toSkip:toSkip+len(queued)])
+		return progress, queued, nil, toSkip
+	}
+
+	var queued []string
+	if prioritizedLen := len(q.prioritized); prioritizedLen > toSkip {
+		queued = make([]string, prioritizedLen-toSkip)
+		copy(queued, q.prioritized[toSkip:])
+		toSkip = 0
+	} else {
+		toSkip -= prioritizedLen
+	}
+
+	// queued and rest
+
+	seen := make(map[string]struct{}, progressLen+len(queued))
+	for _, n := range progress {
+		seen[n] = struct{}{}
+	}
+	for _, n := range queued {
+		seen[n] = struct{}{}
+	}
+	var rest []string
 	for file, err := range q.iterAllNeeded() {
 		if err != nil {
 			break
 		}
-		if slices.Contains(progress, file.Name) {
+		if _, ok := seen[file.Name]; ok {
 			continue
 		}
 		if file.Type != protocol.FileInfoTypeFile || file.IsDeleted() {
