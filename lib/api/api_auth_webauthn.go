@@ -21,9 +21,9 @@ import (
 	webauthnProtocol "github.com/go-webauthn/webauthn/protocol"
 	webauthnLib "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/gen/apiproto"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 )
 
@@ -71,7 +71,7 @@ func (s *webauthnService) expired(t *timedSessionData) bool {
 }
 
 type webauthnService struct {
-	miscDB                         *db.NamespacedKV
+	miscDB                         *db.Typed
 	miscDBKey                      string
 	engine                         *webauthnLib.WebAuthn
 	evLogger                       events.Logger
@@ -84,7 +84,7 @@ type webauthnService struct {
 	volStateMut                    sync.RWMutex
 }
 
-func newWebauthnService(guiCfg config.GUIConfiguration, deviceName string, evLogger events.Logger, miscDB *db.NamespacedKV, miscDBKey string) (webauthnService, error) {
+func newWebauthnService(guiCfg config.GUIConfiguration, deviceName string, evLogger events.Logger, miscDB *db.Typed, miscDBKey string) (webauthnService, error) {
 	engine, err := newWebauthnEngine(guiCfg, deviceName)
 	if err != nil {
 		return webauthnService{}, err

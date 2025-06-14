@@ -7,11 +7,8 @@
 package model
 
 import (
-	"cmp"
-	"slices"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -128,13 +125,6 @@ func (q *jobQueue) Jobs(page, perpage int) ([]string, []string, int) {
 	return progress, queued, (page - 1) * perpage
 }
 
-func (q *jobQueue) Shuffle() {
-	q.mut.Lock()
-	defer q.mut.Unlock()
-
-	rand.Shuffle(q.queued)
-}
-
 func (q *jobQueue) Reset() {
 	q.mut.Lock()
 	defer q.mut.Unlock()
@@ -152,40 +142,4 @@ func (q *jobQueue) lenProgress() int {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 	return len(q.progress)
-}
-
-func (q *jobQueue) SortSmallestFirst() {
-	q.mut.Lock()
-	defer q.mut.Unlock()
-
-	slices.SortFunc(q.queued, func(a, b jobQueueEntry) int {
-		return cmp.Compare(a.size, b.size)
-	})
-}
-
-func (q *jobQueue) SortLargestFirst() {
-	q.mut.Lock()
-	defer q.mut.Unlock()
-
-	slices.SortFunc(q.queued, func(a, b jobQueueEntry) int {
-		return cmp.Compare(b.size, a.size)
-	})
-}
-
-func (q *jobQueue) SortOldestFirst() {
-	q.mut.Lock()
-	defer q.mut.Unlock()
-
-	slices.SortFunc(q.queued, func(a, b jobQueueEntry) int {
-		return cmp.Compare(a.modified, b.modified)
-	})
-}
-
-func (q *jobQueue) SortNewestFirst() {
-	q.mut.Lock()
-	defer q.mut.Unlock()
-
-	slices.SortFunc(q.queued, func(a, b jobQueueEntry) int {
-		return cmp.Compare(b.modified, a.modified)
-	})
 }

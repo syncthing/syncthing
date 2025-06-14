@@ -12,9 +12,15 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
+	"time"
 
+	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/db/olddb"
+	"github.com/syncthing/syncthing/internal/db/olddb/backend"
+	"github.com/syncthing/syncthing/internal/db/sqlite"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
@@ -58,7 +64,7 @@ func GenerateCertificate(certFile, keyFile string) (tls.Certificate, error) {
 	return tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, deviceCertLifetimeDays)
 }
 
-func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, noDefaultFolder, skipPortProbing bool) (config.Wrapper, error) {
+func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, skipPortProbing bool) (config.Wrapper, error) {
 	newCfg := config.New(myID)
 
 	if skipPortProbing {
@@ -69,30 +75,18 @@ func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, 
 		return nil, err
 	}
 
-	if noDefaultFolder {
-		l.Infoln("We will skip creation of a default folder on first start")
-		return config.Wrap(path, newCfg, myID, evLogger), nil
-	}
-
-	fcfg := newCfg.Defaults.Folder.Copy()
-	fcfg.ID = "default"
-	fcfg.Label = "Default Folder"
-	fcfg.FilesystemType = config.FilesystemTypeBasic
-	fcfg.Path = locations.Get(locations.DefFolder)
-	newCfg.Folders = append(newCfg.Folders, fcfg)
-	l.Infoln("Default folder created and/or linked to new config")
 	return config.Wrap(path, newCfg, myID, evLogger), nil
 }
 
 // LoadConfigAtStartup loads an existing config. If it doesn't yet exist, it
-// creates a default one, without the default folder if noDefaultFolder is true.
-// Otherwise it checks the version, and archives and upgrades the config if
-// necessary or returns an error, if the version isn't compatible.
-func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logger, allowNewerConfig, noDefaultFolder, skipPortProbing bool) (config.Wrapper, error) {
+// creates a default one. Otherwise it checks the version, and archives and
+// upgrades the config if necessary or returns an error, if the version
+// isn't compatible.
+func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logger, allowNewerConfig, skipPortProbing bool) (config.Wrapper, error) {
 	myID := protocol.NewDeviceID(cert.Certificate[0])
 	cfg, originalVersion, err := config.Load(path, myID, evLogger)
 	if fs.IsNotExist(err) {
-		cfg, err = DefaultConfig(path, myID, evLogger, noDefaultFolder, skipPortProbing)
+		cfg, err = DefaultConfig(path, myID, evLogger, skipPortProbing)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate default config: %w", err)
 		}
@@ -150,6 +144,131 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
-func OpenDBBackend(path string, tuning config.Tuning) (backend.Backend, error) {
-	return backend.Open(path, backend.Tuning(tuning))
+// Opens a database
+func OpenDatabase(path string, deleteRetention time.Duration) (db.DB, error) {
+	sql, err := sqlite.Open(path, sqlite.WithDeleteRetention(deleteRetention))
+	if err != nil {
+		return nil, err
+	}
+
+	sdb := db.MetricsWrap(sql)
+
+	return sdb, nil
+}
+
+// Attempts migration of the old (LevelDB-based) database type to the new (SQLite-based) type
+func TryMigrateDatabase(deleteRetention time.Duration) error {
+	oldDBDir := locations.Get(locations.LegacyDatabase)
+	if _, err := os.Lstat(oldDBDir); err != nil {
+		// No old database
+		return nil
+	}
+
+	be, err := backend.OpenLevelDBRO(oldDBDir)
+	if err != nil {
+		// Apparently, not a valid old database
+		return nil
+	}
+	defer be.Close()
+
+	sdb, err := sqlite.OpenForMigration(locations.Get(locations.Database))
+	if err != nil {
+		return err
+	}
+	defer sdb.Close()
+
+	miscDB := db.NewMiscDB(sdb)
+	if when, ok, err := miscDB.Time("migrated-from-leveldb-at"); err == nil && ok {
+		l.Warnf("Old-style database present but already migrated at %v; please manually move or remove %s.", when, oldDBDir)
+		return nil
+	}
+
+	l.Infoln("Migrating old-style database to SQLite; this may take a while...")
+	t0 := time.Now()
+
+	ll, err := olddb.NewLowlevel(be)
+	if err != nil {
+		return err
+	}
+
+	totFiles, totBlocks := 0, 0
+	for _, folder := range ll.ListFolders() {
+		// Start a writer routine
+		fis := make(chan protocol.FileInfo, 50)
+		var writeErr error
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var batch []protocol.FileInfo
+			files, blocks := 0, 0
+			t0 := time.Now()
+			t1 := time.Now()
+			for fi := range fis {
+				batch = append(batch, fi)
+				files++
+				blocks += len(fi.Blocks)
+				if len(batch) == 1000 {
+					writeErr = sdb.Update(folder, protocol.LocalDeviceID, batch)
+					if writeErr != nil {
+						return
+					}
+					batch = batch[:0]
+					if time.Since(t1) > 10*time.Second {
+						d := time.Since(t0) + 1
+						t1 = time.Now()
+						l.Infof("Migrating folder %s... (%d files and %dk blocks in %v, %.01f files/s)", folder, files, blocks/1000, d.Truncate(time.Second), float64(files)/d.Seconds())
+					}
+				}
+			}
+			if len(batch) > 0 {
+				writeErr = sdb.Update(folder, protocol.LocalDeviceID, batch)
+			}
+			d := time.Since(t0) + 1
+			l.Infof("Migrated folder %s; %d files and %dk blocks in %v, %.01f files/s", folder, files, blocks/1000, d.Truncate(time.Second), float64(files)/d.Seconds())
+			totFiles += files
+			totBlocks += blocks
+		}()
+
+		// Iterate the existing files
+		fs, err := olddb.NewFileSet(folder, ll)
+		if err != nil {
+			return err
+		}
+		snap, err := fs.Snapshot()
+		if err != nil {
+			return err
+		}
+		_ = snap.WithHaveSequence(0, func(fi protocol.FileInfo) bool {
+			if deleteRetention > 0 && fi.Deleted && time.Since(fi.ModTime()) > deleteRetention {
+				// Skip deleted files that match the garbage collection
+				// criteria in the database
+				return true
+			}
+			fis <- fi
+			return true
+		})
+		close(fis)
+		snap.Release()
+
+		// Wait for writes to complete
+		wg.Wait()
+		if writeErr != nil {
+			return writeErr
+		}
+	}
+
+	l.Infoln("Migrating virtual mtimes...")
+	if err := ll.IterateMtimes(sdb.PutMtime); err != nil {
+		l.Warnln("Failed to migrate mtimes:", err)
+	}
+
+	_ = miscDB.PutTime("migrated-from-leveldb-at", time.Now())
+	_ = miscDB.PutString("migrated-from-leveldb-by", build.LongVersion)
+
+	_ = be.Close()
+	_ = os.Rename(oldDBDir, oldDBDir+"-migrated")
+
+	l.Infof("Migration complete, %d files and %dk blocks in %s", totFiles, totBlocks/1000, time.Since(t0).Truncate(time.Second))
+	return nil
 }

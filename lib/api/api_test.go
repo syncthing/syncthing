@@ -38,12 +38,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	connmocks "github.com/syncthing/syncthing/lib/connections/mocks"
-	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	discovermocks "github.com/syncthing/syncthing/lib/discover/mocks"
 	"github.com/syncthing/syncthing/lib/events"
 	eventmocks "github.com/syncthing/syncthing/lib/events/mocks"
@@ -109,10 +109,15 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	}
 	w := config.Wrap("/dev/null", cfg, protocol.LocalDeviceID, events.NoopLogger)
 
-	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
-	kdb := db.NewMiscDataNamespace(mdb)
-	srvAbstract := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb)
-	srv := srvAbstract.(*service)
+	mdb, err := sqlite.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		mdb.Close()
+	})
+	kdb := db.NewMiscDB(mdb)
+	srv := New(protocol.LocalDeviceID, w, "", "syncthing", nil, nil, nil, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb).(*service)
 
 	srv.started = make(chan startedTestMsg)
 
@@ -243,11 +248,7 @@ type httpTestCase struct {
 func TestAPIServiceRequests(t *testing.T) {
 	t.Parallel()
 
-	baseURL, cancel, _, err := startHTTP(apiCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(cancel)
+	baseURL, _ := startHTTP(t, apiCfg)
 
 	cases := []httpTestCase{
 		// /rest/db
@@ -639,11 +640,7 @@ func TestHTTPLogin(t *testing.T) {
 			APIKey:              testAPIKey,
 			SendBasicAuthPrompt: sendBasicAuthPrompt,
 		}))
-		baseURL, cancel, _, err := startHTTP(cfg)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(cancel)
+		baseURL, _ := startHTTP(t, cfg)
 		url := baseURL + path
 
 		t.Run(fmt.Sprintf("%d path", expectedOkStatus), func(t *testing.T) {
@@ -837,13 +834,9 @@ func TestHTTPLogin(t *testing.T) {
 
 			w := initConfig(initialPassword, t)
 			{
-				baseURL, cancel, _, err := startHTTPWithShutdownTimeout(w, shutdownTimeout)
+				baseURL, _ := startHTTPWithShutdownTimeout(t, w, shutdownTimeout)
 				cfgPath := baseURL + "/rest/config"
 				path := baseURL + "/meta.js"
-				t.Cleanup(cancel)
-				if err != nil {
-					t.Fatal(err)
-				}
 
 				resp := httpGetBasicAuth(path, "user", initialPassword)
 				if resp.StatusCode != http.StatusOK {
@@ -855,12 +848,8 @@ func TestHTTPLogin(t *testing.T) {
 				httpRequest(http.MethodPut, cfgPath, cfg, "", "", testAPIKey, "", "", "", nil, t)
 			}
 			{
-				baseURL, cancel, _, err := startHTTP(w)
+				baseURL, _ := startHTTP(t, w)
 				path := baseURL + "/meta.js"
-				t.Cleanup(cancel)
-				if err != nil {
-					t.Fatal(err)
-				}
 
 				resp := httpGetBasicAuth(path, "user", initialPassword)
 				if resp.StatusCode != http.StatusForbidden {
@@ -879,13 +868,9 @@ func TestHTTPLogin(t *testing.T) {
 
 			w := initConfig(initialPassword, t)
 			{
-				baseURL, cancel, _, err := startHTTPWithShutdownTimeout(w, shutdownTimeout)
+				baseURL, _ := startHTTPWithShutdownTimeout(t, w, shutdownTimeout)
 				cfgPath := baseURL + "/rest/config/gui"
 				path := baseURL + "/meta.js"
-				t.Cleanup(cancel)
-				if err != nil {
-					t.Fatal(err)
-				}
 
 				resp := httpGetBasicAuth(path, "user", initialPassword)
 				if resp.StatusCode != http.StatusOK {
@@ -897,12 +882,8 @@ func TestHTTPLogin(t *testing.T) {
 				httpRequest(http.MethodPut, cfgPath, cfg.GUI, "", "", testAPIKey, "", "", "", nil, t)
 			}
 			{
-				baseURL, cancel, _, err := startHTTP(w)
+				baseURL, _ := startHTTP(t, w)
 				path := baseURL + "/meta.js"
-				t.Cleanup(cancel)
-				if err != nil {
-					t.Fatal(err)
-				}
 
 				resp := httpGetBasicAuth(path, "user", initialPassword)
 				if resp.StatusCode != http.StatusForbidden {
@@ -927,11 +908,7 @@ func TestHtmlFormLogin(t *testing.T) {
 		Password:            "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
 		SendBasicAuthPrompt: false,
 	}))
-	baseURL, cancel, _, err := startHTTP(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(cancel)
+	baseURL, _ := startHTTP(t, cfg)
 
 	loginUrl := baseURL + "/rest/noauth/auth/password"
 	resourceUrl := baseURL + "/meta.js"
@@ -1072,11 +1049,7 @@ func TestApiCache(t *testing.T) {
 		RawAddress: "127.0.0.1:0",
 		APIKey:     testAPIKey,
 	}))
-	baseURL, cancel, _, err := startHTTP(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(cancel)
+	baseURL, _ := startHTTP(t, cfg)
 
 	httpGet := func(url string, bearer string) *http.Response {
 		return httpGet(url, "", "", "", bearer, nil, t)
@@ -1101,11 +1074,11 @@ func TestApiCache(t *testing.T) {
 	})
 }
 
-func startHTTP(cfg config.Wrapper) (string, context.CancelFunc, *webauthnService, error) {
-	return startHTTPWithShutdownTimeout(cfg, 0)
+func startHTTP(t *testing.T, cfg config.Wrapper) (string, *webauthnService) {
+	return startHTTPWithShutdownTimeout(t, cfg, 0)
 }
 
-func startHTTPWithShutdownTimeout(cfg config.Wrapper, shutdownTimeout time.Duration) (string, context.CancelFunc, *webauthnService, error) {
+func startHTTPWithShutdownTimeout(t *testing.T, cfg config.Wrapper, shutdownTimeout time.Duration) (string, *webauthnService) {
 	m := new(modelmocks.Model)
 	assetDir := "../../gui"
 	eventSub := new(eventmocks.BufferedSubscription)
@@ -1128,14 +1101,19 @@ func startHTTPWithShutdownTimeout(cfg config.Wrapper, shutdownTimeout time.Durat
 
 	// Instantiate the API service
 	urService := ur.New(cfg, m, connections, false)
-	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
-	kdb := db.NewMiscDataNamespace(mdb)
-	svcAbstract := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, mockedSummary, errorLog, systemLog, false, kdb)
-	svc := svcAbstract.(*service)
+	mdb, err := sqlite.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		mdb.Close()
+	})
+	kdb := db.NewMiscDB(mdb)
+	svc := New(protocol.LocalDeviceID, cfg, assetDir, "syncthing", m, eventSub, diskEventSub, events.NoopLogger, discoverer, connections, urService, mockedSummary, errorLog, systemLog, false, kdb).(*service)
 
 	svc.started = startedChan
 
-	if shutdownTimeout > 0*time.Millisecond {
+	if shutdownTimeout > 0 {
 		svc.shutdownTimeout = shutdownTimeout
 	}
 
@@ -1145,6 +1123,7 @@ func startHTTPWithShutdownTimeout(cfg config.Wrapper, shutdownTimeout time.Durat
 	})
 	supervisor.Add(svc)
 	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
 	supervisor.ServeBackground(ctx)
 
 	// Make sure the API service is listening, and get the URL to use.
@@ -1152,8 +1131,7 @@ func startHTTPWithShutdownTimeout(cfg config.Wrapper, shutdownTimeout time.Durat
 	webauthnService := startedMsg.webauthnService
 	tcpAddr, err := net.ResolveTCPAddr("tcp", startedMsg.address)
 	if err != nil {
-		cancel()
-		return "", cancel, webauthnService, fmt.Errorf("weird address from API service: %w", err)
+		t.Fatal(fmt.Errorf("weird address from API service: %w", err))
 	}
 
 	host, _, _ := net.SplitHostPort(cfg.GUI().RawAddress)
@@ -1162,17 +1140,13 @@ func startHTTPWithShutdownTimeout(cfg config.Wrapper, shutdownTimeout time.Durat
 	}
 	baseURL := fmt.Sprintf("http://%s", net.JoinHostPort(host, strconv.Itoa(tcpAddr.Port)))
 
-	return baseURL, cancel, webauthnService, nil
+	return baseURL, webauthnService
 }
 
 func TestCSRFRequired(t *testing.T) {
 	t.Parallel()
 
-	baseURL, cancel, _, err := startHTTP(apiCfg)
-	if err != nil {
-		t.Fatal("Unexpected error from getting base URL:", err)
-	}
-	t.Cleanup(cancel)
+	baseURL, _ := startHTTP(t, apiCfg)
 
 	cli := &http.Client{
 		Timeout: time.Minute,
@@ -1290,11 +1264,7 @@ func TestCSRFRequired(t *testing.T) {
 func TestRandomString(t *testing.T) {
 	t.Parallel()
 
-	baseURL, cancel, _, err := startHTTP(apiCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
+	baseURL, _ := startHTTP(t, apiCfg)
 	cli := &http.Client{
 		Timeout: time.Second,
 	}
@@ -1349,7 +1319,7 @@ func TestConfigPostOK(t *testing.T) {
 		]
 	}`))
 
-	resp, err := testConfigPost(cfg)
+	resp, err := testConfigPost(t, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1370,7 +1340,7 @@ func TestConfigPostDupFolder(t *testing.T) {
 		]
 	}`))
 
-	resp, err := testConfigPost(cfg)
+	resp, err := testConfigPost(t, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1379,12 +1349,10 @@ func TestConfigPostDupFolder(t *testing.T) {
 	}
 }
 
-func testConfigPost(data io.Reader) (*http.Response, error) {
-	baseURL, cancel, _, err := startHTTP(apiCfg)
-	if err != nil {
-		return nil, err
-	}
-	defer cancel()
+func testConfigPost(t *testing.T, data io.Reader) (*http.Response, error) {
+	t.Helper()
+
+	baseURL, _ := startHTTP(t, apiCfg)
 	cli := &http.Client{
 		Timeout: time.Second,
 	}
@@ -1401,11 +1369,7 @@ func TestHostCheck(t *testing.T) {
 
 	cfg := newMockedConfig()
 	cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{RawAddress: "127.0.0.1:0"}))
-	baseURL, cancel, _, err := startHTTP(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
+	baseURL, _ := startHTTP(t, cfg)
 
 	// A normal HTTP get to the localhost-bound service should succeed
 
@@ -1464,11 +1428,7 @@ func TestHostCheck(t *testing.T) {
 		RawAddress:            "127.0.0.1:0",
 		InsecureSkipHostCheck: true,
 	}))
-	baseURL, cancel, _, err = startHTTP(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
+	baseURL, _ = startHTTP(t, cfg)
 
 	// A request with a suspicious Host header should be allowed
 
@@ -1490,11 +1450,7 @@ func TestHostCheck(t *testing.T) {
 		cfg.GUIReturns(config.GUIConfiguration{
 			RawAddress: "0.0.0.0:0",
 		})
-		baseURL, cancel, _, err = startHTTP(cfg)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer cancel()
+		baseURL, _ = startHTTP(t, cfg)
 
 		// A request with a suspicious Host header should be allowed
 
@@ -1521,11 +1477,7 @@ func TestHostCheck(t *testing.T) {
 	cfg.GUIReturns(withTestDefaults(config.GUIConfiguration{
 		RawAddress: "[::1]:0",
 	}))
-	baseURL, cancel, _, err = startHTTP(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
+	baseURL, _ = startHTTP(t, cfg)
 
 	// A normal HTTP get to the localhost-bound service should succeed
 
@@ -1613,11 +1565,7 @@ func TestAddressIsLocalhost(t *testing.T) {
 func TestAccessControlAllowOriginHeader(t *testing.T) {
 	t.Parallel()
 
-	baseURL, cancel, _, err := startHTTP(apiCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
+	baseURL, _ := startHTTP(t, apiCfg)
 	cli := &http.Client{
 		Timeout: time.Second,
 	}
@@ -1641,11 +1589,7 @@ func TestAccessControlAllowOriginHeader(t *testing.T) {
 func TestOptionsRequest(t *testing.T) {
 	t.Parallel()
 
-	baseURL, cancel, _, err := startHTTP(apiCfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer cancel()
+	baseURL, _ := startHTTP(t, apiCfg)
 	cli := &http.Client{
 		Timeout: time.Second,
 	}
@@ -1677,10 +1621,15 @@ func TestEventMasks(t *testing.T) {
 	cfg := newMockedConfig()
 	defSub := new(eventmocks.BufferedSubscription)
 	diskSub := new(eventmocks.BufferedSubscription)
-	mdb, _ := db.NewLowlevel(backend.OpenMemory(), events.NoopLogger)
-	kdb := db.NewMiscDataNamespace(mdb)
-	svcAbstract := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb)
-	svc := svcAbstract.(*service)
+	mdb, err := sqlite.OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		mdb.Close()
+	})
+	kdb := db.NewMiscDB(mdb)
+	svc := New(protocol.LocalDeviceID, cfg, "", "syncthing", nil, defSub, diskSub, events.NoopLogger, nil, nil, nil, nil, nil, nil, false, kdb).(*service)
 
 	if mask := svc.getEventMask(""); mask != DefaultEventMask {
 		t.Errorf("incorrect default mask %x != %x", int64(mask), int64(DefaultEventMask))
@@ -1830,11 +1779,7 @@ func TestConfigChanges(t *testing.T) {
 	cfgCtx, cfgCancel := context.WithCancel(context.Background())
 	go w.Serve(cfgCtx)
 	defer cfgCancel()
-	baseURL, cancel, _, err := startHTTP(w)
-	if err != nil {
-		t.Fatal("Unexpected error from getting base URL:", err)
-	}
-	defer cancel()
+	baseURL, _ := startHTTP(t, w)
 
 	cli := &http.Client{
 		Timeout: time.Minute,
@@ -2164,11 +2109,7 @@ func TestWebauthnRegistration(t *testing.T) {
 			APIKey:              testAPIKey,
 			WebauthnCredentials: credentials,
 		}))
-		baseURL, cancel, webauthnService, err := startHTTP(cfg)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(cancel)
+		baseURL, webauthnService := startHTTP(t, cfg)
 
 		cli := &http.Client{
 			Timeout: 15 * time.Second,
@@ -2512,11 +2453,7 @@ func TestWebauthnAuthentication(t *testing.T) {
 			WebauthnOrigins:     origins,
 			WebauthnCredentials: credentials,
 		}))
-		baseURL, cancel, webauthnService, err := startHTTP(cfg)
-		if err != nil {
-			t.Fatal(err, "Failed to start HTTP server")
-		}
-		t.Cleanup(cancel)
+		baseURL, webauthnService := startHTTP(t, cfg)
 
 		httpRequest := func(method string, url string, body any, xapikeyHeader, csrfTokenName, csrfTokenValue string) *http.Response {
 			t.Helper()
@@ -3211,11 +3148,7 @@ func TestPasswordOrWebauthnAuthentication(t *testing.T) {
 				},
 			},
 		}))
-		baseURL, cancel, _, err := startHTTP(cfg)
-		if err != nil {
-			t.Fatal(err, "Failed to start HTTP server")
-		}
-		t.Cleanup(cancel)
+		baseURL, _ := startHTTP(t, cfg)
 
 		httpRequest := func(method string, url string, body any) *http.Response {
 			t.Helper()
@@ -3350,11 +3283,7 @@ func TestWebauthnConfigChanges(t *testing.T) {
 	}
 
 	startServer := func(t *testing.T, w config.Wrapper) (func(string) *http.Response, func(string, string, any)) {
-		baseURL, cancel, _, err := startHTTPWithShutdownTimeout(w, shutdownTimeout)
-		t.Cleanup(cancel)
-		if err != nil {
-			t.Fatal(err)
-		}
+		baseURL, _ := startHTTPWithShutdownTimeout(t, w, shutdownTimeout)
 
 		cli := &http.Client{
 			Timeout: 60 * time.Second,

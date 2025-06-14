@@ -4,6 +4,7 @@ linters:
   disable:
     - cyclop
     - depguard
+    - err113
     - exhaustive
     - exhaustruct
     - forbidigo
@@ -53,6 +54,7 @@ linters:
       - third_party$
       - builtin$
       - examples$
+      - _test\.go$
 formatters:
   enable:
     - gofumpt

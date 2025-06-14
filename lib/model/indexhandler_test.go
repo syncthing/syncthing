@@ -13,7 +13,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/model/mocks"
 	"github.com/syncthing/syncthing/lib/protocol"
 	protomock "github.com/syncthing/syncthing/lib/protocol/mocks"
@@ -63,7 +63,7 @@ func TestIndexhandlerConcurrency(t *testing.T) {
 		return nil
 	})
 
-	b1 := db.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
+	b1 := model.NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		return c1.IndexUpdate(ctx, &protocol.IndexUpdate{Folder: "foo", Files: fs})
 	})
 	sentEntries := 0

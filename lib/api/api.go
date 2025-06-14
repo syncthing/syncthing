@@ -43,10 +43,10 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -99,7 +99,7 @@ type service struct {
 	startupErr           error
 	listenerAddr         net.Addr
 	exitChan             chan *svcutil.FatalErr
-	miscDB               *db.NamespacedKV
+	miscDB               *db.Typed
 	shutdownTimeout      time.Duration
 
 	guiErrors logger.Recorder
@@ -114,7 +114,7 @@ type Service interface {
 	WaitForStart() error
 }
 
-func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, noUpgrade bool, miscDB *db.NamespacedKV) Service {
+func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, noUpgrade bool, miscDB *db.Typed) Service {
 	return &service{
 		id:      id,
 		cfg:     cfg,
@@ -1027,16 +1027,11 @@ func (s *service) getDBFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	mtimeMapping, mtimeErr := s.model.GetMtimeMapping(folder, file)
 
 	sendJSON(w, map[string]interface{}{
 		"global":       jsonFileInfo(gf),
 		"local":        jsonFileInfo(lf),
 		"availability": av,
-		"mtime": map[string]interface{}{
-			"err":   mtimeErr,
-			"value": mtimeMapping,
-		},
 	})
 }
 
@@ -1045,28 +1040,14 @@ func (s *service) getDebugFile(w http.ResponseWriter, r *http.Request) {
 	folder := qs.Get("folder")
 	file := qs.Get("file")
 
-	snap, err := s.model.DBSnapshot(folder)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-
-	mtimeMapping, mtimeErr := s.model.GetMtimeMapping(folder, file)
-
-	lf, _ := snap.Get(protocol.LocalDeviceID, file)
-	gf, _ := snap.GetGlobal(file)
-	av := snap.Availability(file)
-	vl := snap.DebugGlobalVersions(file)
+	lf, _, _ := s.model.CurrentFolderFile(folder, file)
+	gf, _, _ := s.model.CurrentGlobalFile(folder, file)
+	av, _ := s.model.Availability(folder, protocol.FileInfo{Name: file}, protocol.BlockInfo{})
 
 	sendJSON(w, map[string]interface{}{
-		"global":         jsonFileInfo(gf),
-		"local":          jsonFileInfo(lf),
-		"availability":   av,
-		"globalVersions": vl.String(),
-		"mtime": map[string]interface{}{
-			"err":   mtimeErr,
-			"value": mtimeMapping,
-		},
+		"global":       jsonFileInfo(gf),
+		"local":        jsonFileInfo(lf),
+		"availability": av,
 	})
 }
 

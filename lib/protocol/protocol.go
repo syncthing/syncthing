@@ -269,6 +269,15 @@ func newRawConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, clo
 func (c *rawConnection) Start() {
 	c.startStopMut.Lock()
 	defer c.startStopMut.Unlock()
+
+	select {
+	case <-c.closed:
+		// we have already closed the connection before starting processing
+		// on it.
+		return
+	default:
+	}
+
 	c.loopWG.Add(5)
 	go func() {
 		c.readerLoop()
@@ -291,6 +300,7 @@ func (c *rawConnection) Start() {
 		c.pingReceiver()
 		c.loopWG.Done()
 	}()
+
 	c.startTime = time.Now().Truncate(time.Second)
 	close(c.started)
 }
@@ -512,8 +522,9 @@ func (c *rawConnection) readMessageAfterHeader(hdr *bep.Header, fourByteBuf []by
 	// Then comes the message
 
 	buf := BufferPool.Get(int(msgLen))
+	defer BufferPool.Put(buf)
+
 	if _, err := io.ReadFull(c.cr, buf); err != nil {
-		BufferPool.Put(buf)
 		return nil, fmt.Errorf("reading message: %w", err)
 	}
 
@@ -525,7 +536,6 @@ func (c *rawConnection) readMessageAfterHeader(hdr *bep.Header, fourByteBuf []by
 
 	case bep.MessageCompression_MESSAGE_COMPRESSION_LZ4:
 		decomp, err := lz4Decompress(buf)
-		BufferPool.Put(buf)
 		if err != nil {
 			return nil, fmt.Errorf("decompressing message: %w", err)
 		}
@@ -541,14 +551,11 @@ func (c *rawConnection) readMessageAfterHeader(hdr *bep.Header, fourByteBuf []by
 
 	msg, err := newMessage(hdr.Type)
 	if err != nil {
-		BufferPool.Put(buf)
 		return nil, err
 	}
 	if err := proto.Unmarshal(buf, msg); err != nil {
-		BufferPool.Put(buf)
 		return nil, fmt.Errorf("unmarshalling message: %w", err)
 	}
-	BufferPool.Put(buf)
 
 	return msg, nil
 }
@@ -567,16 +574,16 @@ func (c *rawConnection) readHeader(fourByteBuf []byte) (*bep.Header, error) {
 	// Then comes the header
 
 	buf := BufferPool.Get(int(hdrLen))
+	defer BufferPool.Put(buf)
+
 	if _, err := io.ReadFull(c.cr, buf); err != nil {
-		BufferPool.Put(buf)
 		return nil, fmt.Errorf("reading header: %w", err)
 	}
 
 	var hdr bep.Header
 	err := proto.Unmarshal(buf, &hdr)
-	BufferPool.Put(buf)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshalling header: %w %x", err, buf)
+		return nil, fmt.Errorf("unmarshalling header: %w", err)
 	}
 
 	metricDeviceRecvDecompressedBytes.WithLabelValues(c.idString).Add(float64(2 + len(buf)))
@@ -950,9 +957,9 @@ func (c *rawConnection) Close(err error) {
 
 // internalClose is called if there is an unexpected error during normal operation.
 func (c *rawConnection) internalClose(err error) {
-	c.startStopMut.Lock()
-	defer c.startStopMut.Unlock()
 	c.closeOnce.Do(func() {
+		c.startStopMut.Lock()
+
 		l.Debugf("close connection to %s at %s due to %v", c.deviceID.Short(), c.ConnectionInfo, err)
 		if cerr := c.closer.Close(); cerr != nil {
 			l.Debugf("failed to close underlying conn %s at %s %v:", c.deviceID.Short(), c.ConnectionInfo, cerr)
@@ -974,6 +981,10 @@ func (c *rawConnection) internalClose(err error) {
 			<-c.dispatcherLoopStopped
 		}
 
+		c.startStopMut.Unlock()
+
+		// We don't want to call into the model while holding the
+		// startStopMut.
 		c.model.Closed(err)
 	})
 }
