@@ -81,7 +81,7 @@ type webauthnService struct {
 	credentialsPendingRegistration []config.WebauthnCredential
 	deviceName                     string
 	timeNow                        func() time.Time // can be overridden for testing
-	volStateMut                    sync.RWMutex
+	miscDBMut                      sync.RWMutex
 }
 
 func newWebauthnService(guiCfg config.GUIConfiguration, deviceName string, evLogger events.Logger, miscDB *db.Typed, miscDBKey string) (webauthnService, error) {
@@ -383,8 +383,8 @@ func newVolState() *apiproto.WebauthnVolatileState {
 
 // Load volatile WebAuthn state with a read lock during loading.
 func (s *webauthnService) loadVolatileState() *apiproto.WebauthnVolatileState {
-	s.volStateMut.RLock()
-	defer s.volStateMut.RUnlock()
+	s.miscDBMut.RLock()
+	defer s.miscDBMut.RUnlock()
 	return s.loadVolatileStateRLocked()
 }
 
@@ -412,8 +412,8 @@ func (s *webauthnService) loadVolatileStateRLocked() *apiproto.WebauthnVolatileS
 }
 
 func (s *webauthnService) updateVolatileState(update func(state *apiproto.WebauthnVolatileState)) error {
-	s.volStateMut.Lock()
-	defer s.volStateMut.Unlock()
+	s.miscDBMut.Lock()
+	defer s.miscDBMut.Unlock()
 
 	state := s.loadVolatileStateRLocked()
 	update(state)
