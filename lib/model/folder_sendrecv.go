@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -1867,7 +1867,9 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 	if f.MaxConflicts > -1 {
 		matches := existingConflicts(name, f.mtimefs)
 		if len(matches) > f.MaxConflicts {
-			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
+			slices.SortFunc(matches, func(a, b string) int {
+				return strings.Compare(b, a)
+			})
 			for _, match := range matches[f.MaxConflicts:] {
 				if gerr := f.mtimefs.Remove(match); gerr != nil {
 					l.Debugln(f, "removing extra conflict", gerr)
@@ -2204,20 +2206,6 @@ func (f *sendReceiveFolder) updateFileInfoChangeTime(file *protocol.FileInfo) er
 type FileError struct {
 	Path string `json:"path"`
 	Err  string `json:"error"`
-}
-
-type fileErrorList []FileError
-
-func (l fileErrorList) Len() int {
-	return len(l)
-}
-
-func (l fileErrorList) Less(a, b int) bool {
-	return l[a].Path < l[b].Path
-}
-
-func (l fileErrorList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
 }
 
 func conflictName(name, lastModBy string) string {

@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime/pprof"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -349,10 +349,12 @@ func (options serveOptions) Run() error {
 		return nil
 	}
 
-	// Ensure that our home directory exists.
-	if err := syncthing.EnsureDir(locations.GetBaseDir(locations.ConfigBaseDir), 0o700); err != nil {
-		l.Warnln("Failure on home directory:", err)
-		os.Exit(svcutil.ExitError.AsInt())
+	// Ensure that our config and data directories exist.
+	for _, loc := range []locations.BaseDirEnum{locations.ConfigBaseDir, locations.DataBaseDir} {
+		if err := syncthing.EnsureDir(locations.GetBaseDir(loc), 0o700); err != nil {
+			l.Warnln("Failed to ensure directory exists:", err)
+			os.Exit(svcutil.ExitError.AsInt())
+		}
 	}
 
 	if options.UpgradeTo != "" {
@@ -441,7 +443,7 @@ func debugFacilities() string {
 			maxLen = len(name)
 		}
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 
 	// Format the choices
 	b := new(bytes.Buffer)

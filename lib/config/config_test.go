@@ -17,7 +17,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 
@@ -923,7 +923,7 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 			t.Error("Configuration was not converted")
 		}
 
-		sort.Strings(tc[2])
+		slices.Sort(tc[2])
 		if !reflect.DeepEqual(cfg.Options.RawListenAddresses, tc[2]) {
 			t.Errorf("Migration error; actual %#v != expected %#v", cfg.Options.RawListenAddresses, tc[2])
 		}

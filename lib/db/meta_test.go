@@ -8,7 +8,7 @@ package db
 
 import (
 	"math/bits"
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/events"
@@ -71,8 +71,8 @@ func TestMetaDevices(t *testing.T) {
 	}
 
 	// Check that we got the two devices we expect
-	sort.Slice(devs, func(a, b int) bool {
-		return devs[a].Compare(devs[b]) == -1
+	slices.SortFunc(devs, func(a, b protocol.DeviceID) int {
+		return a.Compare(b)
 	})
 	if devs[0] != d1 {
 		t.Error("first device should be d1")

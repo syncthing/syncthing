@@ -11,7 +11,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -102,16 +103,8 @@ func needList(t testing.TB, s *db.FileSet, n protocol.DeviceID) []protocol.FileI
 
 type fileList []protocol.FileInfo
 
-func (l fileList) Len() int {
-	return len(l)
-}
-
-func (l fileList) Less(a, b int) bool {
-	return l[a].Name < l[b].Name
-}
-
-func (l fileList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
+func compareByName(a, b protocol.FileInfo) int {
+	return strings.Compare(a.Name, b.Name)
 }
 
 func (l fileList) String() string {
@@ -218,7 +211,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Helper()
 
 		g := fileList(globalList(t, m))
-		sort.Sort(g)
+		slices.SortFunc(g, compareByName)
 
 		if fmt.Sprint(g) != fmt.Sprint(expectedGlobal) {
 			t.Errorf("Global incorrect;\n A: %v !=\n E: %v", g, expectedGlobal)
@@ -255,7 +248,7 @@ func TestGlobalSet(t *testing.T) {
 		}
 
 		h := fileList(haveList(t, m, protocol.LocalDeviceID))
-		sort.Sort(h)
+		slices.SortFunc(h, compareByName)
 
 		if fmt.Sprint(h) != fmt.Sprint(localTot) {
 			t.Errorf("Have incorrect (local);\n A: %v !=\n E: %v", h, localTot)
@@ -292,14 +285,14 @@ func TestGlobalSet(t *testing.T) {
 		}
 
 		h = fileList(haveList(t, m, remoteDevice0))
-		sort.Sort(h)
+		slices.SortFunc(h, compareByName)
 
 		if fmt.Sprint(h) != fmt.Sprint(remoteTot) {
 			t.Errorf("Have incorrect (remote);\n A: %v !=\n E: %v", h, remoteTot)
 		}
 
 		n := fileList(needList(t, m, protocol.LocalDeviceID))
-		sort.Sort(n)
+		slices.SortFunc(n, compareByName)
 
 		if fmt.Sprint(n) != fmt.Sprint(expectedLocalNeed) {
 			t.Errorf("Need incorrect (local);\n A: %v !=\n E: %v", n, expectedLocalNeed)
@@ -308,7 +301,7 @@ func TestGlobalSet(t *testing.T) {
 		checkNeed(t, m, protocol.LocalDeviceID, expectedLocalNeed)
 
 		n = fileList(needList(t, m, remoteDevice0))
-		sort.Sort(n)
+		slices.SortFunc(n, compareByName)
 
 		if fmt.Sprint(n) != fmt.Sprint(expectedRemoteNeed) {
 			t.Errorf("Need incorrect (remote);\n A: %v !=\n E: %v", n, expectedRemoteNeed)
@@ -428,14 +421,14 @@ func TestGlobalSet(t *testing.T) {
 	check()
 
 	h := fileList(haveList(t, m, remoteDevice1))
-	sort.Sort(h)
+	slices.SortFunc(h, compareByName)
 
 	if fmt.Sprint(h) != fmt.Sprint(secRemote) {
 		t.Errorf("Have incorrect (secRemote);\n A: %v !=\n E: %v", h, secRemote)
 	}
 
 	n := fileList(needList(t, m, remoteDevice1))
-	sort.Sort(n)
+	slices.SortFunc(n, compareByName)
 
 	if fmt.Sprint(n) != fmt.Sprint(expectedSecRemoteNeed) {
 		t.Errorf("Need incorrect (secRemote);\n A: %v !=\n E: %v", n, expectedSecRemoteNeed)
@@ -475,7 +468,7 @@ func TestNeedWithInvalid(t *testing.T) {
 	replace(s, remoteDevice1, remote1Have)
 
 	need := fileList(needList(t, s, protocol.LocalDeviceID))
-	sort.Sort(need)
+	slices.SortFunc(need, compareByName)
 
 	if fmt.Sprint(need) != fmt.Sprint(expectedNeed) {
 		t.Errorf("Need incorrect;\n A: %v !=\n E: %v", need, expectedNeed)
@@ -503,7 +496,7 @@ func TestUpdateToInvalid(t *testing.T) {
 	replace(s, protocol.LocalDeviceID, localHave)
 
 	have := fileList(haveList(t, s, protocol.LocalDeviceID))
-	sort.Sort(have)
+	slices.SortFunc(have, compareByName)
 
 	if fmt.Sprint(have) != fmt.Sprint(localHave) {
 		t.Errorf("Have incorrect before invalidation;\n A: %v !=\n E: %v", have, localHave)
@@ -519,8 +512,8 @@ func TestUpdateToInvalid(t *testing.T) {
 
 	s.Update(protocol.LocalDeviceID, append(fileList{}, localHave[1], localHave[4]))
 
-	have = fileList(haveList(t, s, protocol.LocalDeviceID))
-	sort.Sort(have)
+	have = haveList(t, s, protocol.LocalDeviceID)
+	slices.SortFunc(have, compareByName)
 
 	if fmt.Sprint(have) != fmt.Sprint(localHave) {
 		t.Errorf("Have incorrect after invalidation;\n A: %v !=\n E: %v", have, localHave)
@@ -605,7 +598,7 @@ func TestGlobalReset(t *testing.T) {
 
 	replace(m, protocol.LocalDeviceID, local)
 	g := globalList(t, m)
-	sort.Sort(fileList(g))
+	slices.SortFunc(g, compareByName)
 
 	if diff, equal := messagediff.PrettyDiff(local, g); !equal {
 		t.Errorf("Global incorrect;\nglobal: %v\n!=\nlocal: %v\ndiff:\n%s", g, local, diff)
@@ -615,7 +608,7 @@ func TestGlobalReset(t *testing.T) {
 	replace(m, remoteDevice0, nil)
 
 	g = globalList(t, m)
-	sort.Sort(fileList(g))
+	slices.SortFunc(g, compareByName)
 
 	if diff, equal := messagediff.PrettyDiff(local, g); !equal {
 		t.Errorf("Global incorrect;\nglobal: %v\n!=\nlocal: %v\ndiff:\n%s", g, local, diff)
@@ -653,8 +646,8 @@ func TestNeed(t *testing.T) {
 
 	need := needList(t, m, protocol.LocalDeviceID)
 
-	sort.Sort(fileList(need))
-	sort.Sort(fileList(shouldNeed))
+	slices.SortFunc(need, compareByName)
+	slices.SortFunc(shouldNeed, compareByName)
 
 	if fmt.Sprint(need) != fmt.Sprint(shouldNeed) {
 		t.Errorf("Need incorrect;\n%v !=\n%v", need, shouldNeed)

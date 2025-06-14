@@ -12,7 +12,8 @@ import (
 	"fmt"
 	"math/rand"
 	"path/filepath"
-	"sort"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -1200,7 +1201,9 @@ func (f *folder) Errors() []FileError {
 	errors := make([]FileError, scanLen+len(f.pullErrors))
 	copy(errors[:scanLen], f.scanErrors)
 	copy(errors[scanLen:], f.pullErrors)
-	sort.Sort(fileErrorList(errors))
+	slices.SortFunc(errors, func(a, b FileError) int {
+		return strings.Compare(a.Path, b.Path)
+	})
 	return errors
 }
 
@@ -1341,7 +1344,7 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 	if len(dirs) == 0 {
 		return nil
 	}
-	sort.Strings(dirs)
+	slices.Sort(dirs)
 	if dirs[0] == "" || dirs[0] == "." || dirs[0] == string(fs.PathSeparator) {
 		return nil
 	}
