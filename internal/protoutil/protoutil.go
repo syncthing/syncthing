@@ -7,14 +7,16 @@
 package protoutil
 
 import (
-	"fmt"
+	"errors"
 
 	"google.golang.org/protobuf/proto"
 )
 
+var errBufferTooSmall = errors.New("buffer too small")
+
 func MarshalTo(buf []byte, pb proto.Message) (int, error) {
 	if sz := proto.Size(pb); len(buf) < sz {
-		return 0, fmt.Errorf("buffer too small")
+		return 0, errBufferTooSmall
 	} else if sz == 0 {
 		return 0, nil
 	}

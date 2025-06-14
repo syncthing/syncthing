@@ -403,9 +403,11 @@ func upgradeViaRest() error {
 	if err != nil {
 		return err
 	}
+
+	defer resp.Body.Close()
+
 	if resp.StatusCode != 200 {
 		bs, err := io.ReadAll(resp.Body)
-		defer resp.Body.Close()
 		if err != nil {
 			return err
 		}
@@ -611,8 +613,7 @@ func setupSignalHandling(app *syncthing.App) {
 	// Exit cleanly with "restarting" code on SIGHUP.
 
 	restartSign := make(chan os.Signal, 1)
-	sigHup := syscall.Signal(1)
-	signal.Notify(restartSign, sigHup)
+	signal.Notify(restartSign, syscall.SIGHUP)
 	go func() {
 		<-restartSign
 		app.Stop(svcutil.ExitRestart)

@@ -173,7 +173,7 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 			name = s.tlsDefaultCommonName
 		}
 
-		cert, err = tlsutil.NewCertificate(httpsCertFile, httpsKeyFile, name, httpsCertLifetimeDays)
+		cert, err = tlsutil.NewCertificate(httpsCertFile, httpsKeyFile, name, httpsCertLifetimeDays, true)
 	}
 	if err != nil {
 		return nil, err

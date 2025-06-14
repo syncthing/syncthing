@@ -44,7 +44,7 @@ type folder struct {
 	*stats.FolderStatisticsReference
 	ioLimiter *semaphore.Semaphore
 
-	localFlags uint32
+	localFlags protocol.FlagLocal
 
 	model         *model
 	shortID       protocol.ShortID
@@ -52,7 +52,7 @@ type folder struct {
 	ignores       *ignore.Matcher
 	mtimefs       fs.Filesystem
 	modTimeWindow time.Duration
-	ctx           context.Context // used internally, only accessible on serve lifetime
+	ctx           context.Context //nolint:containedctx // used internally, only accessible on serve lifetime
 	done          chan struct{}   // used externally, accessible regardless of serve
 
 	scanInterval           time.Duration
@@ -322,7 +322,7 @@ func (f *folder) Reschedule() {
 		return
 	}
 	// Sleep a random time between 3/4 and 5/4 of the configured interval.
-	sleepNanos := (f.scanInterval.Nanoseconds()*3 + rand.Int63n(2*f.scanInterval.Nanoseconds())) / 4
+	sleepNanos := (f.scanInterval.Nanoseconds()*3 + rand.Int63n(2*f.scanInterval.Nanoseconds())) / 4 //nolint:gosec
 	interval := time.Duration(sleepNanos) * time.Nanosecond
 	l.Debugln(f, "next rescan in", interval)
 	f.scanTimer.Reset(interval)
@@ -1077,7 +1077,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 			f.setWatchError(err, next)
 			// This error was previously a panic and should never occur, so generate
 			// a warning, but don't do it repetitively.
-			var errOutside *fs.ErrWatchEventOutsideRoot
+			var errOutside *fs.WatchEventOutsideRootError
 			if errors.As(err, &errOutside) {
 				if !warnedOutside {
 					l.Warnln(err)
@@ -1111,7 +1111,7 @@ func (f *folder) setWatchError(err error, nextTryIn time.Duration) {
 	prevErr := f.watchErr
 	f.watchErr = err
 	f.watchMut.Unlock()
-	if err != prevErr {
+	if err != prevErr { //nolint:errorlint
 		data := map[string]interface{}{
 			"folder": f.ID,
 		}
@@ -1127,7 +1127,7 @@ func (f *folder) setWatchError(err error, nextTryIn time.Duration) {
 		return
 	}
 	msg := fmt.Sprintf("Error while trying to start filesystem watcher for folder %s, trying again in %v: %v", f.Description(), nextTryIn, err)
-	if prevErr != err {
+	if prevErr != err { //nolint:errorlint
 		l.Infof(msg)
 		return
 	}

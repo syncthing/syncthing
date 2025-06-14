@@ -37,7 +37,7 @@ func NewTyped(db KV, prefix string) *Typed {
 // is overwritten.
 func (n *Typed) PutInt64(key string, val int64) error {
 	var valBs [8]byte
-	binary.BigEndian.PutUint64(valBs[:], uint64(val))
+	binary.BigEndian.PutUint64(valBs[:], uint64(val)) //nolint:gosec
 	return n.db.PutKV(n.prefixedKey(key), valBs[:])
 }
 
@@ -49,7 +49,7 @@ func (n *Typed) Int64(key string) (int64, bool, error) {
 		return 0, false, filterNotFound(err)
 	}
 	val := binary.BigEndian.Uint64(valBs)
-	return int64(val), true, nil
+	return int64(val), true, nil //nolint:gosec
 }
 
 // PutTime stores a new time.Time. Any existing value (even if of another
