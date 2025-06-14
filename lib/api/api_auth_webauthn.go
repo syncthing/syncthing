@@ -71,8 +71,10 @@ func (s *webauthnService) expired(t *timedSessionData) bool {
 }
 
 type webauthnService struct {
-	miscDB                         *db.Typed
-	miscDBKey                      string
+	miscDB    *db.Typed
+	miscDBKey string
+	miscDBMut sync.RWMutex
+
 	engine                         *webauthnLib.WebAuthn
 	evLogger                       events.Logger
 	userHandle                     []byte
@@ -81,7 +83,6 @@ type webauthnService struct {
 	credentialsPendingRegistration []config.WebauthnCredential
 	deviceName                     string
 	timeNow                        func() time.Time // can be overridden for testing
-	miscDBMut                      sync.RWMutex
 }
 
 func newWebauthnService(guiCfg config.GUIConfiguration, deviceName string, evLogger events.Logger, miscDB *db.Typed, miscDBKey string) (webauthnService, error) {
