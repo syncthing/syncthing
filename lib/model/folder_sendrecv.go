@@ -321,8 +321,8 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 
 	// Process the file queue.
 
-	changed, err = f.processFileQueue(changed, fileDeletions, dirDeletions, scanChan, buckets, dbUpdateChan, copyChan)
-	return changed, fileDeletions, dirDeletions, nil
+	err = f.processFileQueue(fileDeletions, dirDeletions, scanChan, buckets, dbUpdateChan, copyChan)
+	return changed, fileDeletions, dirDeletions, err
 }
 
 func (f *sendReceiveFolder) categorizeNeeded(dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) (int, []protocol.FileInfo, map[string]protocol.FileInfo, map[string][]protocol.FileInfo, error) {
@@ -441,12 +441,11 @@ func (f *sendReceiveFolder) categorizeNeeded(dbUpdateChan chan<- dbUpdateJob, sc
 	return changed, dirDeletions, fileDeletions, buckets, nil
 }
 
-func (f *sendReceiveFolder) processFileQueue(changed int, fileDeletions map[string]protocol.FileInfo, dirDeletions []protocol.FileInfo, scanChan chan<- string, buckets map[string][]protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState) (bool, int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
-nextFile:
+func (f *sendReceiveFolder) processFileQueue(fileDeletions map[string]protocol.FileInfo, buckets map[string][]protocol.FileInfo, scanChan chan<- string, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState) error {
 	for {
 		select {
 		case <-f.ctx.Done():
-			return true, changed, fileDeletions, dirDeletions, f.ctx.Err()
+			return f.ctx.Err()
 		default:
 		}
 
@@ -455,62 +454,69 @@ nextFile:
 			break
 		}
 
-		fi, ok, err := f.model.sdb.GetGlobalFile(f.folderID, fileName)
+		err := f.processFile(fileName, fileDeletions, buckets, scanChan, dbUpdateChan, copyChan)
 		if err != nil {
-			return true, changed, nil, nil, err
+			return err
 		}
-		if !ok {
-			// File is no longer in the index. Mark it as done and drop it.
-			f.queue.Done(fileName)
-			continue
-		}
-
-		if fi.IsDeleted() || fi.IsInvalid() || fi.Type != protocol.FileInfoTypeFile {
-			// The item has changed type or status in the index while we
-			// were processing directories above.
-			f.queue.Done(fileName)
-			continue
-		}
-
-		if !f.checkParent(fi.Name, scanChan) {
-			f.queue.Done(fileName)
-			continue
-		}
-
-		// Check our list of files to be removed for a match, in which case
-		// we can just do a rename instead.
-		key := string(fi.BlocksHash)
-		for candidate, ok := popCandidate(buckets, key); ok; candidate, ok = popCandidate(buckets, key) {
-			// candidate is our current state of the file, where as the
-			// desired state with the delete bit set is in the deletion
-			// map.
-			desired := fileDeletions[candidate.Name]
-			if err := f.renameFile(candidate, desired, fi, dbUpdateChan, scanChan); err != nil {
-				l.Debugf("rename shortcut for %s failed: %s", fi.Name, err.Error())
-				// Failed to rename, try next one.
-				continue
-			}
-
-			// Remove the pending deletion (as we performed it by renaming)
-			delete(fileDeletions, candidate.Name)
-
-			f.queue.Done(fileName)
-			continue nextFile
-		}
-
-		devices := f.model.fileAvailability(f.FolderConfiguration, fi)
-		if len(devices) > 0 {
-			if err := f.handleFile(fi, copyChan); err != nil {
-				f.newPullError(fileName, err)
-			}
-			continue
-		}
-		f.newPullError(fileName, errNotAvailable)
-		f.queue.Done(fileName)
 	}
-	return false, 0, nil, nil, nil
+	return nil
 }
 
+func (f *sendReceiveFolder) processFile(fileName string, fileDeletions map[string]protocol.FileInfo, buckets map[string][]protocol.FileInfo, scanChan chan<- string, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState) error {
+	fi, ok, err := f.model.sdb.GetGlobalFile(f.folderID, fileName)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		// File is no longer in the index. Mark it as done and drop it.
+		f.queue.Done(fileName)
+		return nil
+	}
+
+	if fi.IsDeleted() || fi.IsInvalid() || fi.Type != protocol.FileInfoTypeFile {
+		// The item has changed type or status in the index while we
+		// were processing directories above.
+		f.queue.Done(fileName)
+		return nil
+	}
+
+	if !f.checkParent(fi.Name, scanChan) {
+		f.queue.Done(fileName)
+		return nil
+	}
+
+	// Check our list of files to be removed for a match, in which case
+	// we can just do a rename instead.
+	key := string(fi.BlocksHash)
+	for candidate, ok := popCandidate(buckets, key); ok; candidate, ok = popCandidate(buckets, key) {
+		// candidate is our current state of the file, where as the
+		// desired state with the delete bit set is in the deletion
+		// map.
+		desired := fileDeletions[candidate.Name]
+		if err := f.renameFile(candidate, desired, fi, dbUpdateChan, scanChan); err != nil {
+			l.Debugf("rename shortcut for %s failed: %s", fi.Name, err.Error())
+			// Failed to rename, try next one.
+			continue
+		}
+
+		// Remove the pending deletion (as we performed it by renaming)
+		delete(fileDeletions, candidate.Name)
+
+		f.queue.Done(fileName)
+		return nil
+	}
+
+	devices := f.model.fileAvailability(f.FolderConfiguration, fi)
+	if len(devices) > 0 {
+		if err := f.handleFile(fi, copyChan); err != nil {
+			f.newPullError(fileName, err)
+		}
+		return nil
+	}
+	f.newPullError(fileName, errNotAvailable)
+	f.queue.Done(fileName)
+	return nil
+}
 
 func popCandidate(buckets map[string][]protocol.FileInfo, key string) (protocol.FileInfo, bool) {
 	cands := buckets[key]
