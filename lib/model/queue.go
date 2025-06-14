@@ -7,63 +7,59 @@
 package model
 
 import (
-	"time"
+	"iter"
 
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type jobQueue struct {
-	progress []string
-	queued   []jobQueueEntry
-	mut      sync.Mutex
+	progress    []string
+	prioritized []string
+	mut         sync.Mutex
+
+	iterAllNeeded func() iter.Seq2[protocol.FileInfo, error]
 }
 
-type jobQueueEntry struct {
-	name     string
-	size     int64
-	modified int64
-}
-
-func newJobQueue() *jobQueue {
+func newJobQueue(iterAllNeeded func() iter.Seq2[protocol.FileInfo, error]) *jobQueue {
 	return &jobQueue{
 		mut: sync.NewMutex(),
+		iterAllNeeded: iterAllNeeded,
 	}
 }
 
-func (q *jobQueue) Push(file string, size int64, modified time.Time) {
+func (q *jobQueue) Start(filename string) {
 	q.mut.Lock()
-	// The range of UnixNano covers a range of reasonable timestamps.
-	q.queued = append(q.queued, jobQueueEntry{file, size, modified.UnixNano()})
+	q.progress = append(q.progress, filename)
 	q.mut.Unlock()
 }
 
-func (q *jobQueue) Pop() (string, bool) {
+func (q *jobQueue) StartPrioritized() (string, bool) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
-
-	if len(q.queued) == 0 {
+	pLen := len(q.prioritized)
+	if pLen == 0 {
 		return "", false
 	}
-
-	f := q.queued[0].name
-	q.queued = q.queued[1:]
-	q.progress = append(q.progress, f)
-
-	return f, true
+	filename := q.prioritized[0]
+	copy(q.prioritized, q.prioritized[1:])
+	q.prioritized = q.prioritized[:pLen-1]
+	q.progress = append(q.progress, filename)
+	return filename, true
 }
 
 func (q *jobQueue) BringToFront(filename string) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	for i, cur := range q.queued {
-		if cur.name == filename {
+	for i, cur := range q.prioritized {
+		if cur == filename {
 			if i > 0 {
 				// Shift the elements before the selected element one step to
 				// the right, overwriting the selected element
-				copy(q.queued[1:i+1], q.queued[0:])
+				copy(q.prioritized[1:i+1], q.prioritized[0:])
 				// Put the selected element at the front
-				q.queued[0] = cur
+				q.prioritized[0] = cur
 			}
 			return
 		}
@@ -90,36 +86,40 @@ func (q *jobQueue) Jobs(page, perpage int) ([]string, []string, int) {
 	defer q.mut.Unlock()
 
 	toSkip := (page - 1) * perpage
-	plen := len(q.progress)
-	qlen := len(q.queued)
+	progresstotal := len(q.progress)
 
-	if tot := plen + qlen; tot <= toSkip {
-		return nil, nil, tot
-	}
-
-	if plen >= toSkip+perpage {
+	if progresstotal >= toSkip+perpage {
 		progress := make([]string, perpage)
 		copy(progress, q.progress[toSkip:toSkip+perpage])
 		return progress, nil, toSkip
 	}
 
 	var progress []string
-	if plen > toSkip {
-		progress = make([]string, plen-toSkip)
-		copy(progress, q.progress[toSkip:plen])
+	if progresstotal > toSkip {
+		progress = make([]string, progresstotal-toSkip)
+		copy(progress, q.progress[toSkip:progresstotal])
 		toSkip = 0
 	} else {
-		toSkip -= plen
+		toSkip -= progresstotal
 	}
 
+	progressLen := len(progress)
 	var queued []string
-	if qlen-toSkip < perpage-len(progress) {
-		queued = make([]string, qlen-toSkip)
-	} else {
-		queued = make([]string, perpage-len(progress))
-	}
-	for i := range queued {
-		queued[i] = q.queued[i+toSkip].name
+	for file, err := range q.iterAllNeeded() {
+		if err != nil {
+			break
+		}
+		if file.Type != protocol.FileInfoTypeFile || file.IsDeleted() {
+			continue
+		}
+		if toSkip > 0 {
+			toSkip--
+			continue
+		}
+		queued = append(queued, file.Name)
+		if len(queued) + progressLen == perpage {
+			break
+		}
 	}
 
 	return progress, queued, (page - 1) * perpage
@@ -129,13 +129,7 @@ func (q *jobQueue) Reset() {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 	q.progress = nil
-	q.queued = nil
-}
-
-func (q *jobQueue) lenQueued() int {
-	q.mut.Lock()
-	defer q.mut.Unlock()
-	return len(q.queued)
+	q.prioritized = nil
 }
 
 func (q *jobQueue) lenProgress() int {

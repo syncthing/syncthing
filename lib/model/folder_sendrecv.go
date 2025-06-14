@@ -133,11 +133,13 @@ type sendReceiveFolder struct {
 func newSendReceiveFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
 	f := &sendReceiveFolder{
 		folder:             newFolder(model, ignores, cfg, evLogger, ioLimiter, ver),
-		queue:              newJobQueue(),
 		blockPullReorderer: newBlockPullReorderer(cfg.BlockPullOrder, model.id, cfg.DeviceIDs()),
 		writeLimiter:       semaphore.New(cfg.MaxConcurrentWrites),
 	}
 	f.puller = f
+	f.queue = newJobQueue(func() iter.Seq2[protocol.FileInfo, error] {
+		return f.iterAllNeeded(f.Order)
+	})
 
 	if f.Copiers == 0 {
 		f.Copiers = defaultCopiers
@@ -320,20 +322,40 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 		return changed, err
 	}
 
-	// Process the file queue.
-	for {
-		select {
-		case <-f.ctx.Done():
-			return changed, f.ctx.Err()
-		default:
+	for needed, err := range f.iterAllNeeded(f.Order) {
+		if err != nil {
+			return changed, err
 		}
 
-		fileName, ok := f.queue.Pop()
-		if !ok {
-			break
+		// Handle any files the user pushed to the front first.
+		for {
+			select {
+			case <-f.ctx.Done():
+				return changed, f.ctx.Err()
+			default:
+			}
+
+			prioritizedFileName, ok := f.queue.StartPrioritized()
+			if !ok {
+				break
+			}
+
+			prioritized, ok, err := f.model.sdb.GetGlobalFile(f.folderID, prioritizedFileName)
+			if err != nil {
+				return changed, err
+			}
+			if !ok {
+				// File is no longer in the index. Mark it as done and drop it.
+				f.queue.Done(prioritizedFileName)
+				continue
+			}
+
+			if err := f.processFile(prioritized, scanChan, dbUpdateChan, copyChan); err != nil {
+				return changed, err
+			}
 		}
 
-		if err := f.processFile(fileName, scanChan, dbUpdateChan, copyChan); err != nil {
+		if err := f.processFile(needed, scanChan, dbUpdateChan, copyChan); err != nil {
 			return changed, err
 		}
 	}
@@ -403,9 +425,6 @@ func (f *sendReceiveFolder) processNeededFast(dbUpdateChan chan<- dbUpdateJob, s
 				// are only updating metadata, so we don't actually *need* to make the
 				// copy.
 				f.shortcutFile(file, dbUpdateChan)
-			} else {
-				// Queue files for processing after directories and symlinks.
-				f.queue.Push(file.Name, file.Size, file.ModTime())
 			}
 
 		case (build.IsWindows || build.IsAndroid) && file.IsSymlink():
@@ -438,26 +457,16 @@ func (f *sendReceiveFolder) processNeededFast(dbUpdateChan chan<- dbUpdateJob, s
 	return changed, nil
 }
 
-func (f *sendReceiveFolder) processFile(fileName string, scanChan chan<- string, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState) error {
-	fi, ok, err := f.model.sdb.GetGlobalFile(f.folderID, fileName)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		// File is no longer in the index. Mark it as done and drop it.
-		f.queue.Done(fileName)
-		return nil
-	}
-
+func (f *sendReceiveFolder) processFile(fi protocol.FileInfo, scanChan chan<- string, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState) error {
 	if fi.IsDeleted() || fi.IsInvalid() || fi.Type != protocol.FileInfoTypeFile {
 		// The item has changed type or status in the index while we
 		// were processing directories above.
-		f.queue.Done(fileName)
+		f.queue.Done(fi.Name)
 		return nil
 	}
 
 	if !f.checkParent(fi.Name, scanChan) {
-		f.queue.Done(fileName)
+		f.queue.Done(fi.Name)
 		return nil
 	}
 
@@ -483,7 +492,7 @@ func (f *sendReceiveFolder) processFile(fileName string, scanChan chan<- string,
 		if err != nil {
 			return err
 		}
-		if !ok || !desired.IsDeleted() || desired.LocalFlags & protocol.FlagLocalNeeded == 0 {
+		if !ok || !desired.IsDeleted() || desired.LocalFlags&protocol.FlagLocalNeeded == 0 {
 			continue
 		}
 
@@ -503,19 +512,19 @@ func (f *sendReceiveFolder) processFile(fileName string, scanChan chan<- string,
 			continue
 		}
 
-		f.queue.Done(fileName)
+		f.queue.Done(fi.Name)
 		return nil
 	}
 
 	devices := f.model.fileAvailability(f.FolderConfiguration, fi)
 	if len(devices) > 0 {
 		if err := f.handleFile(fi, copyChan); err != nil {
-			f.newPullError(fileName, err)
+			f.newPullError(fi.Name, err)
 		}
 		return nil
 	}
-	f.newPullError(fileName, errNotAvailable)
-	f.queue.Done(fileName)
+	f.newPullError(fi.Name, errNotAvailable)
+	f.queue.Done(fi.Name)
 	return nil
 }
 
@@ -546,7 +555,7 @@ func (f *sendReceiveFolder) processDeletions(dbUpdateChan chan<- dbUpdateJob, sc
 	}
 }
 
-func (f *sendReceiveFolder) iterAllNeeded(order config.PullOrder)  iter.Seq2[protocol.FileInfo, error] {
+func (f *sendReceiveFolder) iterAllNeeded(order config.PullOrder) iter.Seq2[protocol.FileInfo, error] {
 	return itererr.Zip(f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, order, 0, 0))
 }
 

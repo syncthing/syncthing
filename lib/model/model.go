@@ -991,8 +991,8 @@ func (m *model) FolderProgressBytesCompleted(folder string) int64 {
 	return m.progressEmitter.BytesCompleted(folder)
 }
 
-// NeedFolderFiles returns paginated list of currently needed files in
-// progress, queued, and to be queued on next puller iteration.
+// NeedFolderFiles returns needed files, split into ones currently in progress
+// and the rest. Paging is accross both lists with in-progress first.
 func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error) {
 	m.mut.RLock()
 	runner, runnerOk := m.folderRunners.Get(folder)
