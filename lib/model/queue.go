@@ -10,6 +10,7 @@ import (
 	"iter"
 	"slices"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -20,10 +21,10 @@ type jobQueue struct {
 	mut         sync.Mutex
 
 	getNeeded     func(name string) (protocol.FileInfo, bool)
-	iterAllNeeded func() iter.Seq2[protocol.FileInfo, error]
+	iterAllNeeded func() iter.Seq2[db.FileMetadata, error]
 }
 
-func newJobQueue(getNeeded func(name string) (protocol.FileInfo, bool), iterAllNeeded func() iter.Seq2[protocol.FileInfo, error]) *jobQueue {
+func newJobQueue(getNeeded func(name string) (protocol.FileInfo, bool), iterAllNeeded func() iter.Seq2[db.FileMetadata, error]) *jobQueue {
 	return &jobQueue{
 		mut:           sync.NewMutex(),
 		getNeeded:     getNeeded,

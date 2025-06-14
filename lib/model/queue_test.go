@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/d4l3k/messagediff"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -60,7 +61,7 @@ func TestJobQueue(t *testing.T) {
 		}
 	}
 
-	if len(q.progress) > 0 || len(q.files) != 4 {
+	if len(q.progress) > 0 || len(q.filenames) != 4 {
 		t.Fatal("Wrong length")
 	}
 
@@ -299,26 +300,30 @@ func TestQueuePagination(t *testing.T) {
 
 type filenameJobQueue struct {
 	*jobQueue
-	files []protocol.FileInfo
+	filenames []string
 }
 
 func newFilenameJobQueue(filenames []string) *filenameJobQueue {
 	q := &filenameJobQueue{
-		files: make([]protocol.FileInfo, 0, len(filenames)),
-	}
-	for _, n := range filenames {
-		q.add(n)
+		filenames: filenames,
 	}
 	getNeeded := func(name string) (protocol.FileInfo, bool) {
-		i := slices.IndexFunc(q.files, func(f protocol.FileInfo) bool { return f.Name == name})
+		i := slices.Index(q.filenames, name)
 		if i < 0 {
 			return protocol.FileInfo{}, false
 		}
-		return q.files[i], true
+		return protocol.FileInfo{
+			Name: q.filenames[i],
+			Type: protocol.FileInfoTypeFile,
+		}, true
 	}
-	iterFn := func() iter.Seq2[protocol.FileInfo, error] {
-		return func(yield func(protocol.FileInfo, error) bool) {
-			for _, file := range q.files {
+	iterFn := func() iter.Seq2[db.FileMetadata, error] {
+		return func(yield func(db.FileMetadata, error) bool) {
+			for _, filename := range q.filenames {
+				file := db.FileMetadata{
+					Name: filename,
+					Type: protocol.FileInfoTypeFile,
+				}
 				if !yield(file, nil) {
 					break
 				}
@@ -330,15 +335,12 @@ func newFilenameJobQueue(filenames []string) *filenameJobQueue {
 }
 
 func (q *filenameJobQueue) add(file string) {
-	q.files = append(q.files, protocol.FileInfo{
-		Name: file,
-		Type: protocol.FileInfoTypeFile,
-	})
+	q.filenames = append(q.filenames, file)
 }
 
 func (q *filenameJobQueue) Done(file string) {
-	l.Debugln("filenameJobQueue.Done", len(q.files))
+	l.Debugln("filenameJobQueue.Done", len(q.filenames))
 	q.jobQueue.Done(file)
-	q.files = slices.DeleteFunc(q.files, func(f protocol.FileInfo) bool { return f.Name == file})
-	l.Debugln("filenameJobQueue.Done after", len(q.files))
+	q.filenames = slices.DeleteFunc(q.filenames, func(n string) bool { return n == file})
+	l.Debugln("filenameJobQueue.Done after", len(q.filenames))
 }

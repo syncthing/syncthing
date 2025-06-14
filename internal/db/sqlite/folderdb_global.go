@@ -103,7 +103,22 @@ func (s *folderDB) AllGlobalFilesPrefix(prefix string) (iter.Seq[db.FileMetadata
 	})
 }
 
-func (s *folderDB) AllNeededGlobalFiles(device protocol.DeviceID, order config.PullOrder, limit, offset int) (iter.Seq[protocol.FileInfo], func() error) {
+func (s *folderDB) AllNeededGlobalFiles(device protocol.DeviceID,order config.PullOrder, limit, offset int) (iter.Seq[protocol.FileInfo], func() error) {
+	selectOpts := allNeededGlobalSelectOpts(order, limit, offset)
+
+	if device == protocol.LocalDeviceID {
+		return s.neededGlobalFilesLocal(selectOpts)
+	}
+
+	return s.neededGlobalFilesRemote(device, selectOpts)
+}
+
+func (s *folderDB) AllNeededGlobalFileMetadataLocal( order config.PullOrder, limit, offset int) (iter.Seq[db.FileMetadata], func() error) {
+	selectOpts := allNeededGlobalSelectOpts(order, limit, offset)
+	return s.neededGlobalFileMetadataLocal(selectOpts)
+}
+
+func allNeededGlobalSelectOpts(order config.PullOrder, limit, offset int) string {
 	var selectOpts string
 	switch order {
 	case config.PullOrderRandom:
@@ -129,12 +144,9 @@ func (s *folderDB) AllNeededGlobalFiles(device protocol.DeviceID, order config.P
 		selectOpts += fmt.Sprintf(" OFFSET %d", offset)
 	}
 
-	if device == protocol.LocalDeviceID {
-		return s.neededGlobalFilesLocal(selectOpts)
-	}
-
-	return s.neededGlobalFilesRemote(device, selectOpts)
+	return selectOpts
 }
+
 
 func (s *folderDB) neededGlobalFilesLocal(selectOpts string) (iter.Seq[protocol.FileInfo], func() error) {
 	// Select all the non-ignored files with the need bit set.
@@ -181,4 +193,16 @@ func (s *folderDB) neededGlobalFilesRemote(device protocol.DeviceID, selectOpts 
 		device.String(),
 	))
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
+}
+
+func (s *folderDB) neededGlobalFileMetadataLocal(selectOpts string) (iter.Seq[db.FileMetadata], func() error) {
+	// Select all the non-ignored files with the need bit set.
+	it, errFn := iterStructs[db.FileMetadata](s.stmt(`
+		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.local_flags as localflags FROM files f
+		WHERE f.local_flags & {{.FlagLocalIgnored}} = 0 AND f.local_flags & {{.FlagLocalNeeded}} != 0
+	` + selectOpts).Queryx())
+	return itererr.Map(it, errFn, func(m db.FileMetadata) (db.FileMetadata, error) {
+		m.Name = osutil.NativeFilename(m.Name)
+		return m, nil
+	})
 }

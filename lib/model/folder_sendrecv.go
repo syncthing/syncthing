@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -143,8 +144,12 @@ func newSendReceiveFolder(model *model, ignores *ignore.Matcher, cfg config.Fold
 			return protocol.FileInfo{}, false
 		}
 		return global, true
-	}, func() iter.Seq2[protocol.FileInfo, error] {
-		return f.iterAllNeeded(f.Order)
+	}, func() iter.Seq2[db.FileMetadata, error] {
+		it, errFn := f.model.sdb.AllNeededGlobalFileMetadataLocal(f.folderID, f.Order, 0, 0)
+		if f.IgnoreDelete {
+			it = filterDeleted(it)
+		}
+		return itererr.Zip(it, errFn)
 	})
 
 	if f.Copiers == 0 {
@@ -305,7 +310,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 	close(finisherChan)
 	doneWg.Wait()
 
-	if err == nil {
+	if err == nil && !f.IgnoreDelete {
 		f.processDeletions(dbUpdateChan, scanChan)
 	}
 
@@ -328,7 +333,11 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 		return changed, err
 	}
 
-	for needed, err := range f.iterAllNeeded(f.Order) {
+	it, errFn := f.iterAllNeeded(f.Order)
+	if f.IgnoreDelete {
+		it = filterDeleted(it)
+	}
+	for needed, err := range itererr.Zip(it, errFn) {
 		if err != nil {
 			return changed, err
 		}
@@ -365,7 +374,11 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 func (f *sendReceiveFolder) processNeededFast(dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) (int, error) {
 	changed := 0
 
-	for file, err := range f.iterAllNeeded(f.Order) {
+	it, errFn := f.iterAllNeeded(f.Order)
+	if f.IgnoreDelete {
+		it = filterDeleted(it)
+	}
+	for file, err := range itererr.Zip(it, errFn) {
 		if err != nil {
 			return 0, err
 		}
@@ -521,7 +534,7 @@ func (f *sendReceiveFolder) processFile(fi protocol.FileInfo, scanChan chan<- st
 
 func (f *sendReceiveFolder) processDeletions(dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Process in reverse order to delete depth first
-	for needed, err := range f.iterAllNeeded(config.PullOrderAlphabeticInverse) {
+	for needed, err := range itererr.Zip(f.iterAllNeeded(config.PullOrderAlphabeticInverse)) {
 		if err != nil {
 			return
 		}
@@ -546,25 +559,21 @@ func (f *sendReceiveFolder) processDeletions(dbUpdateChan chan<- dbUpdateJob, sc
 	}
 }
 
-func (f *sendReceiveFolder) iterAllNeeded(order config.PullOrder) iter.Seq2[protocol.FileInfo, error] {
-	iter := itererr.Zip(f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, order, 0, 0))
-	if f.IgnoreDelete {
-		iter = func(yield func(protocol.FileInfo, error) bool) {
-			for file, err := range iter {
-				if err != nil {
-					yield(file, err)
-					return
-				}
-				if file.IsDeleted() {
-					continue
-				}
-				if !yield(file, err) {
-					return
-				}
+func (f *sendReceiveFolder) iterAllNeeded(order config.PullOrder) (iter.Seq[protocol.FileInfo], func() error) {
+	return f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, order, 0, 0)
+}
+
+func filterDeleted[T interface{ IsDeleted() bool }](it iter.Seq[T]) iter.Seq[T] {
+	return func(yield func(T) bool) {
+		for file := range it {
+			if file.IsDeleted() {
+				continue
+			}
+			if !yield(file) {
+				return
 			}
 		}
 	}
-	return iter
 }
 
 // handleDir creates or updates the given directory
