@@ -2757,7 +2757,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 		}
 
 		// Don't include the prefix itself.
-		if f.Invalid || f.Deleted || strings.HasPrefix(prefix, f.Name) {
+		if f.IsInvalid() || f.Deleted || strings.HasPrefix(prefix, f.Name) {
 			continue
 		}
 
