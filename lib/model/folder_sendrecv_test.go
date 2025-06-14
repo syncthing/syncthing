@@ -1216,7 +1216,7 @@ func TestPullDeleteCaseConflict(t *testing.T) {
 		}
 		fd.Close()
 	}
-	f.deleteFileWithCurrent(fi, protocol.FileInfo{}, false, dbUpdateChan, scanChan)
+	f.deleteFile(fi, dbUpdateChan, scanChan)
 	select {
 	case <-dbUpdateChan:
 	default:

@@ -315,7 +315,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 	// Regular files to pull goes into the file queue, everything else
 	// (directories, symlinks and deletes) goes into the "process directly"
 	// pile.
-	changed, fileDeletions, buckets, err := f.categorizeNeeded(dbUpdateChan, scanChan)
+	changed, err := f.processNeededFast(dbUpdateChan, scanChan)
 	if err != nil {
 		return changed, err
 	}
@@ -333,7 +333,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			break
 		}
 
-		if err := f.processFile(fileName, fileDeletions, buckets, scanChan, dbUpdateChan, copyChan); err != nil {
+		if err := f.processFile(fileName, scanChan, dbUpdateChan, copyChan); err != nil {
 			return changed, err
 		}
 	}
@@ -341,18 +341,19 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 	return changed, nil
 }
 
-func (f *sendReceiveFolder) categorizeNeeded(dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) (int, map[string]protocol.FileInfo, map[string][]protocol.FileInfo, error) {
+// processNeededFast handles all the items that can be dealt with quickly, i.e.
+// that don't need copying/pulling of data. Also doesn't do deletions, that
+// happens at the end.
+func (f *sendReceiveFolder) processNeededFast(dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) (int, error) {
 	changed := 0
-	fileDeletions := map[string]protocol.FileInfo{}
-	buckets := map[string][]protocol.FileInfo{}
 
 	for file, err := range f.iterAllNeeded(f.Order) {
 		if err != nil {
-			return 0, nil, nil, err
+			return 0, err
 		}
 		select {
 		case <-f.ctx.Done():
-			return 0, nil, nil, f.ctx.Err()
+			return 0, f.ctx.Err()
 		default:
 		}
 
@@ -385,35 +386,17 @@ func (f *sendReceiveFolder) categorizeNeeded(dbUpdateChan chan<- dbUpdateJob, sc
 			}
 
 		case file.IsDeleted():
-			switch {
-			case file.IsDirectory():
-				// Perform directory deletions at the end, as we may have
-				// files to delete inside them before we get to that point.
-			case file.IsSymlink():
+			if file.IsSymlink() {
 				f.deleteFile(file, dbUpdateChan, scanChan)
-			default:
-				df, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
-				if err != nil {
-					return changed, nil, nil, err
-				}
-				// Local file can be already deleted, but with a lower version
-				// number, hence the deletion coming in again as part of
-				// WithNeed, furthermore, the file can simply be of the wrong
-				// type if we haven't yet managed to pull it.
-				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
-					fileDeletions[file.Name] = file
-					// Put files into buckets per first hash
-					key := string(df.BlocksHash)
-					buckets[key] = append(buckets[key], df)
-				} else {
-					f.deleteFileWithCurrent(file, df, ok, dbUpdateChan, scanChan)
-				}
 			}
+			// Perform directory and file deletions at the end.
+			// Files we may be able to use for renames. And for directories we
+			// may have files to delete inside them before we get to that point.
 
 		case file.Type == protocol.FileInfoTypeFile:
 			curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
 			if err != nil {
-				return changed, nil, nil, err
+				return changed, err
 			}
 			if hasCurFile && file.BlocksEqual(curFile) {
 				// We are supposed to copy the entire file, and then fetch nothing. We
@@ -452,10 +435,10 @@ func (f *sendReceiveFolder) categorizeNeeded(dbUpdateChan chan<- dbUpdateJob, sc
 		}
 	}
 
-	return changed, fileDeletions, buckets, nil
+	return changed, nil
 }
 
-func (f *sendReceiveFolder) processFile(fileName string, fileDeletions map[string]protocol.FileInfo, buckets map[string][]protocol.FileInfo, scanChan chan<- string, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState) error {
+func (f *sendReceiveFolder) processFile(fileName string, scanChan chan<- string, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState) error {
 	fi, ok, err := f.model.sdb.GetGlobalFile(f.folderID, fileName)
 	if err != nil {
 		return err
@@ -478,22 +461,47 @@ func (f *sendReceiveFolder) processFile(fileName string, fileDeletions map[strin
 		return nil
 	}
 
-	// Check our list of files to be removed for a match, in which case
-	// we can just do a rename instead.
-	key := string(fi.BlocksHash)
-	for candidate, ok := popCandidate(buckets, key); ok; candidate, ok = popCandidate(buckets, key) {
-		// candidate is our current state of the file, where as the
-		// desired state with the delete bit set is in the deletion
-		// map.
-		desired := fileDeletions[candidate.Name]
+	// Check if there's any identical local files that need to be deleted, in
+	// which case we can just do a rename instead.
+	for candidateMetadata, err := range itererr.Zip(f.model.sdb.AllLocalFilesWithBlocksHash(f.folderID, fi.BlocksHash)) {
+		if err != nil {
+			return err
+		}
+
+		// I wouldn't expect a result from `AllLocalFilesWithBlocksHash` if any
+		// of the following applies, but in principle it's possible so lets keep
+		// these checks:
+		// Local file can be already deleted, but with a lower version
+		// number, hence the deletion coming in again as part of
+		// WithNeed, furthermore, the file can simply be of the wrong
+		// type if we haven't yet managed to pull it.
+		if candidateMetadata.Deleted || candidateMetadata.Type != protocol.FileInfoTypeFile || candidateMetadata.LocalFlags.IsInvalid() {
+			continue
+		}
+
+		desired, ok, err := f.model.sdb.GetGlobalFile(f.folderID, candidateMetadata.Name)
+		if err != nil {
+			return err
+		}
+		if !ok || !desired.IsDeleted() || desired.LocalFlags & protocol.FlagLocalNeeded == 0 {
+			continue
+		}
+
+		candidate, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, candidateMetadata.Name)
+		if err != nil {
+			return err
+		}
+		if !ok || candidateMetadata.Sequence != candidate.Sequence {
+			// Shouldn't be possible, as nothing else should be writing to the
+			// DB for this folder and local device at the same time
+			continue
+		}
+
 		if err := f.renameFile(candidate, desired, fi, dbUpdateChan, scanChan); err != nil {
 			l.Debugf("rename shortcut for %s failed: %s", fi.Name, err.Error())
 			// Failed to rename, try next one.
 			continue
 		}
-
-		// Remove the pending deletion (as we performed it by renaming)
-		delete(fileDeletions, candidate.Name)
 
 		f.queue.Done(fileName)
 		return nil
@@ -510,17 +518,6 @@ func (f *sendReceiveFolder) processFile(fileName string, fileDeletions map[strin
 	f.queue.Done(fileName)
 	return nil
 }
-
-func popCandidate(buckets map[string][]protocol.FileInfo, key string) (protocol.FileInfo, bool) {
-	cands := buckets[key]
-	if len(cands) == 0 {
-		return protocol.FileInfo{}, false
-	}
-
-	buckets[key] = cands[1:]
-	return cands[0], true
-}
-
 
 func (f *sendReceiveFolder) processDeletions(dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Process in reverse order to delete depth first
@@ -864,13 +861,6 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, dbUpdateChan chan
 		f.newPullError(file.Name, fmt.Errorf("delete file: %w", err))
 		return
 	}
-	f.deleteFileWithCurrent(file, cur, hasCur, dbUpdateChan, scanChan)
-}
-
-func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, hasCur bool, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
-	// Used in the defer closure below, updated by the function body. Take
-	// care not declare another err.
-	var err error
 
 	l.Debugln(f, "Deleting file", file.Name)
 
