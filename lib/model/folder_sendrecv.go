@@ -310,23 +310,34 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 }
 
 func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
+	// Iterate the list of items that we need and sort them into piles.
+	// Regular files to pull goes into the file queue, everything else
+	// (directories, symlinks and deletes) goes into the "process directly"
+	// pile.
+	changed, dirDeletions, fileDeletions, buckets, err := f.categorizeNeeded(dbUpdateChan, scanChan)
+	if err != nil {
+		return changed, fileDeletions, dirDeletions, err
+	}
+
+	// Process the file queue.
+
+	changed, err = f.processFileQueue(changed, fileDeletions, dirDeletions, scanChan, buckets, dbUpdateChan, copyChan)
+	return changed, fileDeletions, dirDeletions, nil
+}
+
+func (f *sendReceiveFolder) categorizeNeeded(dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) (int, []protocol.FileInfo, map[string]protocol.FileInfo, map[string][]protocol.FileInfo, error) {
 	changed := 0
 	var dirDeletions []protocol.FileInfo
 	fileDeletions := map[string]protocol.FileInfo{}
 	buckets := map[string][]protocol.FileInfo{}
 
-	// Iterate the list of items that we need and sort them into piles.
-	// Regular files to pull goes into the file queue, everything else
-	// (directories, symlinks and deletes) goes into the "process directly"
-	// pile.
-loop:
 	for file, err := range itererr.Zip(f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, f.Order, 0, 0)) {
 		if err != nil {
-			return changed, nil, nil, err
+			return 0, nil, nil, nil, err
 		}
 		select {
 		case <-f.ctx.Done():
-			break loop
+			return 0, nil, nil, nil, f.ctx.Err()
 		default:
 		}
 
@@ -369,7 +380,7 @@ loop:
 			default:
 				df, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
 				if err != nil {
-					return changed, nil, nil, err
+					return 0, nil, true, changed, nil, nil, err
 				}
 				// Local file can be already deleted, but with a lower version
 				// number, hence the deletion coming in again as part of
@@ -388,7 +399,7 @@ loop:
 		case file.Type == protocol.FileInfoTypeFile:
 			curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
 			if err != nil {
-				return changed, nil, nil, err
+				return 0, nil, true, changed, nil, nil, err
 			}
 			if hasCurFile && file.BlocksEqual(curFile) {
 				// We are supposed to copy the entire file, and then fetch nothing. We
@@ -427,19 +438,15 @@ loop:
 		}
 	}
 
-	select {
-	case <-f.ctx.Done():
-		return changed, nil, nil, f.ctx.Err()
-	default:
-	}
+	return changed, dirDeletions, fileDeletions, buckets, nil
+}
 
-	// Process the file queue.
-
+func (f *sendReceiveFolder) processFileQueue(changed int, fileDeletions map[string]protocol.FileInfo, dirDeletions []protocol.FileInfo, scanChan chan<- string, buckets map[string][]protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState) (bool, int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
 nextFile:
 	for {
 		select {
 		case <-f.ctx.Done():
-			return changed, fileDeletions, dirDeletions, f.ctx.Err()
+			return true, changed, fileDeletions, dirDeletions, f.ctx.Err()
 		default:
 		}
 
@@ -450,7 +457,7 @@ nextFile:
 
 		fi, ok, err := f.model.sdb.GetGlobalFile(f.folderID, fileName)
 		if err != nil {
-			return changed, nil, nil, err
+			return true, changed, nil, nil, err
 		}
 		if !ok {
 			// File is no longer in the index. Mark it as done and drop it.
@@ -501,9 +508,9 @@ nextFile:
 		f.newPullError(fileName, errNotAvailable)
 		f.queue.Done(fileName)
 	}
-
-	return changed, fileDeletions, dirDeletions, nil
+	return false, 0, nil, nil, nil
 }
+
 
 func popCandidate(buckets map[string][]protocol.FileInfo, key string) (protocol.FileInfo, bool) {
 	cands := buckets[key]
