@@ -321,7 +321,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 
 	// Process the file queue.
 
-	err = f.processFileQueue(fileDeletions, dirDeletions, scanChan, buckets, dbUpdateChan, copyChan)
+	err = f.processFileQueue(fileDeletions, buckets, scanChan, dbUpdateChan, copyChan)
 	return changed, fileDeletions, dirDeletions, err
 }
 
@@ -380,7 +380,7 @@ func (f *sendReceiveFolder) categorizeNeeded(dbUpdateChan chan<- dbUpdateJob, sc
 			default:
 				df, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
 				if err != nil {
-					return 0, nil, true, changed, nil, nil, err
+					return changed, dirDeletions, fileDeletions, buckets, err
 				}
 				// Local file can be already deleted, but with a lower version
 				// number, hence the deletion coming in again as part of
@@ -399,7 +399,7 @@ func (f *sendReceiveFolder) categorizeNeeded(dbUpdateChan chan<- dbUpdateJob, sc
 		case file.Type == protocol.FileInfoTypeFile:
 			curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
 			if err != nil {
-				return 0, nil, true, changed, nil, nil, err
+				return changed, dirDeletions, fileDeletions, buckets, err
 			}
 			if hasCurFile && file.BlocksEqual(curFile) {
 				// We are supposed to copy the entire file, and then fetch nothing. We
