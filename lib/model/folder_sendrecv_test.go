@@ -151,7 +151,7 @@ func TestHandleFile(t *testing.T) {
 
 	copyChan := make(chan copyBlocksState, 1)
 
-	f.handleFile(requiredFile, copyChan)
+	handleFile(f, requiredFile, copyChan)
 
 	// Receive the results
 	toCopy := <-copyChan
@@ -197,7 +197,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 
 	copyChan := make(chan copyBlocksState, 1)
 
-	f.handleFile(requiredFile, copyChan)
+	handleFile(f, requiredFile, copyChan)
 
 	// Receive the results
 	toCopy := <-copyChan
@@ -253,7 +253,7 @@ func TestCopierFinder(t *testing.T) {
 	go f.copierRoutine(copyChan, pullChan, finisherChan)
 	defer close(copyChan)
 
-	f.handleFile(requiredFile, copyChan)
+	handleFile(f, requiredFile, copyChan)
 
 	timeout := time.After(10 * time.Second)
 	pulls := make([]pullBlockState, 4)
@@ -381,7 +381,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 		close(finisherChan)
 	}()
 
-	f.handleFile(file, copyChan)
+	handleFile(f, file, copyChan)
 
 	// Receive a block at puller, to indicate that at least a single copier
 	// loop has been performed.
@@ -490,7 +490,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		close(finisherChan)
 	}()
 
-	f.handleFile(file, copyChan)
+	handleFile(f, file, copyChan)
 
 	// Receive at finisher, we should error out as puller has nowhere to pull
 	// from.
@@ -754,7 +754,7 @@ func TestCopyOwner(t *testing.T) {
 		close(finisherChan)
 	}()
 
-	f.handleFile(file, copierChan)
+	handleFile(f, file, copierChan)
 	<-dbUpdateChan
 
 	info, err = f.mtimefs.Lstat("foo/bar/baz")
@@ -1104,7 +1104,7 @@ func TestPullTempFileCaseConflict(t *testing.T) {
 		fd.Close()
 	}
 
-	f.handleFile(file, copyChan)
+	handleFile(f, file, copyChan)
 
 	cs := <-copyChan
 	if _, err := cs.tempFile(); err != nil {
@@ -1275,4 +1275,12 @@ func startCopier(f *sendReceiveFolder, pullChan chan<- pullBlockState, finisherC
 		wg.Done()
 	}()
 	return copyChan, wg
+}
+
+func handleFile(f *sendReceiveFolder, neededFile protocol.FileInfo, copyChan chan<- copyBlocksState) error {
+	curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, neededFile.Name)
+	if err != nil {
+		return err
+	}
+	return f.handleFile(neededFile, curFile, hasCurFile, copyChan)
 }

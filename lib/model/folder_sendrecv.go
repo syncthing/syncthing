@@ -324,11 +324,11 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 }
 
 func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, error) {
-	// Iterate the list of items that we need and sort them into piles.
-	// Regular files to pull goes into the file queue, everything else
-	// (directories, symlinks and deletes) goes into the "process directly"
-	// pile.
-	changed, err := f.processNeededFast(dbUpdateChan, scanChan)
+	// Iterate the list of items that we need a first time.
+	// Create directories and handle items other than files, as the dirs need to
+	// exist first. File deletions are skipped too, a those could be used for
+	// renames.
+	changed, err := f.processNeededExcludingFilesAndDeletions(dbUpdateChan, scanChan)
 	if err != nil {
 		return changed, err
 	}
@@ -360,6 +360,7 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			}
 		}
 
+		f.queue.Start(needed.Name)
 		if err := f.processFile(needed, scanChan, dbUpdateChan, copyChan); err != nil {
 			return changed, err
 		}
@@ -368,10 +369,10 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 	return changed, nil
 }
 
-// processNeededFast handles all the items that can be dealt with quickly, i.e.
+// Handles all the items that can be dealt with quickly, i.e.
 // that don't need copying/pulling of data. Also doesn't do deletions, that
 // happens at the end.
-func (f *sendReceiveFolder) processNeededFast(dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) (int, error) {
+func (f *sendReceiveFolder) processNeededExcludingFilesAndDeletions(dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) (int, error) {
 	changed := 0
 
 	it, errFn := f.iterAllNeeded(f.Order)
@@ -420,16 +421,7 @@ func (f *sendReceiveFolder) processNeededFast(dbUpdateChan chan<- dbUpdateJob, s
 			// may have files to delete inside them before we get to that point.
 
 		case file.Type == protocol.FileInfoTypeFile:
-			curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
-			if err != nil {
-				return changed, err
-			}
-			if hasCurFile && file.BlocksEqual(curFile) {
-				// We are supposed to copy the entire file, and then fetch nothing. We
-				// are only updating metadata, so we don't actually *need* to make the
-				// copy.
-				f.shortcutFile(file, dbUpdateChan)
-			}
+			// Files are handled in a second go, after this round created all directories.
 
 		case (build.IsWindows || build.IsAndroid) && file.IsSymlink():
 			if err := f.handleSymlinkCheckExisting(file, scanChan); err != nil {
@@ -465,19 +457,33 @@ func (f *sendReceiveFolder) processFile(fi protocol.FileInfo, scanChan chan<- st
 	if fi.IsDeleted() || fi.IsInvalid() || fi.Type != protocol.FileInfoTypeFile {
 		// The item has changed type or status in the index while we
 		// were processing directories above.
+		f.queue.Done(fi.Name)
 		return nil
 	}
 
 	if !f.checkParent(fi.Name, scanChan) {
+		f.queue.Done(fi.Name)
 		return nil
 	}
 
-	f.queue.Start(fi.Name)
+	curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, fi.Name)
+	if err != nil {
+		f.queue.Done(fi.Name)
+		return err
+	}
+	if hasCurFile && fi.BlocksEqual(curFile) {
+		// We are supposed to copy the entire file, and then fetch nothing. We
+		// are only updating metadata, so we don't actually *need* to make the
+		// copy.
+		f.shortcutFile(fi, dbUpdateChan)
+		return nil
+	}
 
 	// Check if there's any identical local files that need to be deleted, in
 	// which case we can just do a rename instead.
 	for candidateMetadata, err := range itererr.Zip(f.model.sdb.AllLocalFilesWithBlocksHash(f.folderID, fi.BlocksHash)) {
 		if err != nil {
+			f.queue.Done(fi.Name)
 			return err
 		}
 
@@ -494,6 +500,7 @@ func (f *sendReceiveFolder) processFile(fi protocol.FileInfo, scanChan chan<- st
 
 		desired, ok, err := f.model.sdb.GetGlobalFile(f.folderID, candidateMetadata.Name)
 		if err != nil {
+			f.queue.Done(fi.Name)
 			return err
 		}
 		if !ok || !desired.IsDeleted() || desired.LocalFlags&protocol.FlagLocalNeeded == 0 {
@@ -502,6 +509,7 @@ func (f *sendReceiveFolder) processFile(fi protocol.FileInfo, scanChan chan<- st
 
 		candidate, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, candidateMetadata.Name)
 		if err != nil {
+			f.queue.Done(fi.Name)
 			return err
 		}
 		if !ok || candidateMetadata.Sequence != candidate.Sequence {
@@ -522,7 +530,7 @@ func (f *sendReceiveFolder) processFile(fi protocol.FileInfo, scanChan chan<- st
 
 	devices := f.model.fileAvailability(f.FolderConfiguration, fi)
 	if len(devices) > 0 {
-		if err := f.handleFile(fi, copyChan); err != nil {
+		if err := f.handleFile(fi, curFile, hasCurFile, copyChan); err != nil {
 			f.newPullError(fi.Name, err)
 		}
 		return nil
@@ -1122,12 +1130,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
-func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState) error {
-	curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
-	if err != nil {
-		return err
-	}
-
+func (f *sendReceiveFolder) handleFile(file, curFile protocol.FileInfo, hasCurFile bool, copyChan chan<- copyBlocksState) error {
 	have, _ := blockDiff(curFile.Blocks, file.Blocks)
 
 	tempName := fs.TempName(file.Name)
