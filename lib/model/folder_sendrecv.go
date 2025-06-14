@@ -316,13 +316,28 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 	// pile.
 	changed, dirDeletions, fileDeletions, buckets, err := f.categorizeNeeded(dbUpdateChan, scanChan)
 	if err != nil {
-		return changed, fileDeletions, dirDeletions, err
+		return changed, nil, nil, err
 	}
 
 	// Process the file queue.
+	for {
+		select {
+		case <-f.ctx.Done():
+			return changed, nil, nil, f.ctx.Err()
+		default:
+		}
 
-	err = f.processFileQueue(fileDeletions, buckets, scanChan, dbUpdateChan, copyChan)
-	return changed, fileDeletions, dirDeletions, err
+		fileName, ok := f.queue.Pop()
+		if !ok {
+			break
+		}
+
+		if err := f.processFile(fileName, fileDeletions, buckets, scanChan, dbUpdateChan, copyChan); err != nil {
+			return changed, nil, nil, err
+		}
+	}
+
+	return changed, fileDeletions, dirDeletions, nil
 }
 
 func (f *sendReceiveFolder) categorizeNeeded(dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) (int, []protocol.FileInfo, map[string]protocol.FileInfo, map[string][]protocol.FileInfo, error) {
@@ -380,7 +395,7 @@ func (f *sendReceiveFolder) categorizeNeeded(dbUpdateChan chan<- dbUpdateJob, sc
 			default:
 				df, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
 				if err != nil {
-					return changed, dirDeletions, fileDeletions, buckets, err
+					return changed, nil, nil, nil, err
 				}
 				// Local file can be already deleted, but with a lower version
 				// number, hence the deletion coming in again as part of
@@ -399,7 +414,7 @@ func (f *sendReceiveFolder) categorizeNeeded(dbUpdateChan chan<- dbUpdateJob, sc
 		case file.Type == protocol.FileInfoTypeFile:
 			curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
 			if err != nil {
-				return changed, dirDeletions, fileDeletions, buckets, err
+				return changed, nil, nil, nil, err
 			}
 			if hasCurFile && file.BlocksEqual(curFile) {
 				// We are supposed to copy the entire file, and then fetch nothing. We
@@ -439,27 +454,6 @@ func (f *sendReceiveFolder) categorizeNeeded(dbUpdateChan chan<- dbUpdateJob, sc
 	}
 
 	return changed, dirDeletions, fileDeletions, buckets, nil
-}
-
-func (f *sendReceiveFolder) processFileQueue(fileDeletions map[string]protocol.FileInfo, buckets map[string][]protocol.FileInfo, scanChan chan<- string, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState) error {
-	for {
-		select {
-		case <-f.ctx.Done():
-			return f.ctx.Err()
-		default:
-		}
-
-		fileName, ok := f.queue.Pop()
-		if !ok {
-			break
-		}
-
-		err := f.processFile(fileName, fileDeletions, buckets, scanChan, dbUpdateChan, copyChan)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (f *sendReceiveFolder) processFile(fileName string, fileDeletions map[string]protocol.FileInfo, buckets map[string][]protocol.FileInfo, scanChan chan<- string, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState) error {
