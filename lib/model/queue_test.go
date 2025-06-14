@@ -60,7 +60,7 @@ func TestJobQueue(t *testing.T) {
 		}
 	}
 
-	if len(q.progress) > 0 || len(q.filenames) != 4 {
+	if len(q.progress) > 0 || len(q.files) != 4 {
 		t.Fatal("Wrong length")
 	}
 
@@ -79,7 +79,7 @@ func TestJobQueue(t *testing.T) {
 		}
 
 		n, ok := q.StartPrioritized()
-		if !ok || n != s {
+		if !ok || n.Name != s {
 			t.Fatalf("Wrong element, got %v, expected %v", n, s)
 		}
 		progress, queued, _, _ = q.Jobs(1, 100)
@@ -118,7 +118,7 @@ func TestJobQueue(t *testing.T) {
 	q.Done("f5") // Does not exist
 	progress, queued, _, _ = q.Jobs(1, 100)
 	if len(progress) != 0 || len(queued) != 0 {
-		t.Fatal("Wrong length")
+		t.Fatal("Wrong length", len(progress), len(queued))
 	}
 }
 
@@ -239,9 +239,9 @@ func TestQueuePagination(t *testing.T) {
 
 	progress, queued, _, skip = q.Jobs(2, 5)
 	if len(progress) != 0 || len(queued) != 5 || skip != 5 {
-		t.Error("Wrong length", len(progress), len(queued), 0)
+		t.Fatal("Wrong length", len(progress), len(queued), 0)
 	} else if !slices.Equal(queued, names[5:]) {
-		t.Errorf("Wrong elements in queued, got %v, expected %v", queued, names[5:])
+		t.Fatalf("Wrong elements in queued, got %v, expected %v", queued, names[5:])
 	}
 
 	progress, queued, _, skip = q.Jobs(2, 7)
@@ -265,6 +265,7 @@ func TestQueuePagination(t *testing.T) {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	}
 
+	l.Debugln("before fail")
 	progress, queued, _, skip = q.Jobs(1, 5)
 	if len(progress) != 5 || len(queued) != 0 || skip != 0 {
 		t.Error("Wrong length", len(progress), len(queued), 0)
@@ -298,37 +299,46 @@ func TestQueuePagination(t *testing.T) {
 
 type filenameJobQueue struct {
 	*jobQueue
-	filenames []string
+	files []protocol.FileInfo
 }
 
 func newFilenameJobQueue(filenames []string) *filenameJobQueue {
 	q := &filenameJobQueue{
-		filenames: filenames,
+		files: make([]protocol.FileInfo, 0, len(filenames)),
+	}
+	for _, n := range filenames {
+		q.add(n)
+	}
+	getNeeded := func(name string) (protocol.FileInfo, bool) {
+		i := slices.IndexFunc(q.files, func(f protocol.FileInfo) bool { return f.Name == name})
+		if i < 0 {
+			return protocol.FileInfo{}, false
+		}
+		return q.files[i], true
 	}
 	iterFn := func() iter.Seq2[protocol.FileInfo, error] {
 		return func(yield func(protocol.FileInfo, error) bool) {
-			for _, filename := range q.filenames {
-				file := protocol.FileInfo{
-					Name: filename,
-					Type: protocol.FileInfoTypeFile,
-				}
+			for _, file := range q.files {
 				if !yield(file, nil) {
 					break
 				}
 			}
 		}
 	}
-	q.jobQueue = newJobQueue(iterFn)
+	q.jobQueue = newJobQueue(getNeeded, iterFn)
 	return q
 }
 
 func (q *filenameJobQueue) add(file string) {
-	q.filenames = append(q.filenames, file)
+	q.files = append(q.files, protocol.FileInfo{
+		Name: file,
+		Type: protocol.FileInfoTypeFile,
+	})
 }
 
 func (q *filenameJobQueue) Done(file string) {
-	l.Debugln("filenameJobQueue.Done", len(q.filenames))
+	l.Debugln("filenameJobQueue.Done", len(q.files))
 	q.jobQueue.Done(file)
-	q.filenames = slices.DeleteFunc(q.filenames, func(n string) bool { return n == file})
-	l.Debugln("filenameJobQueue.Done after", len(q.filenames))
+	q.files = slices.DeleteFunc(q.files, func(f protocol.FileInfo) bool { return f.Name == file})
+	l.Debugln("filenameJobQueue.Done after", len(q.files))
 }

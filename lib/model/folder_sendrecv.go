@@ -137,7 +137,13 @@ func newSendReceiveFolder(model *model, ignores *ignore.Matcher, cfg config.Fold
 		writeLimiter:       semaphore.New(cfg.MaxConcurrentWrites),
 	}
 	f.puller = f
-	f.queue = newJobQueue(func() iter.Seq2[protocol.FileInfo, error] {
+	f.queue = newJobQueue(func(name string) (protocol.FileInfo, bool) {
+		global, ok, err := f.model.sdb.GetGlobalFile(f.folderID, name)
+		if !ok || err != nil || global.LocalFlags & protocol.FlagLocalNeeded == 0 {
+			return protocol.FileInfo{}, false
+		}
+		return global, true
+	}, func() iter.Seq2[protocol.FileInfo, error] {
 		return f.iterAllNeeded(f.Order)
 	})
 
@@ -335,19 +341,9 @@ func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyC
 			default:
 			}
 
-			prioritizedFileName, ok := f.queue.StartPrioritized()
+			prioritized, ok := f.queue.StartPrioritized()
 			if !ok {
 				break
-			}
-
-			prioritized, ok, err := f.model.sdb.GetGlobalFile(f.folderID, prioritizedFileName)
-			if err != nil {
-				return changed, err
-			}
-			if !ok {
-				// File is no longer in the index. Mark it as done and drop it.
-				f.queue.Done(prioritizedFileName)
-				continue
 			}
 
 			if err := f.processFile(prioritized, scanChan, dbUpdateChan, copyChan); err != nil {

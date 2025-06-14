@@ -16,15 +16,17 @@ import (
 
 type jobQueue struct {
 	progress    []string
-	prioritized []string
+	prioritized []protocol.FileInfo
 	mut         sync.Mutex
 
+	getNeeded     func(name string) (protocol.FileInfo, bool)
 	iterAllNeeded func() iter.Seq2[protocol.FileInfo, error]
 }
 
-func newJobQueue(iterAllNeeded func() iter.Seq2[protocol.FileInfo, error]) *jobQueue {
+func newJobQueue(getNeeded func(name string) (protocol.FileInfo, bool), iterAllNeeded func() iter.Seq2[protocol.FileInfo, error]) *jobQueue {
 	return &jobQueue{
 		mut:           sync.NewMutex(),
+		getNeeded:     getNeeded,
 		iterAllNeeded: iterAllNeeded,
 	}
 }
@@ -36,18 +38,18 @@ func (q *jobQueue) Start(filename string) {
 	q.mut.Unlock()
 }
 
-func (q *jobQueue) StartPrioritized() (string, bool) {
+func (q *jobQueue) StartPrioritized() (protocol.FileInfo, bool) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 	pLen := len(q.prioritized)
 	if pLen == 0 {
-		return "", false
+		return protocol.FileInfo{}, false
 	}
-	filename := q.prioritized[0]
+	file := q.prioritized[0]
 	copy(q.prioritized, q.prioritized[1:])
 	q.prioritized = q.prioritized[:pLen-1]
-	q.progress = append(q.progress, filename)
-	return filename, true
+	q.progress = append(q.progress, file.Name)
+	return file, true
 }
 
 func (q *jobQueue) BringToFront(filename string) {
@@ -55,7 +57,7 @@ func (q *jobQueue) BringToFront(filename string) {
 	defer q.mut.Unlock()
 
 	for i, cur := range q.prioritized {
-		if cur == filename {
+		if cur.Name == filename {
 			if i > 0 {
 				// Shift the elements before the selected element one step to
 				// the right, overwriting the selected element
@@ -66,7 +68,9 @@ func (q *jobQueue) BringToFront(filename string) {
 			return
 		}
 	}
-	q.prioritized = slices.Insert(q.prioritized, 0, filename)
+	if file, ok := q.getNeeded(filename); ok {
+		q.prioritized = slices.Insert(q.prioritized, 0, file)
+	}
 }
 
 func (q *jobQueue) Done(file string) {
@@ -91,56 +95,50 @@ func (q *jobQueue) Jobs(page, perpage int) ([]string, []string, []string, int) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	l.Debugln("jobQueue.Jobs", len(q.progress))
+	l.Debugln("jobQueue.Jobs", len(q.progress), len(q.prioritized))
 
 	totalToSkip := (page - 1) * perpage
 	toSkip := totalToSkip
 	progressTotal := len(q.progress)
+	seen := make(map[string]struct{}, progressTotal+len(q.prioritized))
 
 	// progress
 
-	if progressTotal >= toSkip+perpage {
-		progress := make([]string, perpage)
-		copy(progress, q.progress[toSkip:toSkip+perpage])
-		return progress, nil, nil, toSkip
-	}
-
-	var progress []string
-	if progressTotal > toSkip {
-		progress = make([]string, progressTotal-toSkip)
-		copy(progress, q.progress[toSkip:])
-		toSkip = 0
-	} else {
-		toSkip -= progressTotal
+	progress := make([]string, 0, perpage)
+	for _, name := range q.progress {
+		seen[name] = struct{}{}
+		if toSkip > 0 {
+			toSkip--
+			continue
+		}
+		progress = append(progress, name)
+		if len(progress) == perpage {
+			return progress, nil, nil, totalToSkip
+		}
 	}
 
 	// prioritized -> queued
 
 	progressLen := len(progress)
-	if len(q.prioritized) + progressLen >= toSkip+perpage {
-		queued := make([]string, perpage - progressLen)
-		copy(queued, q.prioritized[toSkip:toSkip+len(queued)])
-		return progress, queued, nil, toSkip
+
+	queued := make([]string, 0, perpage-len(progress))
+	for _, file := range q.prioritized {
+		seen[file.Name] = struct{}{}
+		if toSkip > 0 {
+			toSkip--
+			continue
+		}
+		queued = append(queued, file.Name)
+		if len(queued)+progressLen == perpage {
+			return progress, queued, nil, totalToSkip
+		}
 	}
 
-	var queued []string
-	if prioritizedLen := len(q.prioritized); prioritizedLen > toSkip {
-		queued = make([]string, prioritizedLen-toSkip)
-		copy(queued, q.prioritized[toSkip:])
-		toSkip = 0
-	} else {
-		toSkip -= prioritizedLen
-	}
+	l.Debugln("jobs toskip after prio", toSkip)
 
 	// queued and rest
 
-	seen := make(map[string]struct{}, progressLen+len(queued))
-	for _, n := range progress {
-		seen[n] = struct{}{}
-	}
-	for _, n := range queued {
-		seen[n] = struct{}{}
-	}
+	l.Debugln("Jobs", seen)
 	var rest []string
 	for file, err := range q.iterAllNeeded() {
 		if err != nil {
