@@ -111,6 +111,8 @@ jobs:
       - package-debian
       - package-windows
       - govulncheck
+      - golangci
+      - meta
     steps:
       - uses: actions/checkout@v4
 
@@ -162,6 +164,12 @@ jobs:
         with:
           name: unsigned-packages-windows
           path: "*.zip"
+
+  #
+  # Codesign binaries for Windows. This job runs only when called in the
+  # Syncthing repo for release branches and tags, as it requires our
+  # specific code signing keys etc.
+  #
 
   codesign-windows:
     name: Codesign for Windows
@@ -280,12 +288,14 @@ jobs:
             compat.json
 
   #
-  # macOS
+  # macOS. The entire build runs in the release environment because code
+  # signing is part of the build process, so it is limited to release
+  # branches on the Syncthing repo.
   #
 
   package-macos:
     name: Package for macOS
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
+    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
     environment: release
     env:
       CODESIGN_IDENTITY: ${{ secrets.CODESIGN_IDENTITY }}
@@ -899,16 +909,12 @@ jobs:
           args: sync -v dists objstore:apt/dists
 
   #
-  # Build and push to Docker Hub
+  # Build and push (except for PRs) to GHCR.
   #
 
-  docker-syncthing:
-    name: Build and push Docker images
+  docker-ghcr:
+    name: Build and push Docker images (GHCR)
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release-nightly' || github.ref == 'refs/heads/infrastructure' || startsWith(github.ref, 'refs/tags/v'))
-    environment: docker
-    env:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
     permissions:
       contents: read
       packages: write
@@ -972,14 +978,6 @@ jobs:
           BUILD_USER: docker
           EXTRA_LDFLAGS: "-linkmode=external -extldflags=-static"
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        if: env.DOCKERHUB_USERNAME != ''
-        with:
-          registry: docker.io
-          username: ${{ env.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
@@ -1011,12 +1009,6 @@ jobs:
             tags=$repo:$ref
           fi
 
-          # If we have a Docker Hub secret, also push to there.
-          if [[ $DOCKERHUB_USERNAME != "" ]] ; then
-            dockerhubtags="${tags//ghcr.io\/syncthing/docker.io\/syncthing}"
-            tags="$tags,$dockerhubtags"
-          fi
-
           echo Pushing to $tags
 
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
@@ -1029,10 +1021,34 @@ jobs:
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64,linux/arm/7
           tags: ${{ env.DOCKER_TAGS }}
-          push: true
+          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
           labels: |
             org.opencontainers.image.version=${{ env.VERSION }}
             org.opencontainers.image.revision=${{ github.sha }}
+
+  #
+  # Sync images to Docker hub. This takes the images already pushed to GHCR
+  # and copies them to Docker hub. Runs for releases only.
+  #
+
+  docker-hub:
+    name: Sync images to Docker hub
+    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release-nightly' || github.ref == 'refs/heads/infrastructure' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    needs:
+      - docker-ghcr
+    environment: docker
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sync images
+        uses: docker://docker.io/regclient/regsync:latest
+        with:
+          args:
+            -c ./.github/regsync.yml
+            once
 
   #
   # Check for known vulnerabilities in Go dependencies
@@ -1055,3 +1071,41 @@ jobs:
           go run build.go assets
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
+
+  #
+  # golangci-lint runs a suite of static analysis checks on the code
+  #
+
+  golangci:
+    runs-on: ubuntu-latest
+    name: Run golangci-lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: ensure asset generation
+        run: go run build.go assets
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          only-new-issues: true
+
+  #
+  # Meta checks for formatting, copyright, etc
+  #
+
+  meta:
+    name: Run meta checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - run: |
+          go run build.go assets
+          go test -v ./meta

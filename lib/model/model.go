@@ -1641,8 +1641,7 @@ func (m *model) sendClusterConfig(ids []protocol.DeviceID) {
 	// Generating cluster-configs acquires the mutex.
 	for _, conn := range ccConns {
 		cm, passwords := m.generateClusterConfig(conn.DeviceID())
-		conn.SetFolderPasswords(passwords)
-		go conn.ClusterConfig(cm)
+		go conn.ClusterConfig(cm, passwords)
 	}
 }
 
@@ -2379,10 +2378,9 @@ func (m *model) promoteConnections() {
 			l.Debugf("Promoting connection to %s at %s", deviceID.Short(), conn)
 			postLockActions = append(postLockActions, func() {
 				if conn.Statistics().StartedAt.IsZero() {
-					conn.SetFolderPasswords(passwords)
 					conn.Start()
 				}
-				conn.ClusterConfig(cm)
+				conn.ClusterConfig(cm, passwords)
 			})
 			m.promotedConnID[deviceID] = connIDs[0]
 		}
@@ -2393,9 +2391,8 @@ func (m *model) promoteConnections() {
 			conn := m.connections[connID]
 			if conn.Statistics().StartedAt.IsZero() {
 				postLockActions = append(postLockActions, func() {
-					conn.SetFolderPasswords(passwords)
 					conn.Start()
-					conn.ClusterConfig(&protocol.ClusterConfig{Secondary: true})
+					conn.ClusterConfig(&protocol.ClusterConfig{Secondary: true}, passwords)
 				})
 			}
 		}

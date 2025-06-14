@@ -1236,7 +1236,7 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 		}
 		return nil
 	})
-	fc.ClusterConfigCalls(func(cc *protocol.ClusterConfig) {
+	fc.ClusterConfigCalls(func(cc *protocol.ClusterConfig, _ map[string]string) {
 		select {
 		case ccChan <- cc:
 		case <-done:

@@ -31,17 +31,17 @@ func TestIndexhandlerConcurrency(t *testing.T) {
 	ci := &protomock.ConnectionInfo{}
 
 	m1 := &mocks.Model{}
-	c1 := protocol.NewConnection(protocol.EmptyDeviceID, ar, bw, testutil.NoopCloser{}, m1, ci, protocol.CompressionNever, nil, nil)
+	c1 := protocol.NewConnection(protocol.EmptyDeviceID, ar, bw, testutil.NoopCloser{}, m1, ci, protocol.CompressionNever, nil)
 	c1.Start()
 	defer c1.Close(io.EOF)
 
 	m2 := &mocks.Model{}
-	c2 := protocol.NewConnection(protocol.EmptyDeviceID, br, aw, testutil.NoopCloser{}, m2, ci, protocol.CompressionNever, nil, nil)
+	c2 := protocol.NewConnection(protocol.EmptyDeviceID, br, aw, testutil.NoopCloser{}, m2, ci, protocol.CompressionNever, nil)
 	c2.Start()
 	defer c2.Close(io.EOF)
 
-	c1.ClusterConfig(&protocol.ClusterConfig{})
-	c2.ClusterConfig(&protocol.ClusterConfig{})
+	c1.ClusterConfig(&protocol.ClusterConfig{}, nil)
+	c2.ClusterConfig(&protocol.ClusterConfig{}, nil)
 	c1.Index(ctx, &protocol.Index{Folder: "foo"})
 	c2.Index(ctx, &protocol.Index{Folder: "foo"})
 
