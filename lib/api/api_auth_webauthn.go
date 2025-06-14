@@ -377,11 +377,9 @@ func (s *webauthnService) cleanupExpiredRequests() {
 }
 
 func newVolState() *apiproto.WebauthnVolatileState {
-	s := apiproto.WebauthnVolatileState{}
-	if s.Credentials == nil {
-		s.Credentials = make(map[string]*apiproto.WebauthnCredentialVolatileState, 1)
+	return &apiproto.WebauthnVolatileState{
+		Credentials: make(map[string]*apiproto.WebauthnCredentialVolatileState, 1),
 	}
-	return &s
 }
 
 // Load volatile WebAuthn state with a read lock during loading.
