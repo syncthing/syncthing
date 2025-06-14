@@ -26,7 +26,7 @@ func TestJobQueue(t *testing.T) {
 		"f4",
 	})
 
-	progress, queued, _ := q.Jobs(1, 100)
+	progress, queued, _, _ := q.Jobs(1, 100)
 	if len(progress) != 0 || len(queued) != 4 {
 		t.Fatal("Wrong length", len(progress), len(queued))
 	}
@@ -34,7 +34,7 @@ func TestJobQueue(t *testing.T) {
 	for i := 1; i < 5; i++ {
 		n := fmt.Sprintf("f%d", i)
 		q.Start(fmt.Sprintf("f%d", i))
-		progress, queued, _ = q.Jobs(1, 100)
+		progress, queued, _, _ = q.Jobs(1, 100)
 		if len(progress) != 1 || len(queued) != 3 {
 			t.Log(progress)
 			t.Log(queued)
@@ -42,19 +42,19 @@ func TestJobQueue(t *testing.T) {
 		}
 
 		q.Done(n)
-		progress, queued, _ = q.Jobs(1, 100)
+		progress, queued, _, _ = q.Jobs(1, 100)
 		if len(progress) != 0 || len(queued) != 3 {
-			t.Fatal("Wrong length", len(progress), len(queued))
+			t.Fatal("Wrong length on iteration", i, len(progress), len(queued))
 		}
 
 		q.add(n)
-		progress, queued, _ = q.Jobs(1, 100)
+		progress, queued, _, _ = q.Jobs(1, 100)
 		if len(progress) != 0 || len(queued) != 4 {
 			t.Fatal("Wrong length")
 		}
 
 		q.Done("f5") // Does not exist
-		progress, queued, _ = q.Jobs(1, 100)
+		progress, queued, _, _ = q.Jobs(1, 100)
 		if len(progress) != 0 || len(queued) != 4 {
 			t.Fatal("Wrong length")
 		}
@@ -65,7 +65,7 @@ func TestJobQueue(t *testing.T) {
 	}
 
 	for i := 4; i > 0; i-- {
-		progress, queued, _ = q.Jobs(1, 100)
+		progress, queued, _, _ = q.Jobs(1, 100)
 		if len(progress) != 4-i || len(queued) != i {
 			t.Fatal("Wrong length")
 		}
@@ -73,22 +73,22 @@ func TestJobQueue(t *testing.T) {
 		s := fmt.Sprintf("f%d", i)
 
 		q.BringToFront(s)
-		progress, queued, _ = q.Jobs(1, 100)
+		progress, queued, _, _ = q.Jobs(1, 100)
 		if len(progress) != 4-i || len(queued) != i {
 			t.Fatal("Wrong length")
 		}
 
 		n, ok := q.StartPrioritized()
 		if !ok || n != s {
-			t.Fatal("Wrong element")
+			t.Fatalf("Wrong element, got %v, expected %v", n, s)
 		}
-		progress, queued, _ = q.Jobs(1, 100)
+		progress, queued, _, _ = q.Jobs(1, 100)
 		if len(progress) != 5-i || len(queued) != i-1 {
 			t.Fatal("Wrong length")
 		}
 
 		q.Done("f5") // Does not exist
-		progress, queued, _ = q.Jobs(1, 100)
+		progress, queued, _, _ = q.Jobs(1, 100)
 		if len(progress) != 5-i || len(queued) != i-1 {
 			t.Fatal("Wrong length")
 		}
@@ -110,13 +110,13 @@ func TestJobQueue(t *testing.T) {
 		t.Fatal("Wrong length")
 	}
 
-	progress, queued, _ = q.Jobs(1, 100)
+	progress, queued, _, _ = q.Jobs(1, 100)
 	if len(progress) != 0 || len(queued) != 0 {
 		t.Fatal("Wrong length")
 	}
 	q.BringToFront("")
 	q.Done("f5") // Does not exist
-	progress, queued, _ = q.Jobs(1, 100)
+	progress, queued, _, _ = q.Jobs(1, 100)
 	if len(progress) != 0 || len(queued) != 0 {
 		t.Fatal("Wrong length")
 	}
@@ -130,35 +130,35 @@ func TestBringToFront(t *testing.T) {
 		"f4",
 	})
 
-	_, queued, _ := q.Jobs(1, 100)
+	_, queued, _, _ := q.Jobs(1, 100)
 	if diff, equal := messagediff.PrettyDiff([]string{"f1", "f2", "f3", "f4"}, queued); !equal {
 		t.Errorf("Order does not match. Diff:\n%s", diff)
 	}
 
 	q.BringToFront("f1") // corner case: does nothing
 
-	_, queued, _ = q.Jobs(1, 100)
+	_, queued, _, _ = q.Jobs(1, 100)
 	if diff, equal := messagediff.PrettyDiff([]string{"f1", "f2", "f3", "f4"}, queued); !equal {
 		t.Errorf("Order does not match. Diff:\n%s", diff)
 	}
 
 	q.BringToFront("f3")
 
-	_, queued, _ = q.Jobs(1, 100)
+	_, queued, _, _ = q.Jobs(1, 100)
 	if diff, equal := messagediff.PrettyDiff([]string{"f3", "f1", "f2", "f4"}, queued); !equal {
 		t.Errorf("Order does not match. Diff:\n%s", diff)
 	}
 
 	q.BringToFront("f2")
 
-	_, queued, _ = q.Jobs(1, 100)
+	_, queued, _, _ = q.Jobs(1, 100)
 	if diff, equal := messagediff.PrettyDiff([]string{"f2", "f3", "f1", "f4"}, queued); !equal {
 		t.Errorf("Order does not match. Diff:\n%s", diff)
 	}
 
 	q.BringToFront("f4") // corner case: last element
 
-	_, queued, _ = q.Jobs(1, 100)
+	_, queued, _, _ = q.Jobs(1, 100)
 	if diff, equal := messagediff.PrettyDiff([]string{"f4", "f2", "f3", "f1"}, queued); !equal {
 		t.Errorf("Order does not match. Diff:\n%s", diff)
 	}
@@ -190,45 +190,45 @@ func TestQueuePagination(t *testing.T) {
 	}
 	q := newFilenameJobQueue(names)
 
-	progress, queued, skip := q.Jobs(1, 100)
+	progress, queued, _, skip := q.Jobs(1, 100)
 	if len(progress) != 0 || len(queued) != 10 || skip != 0 {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	}
 
-	progress, queued, skip = q.Jobs(1, 5)
+	progress, queued, _, skip = q.Jobs(1, 5)
 	if len(progress) != 0 || len(queued) != 5 || skip != 0 {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	} else if !slices.Equal(queued, names[:5]) {
 		t.Errorf("Wrong elements in queued, got %v, expected %v", queued, names[:5])
 	}
 
-	progress, queued, skip = q.Jobs(2, 5)
+	progress, queued, _, skip = q.Jobs(2, 5)
 	if len(progress) != 0 || len(queued) != 5 || skip != 5 {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	} else if !slices.Equal(queued, names[5:]) {
 		t.Errorf("Wrong elements in queued, got %v, expected %v", queued, names[5:])
 	}
 
-	progress, queued, skip = q.Jobs(2, 7)
+	progress, queued, _, skip = q.Jobs(2, 7)
 	if len(progress) != 0 || len(queued) != 3 || skip != 7 {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	} else if !slices.Equal(queued, names[7:]) {
 		t.Errorf("Wrong elements in queued, got %v, expected %v", queued, names[7:])
 	}
 
-	progress, queued, skip = q.Jobs(3, 5)
+	progress, queued, _, skip = q.Jobs(3, 5)
 	if len(progress) != 0 || len(queued) != 0 || skip != 10 {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	}
 
 	q.Start(names[0])
 
-	progress, queued, skip = q.Jobs(1, 100)
+	progress, queued, _, skip = q.Jobs(1, 100)
 	if len(progress) != 1 || len(queued) != 9 || skip != 0 {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	}
 
-	progress, queued, skip = q.Jobs(1, 5)
+	progress, queued, _, skip = q.Jobs(1, 5)
 	if len(progress) != 1 || len(queued) != 4 || skip != 0 {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	} else if !slices.Equal(progress, names[:1]) {
@@ -237,21 +237,21 @@ func TestQueuePagination(t *testing.T) {
 		t.Errorf("Wrong elements in queued, got %v, expected %v", queued, names[1:5])
 	}
 
-	progress, queued, skip = q.Jobs(2, 5)
+	progress, queued, _, skip = q.Jobs(2, 5)
 	if len(progress) != 0 || len(queued) != 5 || skip != 5 {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	} else if !slices.Equal(queued, names[5:]) {
 		t.Errorf("Wrong elements in queued, got %v, expected %v", queued, names[5:])
 	}
 
-	progress, queued, skip = q.Jobs(2, 7)
+	progress, queued, _, skip = q.Jobs(2, 7)
 	if len(progress) != 0 || len(queued) != 3 || skip != 7 {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	} else if !slices.Equal(queued, names[7:]) {
 		t.Errorf("Wrong elements in queued, got %v, expected %v", queued, names[7:])
 	}
 
-	progress, queued, skip = q.Jobs(3, 5)
+	progress, queued, _, skip = q.Jobs(3, 5)
 	if len(progress) != 0 || len(queued) != 0 || skip != 10 {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	}
@@ -260,19 +260,19 @@ func TestQueuePagination(t *testing.T) {
 		q.Start(names[i])
 	}
 
-	progress, queued, skip = q.Jobs(1, 100)
+	progress, queued, _, skip = q.Jobs(1, 100)
 	if len(progress) != 8 || len(queued) != 2 || skip != 0 {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	}
 
-	progress, queued, skip = q.Jobs(1, 5)
+	progress, queued, _, skip = q.Jobs(1, 5)
 	if len(progress) != 5 || len(queued) != 0 || skip != 0 {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	} else if !slices.Equal(progress, names[:5]) {
 		t.Errorf("Wrong elements in progress, got %v, expected %v", progress, names[:5])
 	}
 
-	progress, queued, skip = q.Jobs(2, 5)
+	progress, queued, _, skip = q.Jobs(2, 5)
 	if len(progress) != 3 || len(queued) != 2 || skip != 5 {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	} else if !slices.Equal(progress, names[5:8]) {
@@ -281,7 +281,7 @@ func TestQueuePagination(t *testing.T) {
 		t.Errorf("Wrong elements in queued, got %v, expected %v", queued, names[8:])
 	}
 
-	progress, queued, skip = q.Jobs(2, 7)
+	progress, queued, _, skip = q.Jobs(2, 7)
 	if len(progress) != 1 || len(queued) != 2 || skip != 7 {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	} else if !slices.Equal(progress, names[7:8]) {
@@ -290,7 +290,7 @@ func TestQueuePagination(t *testing.T) {
 		t.Errorf("Wrong elements in queued, got %v, expected %v", queued, names[8:])
 	}
 
-	progress, queued, skip = q.Jobs(3, 5)
+	progress, queued, _, skip = q.Jobs(3, 5)
 	if len(progress) != 0 || len(queued) != 0 || skip != 10 {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	}
@@ -310,6 +310,7 @@ func newFilenameJobQueue(filenames []string) *filenameJobQueue {
 			for _, filename := range q.filenames {
 				file := protocol.FileInfo{
 					Name: filename,
+					Type: protocol.FileInfoTypeFile,
 				}
 				if !yield(file, nil) {
 					break
@@ -326,6 +327,8 @@ func (q *filenameJobQueue) add(file string) {
 }
 
 func (q *filenameJobQueue) Done(file string) {
+	l.Debugln("filenameJobQueue.Done", len(q.filenames))
 	q.jobQueue.Done(file)
-	slices.DeleteFunc(q.filenames, func(n string) bool { return n == file})
+	q.filenames = slices.DeleteFunc(q.filenames, func(n string) bool { return n == file})
+	l.Debugln("filenameJobQueue.Done after", len(q.filenames))
 }

@@ -379,11 +379,6 @@ func (f *sendReceiveFolder) processNeededFast(dbUpdateChan chan<- dbUpdateJob, s
 		default:
 		}
 
-		if f.IgnoreDelete && file.IsDeleted() {
-			l.Debugln(f, "ignore file deletion (config)", file.FileName())
-			continue
-		}
-
 		changed++
 
 		switch {
@@ -461,14 +456,14 @@ func (f *sendReceiveFolder) processFile(fi protocol.FileInfo, scanChan chan<- st
 	if fi.IsDeleted() || fi.IsInvalid() || fi.Type != protocol.FileInfoTypeFile {
 		// The item has changed type or status in the index while we
 		// were processing directories above.
-		f.queue.Done(fi.Name)
 		return nil
 	}
 
 	if !f.checkParent(fi.Name, scanChan) {
-		f.queue.Done(fi.Name)
 		return nil
 	}
+
+	f.queue.Start(fi.Name)
 
 	// Check if there's any identical local files that need to be deleted, in
 	// which case we can just do a rename instead.
@@ -556,7 +551,24 @@ func (f *sendReceiveFolder) processDeletions(dbUpdateChan chan<- dbUpdateJob, sc
 }
 
 func (f *sendReceiveFolder) iterAllNeeded(order config.PullOrder) iter.Seq2[protocol.FileInfo, error] {
-	return itererr.Zip(f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, order, 0, 0))
+	iter := itererr.Zip(f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, order, 0, 0))
+	if f.IgnoreDelete {
+		iter = func(yield func(protocol.FileInfo, error) bool) {
+			for file, err := range iter {
+				if err != nil {
+					yield(file, err)
+					return
+				}
+				if file.IsDeleted() {
+					continue
+				}
+				if !yield(file, err) {
+					return
+				}
+			}
+		}
+	}
+	return iter
 }
 
 // handleDir creates or updates the given directory
@@ -1707,7 +1719,7 @@ func (f *sendReceiveFolder) BringToFront(filename string) {
 	f.queue.BringToFront(filename)
 }
 
-func (f *sendReceiveFolder) Jobs(page, perpage int) ([]string, []string, int) {
+func (f *sendReceiveFolder) Jobs(page, perpage int) ([]string, []string, []string, int) {
 	return f.queue.Jobs(page, perpage)
 }
 
