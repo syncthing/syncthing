@@ -8,6 +8,7 @@ package model
 
 import (
 	"iter"
+	"slices"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -23,7 +24,7 @@ type jobQueue struct {
 
 func newJobQueue(iterAllNeeded func() iter.Seq2[protocol.FileInfo, error]) *jobQueue {
 	return &jobQueue{
-		mut: sync.NewMutex(),
+		mut:           sync.NewMutex(),
 		iterAllNeeded: iterAllNeeded,
 	}
 }
@@ -31,6 +32,7 @@ func newJobQueue(iterAllNeeded func() iter.Seq2[protocol.FileInfo, error]) *jobQ
 func (q *jobQueue) Start(filename string) {
 	q.mut.Lock()
 	q.progress = append(q.progress, filename)
+	l.Debugln("jobQueue.Start", filename)
 	q.mut.Unlock()
 }
 
@@ -64,6 +66,7 @@ func (q *jobQueue) BringToFront(filename string) {
 			return
 		}
 	}
+	q.prioritized = slices.Insert(q.prioritized, 0, filename)
 }
 
 func (q *jobQueue) Done(file string) {
@@ -77,21 +80,27 @@ func (q *jobQueue) Done(file string) {
 			return
 		}
 	}
+	l.Debugln("jobQueue.Done", file)
 }
 
-// Jobs returns a paginated list of file currently being pulled and files queued
-// to be pulled. It also returns how many items were skipped.
-func (q *jobQueue) Jobs(page, perpage int) ([]string, []string, int) {
+// Jobs returns a paginated list of file currently being pulled, files that
+// still need to be pulled and any other items that are needed (but can't be
+// pushed to front).
+// It also returns how many items were skipped.
+func (q *jobQueue) Jobs(page, perpage int) ([]string, []string, []string, int) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	toSkip := (page - 1) * perpage
+	l.Debugln("jobQueue.Jobs", len(q.progress))
+
+	totalToSkip := (page - 1) * perpage
+	toSkip := totalToSkip
 	progresstotal := len(q.progress)
 
 	if progresstotal >= toSkip+perpage {
 		progress := make([]string, perpage)
 		copy(progress, q.progress[toSkip:toSkip+perpage])
-		return progress, nil, toSkip
+		return progress, nil, nil, toSkip
 	}
 
 	var progress []string
@@ -104,12 +113,16 @@ func (q *jobQueue) Jobs(page, perpage int) ([]string, []string, int) {
 	}
 
 	progressLen := len(progress)
-	var queued []string
+	var queued, rest []string
 	for file, err := range q.iterAllNeeded() {
 		if err != nil {
 			break
 		}
+		if slices.Contains(progress, file.Name) {
+			continue
+		}
 		if file.Type != protocol.FileInfoTypeFile || file.IsDeleted() {
+			rest = append(rest, file.Name)
 			continue
 		}
 		if toSkip > 0 {
@@ -117,12 +130,20 @@ func (q *jobQueue) Jobs(page, perpage int) ([]string, []string, int) {
 			continue
 		}
 		queued = append(queued, file.Name)
-		if len(queued) + progressLen == perpage {
-			break
+		if len(queued)+progressLen == perpage {
+			return progress, queued, nil, totalToSkip
 		}
 	}
-
-	return progress, queued, (page - 1) * perpage
+	restLen := len(rest)
+	if restLen <= toSkip {
+		return progress, queued, nil, totalToSkip - toSkip + restLen
+	}
+	rest = rest[toSkip:]
+	pageLen := progressLen + len(queued)
+	if progressLen+pageLen > perpage {
+		rest = rest[:perpage-pageLen]
+	}
+	return progress, queued, rest, totalToSkip
 }
 
 func (q *jobQueue) Reset() {
