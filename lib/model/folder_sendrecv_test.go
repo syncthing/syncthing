@@ -359,8 +359,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	s := m.evLogger.Subscribe(events.ItemFinished)
 
 	// queue.Done should be called by the finisher routine
-	f.queue.Push("filex", 0, time.Time{})
-	f.queue.Pop()
+	f.queue.Start("filex")
 
 	if f.queue.lenProgress() != 1 {
 		t.Fatal("Expected file in progress")
@@ -406,7 +405,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	case state := <-finisherBufferChan:
 		// At this point the file should still be registered with both the job
 		// queue, and the progress emitter. Verify this.
-		if f.model.progressEmitter.lenRegistry() != 1 || f.queue.lenProgress() != 1 || f.queue.lenQueued() != 0 {
+		if f.model.progressEmitter.lenRegistry() != 1 || f.queue.lenProgress() != 1 {
 			t.Fatal("Could not find file")
 		}
 
@@ -428,8 +427,8 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 			t.Fatal("File not closed?")
 		}
 
-		if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 || f.queue.lenQueued() != 0 {
-			t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress(), f.queue.lenQueued())
+		if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 {
+			t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress())
 		}
 
 		// Doing it again should have no effect
@@ -439,8 +438,8 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 			t.Fatal("Expected timeout, not another event", err)
 		}
 
-		if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 || f.queue.lenQueued() != 0 {
-			t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress(), f.queue.lenQueued())
+		if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 {
+			t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress())
 		}
 
 	case <-time.After(5 * time.Second):
@@ -458,8 +457,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	s := m.evLogger.Subscribe(events.ItemFinished)
 
 	// queue.Done should be called by the finisher routine
-	f.queue.Push("filex", 0, time.Time{})
-	f.queue.Pop()
+	f.queue.Start("filex")
 
 	if f.queue.lenProgress() != 1 {
 		t.Fatal("Expected file in progress")
@@ -514,7 +512,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 
 	// At this point the file should still be registered with both the job
 	// queue, and the progress emitter. Verify this.
-	if f.model.progressEmitter.lenRegistry() != 1 || f.queue.lenProgress() != 1 || f.queue.lenQueued() != 0 {
+	if f.model.progressEmitter.lenRegistry() != 1 || f.queue.lenProgress() != 1 {
 		t.Fatal("Could not find file")
 	}
 
@@ -536,8 +534,8 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		t.Fatal("File not closed?")
 	}
 
-	if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 || f.queue.lenQueued() != 0 {
-		t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress(), f.queue.lenQueued())
+	if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 {
+		t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress())
 	}
 
 	// Doing it again should have no effect
@@ -547,8 +545,8 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		t.Fatal("Expected timeout, not another event", err)
 	}
 
-	if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 || f.queue.lenQueued() != 0 {
-		t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress(), f.queue.lenQueued())
+	if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 {
+		t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress())
 	}
 }
 

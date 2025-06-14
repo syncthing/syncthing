@@ -8,21 +8,23 @@ package model
 
 import (
 	"fmt"
+	"iter"
 	"math/rand"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/d4l3k/messagediff"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 func TestJobQueue(t *testing.T) {
 	// Some random actions
-	q := newJobQueue()
-	q.Push("f1", 0, time.Time{})
-	q.Push("f2", 0, time.Time{})
-	q.Push("f3", 0, time.Time{})
-	q.Push("f4", 0, time.Time{})
+	q := newFilenameJobQueue([]string{
+		"f1",
+		"f2",
+		"f3",
+		"f4",
+	})
 
 	progress, queued, _ := q.Jobs(1, 100)
 	if len(progress) != 0 || len(queued) != 4 {
@@ -30,10 +32,8 @@ func TestJobQueue(t *testing.T) {
 	}
 
 	for i := 1; i < 5; i++ {
-		n, ok := q.Pop()
-		if !ok || n != fmt.Sprintf("f%d", i) {
-			t.Fatal("Wrong element")
-		}
+		n := fmt.Sprintf("f%d", i)
+		q.Start(fmt.Sprintf("f%d", i))
 		progress, queued, _ = q.Jobs(1, 100)
 		if len(progress) != 1 || len(queued) != 3 {
 			t.Log(progress)
@@ -47,7 +47,7 @@ func TestJobQueue(t *testing.T) {
 			t.Fatal("Wrong length", len(progress), len(queued))
 		}
 
-		q.Push(n, 0, time.Time{})
+		q.add(n)
 		progress, queued, _ = q.Jobs(1, 100)
 		if len(progress) != 0 || len(queued) != 4 {
 			t.Fatal("Wrong length")
@@ -60,7 +60,7 @@ func TestJobQueue(t *testing.T) {
 		}
 	}
 
-	if len(q.progress) > 0 || len(q.queued) != 4 {
+	if len(q.progress) > 0 || len(q.filenames) != 4 {
 		t.Fatal("Wrong length")
 	}
 
@@ -78,7 +78,7 @@ func TestJobQueue(t *testing.T) {
 			t.Fatal("Wrong length")
 		}
 
-		n, ok := q.Pop()
+		n, ok := q.StartPrioritized()
 		if !ok || n != s {
 			t.Fatal("Wrong element")
 		}
@@ -94,7 +94,7 @@ func TestJobQueue(t *testing.T) {
 		}
 	}
 
-	_, ok := q.Pop()
+	_, ok := q.StartPrioritized()
 	if len(q.progress) != 4 || ok {
 		t.Fatal("Wrong length")
 	}
@@ -105,7 +105,7 @@ func TestJobQueue(t *testing.T) {
 	q.Done("f4")
 	q.Done("f5") // Does not exist
 
-	_, ok = q.Pop()
+	_, ok = q.StartPrioritized()
 	if len(q.progress) != 0 || ok {
 		t.Fatal("Wrong length")
 	}
@@ -123,11 +123,12 @@ func TestJobQueue(t *testing.T) {
 }
 
 func TestBringToFront(t *testing.T) {
-	q := newJobQueue()
-	q.Push("f1", 0, time.Time{})
-	q.Push("f2", 0, time.Time{})
-	q.Push("f3", 0, time.Time{})
-	q.Push("f4", 0, time.Time{})
+	q := newFilenameJobQueue([]string{
+		"f1",
+		"f2",
+		"f3",
+		"f4",
+	})
 
 	_, queued, _ := q.Jobs(1, 100)
 	if diff, equal := messagediff.PrettyDiff([]string{"f1", "f2", "f3", "f4"}, queued); !equal {
@@ -166,10 +167,11 @@ func TestBringToFront(t *testing.T) {
 func BenchmarkJobQueueBump(b *testing.B) {
 	files := genFiles(10000)
 
-	q := newJobQueue()
-	for _, f := range files {
-		q.Push(f.Name, 0, time.Time{})
+	names := make([]string, len(files))
+	for i, f := range files {
+		names[i] = f.Name
 	}
+	q := newFilenameJobQueue(names)
 
 	rng := rand.New(rand.NewSource(int64(b.N)))
 
@@ -180,30 +182,13 @@ func BenchmarkJobQueueBump(b *testing.B) {
 	}
 }
 
-func BenchmarkJobQueuePushPopDone10k(b *testing.B) {
-	files := genFiles(10000)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		q := newJobQueue()
-		for _, f := range files {
-			q.Push(f.Name, 0, time.Time{})
-		}
-		for range files {
-			n, _ := q.Pop()
-			q.Done(n)
-		}
-	}
-}
-
 func TestQueuePagination(t *testing.T) {
-	q := newJobQueue()
 	// Ten random actions
 	names := make([]string, 10)
 	for i := 0; i < 10; i++ {
 		names[i] = fmt.Sprint("f", i)
-		q.Push(names[i], 0, time.Time{})
 	}
+	q := newFilenameJobQueue(names)
 
 	progress, queued, skip := q.Jobs(1, 100)
 	if len(progress) != 0 || len(queued) != 10 || skip != 0 {
@@ -236,10 +221,7 @@ func TestQueuePagination(t *testing.T) {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	}
 
-	n, ok := q.Pop()
-	if !ok || n != names[0] {
-		t.Fatal("Wrong element")
-	}
+	q.Start(names[0])
 
 	progress, queued, skip = q.Jobs(1, 100)
 	if len(progress) != 1 || len(queued) != 9 || skip != 0 {
@@ -275,10 +257,7 @@ func TestQueuePagination(t *testing.T) {
 	}
 
 	for i := 1; i < 8; i++ {
-		n, ok := q.Pop()
-		if !ok || n != names[i] {
-			t.Fatal("Wrong element")
-		}
+		q.Start(names[i])
 	}
 
 	progress, queued, skip = q.Jobs(1, 100)
@@ -315,4 +294,38 @@ func TestQueuePagination(t *testing.T) {
 	if len(progress) != 0 || len(queued) != 0 || skip != 10 {
 		t.Error("Wrong length", len(progress), len(queued), 0)
 	}
+}
+
+type filenameJobQueue struct {
+	*jobQueue
+	filenames []string
+}
+
+func newFilenameJobQueue(filenames []string) *filenameJobQueue {
+	q := &filenameJobQueue{
+		filenames: filenames,
+	}
+	iterFn := func() iter.Seq2[protocol.FileInfo, error] {
+		return func(yield func(protocol.FileInfo, error) bool) {
+			for _, filename := range q.filenames {
+				file := protocol.FileInfo{
+					Name: filename,
+				}
+				if !yield(file, nil) {
+					break
+				}
+			}
+		}
+	}
+	q.jobQueue = newJobQueue(iterFn)
+	return q
+}
+
+func (q *filenameJobQueue) add(file string) {
+	q.filenames = append(q.filenames, file)
+}
+
+func (q *filenameJobQueue) Done(file string) {
+	q.jobQueue.Done(file)
+	slices.DeleteFunc(q.filenames, func(n string) bool { return n == file})
 }
