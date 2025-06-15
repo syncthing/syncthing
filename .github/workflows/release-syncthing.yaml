@@ -57,3 +57,4 @@ jobs:
         with:
           workflow: build-syncthing.yaml
           ref: refs/tags/$NEXT
+          token: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
