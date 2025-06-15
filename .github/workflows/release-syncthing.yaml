@@ -56,5 +56,5 @@ jobs:
         uses: benc-uk/workflow-dispatch@v1
         with:
           workflow: build-syncthing.yaml
-          ref: refs/tags/$NEXT
+          ref: refs/tags/${{ env.NEXT }}
           token: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
