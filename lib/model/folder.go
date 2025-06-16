@@ -188,8 +188,12 @@ func (f *folder) Serve(ctx context.Context) error {
 		case <-f.pullScheduled:
 			if f.PullerDelayS > 0 {
 				// Wait for incoming updates to settle before doing the
-				// actual pull
-				f.setState(FolderSyncWaiting)
+				// actual pull. Only set the state to SyncWaiting if we have
+				// reason to believe there is something to sync, to avoid
+				// unnecessary flashing in the GUI.
+				if needCount, err := f.db.CountNeed(f.folderID, protocol.LocalDeviceID); err == nil && needCount.TotalItems() > 0 {
+					f.setState(FolderSyncWaiting)
+				}
 				pullTimer.Reset(time.Duration(float64(time.Second) * f.PullerDelayS))
 			} else {
 				_, err = f.pull()
