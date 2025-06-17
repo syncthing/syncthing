@@ -103,7 +103,6 @@ type FileMetadata struct {
 	LocalFlags protocol.FlagLocal
 	Type       protocol.FileInfoType
 	Deleted    bool
-	Invalid    bool
 }
 
 func (f *FileMetadata) ModTime() time.Time {
@@ -120,4 +119,8 @@ func (f *FileMetadata) IsDirectory() bool {
 
 func (f *FileMetadata) ShouldConflict() bool {
 	return f.LocalFlags&protocol.LocalConflictFlags != 0
+}
+
+func (f *FileMetadata) IsInvalid() bool {
+	return f.LocalFlags.IsInvalid()
 }
