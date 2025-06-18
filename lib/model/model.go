@@ -460,6 +460,9 @@ func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguratio
 }
 
 func (m *model) removeFolder(cfg config.FolderConfiguration) {
+	l.Infoln("Removing folder", cfg.Description())
+	defer l.Infoln("Removed folder", cfg.Description())
+
 	m.mut.RLock()
 	wait := m.folderRunners.StopAndWaitChan(cfg.ID, 0)
 	m.mut.RUnlock()
