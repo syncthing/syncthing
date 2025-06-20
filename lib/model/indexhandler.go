@@ -421,11 +421,6 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 				"precedingSeq": fs[i-1].Sequence,
 			})
 		}
-
-		// The local attributes should never be transmitted over the wire.
-		// Make sure they look like they weren't.
-		fs[i].LocalFlags = 0
-		fs[i].VersionHash = nil
 	}
 
 	// Verify the claimed last sequence number
