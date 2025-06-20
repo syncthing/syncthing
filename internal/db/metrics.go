@@ -98,6 +98,11 @@ func (m metricsDB) AllNeededGlobalFiles(folder string, device protocol.DeviceID,
 	return m.DB.AllNeededGlobalFiles(folder, device, order, limit, offset)
 }
 
+func (m metricsDB) AllNeededGlobalFileMetadataLocal(folder string, order config.PullOrder, limit, offset int) (iter.Seq[FileMetadata], func() error) {
+	defer m.account(folder, "AllNeededGlobalFileMetadataLocal")()
+	return m.DB.AllNeededGlobalFileMetadataLocal(folder, order, limit, offset)
+}
+
 func (m metricsDB) GetGlobalAvailability(folder, file string) ([]protocol.DeviceID, error) {
 	defer m.account(folder, "GetGlobalAvailability")()
 	return m.DB.GetGlobalAvailability(folder, file)

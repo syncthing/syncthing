@@ -219,6 +219,17 @@ func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order
 	return fdb.AllNeededGlobalFiles(device, order, limit, offset)
 }
 
+func (s *DB) AllNeededGlobalFileMetadataLocal(folder string, order config.PullOrder, limit, offset int) (iter.Seq[db.FileMetadata], func() error) {
+	fdb, err := s.getFolderDB(folder, false)
+	if errors.Is(err, errNoSuchFolder) {
+		return func(yield func(db.FileMetadata) bool) {}, func() error { return nil }
+	}
+	if err != nil {
+		return func(yield func(db.FileMetadata) bool) {}, func() error { return err }
+	}
+	return fdb.AllNeededGlobalFileMetadataLocal(order, limit, offset)
+}
+
 func (s *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
 	fdb, err := s.getFolderDB(folder, false)
 	if errors.Is(err, errNoSuchFolder) {
