@@ -1181,7 +1181,18 @@ func (m *model) handleIndex(conn protocol.Connection, folder string, fs []protoc
 
 	m.mut.RLock()
 	indexHandler, ok := m.getIndexHandlerRLocked(conn)
+	runner, _ := m.folderRunners.Get(folder)
 	m.mut.RUnlock()
+
+	if recvEnc, isRecvEnc := runner.(*receiveEncryptedFolder); isRecvEnc && recvEnc.modernStorage {
+		// If the folder is a modern-style receive-encrypted one, modernize
+		// the file names in the received FileInfos to use the newer on-disk
+		// format.
+		if err := protocol.ModernizeEncryptedFilenames(fs); err != nil {
+			return fmt.Errorf("%s: modernizing filenames: %w", folder, err)
+		}
+	}
+
 	if !ok {
 		// This should be impossible, as an index handler is registered when
 		// we send a cluster config, and that is what triggers index
