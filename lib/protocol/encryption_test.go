@@ -33,7 +33,7 @@ func TestEnDecryptName(t *testing.T) {
 
 	pattern := regexp.MustCompile(
 		fmt.Sprintf("^[0-9A-V]%s/[0-9A-V]{2}/([0-9A-V]{%d}/)*[0-9A-V]{1,%d}$",
-			regexp.QuoteMeta(encryptedDirExtension),
+			regexp.QuoteMeta(encryptedDirExtensionV1),
 			maxPathComponent, maxPathComponent-1))
 
 	makeName := func(n int) string {
@@ -236,17 +236,26 @@ func TestIsEncryptedParent(t *testing.T) {
 		{"", false},
 		{".", false},
 		{"/", false},
-		{"12" + encryptedDirExtension, false},
-		{"1" + encryptedDirExtension, true},
-		{"1" + encryptedDirExtension + "/b", false},
-		{"1" + encryptedDirExtension + "/bc", true},
-		{"1" + encryptedDirExtension + "/bcd", false},
-		{"1" + encryptedDirExtension + "/bc/foo", false},
+		{"12" + encryptedDirExtensionV1, false},
+		{"12" + encryptedDirExtensionV2, false},
+		{"1" + encryptedDirExtensionV1, true},
+		{"1" + encryptedDirExtensionV2, true},
+		{"1" + encryptedDirExtensionV1 + "/b", false},
+		{"1" + encryptedDirExtensionV1 + "/bc", true},
+		{"1" + encryptedDirExtensionV2 + "/bc", true},
+		{"1" + encryptedDirExtensionV1 + "/bcd", false},
+		{"1" + encryptedDirExtensionV2 + "/bcd", false},
+		{"1" + encryptedDirExtensionV1 + "/bc/foo", false},
+		{"1" + encryptedDirExtensionV2 + "/bc/foo", false},
 		{"1.12/22", false},
-		{"1" + encryptedDirExtension + "/bc/" + comp, true},
-		{"1" + encryptedDirExtension + "/bc/" + comp + "/" + comp, true},
-		{"1" + encryptedDirExtension + "/bc/" + comp + "a", false},
-		{"1" + encryptedDirExtension + "/bc/" + comp + "/a/" + comp, false},
+		{"1" + encryptedDirExtensionV1 + "/bc/" + comp, true},
+		{"1" + encryptedDirExtensionV2 + "/bc/" + comp, true},
+		{"1" + encryptedDirExtensionV1 + "/bc/" + comp + "/" + comp, true},
+		{"1" + encryptedDirExtensionV2 + "/bc/" + comp + "/" + comp, true},
+		{"1" + encryptedDirExtensionV1 + "/bc/" + comp + "a", false},
+		{"1" + encryptedDirExtensionV2 + "/bc/" + comp + "a", false},
+		{"1" + encryptedDirExtensionV1 + "/bc/" + comp + "/a/" + comp, false},
+		{"1" + encryptedDirExtensionV2 + "/bc/" + comp + "/a/" + comp, false},
 	}
 	for _, tc := range cases {
 		if res := IsEncryptedParent(strings.Split(tc.path, "/")); res != tc.is {

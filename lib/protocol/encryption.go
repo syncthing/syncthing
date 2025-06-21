@@ -29,16 +29,18 @@ import (
 )
 
 const (
-	nonceSize             = 24   // chacha20poly1305.NonceSizeX
-	tagSize               = 16   // chacha20poly1305.Overhead()
-	keySize               = 32   // fits both chacha20poly1305 and AES-SIV
-	minPaddedSize         = 1024 // smallest block we'll allow
-	blockOverhead         = tagSize + nonceSize
-	maxPathComponent      = 200              // characters
-	encryptedDirExtension = ".syncthing-enc" // for top level dirs
-	miscreantAlgo         = "AES-SIV"
-	folderKeyCacheEntries = 1000
-	fileKeyCacheEntries   = 5000
+	nonceSize               = 24   // chacha20poly1305.NonceSizeX
+	tagSize                 = 16   // chacha20poly1305.Overhead()
+	keySize                 = 32   // fits both chacha20poly1305 and AES-SIV
+	minPaddedSize           = 1024 // smallest block we'll allow
+	blockOverhead           = tagSize + nonceSize
+	maxPathComponent        = 200              // characters
+	encryptedDirExtensionV1 = ".syncthing-enc" // for top level dirs
+	encryptedDirExtensionV2 = encryptedDirExtensionV1 + ".v2"
+	miscreantAlgo           = "AES-SIV"
+	folderKeyCacheEntries   = 1000
+	fileKeyCacheEntries     = 5000
+	encryptedItemExt        = ".enc"
 )
 
 // The encryptedModel sits between the encrypted device and the model. It
@@ -426,7 +428,7 @@ var base32Hex = base32.HexEncoding.WithPadding(base32.NoPadding)
 // filesystem-friendly manner.
 func encryptName(name string, key *[keySize]byte) string {
 	enc := encryptDeterministic([]byte(name), key, nil)
-	return slashify(base32Hex.EncodeToString(enc))
+	return slashifyV1(base32Hex.EncodeToString(enc))
 }
 
 // decryptName decrypts a string from encryptName
@@ -605,17 +607,17 @@ func PasswordToken(keyGen *KeyGenerator, folderID, password string) []byte {
 	return encryptDeterministic(knownBytes(folderID), keyGen.KeyFromPassword(folderID, password), nil)
 }
 
-// slashify inserts slashes (and file extension) in the string to create an
+// slashifyV1 inserts slashes (and file extension) in the string to create an
 // appropriate tree. ABCDEFGH... => A.syncthing-enc/BC/DEFGH... We can use
 // forward slashes here because we're on the outside of native path formats,
 // the slash is the wire format.
-func slashify(s string) string {
+func slashifyV1(s string) string {
 	// We somewhat sloppily assume bytes == characters here, but the only
 	// file names we should deal with are those that come from our base32
 	// encoding.
 
 	comps := make([]string, 0, len(s)/maxPathComponent+3)
-	comps = append(comps, s[:1]+encryptedDirExtension)
+	comps = append(comps, s[:1]+encryptedDirExtensionV1)
 	s = s[1:]
 	comps = append(comps, s[:2])
 	s = s[2:]
@@ -630,14 +632,71 @@ func slashify(s string) string {
 	return strings.Join(comps, "/")
 }
 
+// slashifyV2 inserts slashes (and file extension) in the string to create
+// an appropriate tree. ABCDEFGH => a.syncthing-enc.v2/bc/defgh.enc. We can
+// use forward slashes here because we're on the outside of native path
+// formats, the slash is the wire format.
+func slashifyV2(s string) string {
+	// We somewhat sloppily assume bytes == characters here, but the only
+	// file names we should deal with are those that come from our base32
+	// encoding.
+
+	comps := make([]string, 0, len(s)/maxPathComponent+3)
+	comps = append(comps, s[:1]+encryptedDirExtensionV2)
+	s = s[1:]
+	comps = append(comps, s[:2])
+	s = s[2:]
+
+	for len(s) > maxPathComponent {
+		comps = append(comps, s[:maxPathComponent])
+		s = s[maxPathComponent:]
+	}
+	if len(s) <= 4 {
+		// avoid short, random names inadvertently matching "nul", "com0",
+		// etc reserved names on Windows. The letter x is not part of the
+		// base32 alphabet used in the names, so it's easy to strip later
+		// on.
+		s = "x" + s
+	}
+	if len(s) > 0 {
+		comps = append(comps, s)
+	}
+	return strings.ToLower(strings.Join(comps, "/")) + encryptedItemExt
+}
+
 // deslashify removes slashes and encrypted file extensions from the string.
-// This is the inverse of slashify().
+// This is the inverse of both slashify functions.
 func deslashify(s string) (string, error) {
-	if s == "" || !strings.HasPrefix(s[1:], encryptedDirExtension) {
+	if s == "" || !strings.HasPrefix(s[1:], encryptedDirExtensionV1) {
 		return "", fmt.Errorf("invalid encrypted path: %q", s)
 	}
-	s = s[:1] + s[1+len(encryptedDirExtension):]
-	return strings.ReplaceAll(s, "/", ""), nil
+	s = strings.Replace(s, encryptedDirExtensionV2, "", 1)
+	s = strings.Replace(s, encryptedDirExtensionV1, "", 1)
+	s = strings.TrimSuffix(s, encryptedItemExt)
+	s = strings.Replace(s, "x", "", 1)
+	s = strings.ReplaceAll(s, "/", "")
+	s = strings.ToUpper(s)
+	return s, nil
+}
+
+// ModernizeEncryptedFilenames convers encrypted names in old-style wire
+// format to modern on-disk format.
+func ModernizeEncryptedFilenames(fs []FileInfo) error {
+	for i := range fs {
+		raw, err := deslashify(fs[i].Name)
+		if err != nil {
+			return err
+		}
+		fs[i].Name = slashifyV2(raw)
+	}
+	return nil
+}
+
+// IsOldStyleStoragePath returns true if the file path is a top level
+// directory of an old-style encrypted folder, e.g. "1.syncthing-enc".
+// Modern-style top-level directories have an additional ".v2" extension.
+func IsOldStyleStoragePath(name string) bool {
+	return name != "" && name[1:] == encryptedDirExtensionV1
 }
 
 type rawResponse struct {
@@ -664,7 +723,7 @@ func IsEncryptedParent(pathComponents []string) bool {
 	if pathComponents[0] == "" {
 		return false
 	}
-	if pathComponents[0][1:] != encryptedDirExtension {
+	if pathComponents[0][1:] != encryptedDirExtensionV1 && pathComponents[0][1:] != encryptedDirExtensionV2 {
 		return false
 	}
 	if l < 2 {

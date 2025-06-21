@@ -27,11 +27,32 @@ func init() {
 
 type receiveEncryptedFolder struct {
 	*sendReceiveFolder
+	modernStorage bool
 }
 
 func newReceiveEncryptedFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
-	f := &receiveEncryptedFolder{newSendReceiveFolder(model, ignores, cfg, ver, evLogger, ioLimiter).(*sendReceiveFolder)}
+	f := &receiveEncryptedFolder{
+		sendReceiveFolder: newSendReceiveFolder(model, ignores, cfg, ver, evLogger, ioLimiter).(*sendReceiveFolder),
+		modernStorage:     true,
+	}
 	f.localFlags = protocol.FlagLocalReceiveOnly // gets propagated to the scanner, and set on locally changed files
+
+	// Check if we user modern or legacy storage paths. The presence of
+	// legacy storage paths makes it a legacy folder and we continue using
+	// those paths.
+	names, _ := cfg.Filesystem().DirNames("/")
+	for _, name := range names {
+		if protocol.IsOldStyleStoragePath(name) {
+			f.modernStorage = false
+			break
+		}
+	}
+	if f.modernStorage {
+		l.Infof("Receive-encrypted folder %s uses modern storage format", cfg.Description())
+	} else {
+		l.Infof("Receive-encrypted folder %s uses legacy storage format", cfg.Description())
+	}
+
 	return f
 }
 
