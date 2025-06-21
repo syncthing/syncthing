@@ -7,9 +7,11 @@
 package fs
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
+	"syscall"
 	"testing"
 	"time"
 
@@ -86,7 +88,7 @@ func TestFileInfo(t *testing.T) {
 
 	time.Sleep(maxDifference * 2)
 
-	err = appendToFile(path, "more text")
+	err = updateFile(path, "some text")
 	if err != nil {
 		t.Error(err)
 	}
@@ -135,8 +137,8 @@ func TestFileInfo(t *testing.T) {
 	}
 }
 
-func appendToFile(path, data string) error {
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+func updateFile(path, data string) error {
+	f, err := os.OpenFile(path, os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
 	}
@@ -144,4 +146,63 @@ func appendToFile(path, data string) error {
 
 	_, err = f.WriteString(data)
 	return err
+}
+
+func BenchmarkFileInfo(b *testing.B) {
+	paths := filepath.SplitList(os.Getenv("STFSTESTPATH"))
+	for _, path := range paths {
+		b.Logf("Walking %v", path)
+		fs := NewWalkFilesystem(newBasicFilesystem(path))
+
+		var results = map[string]int{}
+		b.Run(path, func(b *testing.B) {
+			b.ReportAllocs()
+			start := time.Now()
+			err := fs.Walk("/", func(path string, _ FileInfo, err error) error {
+				results[errorMessage(err)]++
+				return nil
+			})
+			elapsed := time.Since(start)
+			total := 0
+			b.Log("Scanned Result")
+			b.Log("------- ------")
+
+			for k, v := range results {
+				b.Logf("%7d %v", v, k)
+				total += v
+			}
+			b.Log("-------")
+			avg := elapsed.Seconds() / float64(total)
+			b.Logf("%7d total files scanned in %v (%g per file)", total, elapsed, avg)
+			if err != nil {
+				b.Fatal(err)
+			}
+		})
+	}
+}
+
+func errorMessage(err error) string {
+	if err == nil {
+		return "No error"
+	}
+	var errno syscall.Errno
+	if errors.As(err, &errno) {
+		return errno.Error()
+	}
+	msg := err.Error()
+	if i := lastColonSpace(msg); i >= 0 {
+		return msg[i+2:]
+	}
+
+	return msg
+}
+
+func lastColonSpace(s string) int {
+	for i := len(s) - 2; i >= 0; i-- {
+		if s[i] == ':' && s[i+1] == ' ' {
+			return i
+		}
+	}
+
+	return -1
 }
