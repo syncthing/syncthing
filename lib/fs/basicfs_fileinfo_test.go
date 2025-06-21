@@ -47,7 +47,6 @@ func TestFileInfo(t *testing.T) {
 		t.Error(err)
 	}
 
-	// stat and compare -- modtime should have changed from the baseline, inode change time should not
 	fi, err := fs.Lstat(basename)
 	if err != nil {
 		t.Error(err)
