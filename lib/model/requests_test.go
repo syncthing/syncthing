@@ -1139,7 +1139,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 
 	// Remote unpaused
 
-	cc.Folders[0].Stopped = protocol.StopReasonUnspecified
+	cc.Folders[0].Stopped = protocol.StopReasonRunning
 	m.ClusterConfig(fc, cc)
 	select {
 	case <-time.After(5 * time.Second):
@@ -1169,7 +1169,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 
 	pauseFolder(t, m.cfg, fcfg.ID, true)
 
-	cc.Folders[0].Stopped = protocol.StopReasonUnspecified
+	cc.Folders[0].Stopped = protocol.StopReasonRunning
 	m.ClusterConfig(fc, cc)
 
 	pauseFolder(t, m.cfg, fcfg.ID, false)

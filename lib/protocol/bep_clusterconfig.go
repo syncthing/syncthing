@@ -32,8 +32,8 @@ const (
 type StopReason = bep.StopReason
 
 const (
-	StopReasonUnspecified = bep.StopReason_STOP_REASON_UNSPECIFIED
-	StopReasonPaused      = bep.StopReason_STOP_REASON_PAUSED
+	StopReasonRunning = bep.StopReason_STOP_REASON_RUNNING
+	StopReasonPaused  = bep.StopReason_STOP_REASON_PAUSED
 )
 
 type ClusterConfig struct {

@@ -81,7 +81,7 @@ enum FolderType {
 }
 
 enum StopReason {
-  STOP_REASON_UNSPECIFIED = 0; // i.e., not stopped
+  STOP_REASON_RUNNING = 0; // i.e., not stopped
   STOP_REASON_PAUSED = 1;
 }
 
