@@ -20,6 +20,22 @@ const (
 	CompressionAlways   = bep.Compression_COMPRESSION_ALWAYS
 )
 
+type FolderType = bep.FolderType
+
+const (
+	FolderTypeSendReceive      = bep.FolderType_FOLDER_TYPE_SEND_RECEIVE
+	FolderTypeSendOnly         = bep.FolderType_FOLDER_TYPE_SEND_ONLY
+	FolderTypeReceiveOnly      = bep.FolderType_FOLDER_TYPE_RECEIVE_ONLY
+	FolderTypeReceiveEncrypted = bep.FolderType_FOLDER_TYPE_RECEIVE_ENCRYPTED
+)
+
+type StopReason = bep.StopReason
+
+const (
+	StopReasonUnspecified = bep.StopReason_STOP_REASON_UNSPECIFIED
+	StopReasonPaused      = bep.StopReason_STOP_REASON_PAUSED
+)
+
 type ClusterConfig struct {
 	Folders   []Folder
 	Secondary bool
@@ -51,14 +67,11 @@ func clusterConfigFromWire(w *bep.ClusterConfig) *ClusterConfig {
 }
 
 type Folder struct {
-	ID                 string
-	Label              string
-	ReadOnly           bool
-	IgnorePermissions  bool
-	IgnoreDelete       bool
-	DisableTempIndexes bool
-	Paused             bool
-	Devices            []Device
+	ID      string
+	Label   string
+	Type    FolderType
+	Stopped StopReason
+	Devices []Device
 }
 
 func (f *Folder) toWire() *bep.Folder {
@@ -67,14 +80,11 @@ func (f *Folder) toWire() *bep.Folder {
 		devices[i] = d.toWire()
 	}
 	return &bep.Folder{
-		Id:                 f.ID,
-		Label:              f.Label,
-		ReadOnly:           f.ReadOnly,
-		IgnorePermissions:  f.IgnorePermissions,
-		IgnoreDelete:       f.IgnoreDelete,
-		DisableTempIndexes: f.DisableTempIndexes,
-		Paused:             f.Paused,
-		Devices:            devices,
+		Id:      f.ID,
+		Label:   f.Label,
+		Type:    f.Type,
+		Stopped: f.Stopped,
+		Devices: devices,
 	}
 }
 
@@ -84,14 +94,11 @@ func folderFromWire(w *bep.Folder) Folder {
 		devices[i] = deviceFromWire(d)
 	}
 	return Folder{
-		ID:                 w.Id,
-		Label:              w.Label,
-		ReadOnly:           w.ReadOnly,
-		IgnorePermissions:  w.IgnorePermissions,
-		IgnoreDelete:       w.IgnoreDelete,
-		DisableTempIndexes: w.DisableTempIndexes,
-		Paused:             w.Paused,
-		Devices:            devices,
+		ID:      w.Id,
+		Label:   w.Label,
+		Type:    w.Type,
+		Stopped: w.Stopped,
+		Devices: devices,
 	}
 }
 

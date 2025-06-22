@@ -71,7 +71,6 @@ type FolderConfiguration struct {
 	PullerDelayS            float64                     `json:"pullerDelayS" xml:"pullerDelayS" default:"1"`
 	MaxConflicts            int                         `json:"maxConflicts" xml:"maxConflicts" default:"10"`
 	DisableSparseFiles      bool                        `json:"disableSparseFiles" xml:"disableSparseFiles"`
-	DisableTempIndexes      bool                        `json:"disableTempIndexes" xml:"disableTempIndexes"`
 	Paused                  bool                        `json:"paused" xml:"paused"`
 	MarkerName              string                      `json:"markerName" xml:"markerName"`
 	CopyOwnershipFromParent bool                        `json:"copyOwnershipFromParent" xml:"copyOwnershipFromParent"`
@@ -322,7 +321,6 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 	}
 
 	if f.Type == FolderTypeReceiveEncrypted {
-		f.DisableTempIndexes = true
 		f.IgnorePerms = true
 	}
 }
