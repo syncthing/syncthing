@@ -18,7 +18,7 @@ var (
 		Name:      "folder_state",
 		Help:      "Current folder state",
 	}, []string{"folder"})
-	metricFolderSummary = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	metricFolderSummary = promauto.NewGaugeVec(prometheus.GaugeOpts{ //nolint:promlinter
 		Namespace: "syncthing",
 		Subsystem: "model",
 		Name:      "folder_summary",

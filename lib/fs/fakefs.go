@@ -147,29 +147,29 @@ func newFakeFilesystem(rootURI string, _ ...Option) *fakeFS {
 		// *look* like file I/O, but they are not. Do not worry that they
 		// might fail.
 
-		rng := rand.New(rand.NewSource(int64(seed)))
+		rng := rand.New(rand.NewSource(int64(seed))) //nolint:gosec
 		var createdFiles int
 		var writtenData int64
 		for (files == 0 || createdFiles < files) && (maxsize == 0 || writtenData>>20 < int64(maxsize)) {
 			dir := filepath.Join(fmt.Sprintf("%02x", rng.Intn(255)), fmt.Sprintf("%02x", rng.Intn(255)))
 			file := fmt.Sprintf("%016x", rng.Int63())
-			fs.MkdirAll(dir, 0o755)
+			_ = fs.MkdirAll(dir, 0o755)
 
 			fd, _ := fs.Create(filepath.Join(dir, file))
 			createdFiles++
 
 			fsize := int64(sizeavg/2 + rng.Intn(sizeavg))
-			fd.Truncate(fsize)
+			_ = fd.Truncate(fsize)
 			writtenData += fsize
 
 			ftime := time.Unix(1000000000+rng.Int63n(10*365*86400), 0)
-			fs.Chtimes(filepath.Join(dir, file), ftime, ftime)
+			_ = fs.Chtimes(filepath.Join(dir, file), ftime, ftime)
 		}
 	}
 
 	if !nostfolder {
 		// Also create a default folder marker for good measure
-		fs.Mkdir(".stfolder", 0o700)
+		_ = fs.Mkdir(".stfolder", 0o700)
 	}
 
 	// We only set the latency after doing the operations required to create
@@ -284,9 +284,10 @@ func (fs *fakeFS) create(name string) (*fakeEntry, error) {
 	time.Sleep(fs.latency)
 
 	if entry := fs.entryForName(name); entry != nil {
-		if entry.entryType == fakeEntryTypeDir {
+		switch entry.entryType {
+		case fakeEntryTypeDir:
 			return nil, os.ErrExist
-		} else if entry.entryType == fakeEntryTypeSymlink {
+		case fakeEntryTypeSymlink:
 			return nil, errors.New("following symlink not supported")
 		}
 		entry.size = 0
@@ -731,6 +732,7 @@ func (fs *fakeFS) resetCounters() {
 }
 
 func (fs *fakeFS) reportMetricsPerOp(b *testing.B) {
+	b.Helper()
 	fs.reportMetricsPer(b, 1, "op")
 }
 
@@ -829,7 +831,7 @@ func (f *fakeFile) readShortAt(p []byte, offs int64) (int, error) {
 	if f.seed == 0 {
 		hf := fnv.New64()
 		hf.Write([]byte(f.name))
-		f.seed = int64(hf.Sum64())
+		f.seed = int64(hf.Sum64()) //nolint:gosec
 	}
 
 	// Check whether the read is a continuation of an RNG we already have or
@@ -839,14 +841,14 @@ func (f *fakeFile) readShortAt(p []byte, offs int64) (int, error) {
 	nextBlockOffs := (seedNo + 1) << randomBlockShift
 	if f.rng == nil || f.offset != offs || seedNo != f.seedOffs {
 		// This is not a straight read continuing from a previous one
-		f.rng = rand.New(rand.NewSource(f.seed + seedNo))
+		f.rng = rand.New(rand.NewSource(f.seed + seedNo)) //nolint:gosec
 
 		// If the read is not at the start of the block, discard data
 		// accordingly.
 		diff := offs - minOffs
 		if diff > 0 {
 			lr := io.LimitReader(f.rng, diff)
-			io.Copy(io.Discard, lr)
+			_, _ = io.Copy(io.Discard, lr)
 		}
 
 		f.offset = offs

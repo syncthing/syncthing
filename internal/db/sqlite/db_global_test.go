@@ -268,6 +268,57 @@ func TestDontNeedIgnored(t *testing.T) {
 	}
 }
 
+func TestDontNeedRemoteInvalid(t *testing.T) {
+	t.Parallel()
+
+	db, err := OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// A remote file with the invalid bit set
+	files := []protocol.FileInfo{
+		genFile("test1", 1, 103),
+	}
+	files[0].LocalFlags = protocol.FlagLocalRemoteInvalid
+	err = db.Update(folderID, protocol.DeviceID{42}, files)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// It's not part of the global size
+	s, err := db.CountGlobal(folderID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Bytes != 0 || s.Files != 0 {
+		t.Log(s)
+		t.Error("bad global")
+	}
+
+	// We don't need it
+	s, err = db.CountNeed(folderID, protocol.LocalDeviceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Bytes != 0 || s.Files != 0 {
+		t.Log(s)
+		t.Error("bad need")
+	}
+
+	// It shouldn't show up in the need list
+	names := mustCollect[protocol.FileInfo](t)(db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0, 0))
+	if len(names) != 0 {
+		t.Log(names)
+		t.Error("need no files")
+	}
+}
+
 func TestRemoteDontNeedLocalIgnored(t *testing.T) {
 	t.Parallel()
 

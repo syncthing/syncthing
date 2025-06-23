@@ -107,7 +107,7 @@ func main() {
 		cert, err = tls.LoadX509KeyPair(cli.Cert, cli.Key)
 		if os.IsNotExist(err) {
 			log.Println("Failed to load keypair. Generating one, this might take a while...")
-			cert, err = tlsutil.NewCertificate(cli.Cert, cli.Key, "stdiscosrv", 20*365)
+			cert, err = tlsutil.NewCertificate(cli.Cert, cli.Key, "stdiscosrv", 20*365, false)
 			if err != nil {
 				log.Fatalln("Failed to generate X509 key pair:", err)
 			}

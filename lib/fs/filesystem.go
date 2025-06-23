@@ -180,7 +180,7 @@ const (
 // SkipDir is used as a return value from WalkFuncs to indicate that
 // the directory named in the call is to be skipped. It is not returned
 // as an error by any function.
-var SkipDir = filepath.SkipDir
+var SkipDir = filepath.SkipDir //nolint:errname
 
 func IsExist(err error) bool {
 	return errors.Is(err, ErrExist)
@@ -259,15 +259,16 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 		// attributed to the calling function.
 		layersAboveWalkFilesystem++
 	}
-	if l.ShouldDebug("walkfs") {
+	switch {
+	case l.ShouldDebug("walkfs"):
 		// A walkFilesystem is not a layer to skip, it embeds the underlying
 		// filesystem, passing calls directly trough. Except for calls made
 		// during walking, however those are truly originating in the walk
 		// filesystem.
 		fs = NewWalkFilesystem(newLogFilesystem(fs, layersAboveWalkFilesystem))
-	} else if l.ShouldDebug("fs") {
+	case l.ShouldDebug("fs"):
 		fs = newLogFilesystem(NewWalkFilesystem(fs), layersAboveWalkFilesystem)
-	} else {
+	default:
 		fs = NewWalkFilesystem(fs)
 	}
 

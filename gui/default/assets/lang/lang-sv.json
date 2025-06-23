@@ -227,6 +227,7 @@
     "Learn more": "Läs mer",
     "Learn more at {%url%}": "Läs mer på {{url}}",
     "Limit": "Gräns",
+    "Limit Bandwidth in LAN": "Begränsa bandbredd i LAN",
     "Listener Failures": "Lyssnarfel",
     "Listener Status": "Lyssnarstatus",
     "Listeners": "Lyssnare",

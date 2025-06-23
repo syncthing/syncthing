@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"path"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -288,8 +288,8 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 	f.Devices = ensureDevicePresent(f.Devices, myID)
 	f.Devices = ensureNoUntrustedTrustingSharing(f, f.Devices, existingDevices)
 
-	sort.Slice(f.Devices, func(a, b int) bool {
-		return f.Devices[a].DeviceID.Compare(f.Devices[b].DeviceID) == -1
+	slices.SortFunc(f.Devices, func(a, b FolderDeviceConfiguration) int {
+		return a.DeviceID.Compare(b.DeviceID)
 	})
 
 	if f.RescanIntervalS > MaxRescanIntervalS {

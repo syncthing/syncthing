@@ -28,7 +28,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-BEP" "7" "May 25, 2025" "v1.29.6" "Syncthing"
+.TH "SYNCTHING-BEP" "7" "Jun 22, 2025" "v1.29.7" "Syncthing"
 .SH NAME
 syncthing-bep \- Block Exchange Protocol v1
 .SH INTRODUCTION AND DEFINITIONS
@@ -254,8 +254,9 @@ protocol buffer message just as in the uncompressed case.
 This informational message provides information about the cluster
 configuration as it pertains to the current connection. A Cluster Config
 message MUST be the first post authentication message sent on a BEP
-connection. Additional Cluster Config messages MUST NOT be sent after the
-initial exchange.
+connection. Additional Cluster Config messages MAY be sent after the initial
+exchange to change the connection in place with the update configuration. If an
+implementation does not support that, it SHOULD close the connection.
 .SS Protocol Buffer Schema
 .INDENT 0.0
 .INDENT 3.5

@@ -19,9 +19,9 @@ type Counts struct {
 	Symlinks    int
 	Deleted     int
 	Bytes       int64
-	Sequence    int64             // zero for the global state
-	DeviceID    protocol.DeviceID // device ID for remote devices, or special values for local/global
-	LocalFlags  uint32            // the local flag for this count bucket
+	Sequence    int64              // zero for the global state
+	DeviceID    protocol.DeviceID  // device ID for remote devices, or special values for local/global
+	LocalFlags  protocol.FlagLocal // the local flag for this count bucket
 }
 
 func (c Counts) Add(other Counts) Counts {

@@ -8,12 +8,12 @@ package config
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const defaultNumConnections = 1 // number of connections to use by default; may change in the future.
+const defaultNumConnections = 3 // number of connections to use by default
 
 type DeviceConfiguration struct {
 	DeviceID                 protocol.DeviceID `json:"deviceID" xml:"id,attr" nodefault:"true"`
@@ -100,8 +100,8 @@ func sortedObservedFolderSlice(input map[string]ObservedFolder) []ObservedFolder
 	for _, folder := range input {
 		output = append(output, folder)
 	}
-	sort.Slice(output, func(i, j int) bool {
-		return output[i].Time.Before(output[j].Time)
+	slices.SortFunc(output, func(a, b ObservedFolder) int {
+		return a.Time.Compare(b.Time)
 	})
 	return output
 }

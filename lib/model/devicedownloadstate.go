@@ -56,17 +56,18 @@ func (p *deviceFolderDownloadState) Update(updates []protocol.FileDownloadProgre
 		if update.UpdateType == protocol.FileDownloadProgressUpdateTypeForget && ok && local.version.Equal(update.Version) {
 			delete(p.files, update.Name)
 		} else if update.UpdateType == protocol.FileDownloadProgressUpdateTypeAppend {
-			if !ok {
+			switch {
+			case !ok:
 				local = deviceFolderFileDownloadState{
 					blockIndexes: update.BlockIndexes,
 					version:      update.Version,
 					blockSize:    update.BlockSize,
 				}
-			} else if !local.version.Equal(update.Version) {
+			case !local.version.Equal(update.Version):
 				local.blockIndexes = append(local.blockIndexes[:0], update.BlockIndexes...)
 				local.version = update.Version
 				local.blockSize = update.BlockSize
-			} else {
+			default:
 				local.blockIndexes = append(local.blockIndexes, update.BlockIndexes...)
 			}
 			p.files[update.Name] = local

@@ -74,7 +74,7 @@ func (f *fakeConnection) DownloadProgress(_ context.Context, dp *protocol.Downlo
 	})
 }
 
-func (f *fakeConnection) addFileLocked(name string, flags uint32, ftype protocol.FileInfoType, data []byte, version protocol.Vector, localFlags uint32) {
+func (f *fakeConnection) addFileLocked(name string, flags uint32, ftype protocol.FileInfoType, data []byte, version protocol.Vector, localFlags protocol.FlagLocal) {
 	blockSize := protocol.BlockSize(int64(len(data)))
 	blocks, _ := scanner.Blocks(context.TODO(), bytes.NewReader(data), blockSize, int64(len(data)), nil)
 

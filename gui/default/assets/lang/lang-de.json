@@ -227,6 +227,7 @@
     "Learn more": "Mehr erfahren",
     "Learn more at {%url%}": "Erfahren Sie mehr unter {{url}}",
     "Limit": "Limit",
+    "Limit Bandwidth in LAN": "Bandbreite im LAN begrenzen",
     "Listener Failures": "Fehler bei Listener",
     "Listener Status": "Status der Listener",
     "Listeners": "Zuhörer",

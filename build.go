@@ -329,7 +329,7 @@ func runCommand(cmd string, target target) {
 		writeCompatJSON()
 
 	case "deb":
-		buildDeb(target)
+		buildDeb(target, tags)
 
 	case "vet":
 		metalintShort()
@@ -592,7 +592,7 @@ func buildZip(target target, tags []string) {
 	fmt.Println(filename)
 }
 
-func buildDeb(target target) {
+func buildDeb(target target, tags []string) {
 	os.RemoveAll("deb")
 
 	// "goarch" here is set to whatever the Debian packages expect. We correct
@@ -606,7 +606,7 @@ func buildDeb(target target) {
 		goarch = "arm"
 	}
 
-	build(target, []string{"noupgrade"})
+	build(target, append(tags, "noupgrade"))
 
 	for i := range target.installationFiles {
 		target.installationFiles[i].src = strings.Replace(target.installationFiles[i].src, "{{binary}}", target.BinaryName(), 1)
@@ -922,6 +922,9 @@ func rmr(paths ...string) {
 }
 
 func getReleaseVersion() (string, error) {
+	if ver := os.Getenv("VERSION"); ver != "" {
+		return strings.TrimSpace(ver), nil
+	}
 	bs, err := os.ReadFile("RELEASE")
 	if err != nil {
 		return "", err
@@ -966,7 +969,7 @@ func getGitVersion() (string, error) {
 }
 
 func getVersion() string {
-	// First try for a RELEASE file,
+	// First try for a RELEASE file or $VERSION env var,
 	if ver, err := getReleaseVersion(); err == nil {
 		return ver
 	}

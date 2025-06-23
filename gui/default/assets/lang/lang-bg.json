@@ -227,6 +227,7 @@
     "Learn more": "Научете повече",
     "Learn more at {%url%}": "Научете повече на {{url}}",
     "Limit": "Ограничение",
+    "Limit Bandwidth in LAN": "Огранич. на скоростта в местната мрежа",
     "Listener Failures": "Грешки при очакване на връзка",
     "Listener Status": "Очакване на връзка",
     "Listeners": "Очакване на връзка",

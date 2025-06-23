@@ -74,7 +74,7 @@ func (s *folderDB) GetGlobalAvailability(file string) ([]protocol.DeviceID, erro
 
 func (s *folderDB) AllGlobalFiles() (iter.Seq[db.FileMetadata], func() error) {
 	it, errFn := iterStructs[db.FileMetadata](s.stmt(`
-		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
+		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.local_flags as localflags FROM files f
 		WHERE f.local_flags & {{.FlagLocalGlobal}} != 0
 		ORDER BY f.name
 	`).Queryx())
@@ -93,7 +93,7 @@ func (s *folderDB) AllGlobalFilesPrefix(prefix string) (iter.Seq[db.FileMetadata
 	end := prefixEnd(prefix)
 
 	it, errFn := iterStructs[db.FileMetadata](s.stmt(`
-		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
+		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.local_flags as localflags FROM files f
 		WHERE f.name >= ? AND f.name < ? AND f.local_flags & {{.FlagLocalGlobal}} != 0
 		ORDER BY f.name
 	`).Queryx(prefix, end))
@@ -158,7 +158,7 @@ func (s *folderDB) neededGlobalFilesRemote(device protocol.DeviceID, selectOpts 
 		SELECT fi.fiprotobuf, bl.blprotobuf, g.name, g.size, g.modified FROM fileinfos fi
 		INNER JOIN files g on fi.sequence = g.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = g.blocklist_hash
-		WHERE g.local_flags & {{.FlagLocalGlobal}} != 0 AND NOT g.deleted AND NOT g.invalid AND NOT EXISTS (
+		WHERE g.local_flags & {{.FlagLocalGlobal}} != 0 AND NOT g.deleted AND g.local_flags & {{.LocalInvalidFlags}} = 0 AND NOT EXISTS (
 			SELECT 1 FROM FILES f
 			INNER JOIN devices d ON d.idx = f.device_idx
 			WHERE f.name = g.name AND f.version = g.version AND d.device_id = ?
@@ -169,10 +169,10 @@ func (s *folderDB) neededGlobalFilesRemote(device protocol.DeviceID, selectOpts 
 		SELECT fi.fiprotobuf, bl.blprotobuf, g.name, g.size, g.modified FROM fileinfos fi
 		INNER JOIN files g on fi.sequence = g.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = g.blocklist_hash
-		WHERE g.local_flags & {{.FlagLocalGlobal}} != 0 AND g.deleted AND NOT g.invalid AND EXISTS (
+		WHERE g.local_flags & {{.FlagLocalGlobal}} != 0 AND g.deleted AND g.local_flags & {{.LocalInvalidFlags}} = 0 AND EXISTS (
 			SELECT 1 FROM FILES f
 			INNER JOIN devices d ON d.idx = f.device_idx
-			WHERE f.name = g.name AND d.device_id = ? AND NOT f.deleted AND NOT f.invalid
+			WHERE f.name = g.name AND d.device_id = ? AND NOT f.deleted AND f.local_flags & {{.LocalInvalidFlags}} = 0 
 		)
 	`+selectOpts).Queryx(
 		device.String(),

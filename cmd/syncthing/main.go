@@ -374,9 +374,11 @@ func upgradeViaRest() error {
 	if err != nil {
 		return err
 	}
+
+	defer resp.Body.Close()
+
 	if resp.StatusCode != 200 {
 		bs, err := io.ReadAll(resp.Body)
-		defer resp.Body.Close()
 		if err != nil {
 			return err
 		}
@@ -440,6 +442,7 @@ func (c *serveCmd) syncthingMain() {
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 	earlyService.Add(cfgWrapper)
+	config.RegisterInfoMetrics(cfgWrapper)
 
 	// Candidate builds should auto upgrade. Make sure the option is set,
 	// unless we are in a build where it's disabled or the STNOUPGRADE
@@ -577,8 +580,7 @@ func setupSignalHandling(app *syncthing.App) {
 	// Exit cleanly with "restarting" code on SIGHUP.
 
 	restartSign := make(chan os.Signal, 1)
-	sigHup := syscall.Signal(1)
-	signal.Notify(restartSign, sigHup)
+	signal.Notify(restartSign, syscall.SIGHUP)
 	go func() {
 		<-restartSign
 		app.Stop(svcutil.ExitRestart)

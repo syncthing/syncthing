@@ -173,7 +173,7 @@ func fetchStats(relay *relay) *stats {
 
 	var stats stats
 
-	if json.NewDecoder(response.Body).Decode(&stats); err != nil {
+	if err := json.NewDecoder(response.Body).Decode(&stats); err != nil {
 		return nil
 	}
 	return &stats

@@ -8,12 +8,14 @@ linters:
     - exhaustive
     - exhaustruct
     - forbidigo
+    - funcorder
     - funlen
     - gochecknoglobals
     - gochecknoinits
     - gocognit
     - goconst
     - gocyclo
+    - godot
     - godox
     - gomoddirectives
     - inamedparam
@@ -49,6 +51,7 @@ linters:
       - std-error-handling
     paths:
       - internal/gen
+      - internal/db/olddb
       - cmd/dev
       - repos
       - third_party$

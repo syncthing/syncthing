@@ -201,17 +201,21 @@ func (p *proxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // looking for a prerelease at all.
 func filterForLatest(rels []upgrade.Release) []upgrade.Release {
 	var filtered []upgrade.Release
-	var havePre bool
+	havePre := make(map[string]bool)
+	haveStable := make(map[string]bool)
 	for _, rel := range rels {
-		if !rel.Prerelease {
-			// We found a stable version, we're good now.
+		major, _, _ := strings.Cut(rel.Tag, ".")
+		if !rel.Prerelease && !haveStable[major] {
+			// Remember the first non-pre for each major
 			filtered = append(filtered, rel)
-			break
+			haveStable[major] = true
+			continue
 		}
-		if rel.Prerelease && !havePre {
-			// We remember the first prerelease we find.
+		if rel.Prerelease && !havePre[major] && !haveStable[major] {
+			// We remember the first prerelease we find, unless we've
+			// already found a non-pre of the same major.
 			filtered = append(filtered, rel)
-			havePre = true
+			havePre[major] = true
 		}
 	}
 	return filtered

@@ -11,6 +11,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -125,7 +126,7 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 	var local, global, need, ro db.Counts
 	var ourSeq int64
 	var remoteSeq map[protocol.DeviceID]int64
-	errors, err := c.model.FolderErrors(folder)
+	errs, err := c.model.FolderErrors(folder)
 	if err == nil {
 		global, _ = c.model.GlobalSize(folder)
 		local, _ = c.model.LocalSize(folder, protocol.LocalDeviceID)
@@ -137,12 +138,12 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 	// For API backwards compatibility (SyncTrayzor needs it) an empty folder
 	// summary is returned for not running folders, an error might actually be
 	// more appropriate
-	if err != nil && err != ErrFolderPaused && err != ErrFolderNotRunning {
+	if err != nil && !errors.Is(err, ErrFolderPaused) && !errors.Is(err, ErrFolderNotRunning) {
 		return nil, err
 	}
 
-	res.Errors = len(errors)
-	res.PullErrors = len(errors) // deprecated
+	res.Errors = len(errs)
+	res.PullErrors = len(errs) // deprecated
 
 	res.Invalid = "" // Deprecated, retains external API for now
 

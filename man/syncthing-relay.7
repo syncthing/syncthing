@@ -28,7 +28,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-RELAY" "7" "May 25, 2025" "v1.29.6" "Syncthing"
+.TH "SYNCTHING-RELAY" "7" "Jun 22, 2025" "v1.29.7" "Syncthing"
 .SH NAME
 syncthing-relay \- Relay Protocol v1
 .SH WHAT IS A RELAY?
@@ -246,8 +246,11 @@ After the successful response, all the bytes written and received will be
 relayed between the two devices in the session directly.
 .SS Example Exchange
 .sp
-Client A \- Permanent protocol mode
-Client B \- Temporary protocol mode
+Client A is the first to join the session.
+.sp
+Client B is the second to join the session.
+.sp
+Both are in session mode.
 .TS
 box center;
 l|l|l|l.

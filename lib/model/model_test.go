@@ -2968,7 +2968,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 	nw := &testutil.NoopRW{}
 	ci := &protocolmocks.ConnectionInfo{}
 	ci.ConnectionIDReturns(srand.String(16))
-	m.AddConnection(protocol.NewConnection(device1, br, nw, testutil.NoopCloser{}, m, ci, protocol.CompressionNever, nil, m.keyGen), protocol.Hello{})
+	m.AddConnection(protocol.NewConnection(device1, br, nw, testutil.NoopCloser{}, m, ci, protocol.CompressionNever, m.keyGen), protocol.Hello{})
 	m.mut.RLock()
 	if len(m.closed) != 1 {
 		t.Fatalf("Expected just one conn (len(m.closed) == %v)", len(m.closed))
@@ -3498,6 +3498,7 @@ func TestScanDeletedROChangedOnSR(t *testing.T) {
 	}
 	// A remote must have the file, otherwise the deletion below is
 	// automatically resolved as not a ro-changed item.
+	file.LocalFlags = 0 // clear as we're skipping the code path where it would otherwise be cleared naturally
 	must(t, m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: fcfg.ID, Files: []protocol.FileInfo{file}}))
 
 	must(t, ffs.Remove(name))
@@ -3535,11 +3536,11 @@ func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSec
 	cc1 := make(chan struct{}, 1)
 	cc2 := make(chan struct{}, 1)
 	fc1 := newFakeConnection(device1, m)
-	fc1.ClusterConfigCalls(func(_ *protocol.ClusterConfig) {
+	fc1.ClusterConfigCalls(func(_ *protocol.ClusterConfig, _ map[string]string) {
 		cc1 <- struct{}{}
 	})
 	fc2 := newFakeConnection(device2, m)
-	fc2.ClusterConfigCalls(func(_ *protocol.ClusterConfig) {
+	fc2.ClusterConfigCalls(func(_ *protocol.ClusterConfig, _ map[string]string) {
 		cc2 <- struct{}{}
 	})
 	m.AddConnection(fc1, protocol.Hello{})
@@ -3609,7 +3610,7 @@ func TestIssue6961(t *testing.T) {
 	// Remote, valid and existing file
 	must(t, m.Index(conn1, &protocol.Index{Folder: fcfg.ID, Files: []protocol.FileInfo{{Name: name, Version: version, Sequence: 1}}}))
 	// Remote, invalid (receive-only) and existing file
-	must(t, m.Index(conn2, &protocol.Index{Folder: fcfg.ID, Files: []protocol.FileInfo{{Name: name, RawInvalid: true, Sequence: 1}}}))
+	must(t, m.Index(conn2, &protocol.Index{Folder: fcfg.ID, Files: []protocol.FileInfo{{Name: name, LocalFlags: protocol.FlagLocalRemoteInvalid, Sequence: 1}}}))
 	// Create a local file
 	if fd, err := tfs.OpenFile(name, fs.OptCreate, 0o666); err != nil {
 		t.Fatal(err)
@@ -3635,7 +3636,7 @@ func TestIssue6961(t *testing.T) {
 	m.ScanFolders()
 
 	// Drop the remote index, add some other file.
-	must(t, m.Index(conn2, &protocol.Index{Folder: fcfg.ID, Files: []protocol.FileInfo{{Name: "bar", RawInvalid: true, Sequence: 1}}}))
+	must(t, m.Index(conn2, &protocol.Index{Folder: fcfg.ID, Files: []protocol.FileInfo{{Name: "bar", LocalFlags: protocol.FlagLocalRemoteInvalid, Sequence: 1}}}))
 
 	// Pause and unpause folder to create new db.FileSet and thus recalculate everything
 	pauseFolder(t, wcfg, fcfg.ID, true)

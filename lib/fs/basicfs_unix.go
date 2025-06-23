@@ -86,7 +86,7 @@ func (f *BasicFilesystem) Remove(name string) error {
 // unrooted) or an error if the given path is not a subpath and handles the
 // special case when the given path is the folder root without a trailing
 // pathseparator.
-func (f *BasicFilesystem) unrootedChecked(absPath string, roots []string) (string, *ErrWatchEventOutsideRoot) {
+func (f *BasicFilesystem) unrootedChecked(absPath string, roots []string) (string, *WatchEventOutsideRootError) {
 	for _, root := range roots {
 		// Make sure the root ends with precisely one path separator, to
 		// ease prefix comparisons.

@@ -44,6 +44,8 @@ const (
 )
 
 func (c *serveCmd) monitorMain() {
+	l.SetPrefix("[monitor] ")
+
 	var dst io.Writer = os.Stdout
 
 	logFile := locations.Get(locations.LogFile)
@@ -62,7 +64,7 @@ func (c *serveCmd) monitorMain() {
 			fileDst, err = open(logFile)
 		}
 		if err != nil {
-			l.Error("Failed to set up logging to file, proceeding with logging to stdout only", "error", err)
+			l.Warnln("Failed to set up logging to file, proceeding with logging to stdout only:", err)
 		} else {
 			if build.IsWindows {
 				// Translate line breaks to Windows standard
@@ -76,14 +78,14 @@ func (c *serveCmd) monitorMain() {
 			// Log to both stdout and file.
 			dst = io.MultiWriter(dst, fileDst)
 
-			l.Info("Log output saved to file", "path", logFile)
+			l.Infof(`Log output saved to file "%s"`, logFile)
 		}
 	}
 
 	args := os.Args
 	binary, err := getBinary(args[0])
 	if err != nil {
-		l.Warn("Error starting the main Syncthing process", "error", err)
+		l.Warnln("Error starting the main Syncthing process:", err)
 		panic("Error starting the main Syncthing process")
 	}
 	var restarts [restartCounts]time.Time
@@ -95,15 +97,12 @@ func (c *serveCmd) monitorMain() {
 	signal.Notify(restartSign, sigHup)
 
 	childEnv := childEnv()
-	if dst == os.Stdout {
-		childEnv = append(childEnv, "MONITOR_IS_STDOUT=true")
-	}
 	first := true
 	for {
 		maybeReportPanics()
 
 		if t := time.Since(restarts[0]); t < restartLoopThreshold {
-			l.Error("Too many restarts; not retrying further", "count", restartCounts, "interval", t)
+			l.Warnf("%d restarts in %v; not retrying further", restartCounts, t)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 
@@ -123,10 +122,10 @@ func (c *serveCmd) monitorMain() {
 			panic(err)
 		}
 
-		l.Debug("Starting syncthing")
+		l.Debugln("Starting syncthing")
 		err = cmd.Start()
 		if err != nil {
-			l.Error("Error starting the main Syncthing process", "error", err)
+			l.Warnln("Error starting the main Syncthing process:", err)
 			panic("Error starting the main Syncthing process")
 		}
 
@@ -159,13 +158,13 @@ func (c *serveCmd) monitorMain() {
 		stopped := false
 		select {
 		case s := <-stopSign:
-			l.Info("Signal received; exiting", "signal", s)
+			l.Infof("Signal %d received; exiting", s)
 			cmd.Process.Signal(sigTerm)
 			err = <-exit
 			stopped = true
 
 		case s := <-restartSign:
-			l.Info("Signal received; restarting", "signal", s)
+			l.Infof("Signal %d received; restarting", s)
 			cmd.Process.Signal(sigHup)
 			err = <-exit
 
@@ -185,9 +184,9 @@ func (c *serveCmd) monitorMain() {
 			if exitCode == svcutil.ExitUpgrade.AsInt() {
 				// Restart the monitor process to release the .old
 				// binary as part of the upgrade process.
-				l.Info("Restarting monitor...")
+				l.Infoln("Restarting monitor...")
 				if err = restartMonitor(binary, args); err != nil {
-					l.Warn("Error restarting", "error", err)
+					l.Warnln("Restart:", err)
 				}
 				os.Exit(exitCode)
 			}
@@ -197,7 +196,7 @@ func (c *serveCmd) monitorMain() {
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 
-		l.Info("Syncthing exited", "error", err)
+		l.Infoln("Syncthing exited:", err)
 		time.Sleep(restartPause)
 
 		if first {
@@ -239,30 +238,44 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 			return
 		}
 
-		if panicFd == nil {
-			dst.Write([]byte(line))
+		dst.Write([]byte(line))
 
-			if strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") {
-				panicFd, err = os.Create(locations.GetTimestamped(locations.PanicLog))
-				if err != nil {
-					l.Error("Failed to create panic log", "error", err)
-					continue
-				}
-
-				l.Warn("Panic detected, writing to log", "path", panicFd.Name())
-				l.Warn("Please check for existing issues with similar panic message at https://github.com/syncthing/syncthing/issues/")
-				l.Warn("If no issue with similar panic message exists, please create a new issue with the panic log attached")
-
-				stdoutMut.Lock()
-				for _, line := range stdoutFirstLines {
-					panicFd.WriteString(line)
-				}
-				panicFd.WriteString("...\n")
-				for _, line := range stdoutLastLines {
-					panicFd.WriteString(line)
-				}
-				stdoutMut.Unlock()
+		if panicFd == nil && (strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:")) {
+			panicFd, err = os.Create(locations.GetTimestamped(locations.PanicLog))
+			if err != nil {
+				l.Warnln("Create panic log:", err)
+				continue
 			}
+
+			l.Warnf("Panic detected, writing to \"%s\"", panicFd.Name())
+			if strings.Contains(line, "leveldb") && strings.Contains(line, "corrupt") {
+				l.Warnln(`
+*********************************************************************************
+* Crash due to corrupt database.                                                *
+*                                                                               *
+* This crash usually occurs due to one of the following reasons:                *
+*  - Syncthing being stopped abruptly (killed/loss of power)                    *
+*  - Bad hardware (memory/disk issues)                                          *
+*  - Software that affects disk writes (SSD caching software and similar)       *
+*                                                                               *
+* Please see the following URL for instructions on how to recover:              *
+*   https://docs.syncthing.net/users/faq.html#my-syncthing-database-is-corrupt  *
+*********************************************************************************
+`)
+			} else {
+				l.Warnln("Please check for existing issues with similar panic message at https://github.com/syncthing/syncthing/issues/")
+				l.Warnln("If no issue with similar panic message exists, please create a new issue with the panic log attached")
+			}
+
+			stdoutMut.Lock()
+			for _, line := range stdoutFirstLines {
+				panicFd.WriteString(line)
+			}
+			panicFd.WriteString("...\n")
+			for _, line := range stdoutLastLines {
+				panicFd.WriteString(line)
+			}
+			stdoutMut.Unlock()
 
 			panicFd.WriteString("Panic at " + time.Now().Format(time.RFC3339) + "\n")
 		}
@@ -541,7 +554,7 @@ func maybeReportPanics() {
 	// Try to get a config to see if/where panics should be reported.
 	cfg, err := loadOrDefaultConfig()
 	if err != nil {
-		l.Error("Couldn't load config; not reporting crash")
+		l.Warnln("Couldn't load config; not reporting crash")
 		return
 	}
 
@@ -561,7 +574,7 @@ func maybeReportPanics() {
 		case <-ctx.Done():
 			return
 		case <-time.After(panicUploadNoticeWait):
-			l.Error("Uploading crash reports is taking a while, please wait...")
+			l.Warnln("Uploading crash reports is taking a while, please wait...")
 		}
 	}()
 

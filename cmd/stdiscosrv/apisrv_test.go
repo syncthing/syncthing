@@ -115,7 +115,7 @@ func BenchmarkAPIRequests(b *testing.B) {
 	srv := httptest.NewServer(http.HandlerFunc(api.handler))
 
 	kf := b.TempDir() + "/cert"
-	crt, err := tlsutil.NewCertificate(kf+".crt", kf+".key", "localhost", 7)
+	crt, err := tlsutil.NewCertificate(kf+".crt", kf+".key", "localhost", 7, true)
 	if err != nil {
 		b.Fatal(err)
 	}

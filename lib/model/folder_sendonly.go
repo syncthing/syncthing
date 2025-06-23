@@ -28,7 +28,7 @@ func newSendOnlyFolder(model *model, ignores *ignore.Matcher, cfg config.FolderC
 	f := &sendOnlyFolder{
 		folder: newFolder(model, ignores, cfg, evLogger, ioLimiter, nil),
 	}
-	f.folder.puller = f
+	f.puller = f
 	return f
 }
 

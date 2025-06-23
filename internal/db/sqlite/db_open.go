@@ -50,10 +50,14 @@ func Open(path string, opts ...Option) (*DB, error) {
 		"sql/schema/common/*",
 		"sql/schema/main/*",
 	}
+	migrations := []string{
+		"sql/migrations/common/*",
+		"sql/migrations/main/*",
+	}
 
-	os.MkdirAll(path, 0o700)
+	_ = os.MkdirAll(path, 0o700)
 	mainPath := filepath.Join(path, "main.db")
-	mainBase, err := openBase(mainPath, maxDBConns, pragmas, schemas, nil)
+	mainBase, err := openBase(mainPath, maxDBConns, pragmas, schemas, migrations)
 	if err != nil {
 		return nil, err
 	}
@@ -88,10 +92,14 @@ func OpenForMigration(path string) (*DB, error) {
 		"sql/schema/common/*",
 		"sql/schema/main/*",
 	}
+	migrations := []string{
+		"sql/migrations/common/*",
+		"sql/migrations/main/*",
+	}
 
-	os.MkdirAll(path, 0o700)
+	_ = os.MkdirAll(path, 0o700)
 	mainPath := filepath.Join(path, "main.db")
-	mainBase, err := openBase(mainPath, 1, pragmas, schemas, nil)
+	mainBase, err := openBase(mainPath, 1, pragmas, schemas, migrations)
 	if err != nil {
 		return nil, err
 	}

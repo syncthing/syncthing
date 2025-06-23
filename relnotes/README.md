@@ -16,3 +16,6 @@ example:
 
 The release notes will also be included in candidate releases (e.g.
 v1.2.3-rc.1).
+
+Additional notes will also be loaded from `v1.2.md` and `v1.md`, if they
+exist.

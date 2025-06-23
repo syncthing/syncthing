@@ -24,16 +24,16 @@ const (
 	caseCacheItemLimit = 4 << 10
 )
 
-type ErrCaseConflict struct {
+type CaseConflictError struct {
 	Given, Real string
 }
 
-func (e *ErrCaseConflict) Error() string {
+func (e *CaseConflictError) Error() string {
 	return fmt.Sprintf(`remote "%v" uses different upper or lowercase characters than local "%v"; change the casing on either side to match the other`, e.Given, e.Real)
 }
 
 func IsErrCaseConflict(err error) bool {
-	e := &ErrCaseConflict{}
+	e := &CaseConflictError{}
 	return errors.As(err, &e)
 }
 
@@ -239,7 +239,7 @@ func (f *caseFilesystem) Rename(oldpath, newpath string) error {
 	}
 	if err := f.checkCase(newpath); err != nil {
 		// Case-only rename is ok
-		e := &ErrCaseConflict{}
+		e := &CaseConflictError{}
 		if !errors.As(err, &e) || e.Real != oldpath {
 			return err
 		}
@@ -389,7 +389,7 @@ func (f *caseFilesystem) checkCaseExisting(name string) error {
 	// comparing, as we don't want to treat a normalization difference as a
 	// case conflict.
 	if norm.NFC.String(realName) != norm.NFC.String(name) {
-		return &ErrCaseConflict{name, realName}
+		return &CaseConflictError{name, realName}
 	}
 	return nil
 }

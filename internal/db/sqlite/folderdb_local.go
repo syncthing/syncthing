@@ -89,7 +89,7 @@ func (s *folderDB) AllLocalFilesWithPrefix(device protocol.DeviceID, prefix stri
 
 func (s *folderDB) AllLocalFilesWithBlocksHash(h []byte) (iter.Seq[db.FileMetadata], func() error) {
 	return iterStructs[db.FileMetadata](s.stmt(`
-		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.invalid, f.local_flags as localflags FROM files f
+		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.local_flags as localflags FROM files f
 		WHERE f.device_idx = {{.LocalDeviceIdx}} AND f.blocklist_hash = ?
 	`).Queryx(h))
 }

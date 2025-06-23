@@ -171,8 +171,6 @@ var excludeCommits = stringSetFromStrings([]string{
 	"4dfb9d7c83ed172f12ae19408517961f4a49beeb",
 })
 
-// allAuthors returns the set of authors in the git commit log, except those
-// in excluded commits.
 func addAuthors(authors *authorSet) {
 	// All existing source-tracked files
 	bs, err := exec.Command("git", "ls-tree", "-r", "HEAD", "--name-only").CombinedOutput()
