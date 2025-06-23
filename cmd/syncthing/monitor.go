@@ -44,8 +44,6 @@ const (
 )
 
 func (c *serveCmd) monitorMain() {
-	l.SetPrefix("[monitor] ")
-
 	var dst io.Writer = os.Stdout
 
 	logFile := locations.Get(locations.LogFile)
