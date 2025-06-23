@@ -227,6 +227,7 @@
     "Learn more": "了解更多",
     "Learn more at {%url%}": "了解更多请访问 {{url}}",
     "Limit": "限制",
+    "Limit Bandwidth in LAN": "在局域网内限制带宽",
     "Listener Failures": "监听程序失败",
     "Listener Status": "监听程序状态",
     "Listeners": "监听程序",

@@ -227,6 +227,7 @@
     "Learn more": "למד עוד",
     "Learn more at {%url%}": "למד עוד באתר {{url}}",
     "Limit": "מגבלה",
+    "Limit Bandwidth in LAN": "הגבלת רוחב פס ברשת תקשורת מקומית (LAN)",
     "Listener Failures": "כשלי מאזין",
     "Listener Status": "מצב מאזין",
     "Listeners": "מאזינים",
