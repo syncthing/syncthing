@@ -23,7 +23,7 @@ func GetInterfaceAddrs(includePtP bool) ([]*net.IPNet, error) {
 	var addrs []net.Addr
 
 	for i := range intfs {
-        intf := intfs[i]
+		intf := intfs[i]
 
 		if intf.Flags&net.FlagRunning == 0 {
 			continue
