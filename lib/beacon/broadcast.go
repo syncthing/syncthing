@@ -10,6 +10,8 @@ import (
 	"context"
 	"net"
 	"time"
+
+	"github.com/wlynxg/anet"
 )
 
 func NewBroadcast(port int) Interface {
@@ -44,7 +46,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 			return doneCtx.Err()
 		}
 
-		intfs, err := net.Interfaces()
+		intfs, err := anet.Interfaces()
 		if err != nil {
 			l.Debugln("Failed to list interfaces:", err)
 			// net.Interfaces() is broken on Android. see https://github.com/golang/go/issues/40569
