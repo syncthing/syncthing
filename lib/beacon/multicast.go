@@ -12,7 +12,7 @@ import (
 	"net"
 	"time"
 
-    "github.com/wlynxg/anet"
+	"github.com/wlynxg/anet"
 
 	"golang.org/x/net/ipv6"
 )
