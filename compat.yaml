@@ -32,3 +32,10 @@
     darwin: "20"
     linux: "3.2"
     windows: "10.0"
+
+- runtime: go1.25
+  requirements:
+    # macOS 12 (Monterey) per https://tip.golang.org/doc/go1.25#darwin
+    darwin: "21"
+    linux: "3.2"
+    windows: "10.0"

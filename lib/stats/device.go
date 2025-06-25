@@ -9,9 +9,7 @@ package stats
 import (
 	"time"
 
-	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
-	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/internal/db"
 )
 
 const (
@@ -25,19 +23,17 @@ type DeviceStatistics struct {
 }
 
 type DeviceStatisticsReference struct {
-	ns     *db.NamespacedKV
-	device protocol.DeviceID
+	kv *db.Typed
 }
 
-func NewDeviceStatisticsReference(dba backend.Backend, device protocol.DeviceID) *DeviceStatisticsReference {
+func NewDeviceStatisticsReference(kv *db.Typed) *DeviceStatisticsReference {
 	return &DeviceStatisticsReference{
-		ns:     db.NewDeviceStatisticsNamespace(dba, device.String()),
-		device: device,
+		kv: kv,
 	}
 }
 
 func (s *DeviceStatisticsReference) GetLastSeen() (time.Time, error) {
-	t, ok, err := s.ns.Time(lastSeenKey)
+	t, ok, err := s.kv.Time(lastSeenKey)
 	if err != nil {
 		return time.Time{}, err
 	} else if !ok {
@@ -45,29 +41,25 @@ func (s *DeviceStatisticsReference) GetLastSeen() (time.Time, error) {
 		// time.Time{} from s.ns
 		return time.Unix(0, 0), nil
 	}
-	l.Debugln("stats.DeviceStatisticsReference.GetLastSeen:", s.device, t)
 	return t, nil
 }
 
 func (s *DeviceStatisticsReference) GetLastConnectionDuration() (time.Duration, error) {
-	d, ok, err := s.ns.Int64(connDurationKey)
+	d, ok, err := s.kv.Int64(connDurationKey)
 	if err != nil {
 		return 0, err
 	} else if !ok {
 		return 0, nil
 	}
-	l.Debugln("stats.DeviceStatisticsReference.GetLastConnectionDuration:", s.device, d)
 	return time.Duration(d), nil
 }
 
 func (s *DeviceStatisticsReference) WasSeen() error {
-	l.Debugln("stats.DeviceStatisticsReference.WasSeen:", s.device)
-	return s.ns.PutTime(lastSeenKey, time.Now().Truncate(time.Second))
+	return s.kv.PutTime(lastSeenKey, time.Now().Truncate(time.Second))
 }
 
 func (s *DeviceStatisticsReference) LastConnectionDuration(d time.Duration) error {
-	l.Debugln("stats.DeviceStatisticsReference.LastConnectionDuration:", s.device, d)
-	return s.ns.PutInt64(connDurationKey, d.Nanoseconds())
+	return s.kv.PutInt64(connDurationKey, d.Nanoseconds())
 }
 
 func (s *DeviceStatisticsReference) GetStatistics() (DeviceStatistics, error) {

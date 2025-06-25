@@ -28,6 +28,7 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
+		{50, migrateToConfigV50},
 		{37, migrateToConfigV37},
 		{36, migrateToConfigV36},
 		{35, migrateToConfigV35},
@@ -95,6 +96,10 @@ func (m migration) apply(cfg *Configuration) {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+}
+
+func migrateToConfigV50(cfg *Configuration) {
+	// v50 is Syncthing 2.0
 }
 
 func migrateToConfigV37(cfg *Configuration) {
@@ -209,7 +214,7 @@ func migrateToConfigV23(cfg *Configuration) {
 	// marker name in later versions.
 
 	for i := range cfg.Folders {
-		fs := cfg.Folders[i].Filesystem(nil)
+		fs := cfg.Folders[i].Filesystem()
 		// Invalid config posted, or tests.
 		if fs == nil {
 			continue
@@ -245,18 +250,18 @@ func migrateToConfigV21(cfg *Configuration) {
 		switch folder.Versioning.Type {
 		case "simple", "trashcan":
 			// Clean out symlinks in the known place
-			cleanSymlinks(folder.Filesystem(nil), ".stversions")
+			cleanSymlinks(folder.Filesystem(), ".stversions")
 		case "staggered":
 			versionDir := folder.Versioning.Params["versionsPath"]
 			if versionDir == "" {
 				// default place
-				cleanSymlinks(folder.Filesystem(nil), ".stversions")
+				cleanSymlinks(folder.Filesystem(), ".stversions")
 			} else if filepath.IsAbs(versionDir) {
 				// absolute
 				cleanSymlinks(fs.NewFilesystem(fs.FilesystemTypeBasic, versionDir), ".")
 			} else {
 				// relative to folder
-				cleanSymlinks(folder.Filesystem(nil), versionDir)
+				cleanSymlinks(folder.Filesystem(), versionDir)
 			}
 		}
 	}

@@ -41,7 +41,7 @@ func newSimple(cfg config.FolderConfiguration) Versioner {
 	s := simple{
 		keep:            keep,
 		cleanoutDays:    cleanoutDays,
-		folderFs:        cfg.Filesystem(nil),
+		folderFs:        cfg.Filesystem(),
 		versionsFs:      versionerFsFromFolderCfg(cfg),
 		copyRangeMethod: cfg.CopyRangeMethod.ToFS(),
 	}

@@ -65,7 +65,7 @@ func TestSimpleVersioningVersionCount(t *testing.T) {
 			},
 		},
 	}
-	fs := cfg.Filesystem(nil)
+	fs := cfg.Filesystem()
 
 	v := newSimple(cfg)
 
@@ -117,7 +117,7 @@ func TestPathTildes(t *testing.T) {
 			},
 		},
 	}
-	fs := cfg.Filesystem(nil)
+	fs := cfg.Filesystem()
 	v := newSimple(cfg)
 
 	const testPath = "test"
@@ -177,7 +177,7 @@ func TestArchiveFoldersCreationPermission(t *testing.T) {
 			},
 		},
 	}
-	vfs := cfg.Filesystem(nil)
+	vfs := cfg.Filesystem()
 	v := newSimple(cfg)
 
 	// Create two folders and set their permissions

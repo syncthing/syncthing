@@ -9,6 +9,7 @@ package tools
 
 import (
 	_ "github.com/calmh/xdr"
+	_ "github.com/coreos/go-semver/semver"
 	_ "github.com/maxbrunsfeld/counterfeiter/v6"
 	_ "golang.org/x/tools/cmd/goimports"
 )

@@ -1,6 +1,7 @@
 name: Feature request
 description: File a new feature request
 labels: ["enhancement", "needs-triage"]
+type: Feature
 body:
 
   - type: textarea
