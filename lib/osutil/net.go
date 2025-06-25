@@ -33,7 +33,7 @@ func GetInterfaceAddrs(includePtP bool) ([]*net.IPNet, error) {
 			// which, for our purposes, do not qualify as LANs.
 			continue
 		}
-		intfAddrs, err := anet.InterfaceAddrsByInterface(&intfs[i])
+		intfAddrs, err := anet.InterfaceAddrsByInterface(&intf)
 		if err != nil {
 			return nil, err
 		}
