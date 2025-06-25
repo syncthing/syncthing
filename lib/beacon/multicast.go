@@ -12,6 +12,8 @@ import (
 	"net"
 	"time"
 
+    "github.com/wlynxg/anet"
+
 	"golang.org/x/net/ipv6"
 )
 
@@ -117,7 +119,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 		conn.Close()
 	}()
 
-	intfs, err := net.Interfaces()
+	intfs, err := anet.Interfaces()
 	if err != nil {
 		l.Debugln(err)
 		return err
