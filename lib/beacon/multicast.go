@@ -61,7 +61,7 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 			return doneCtx.Err()
 		}
 
-		intfs, err := net.Interfaces()
+		intfs, err := anet.Interfaces()
 		if err != nil {
 			l.Debugln(err)
 			return err
