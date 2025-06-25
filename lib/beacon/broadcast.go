@@ -61,7 +61,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 				continue
 			}
 
-			addrs, err := anet.InterfaceAddrsByInterface(&intfs[i])
+			addrs, err := anet.InterfaceAddrsByInterface(&intf)
 			if err != nil {
 				l.Debugln("Failed to list interface addresses:", err)
 				// Interface discovery might work while retrieving the addresses doesn't. So log the error and carry on.
