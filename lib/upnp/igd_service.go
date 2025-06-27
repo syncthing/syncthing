@@ -40,6 +40,8 @@ import (
 	"net"
 	"time"
 
+	"github.com/wlynxg/anet"
+
 	"github.com/syncthing/syncthing/lib/nat"
 )
 
@@ -65,7 +67,7 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, intA
 		return nil, errors.New("no interface")
 	}
 
-	addrs, err := s.Interface.Addrs()
+	addrs, err := anet.InterfaceAddrsByInterface(s.Interface)
 	if err != nil {
 		return nil, err
 	}

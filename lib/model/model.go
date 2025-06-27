@@ -460,6 +460,9 @@ func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguratio
 }
 
 func (m *model) removeFolder(cfg config.FolderConfiguration) {
+	l.Infoln("Removing folder", cfg.Description())
+	defer l.Infoln("Removed folder", cfg.Description())
+
 	m.mut.RLock()
 	wait := m.folderRunners.StopAndWaitChan(cfg.ID, 0)
 	m.mut.RUnlock()
@@ -2757,7 +2760,7 @@ func (m *model) GlobalDirectoryTree(folder, prefix string, levels int, dirsOnly 
 		}
 
 		// Don't include the prefix itself.
-		if f.Invalid || f.Deleted || strings.HasPrefix(prefix, f.Name) {
+		if f.IsInvalid() || f.Deleted || strings.HasPrefix(prefix, f.Name) {
 			continue
 		}
 
