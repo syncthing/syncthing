@@ -2607,7 +2607,7 @@ func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protoco
 		// the missing index info (and drop all the info). We will send
 		// another cluster config once the folder is started.
 		if folderCfg.Paused {
-			protocolFolder.Stopped = protocol.StopReasonPaused
+			protocolFolder.StopReason = protocol.FolderStopReasonPaused
 		}
 
 		for _, folderDevice := range folderCfg.Devices {
