@@ -120,7 +120,7 @@ func TestDefaultValues(t *testing.T) {
 				},
 				MaxConflicts:        10,
 				MarkerName:          ".stfolder",
-				MaxConcurrentWrites: 2,
+				MaxConcurrentWrites: maxConcurrentWritesDefault,
 				XattrFilter: XattrFilter{
 					Entries:            []XattrFilterEntry{},
 					MaxSingleEntrySize: 1024,
