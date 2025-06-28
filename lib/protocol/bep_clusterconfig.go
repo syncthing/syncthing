@@ -23,10 +23,10 @@ const (
 type FolderType bep.FolderType
 
 const (
-	FolderTypeSendReceive      = bep.FolderType_FOLDER_TYPE_SEND_RECEIVE
-	FolderTypeSendOnly         = bep.FolderType_FOLDER_TYPE_SEND_ONLY
-	FolderTypeReceiveOnly      = bep.FolderType_FOLDER_TYPE_RECEIVE_ONLY
-	FolderTypeReceiveEncrypted = bep.FolderType_FOLDER_TYPE_RECEIVE_ENCRYPTED
+	FolderTypeSendReceive      = FolderType(bep.FolderType_FOLDER_TYPE_SEND_RECEIVE)
+	FolderTypeSendOnly         = FolderType(bep.FolderType_FOLDER_TYPE_SEND_ONLY)
+	FolderTypeReceiveOnly      = FolderType(bep.FolderType_FOLDER_TYPE_RECEIVE_ONLY)
+	FolderTypeReceiveEncrypted = FolderType(bep.FolderType_FOLDER_TYPE_RECEIVE_ENCRYPTED)
 )
 
 type FolderStopReason bep.FolderStopReason
