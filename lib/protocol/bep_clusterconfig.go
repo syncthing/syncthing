@@ -110,6 +110,15 @@ func (f Folder) Description() string {
 	return fmt.Sprintf("%q (%s)", f.Label, f.ID)
 }
 
+func (f Folder) IsRunning() bool {
+	switch f.Stopped {
+	case StopReasonPaused:
+		return false
+	default:
+		return true
+	}
+}
+
 type Device struct {
 	ID                       DeviceID
 	Name                     string
