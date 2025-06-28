@@ -36,8 +36,8 @@ var (
 const (
 	DefaultMarkerName          = ".stfolder"
 	EncryptionTokenName        = "syncthing-encryption_password_token" //nolint: gosec
-	maxConcurrentWritesDefault = 2
-	maxConcurrentWritesLimit   = 64
+	maxConcurrentWritesDefault = 16
+	maxConcurrentWritesLimit   = 256
 )
 
 type FolderDeviceConfiguration struct {
@@ -75,7 +75,7 @@ type FolderConfiguration struct {
 	MarkerName              string                      `json:"markerName" xml:"markerName"`
 	CopyOwnershipFromParent bool                        `json:"copyOwnershipFromParent" xml:"copyOwnershipFromParent"`
 	RawModTimeWindowS       int                         `json:"modTimeWindowS" xml:"modTimeWindowS"`
-	MaxConcurrentWrites     int                         `json:"maxConcurrentWrites" xml:"maxConcurrentWrites" default:"2"`
+	MaxConcurrentWrites     int                         `json:"maxConcurrentWrites" xml:"maxConcurrentWrites" default:"0"`
 	DisableFsync            bool                        `json:"disableFsync" xml:"disableFsync"`
 	BlockPullOrder          BlockPullOrder              `json:"blockPullOrder" xml:"blockPullOrder"`
 	CopyRangeMethod         CopyRangeMethod             `json:"copyRangeMethod" xml:"copyRangeMethod" default:"standard"`
