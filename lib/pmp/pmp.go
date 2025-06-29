@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -31,6 +32,16 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 	err := svcutil.CallWithContext(ctx, func() error {
 		var err error
 		ip, err = gateway.DiscoverGateway()
+		if err != nil {
+			// Fails on Android 14+ due to permission denied error when reading
+			// /proc/net/route. The wrapper may give a hint then because it is
+			// able to discover the gateway from java code.
+			if v := os.Getenv("ANDROID_NET_GATEWAY_IPV4"); v != "" {
+				ip = net.ParseIP(v)
+				l.Debugln("Using gateway IP hint from env var ANDROID_NET_GATEWAY_IPV4", ip)
+				return nil
+			}
+		}
 		return err
 	})
 	if err != nil {
