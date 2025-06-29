@@ -28,6 +28,7 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
+		{51, migrateToConfigV51},
 		{50, migrateToConfigV50},
 		{37, migrateToConfigV37},
 		{36, migrateToConfigV36},
@@ -96,6 +97,18 @@ func (m migration) apply(cfg *Configuration) {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+}
+
+func migrateToConfigV51(cfg *Configuration) {
+	oldDefault := 2
+	for i, fcfg := range cfg.Folders {
+		if fcfg.MaxConcurrentWrites == oldDefault {
+			cfg.Folders[i].MaxConcurrentWrites = maxConcurrentWritesDefault
+		}
+	}
+	if cfg.Defaults.Folder.MaxConcurrentWrites == oldDefault {
+		cfg.Defaults.Folder.MaxConcurrentWrites = maxConcurrentWritesDefault
+	}
 }
 
 func migrateToConfigV50(cfg *Configuration) {

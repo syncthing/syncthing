@@ -3871,7 +3871,7 @@ func TestCCFolderNotRunning(t *testing.T) {
 	if local.ID != myID {
 		local = folder.Devices[0]
 	}
-	if !folder.Paused && local.IndexID == 0 {
+	if folder.StopReason != protocol.FolderStopReasonPaused && local.IndexID == 0 {
 		t.Errorf("Folder isn't paused, but index-id is zero")
 	}
 }

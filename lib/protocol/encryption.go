@@ -153,7 +153,9 @@ func (e encryptedModel) DownloadProgress(p *DownloadProgress) error {
 		return e.model.DownloadProgress(p)
 	}
 
-	// Encrypted devices shouldn't send these - ignore them.
+	// We currently ignore these, though we could in principle translate
+	// them and use partially downloaded encrypted files like we do normal
+	// files.
 	return nil
 }
 

@@ -247,9 +247,6 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			if cfg.DisableSparseFiles {
 				report.FolderUsesV3.DisableSparseFiles++
 			}
-			if cfg.DisableTempIndexes {
-				report.FolderUsesV3.DisableTempIndexes++
-			}
 			if cfg.FSWatcherEnabled {
 				report.FolderUsesV3.FsWatcherEnabled++
 			}
