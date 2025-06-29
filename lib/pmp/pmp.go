@@ -11,14 +11,13 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 	"time"
 
-	"github.com/jackpal/gateway"
 	natpmp "github.com/jackpal/go-nat-pmp"
 
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/netutil"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 )
@@ -31,17 +30,7 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 	var ip net.IP
 	err := svcutil.CallWithContext(ctx, func() error {
 		var err error
-		ip, err = gateway.DiscoverGateway()
-		if err != nil {
-			// Fails on Android 14+ due to permission denied error when reading
-			// /proc/net/route. The wrapper may give a hint then because it is
-			// able to discover the gateway from java code.
-			if v := os.Getenv("ANDROID_NET_GATEWAY_IPV4"); v != "" {
-				ip = net.ParseIP(v)
-				l.Debugln("Using gateway IP hint from env var ANDROID_NET_GATEWAY_IPV4", ip)
-				return nil
-			}
-		}
+		ip, err = netutil.Gateway()
 		return err
 	})
 	if err != nil {
