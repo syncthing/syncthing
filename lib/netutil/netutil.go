@@ -23,6 +23,7 @@ func AddressURL(network, host string) string {
 	return u.String()
 }
 
+// Gateway returns the IP address of the default network gateway.
 func Gateway() (ip net.IP, err error) {
 	ip, err = gateway.DiscoverGateway()
 	if err != nil {
