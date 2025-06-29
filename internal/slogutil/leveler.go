@@ -9,6 +9,17 @@ import (
 	"sync"
 )
 
+// A levelTracker keeps track of log level per package. This enables the
+// traditional STTRACE variable to set certain packages to debug level, but
+// also allows setting packages to other levels such as WARN to silence
+// INFO-level messages.
+//
+// The STTRACE environment variable is one way of controlling this, where
+// mentioning a package makes it DEBUG level:
+//     STTRACE="model,protocol"  # model and protocol are at DEBUG level
+// however you can also give specific levels after a colon:
+//     STTRACE="model:WARNING,protocol:DEBUG"
+
 var globalLevels = &levelTracker{
 	levels: make(map[string]slog.Level),
 	descrs: make(map[string]string),

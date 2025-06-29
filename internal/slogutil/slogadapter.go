@@ -11,7 +11,9 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-var slogDef = newLogHandler()
+var slogDef = &formattingHandler{
+	rec: globalRecorder,
+}
 
 // Log levels:
 // - DEBUG: programmers only (not user troubleshooting)
@@ -89,13 +91,4 @@ func (a adapter) log(msg string, level slog.Level) {
 func (a adapter) AddHandler(level logger.LogLevel, h logger.MessageHandler) {}
 func (a adapter) ShouldDebug(facility string) bool {
 	return globalLevels.Get(facility) >= slog.LevelDebug
-}
-
-func newLogHandler() slog.Handler {
-	return &recordingHandler{}
-	// const logFmt = "2006-01-02 15:04:05"
-	// return tint.NewHandler(os.Stdout, &tint.Options{
-	// 	TimeFormat: logFmt,
-	// 	NoColor:    true,
-	// })
 }
