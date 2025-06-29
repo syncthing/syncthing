@@ -1,0 +1,132 @@
+package slogutil
+
+import (
+	"cmp"
+	"context"
+	"io"
+	"log/slog"
+	"strconv"
+	"strings"
+)
+
+type formattingHandler struct {
+	attrs  []slog.Attr
+	groups []string
+	out    io.Writer
+	rec    *lineRecorder
+}
+
+var s slog.Handler = (*formattingHandler)(nil)
+
+func (h *formattingHandler) Enabled(context.Context, slog.Level) bool {
+	return true
+}
+
+func (h *formattingHandler) Handle(_ context.Context, rec slog.Record) error {
+	var prefix string
+	if len(h.groups) > 0 {
+		prefix = strings.Join(h.groups, ".") + "."
+	}
+
+	// Collect all the attributes, with newer attributes towards the front.
+	// Expand groups.
+	var attrs []slog.Attr
+	rec.Attrs(func(a slog.Attr) bool {
+		attrs = append(attrs, expandAttrs(prefix, a)...)
+		return true
+	})
+	for _, a := range h.attrs {
+		attrs = append(attrs, expandAttrs(prefix, a)...)
+	}
+
+	// Sort and compact the attributes, so that we keep the newest of any
+	// with conflicting keys.
+	// slices.Reverse(attrs)
+	// slices.SortStableFunc(attrs, slogKeyCompare)
+	// attrs = slices.CompactFunc(attrs, func(a, b slog.Attr) bool { return a.Key == b.Key })
+
+	// Build the message string.
+	var sb strings.Builder
+	sb.WriteString(rec.Message)
+	for _, attr := range attrs {
+		appendAttr(&sb, prefix, attr)
+	}
+
+	line := Line{
+		When:    rec.Time,
+		Message: sb.String(),
+		Level:   rec.Level,
+	}
+
+	// If there is a recorder, record the line.
+	if h.rec != nil {
+		h.rec.record(line)
+	}
+
+	// If there's an output, print the line.
+	if h.out != nil {
+		line.WriteTo(h.out)
+	}
+	return nil
+}
+
+func slogKeyCompare(a, b slog.Attr) int {
+	ad := strings.Count(a.Key, ".")
+	bd := strings.Count(b.Key, ".")
+	if c := cmp.Compare(ad, bd); c != 0 {
+		return c
+	}
+	return strings.Compare(a.Key, b.Key)
+}
+
+func expandAttrs(prefix string, a slog.Attr) []slog.Attr {
+	if a.Value.Kind() != slog.KindGroup {
+		return []slog.Attr{a}
+	}
+	prefix = prefix + a.Key + "."
+	var attrs []slog.Attr
+	for _, attr := range a.Value.Group() {
+		attr.Key = prefix + attr.Key
+		attrs = append(attrs, expandAttrs(prefix, attr)...)
+	}
+	return attrs
+}
+
+func appendAttr(sb *strings.Builder, prefix string, a slog.Attr) {
+	sb.WriteRune(' ')
+	sb.WriteString(prefix)
+	sb.WriteString(a.Key)
+	sb.WriteRune('=')
+	v := a.Value.Resolve().String()
+	if strings.ContainsRune(v, ' ') {
+		v = strconv.Quote(v)
+	}
+	sb.WriteString(v)
+}
+
+func (h *formattingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	if len(h.groups) > 0 {
+		prefix := strings.Join(h.groups, ".") + "."
+		for i := range attrs {
+			attrs[i].Key = prefix + attrs[i].Key
+		}
+	}
+	return &formattingHandler{
+		attrs:  append(h.attrs, attrs...),
+		groups: h.groups,
+		rec:    h.rec,
+		out:    h.out,
+	}
+}
+
+func (h *formattingHandler) WithGroup(name string) slog.Handler {
+	if name == "" {
+		return h
+	}
+	return &formattingHandler{
+		attrs:  h.attrs,
+		groups: append(h.groups, name),
+		rec:    h.rec,
+		out:    h.out,
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"runtime"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 
 var slogDef = &formattingHandler{
 	rec: globalRecorder,
+	out: os.Stdout,
 }
 
 // Log levels:
@@ -34,7 +36,7 @@ func NewAdapter(descr string) *adapter {
 			levels:  globalLevels,
 			pkg:     pkgName,
 		}
-		return &adapter{slog.New(h).With("pkg", pkgName)}
+		return &adapter{slog.New(h).With(slog.Group("log", "pkg", pkgName))}
 	}
 	return &adapter{slog.New(slogDef)}
 }
