@@ -2,7 +2,10 @@ package slogutil
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -37,21 +40,14 @@ func (h *recordingHandler) Handle(_ context.Context, rec slog.Record) error {
 	var sb strings.Builder
 	sb.WriteString(rec.Message)
 	for _, a := range h.attrs {
-		sb.WriteRune(' ')
-		sb.WriteString(a.Key)
-		sb.WriteRune('=')
-		sb.WriteString(a.Value.Resolve().String())
+		appendAttr(&sb, "", a)
 	}
 	var prefix string
 	if len(h.groups) > 0 {
 		prefix = strings.Join(h.groups, ".") + "."
 	}
 	rec.Attrs(func(a slog.Attr) bool {
-		sb.WriteRune(' ')
-		sb.WriteString(prefix)
-		sb.WriteString(a.Key)
-		sb.WriteRune('=')
-		sb.WriteString(a.Value.Resolve().String())
+		appendAttr(&sb, prefix, a)
 		return true
 	})
 	line := Line{
@@ -59,8 +55,23 @@ func (h *recordingHandler) Handle(_ context.Context, rec slog.Record) error {
 		Message: sb.String(),
 		Level:   rec.Level,
 	}
-	h.rec.record(line)
+	if h.rec != nil {
+		h.rec.record(line)
+	}
+	fmt.Fprintf(os.Stdout, "%s %s %s\n", line.When.Format("2006-01-02 15:04:05"), line.Level.String(), line.Message)
 	return nil
+}
+
+func appendAttr(sb *strings.Builder, prefix string, a slog.Attr) {
+	sb.WriteRune(' ')
+	sb.WriteString(prefix)
+	sb.WriteString(a.Key)
+	sb.WriteRune('=')
+	v := a.Value.Resolve().String()
+	if strings.ContainsRune(v, ' ') {
+		v = strconv.Quote(v)
+	}
+	sb.WriteString(v)
 }
 
 func (h *recordingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {

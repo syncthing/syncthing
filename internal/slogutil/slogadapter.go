@@ -4,13 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"runtime"
 	"strings"
 	"time"
 
-	"github.com/lmittmann/tint"
-	"github.com/mattn/go-isatty"
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
@@ -95,10 +92,10 @@ func (a adapter) ShouldDebug(facility string) bool {
 }
 
 func newLogHandler() slog.Handler {
-	const logFmt = "2006-01-02 15:04:05"
-	color := isatty.IsTerminal(os.Stdout.Fd()) || os.Getenv("MONITOR_IS_STDOUT") != ""
-	return tint.NewHandler(os.Stdout, &tint.Options{
-		TimeFormat: logFmt,
-		NoColor:    !color,
-	})
+	return &recordingHandler{}
+	// const logFmt = "2006-01-02 15:04:05"
+	// return tint.NewHandler(os.Stdout, &tint.Options{
+	// 	TimeFormat: logFmt,
+	// 	NoColor:    true,
+	// })
 }
