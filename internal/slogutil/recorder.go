@@ -2,8 +2,9 @@ package slogutil
 
 import (
 	"context"
+	"io"
 	"log/slog"
-	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -20,6 +21,7 @@ type Recorder interface {
 type formattingHandler struct {
 	attrs  []slog.Attr
 	groups []string
+	out    io.Writer
 	rec    *lineRecorder
 }
 
@@ -30,19 +32,30 @@ func (h *formattingHandler) Enabled(context.Context, slog.Level) bool {
 }
 
 func (h *formattingHandler) Handle(_ context.Context, rec slog.Record) error {
-	var sb strings.Builder
-	sb.WriteString(rec.Message)
 	var prefix string
 	if len(h.groups) > 0 {
 		prefix = strings.Join(h.groups, ".") + "."
 	}
+
+	// Collect all the attributes, with newer attributes towards the end.
+	var attrs []slog.Attr
 	rec.Attrs(func(a slog.Attr) bool {
-		appendAttr(&sb, prefix, a)
+		attrs = append(attrs, a)
 		return true
 	})
+	attrs = append(attrs, h.attrs...)
 
-	for _, a := range h.attrs {
-		appendAttr(&sb, "", a)
+	// Sort and compact the attributes, so that we keep the newest of any
+	// with conflicting keys.
+	slices.Reverse(attrs)
+	slices.SortStableFunc(attrs, func(a, b slog.Attr) int { return strings.Compare(a.Key, b.Key) })
+	attrs = slices.CompactFunc(attrs, func(a, b slog.Attr) bool { return a.Key == b.Key })
+
+	// Build the message string.
+	var sb strings.Builder
+	sb.WriteString(rec.Message)
+	for _, attr := range attrs {
+		appendAttr(&sb, prefix, attr)
 	}
 
 	line := Line{
@@ -56,8 +69,10 @@ func (h *formattingHandler) Handle(_ context.Context, rec slog.Record) error {
 		h.rec.record(line)
 	}
 
-	// Print the line.
-	line.WriteTo(os.Stdout)
+	// If there's an output, print the line.
+	if h.out != nil {
+		line.WriteTo(h.out)
+	}
 	return nil
 }
 
@@ -92,6 +107,7 @@ func (h *formattingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 		attrs:  append(h.attrs, attrs...),
 		groups: h.groups,
 		rec:    h.rec,
+		out:    h.out,
 	}
 }
 
@@ -103,6 +119,7 @@ func (h *formattingHandler) WithGroup(name string) slog.Handler {
 		attrs:  h.attrs,
 		groups: append(h.groups, name),
 		rec:    h.rec,
+		out:    h.out,
 	}
 }
 
