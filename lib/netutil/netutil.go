@@ -7,6 +7,7 @@
 package netutil
 
 import (
+	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -32,6 +33,9 @@ func Gateway() (ip net.IP, err error) {
 		// able to discover the gateway from java code.
 		if v := os.Getenv("ANDROID_NET_GATEWAY_IPV4"); v != "" {
 			ip = net.ParseIP(v)
+			if ip == nil {
+				return nil, fmt.Errorf("%q: invalid IP", v)
+			}
 			return ip, nil
 		}
 		return ip, err
