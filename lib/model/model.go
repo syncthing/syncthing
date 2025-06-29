@@ -1488,7 +1488,9 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 
 		// Handle indexes
 
-		tempIndexFolders = append(tempIndexFolders, folder.ID)
+		if folder.Type != protocol.FolderTypeReceiveEncrypted {
+			tempIndexFolders = append(tempIndexFolders, folder.ID)
+		}
 		indexHandlers.AddIndexInfo(folder.ID, ccDeviceInfos[folder.ID])
 	}
 
