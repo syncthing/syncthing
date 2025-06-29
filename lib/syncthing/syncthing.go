@@ -276,7 +276,7 @@ func (a *App) startup() error {
 	a.cfg.Modify(func(cfg *config.Configuration) {
 		// Candidate builds always run with usage reporting.
 		if build.IsCandidate {
-			l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
+			l.Info("Anonymous usage reporting is always enabled for candidate releases")
 			if cfg.Options.URAccepted != ur.Version {
 				cfg.Options.URAccepted = ur.Version
 				// Unique ID will be set and config saved below if necessary.
@@ -290,15 +290,15 @@ func (a *App) startup() error {
 	// GUI
 
 	if err := a.setupGUI(m, defaultSub, diskSub, discoveryManager, connectionsService, usageReportingSvc, errors, systemLog, miscDB); err != nil {
-		l.Warnln("Failed starting API:", err)
+		l.Error("Failed to start API", "error", err)
 		return err
 	}
 
 	myDev, _ := a.cfg.Device(a.myID)
-	l.Infof(`My name is "%v"`, myDev.Name)
+	l.Info("Loaded configuration", "myName", myDev.Name)
 	for _, device := range a.cfg.Devices() {
 		if device.DeviceID != a.myID {
-			l.Infof(`Device %s is "%v" at %v`, device.DeviceID, device.Name, device.Addresses)
+			l.Info("Loaded peer device configuration", "id", device.DeviceID, "name", device.Name, "addrs", device.Addresses)
 		}
 	}
 

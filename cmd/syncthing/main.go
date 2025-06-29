@@ -450,7 +450,7 @@ func (c *serveCmd) syncthingMain() {
 
 	if build.IsCandidate && !upgrade.DisabledByCompilation && !c.NoUpgrade {
 		cfgWrapper.Modify(func(cfg *config.Configuration) {
-			l.Info("Automatic upgrade is always enabled for candidate releases.")
+			l.Info("Automatic upgrade is always enabled for candidate releases")
 			if cfg.Options.AutoUpgradeIntervalH == 0 || cfg.Options.AutoUpgradeIntervalH > 24 {
 				cfg.Options.AutoUpgradeIntervalH = 12
 				// Set the option into the config as well, as the auto upgrade
@@ -490,7 +490,7 @@ func (c *serveCmd) syncthingMain() {
 				l.Info("Initial automatic upgrade", "error", err)
 			}
 		} else {
-			l.Info("Upgraded, should exit now.", "newVersion", release.Tag)
+			l.Info("Upgraded, should exit now", "newVersion", release.Tag)
 			os.Exit(svcutil.ExitUpgrade.AsInt())
 		}
 	}
@@ -646,7 +646,7 @@ func (c *serveCmd) autoUpgradePossible() bool {
 		return false
 	}
 	if c.NoUpgrade {
-		l.Info("No automatic upgrades; STNOUPGRADE environment variable defined.")
+		l.Info("No automatic upgrades; STNOUPGRADE environment variable defined")
 		return false
 	}
 	return true
@@ -663,7 +663,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 				continue
 			}
 			if cfg.Options().AutoUpgradeEnabled() {
-				l.Info("Connected to device with a newer version; checking for upgrades.", "device", data["id"], "ourVersion", build.Version, "theirVersion", data["clientVersion"])
+				l.Info("Connected to device with a newer version; checking for upgrades", "device", data["id"], "ourVersion", build.Version, "theirVersion", data["clientVersion"])
 			}
 		case <-timer.C:
 		}
@@ -755,22 +755,22 @@ func cleanConfigDirectory() {
 		fs := fs.NewFilesystem(fs.FilesystemTypeBasic, locations.GetBaseDir(locations.ConfigBaseDir))
 		files, err := fs.Glob(pat)
 		if err != nil {
-			l.Infoln("Cleaning:", err)
+			l.Warn("Failed to clean config directory", "error", err)
 			continue
 		}
 
 		for _, file := range files {
 			info, err := fs.Lstat(file)
 			if err != nil {
-				l.Infoln("Cleaning:", err)
+				l.Warn("Failed to clean config directory", "error", err)
 				continue
 			}
 
 			if time.Since(info.ModTime()) > dur {
 				if err = fs.RemoveAll(file); err != nil {
-					l.Infoln("Cleaning:", err)
+					l.Warn("Failed to clean config directory", "error", err)
 				} else {
-					l.Infoln("Cleaned away old file", filepath.Base(file))
+					l.Warn("Cleaned away old file", "path", filepath.Base(file))
 				}
 			}
 		}
