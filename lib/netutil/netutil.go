@@ -33,6 +33,7 @@ func Gateway() (ip net.IP, err error) {
 			ip = net.ParseIP(v)
 			return ip, nil
 		}
+		return ip, err
 	}
 	return ip, nil
 }
