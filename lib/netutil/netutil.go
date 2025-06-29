@@ -31,7 +31,7 @@ func Gateway() (ip net.IP, err error) {
 		// Fails on Android 14+ due to permission denied error when reading
 		// /proc/net/route. The wrapper may give a hint then because it is
 		// able to discover the gateway from java code.
-		if v := os.Getenv("ANDROID_NET_GATEWAY_IPV4"); v != "" {
+		if v := os.Getenv("FALLBACK_NET_GATEWAY_IPV4"); v != "" {
 			ip = net.ParseIP(v)
 			if ip == nil {
 				return nil, fmt.Errorf("%q: invalid IP", v)
