@@ -1118,7 +1118,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	// Remote paused
 
 	cc := basicClusterConfig(device1, myID, fcfg.ID)
-	cc.Folders[0].Paused = true
+	cc.Folders[0].StopReason = protocol.FolderStopReasonPaused
 	m.ClusterConfig(fc, cc)
 
 	seq++
@@ -1139,7 +1139,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 
 	// Remote unpaused
 
-	cc.Folders[0].Paused = false
+	cc.Folders[0].StopReason = protocol.FolderStopReasonRunning
 	m.ClusterConfig(fc, cc)
 	select {
 	case <-time.After(5 * time.Second):
@@ -1164,12 +1164,12 @@ func TestRequestIndexSenderPause(t *testing.T) {
 
 	// Local and remote paused, then first resume remote, then local
 
-	cc.Folders[0].Paused = true
+	cc.Folders[0].StopReason = protocol.FolderStopReasonPaused
 	m.ClusterConfig(fc, cc)
 
 	pauseFolder(t, m.cfg, fcfg.ID, true)
 
-	cc.Folders[0].Paused = false
+	cc.Folders[0].StopReason = protocol.FolderStopReasonRunning
 	m.ClusterConfig(fc, cc)
 
 	pauseFolder(t, m.cfg, fcfg.ID, false)

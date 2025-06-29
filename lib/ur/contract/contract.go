@@ -110,7 +110,6 @@ type Report struct {
 		ConflictsUnlimited      int            `json:"conflictsUnlimited,omitempty" metric:"folder_feature{feature=ConflictsUnlimited},summary" since:"3"`
 		ConflictsOther          int            `json:"conflictsOther,omitempty" metric:"folder_feature{feature=ConflictsOther},summary" since:"3"`
 		DisableSparseFiles      int            `json:"disableSparseFiles,omitempty" metric:"folder_feature{feature=DisableSparseFiles},summary" since:"3"`
-		DisableTempIndexes      int            `json:"disableTempIndexes,omitempty" metric:"folder_feature{feature=DisableTempIndexes},summary" since:"3"`
 		FsWatcherEnabled        int            `json:"fsWatcherEnabled,omitempty" metric:"folder_feature{feature=FSWatcherEnabled},summary" since:"3"`
 		PullOrder               map[string]int `json:"pullOrder,omitempty" metric:"folder_pull_order,summaryVec:order" since:"3"`
 		FilesystemType          map[string]int `json:"filesystemType,omitempty" metric:"folder_file_system_type,summaryVec:type" since:"3"`

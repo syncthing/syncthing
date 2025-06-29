@@ -1422,7 +1422,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			if err := m.observed.AddOrUpdatePendingFolder(folder.ID, of, deviceID); err != nil {
 				l.Warnf("Failed to persist pending folder entry to database: %v", err)
 			}
-			if !folder.Paused {
+			if folder.IsRunning() {
 				indexHandlers.AddIndexInfo(folder.ID, ccDeviceInfos[folder.ID])
 			}
 			updatedPending = append(updatedPending, updatedPendingFolder{
@@ -1442,7 +1442,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			continue
 		}
 
-		if folder.Paused {
+		if !folder.IsRunning() {
 			indexHandlers.Remove(folder.ID)
 			seenFolders[cfg.ID] = remoteFolderPaused
 			continue
@@ -1488,10 +1488,9 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 
 		// Handle indexes
 
-		if !folder.DisableTempIndexes {
+		if folder.Type != protocol.FolderTypeReceiveEncrypted {
 			tempIndexFolders = append(tempIndexFolders, folder.ID)
 		}
-
 		indexHandlers.AddIndexInfo(folder.ID, ccDeviceInfos[folder.ID])
 	}
 
@@ -2043,7 +2042,7 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
-	if req.FromTemporary && !folderCfg.DisableTempIndexes {
+	if req.FromTemporary {
 		tempFn := fs.TempName(req.Name)
 
 		if info, err := folderFs.Lstat(tempFn); err != nil || !info.IsRegular() {
@@ -2420,7 +2419,7 @@ func (m *model) DownloadProgress(conn protocol.Connection, p *protocol.DownloadP
 	cfg, ok := m.folderCfgs[p.Folder]
 	m.mut.RUnlock()
 
-	if !ok || cfg.DisableTempIndexes || !cfg.SharedWith(deviceID) {
+	if !ok || !cfg.SharedWith(deviceID) {
 		return nil
 	}
 
@@ -2601,19 +2600,17 @@ func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protoco
 		}
 
 		protocolFolder := protocol.Folder{
-			ID:                 folderCfg.ID,
-			Label:              folderCfg.Label,
-			ReadOnly:           folderCfg.Type == config.FolderTypeSendOnly,
-			IgnorePermissions:  folderCfg.IgnorePerms,
-			IgnoreDelete:       folderCfg.IgnoreDelete,
-			DisableTempIndexes: folderCfg.DisableTempIndexes,
+			ID:    folderCfg.ID,
+			Label: folderCfg.Label,
 		}
 
 		// Even if we aren't paused, if we haven't started the folder yet
 		// pretend we are. Otherwise the remote might get confused about
 		// the missing index info (and drop all the info). We will send
 		// another cluster config once the folder is started.
-		protocolFolder.Paused = folderCfg.Paused
+		if folderCfg.Paused {
+			protocolFolder.StopReason = protocol.FolderStopReasonPaused
+		}
 
 		for _, folderDevice := range folderCfg.Devices {
 			deviceCfg, _ := m.cfg.Device(folderDevice.DeviceID)
