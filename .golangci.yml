@@ -42,6 +42,7 @@ linters:
     - whitespace
     - wrapcheck
     - wsl
+    - wsl_v5
   exclusions:
     generated: lax
     presets:
