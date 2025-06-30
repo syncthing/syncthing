@@ -227,6 +227,7 @@
     "Learn more": "더 알아보기",
     "Learn more at {%url%}": "자세한 내용은 {{url}}을 참조하십시오.",
     "Limit": "제한",
+    "Limit Bandwidth in LAN": "근거리 통신망(LAN)에 속도 제한 적용",
     "Listener Failures": "대기자 실패",
     "Listener Status": "대기자 현황",
     "Listeners": "대기자",
