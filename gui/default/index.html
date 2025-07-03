@@ -353,7 +353,11 @@
 
           <div class="form-group">
             <label for="password" translate>Password</label>
-            <input id="password" class="form-control" type="password" name="password" ng-model="login.password" ng-trim="false" autocomplete="current-password" />
+            <div style="position: relative;">
+              <input id="password" class="form-control" type="{{passwordVisibility}}" name="password" ng-model="login.password" ng-trim="false" autocomplete="current-password" />
+              <span class="fa" ng-class="{'fa-eye': !passwordVisible, 'fa-eye-slash': passwordVisible}" class="eye-icon" ng-click="togglePassword()"
+              role="button" name="toggle-password" style="top: 50%; right: 10px; transform: translateY(-50%); position: absolute;"></span>
+          </div>
           </div>
 
           <div class="form-group">
