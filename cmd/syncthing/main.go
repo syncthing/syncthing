@@ -920,8 +920,10 @@ func (browserCmd) Run() error {
 }
 
 type debugCmd struct {
-	ResetDatabase      resetDatabaseCmd `cmd:"" help:"Reset the database, forcing a full rescan and resync"`
-	DatabaseStatistics databaseStatsCmd `cmd:"" help:"Display database size statistics"`
+	ResetDatabase      resetDatabaseCmd  `cmd:"" help:"Reset the database, forcing a full rescan and resync"`
+	DatabaseStatistics databaseStatsCmd  `cmd:"" help:"Display database size statistics"`
+	DatabaseCounts     databaseCountsCmd `cmd:"" help:"Display database folder counts"`
+	DatabaseFile       databaseFileCmd   `cmd:"" help:"Display database file metadata"`
 }
 
 type resetDatabaseCmd struct{}
@@ -954,6 +956,33 @@ func (c databaseStatsCmd) Run() error {
 	fmt.Fprint(tw, regexp.MustCompile(`[A-Z]`).ReplaceAllString(hdr, "="))
 	c.printStat(tw, ds)
 	return tw.Flush()
+}
+
+type databaseCountsCmd struct {
+	Folder string `arg:"" required:""`
+}
+
+func (c databaseCountsCmd) Run() error {
+	db, err := sqlite.Open(locations.Get(locations.Database))
+	if err != nil {
+		return err
+	}
+
+	return db.DebugCounts(os.Stdout, c.Folder)
+}
+
+type databaseFileCmd struct {
+	Folder string `arg:"" required:""`
+	File   string `arg:"" required:""`
+}
+
+func (c databaseFileCmd) Run() error {
+	db, err := sqlite.Open(locations.Get(locations.Database))
+	if err != nil {
+		return err
+	}
+
+	return db.DebugFilePattern(os.Stdout, c.Folder, c.File)
 }
 
 func (c databaseStatsCmd) printStat(w io.Writer, s *sqlite.DatabaseStatistics) {

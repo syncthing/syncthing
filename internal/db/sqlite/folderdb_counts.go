@@ -16,7 +16,7 @@ type countsRow struct {
 	Count      int
 	Size       int64
 	Deleted    bool
-	LocalFlags int64 `db:"local_flags"`
+	LocalFlags protocol.FlagLocal `db:"local_flags"`
 }
 
 func (s *folderDB) CountLocal(device protocol.DeviceID) (db.Counts, error) {
