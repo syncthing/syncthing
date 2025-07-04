@@ -164,7 +164,7 @@ func (s *folderDB) DebugFilePattern(out io.Writer, name string) error {
 	type hashFileMetadata struct {
 		db.FileMetadata
 
-		Version       string
+		Version       dbVector
 		BlocklistHash []byte
 		DeviceID      string
 	}
@@ -187,7 +187,7 @@ func (s *folderDB) DebugFilePattern(out io.Writer, name string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\t%d\t%s\t%s\t%s\n", shortDevice(row.DeviceID), shortType(row.Type), row.Name, row.Sequence, delMap[row.Deleted], row.ModTime().UTC().Format(time.RFC3339Nano), row.Size, row.LocalFlags.HumanString(), row.Version, shortHash(row.BlocklistHash))
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\t%d\t%s\t%s\t%s\n", shortDevice(row.DeviceID), shortType(row.Type), row.Name, row.Sequence, delMap[row.Deleted], row.ModTime().UTC().Format(time.RFC3339Nano), row.Size, row.LocalFlags.HumanString(), row.Version.HumanString(), shortHash(row.BlocklistHash))
 	}
 	return tw.Flush()
 }
