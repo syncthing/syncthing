@@ -155,7 +155,7 @@ func (s *folderDB) DebugCounts(out io.Writer) error {
 	tw := tabwriter.NewWriter(out, 2, 2, 2, ' ', 0)
 	fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", "DEVICE", "TYPE", "FLAGS", "DELETED", "COUNT", "SIZE")
 	for _, row := range res {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%d\n", shortDevice(row.DeviceID), shortType(row.Type), row.LocalFlags, delMap[row.Deleted], row.Count, row.Size)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%d\n", shortDevice(row.DeviceID), shortType(row.Type), row.LocalFlags.HumanString(), delMap[row.Deleted], row.Count, row.Size)
 	}
 	return tw.Flush()
 }
@@ -187,7 +187,7 @@ func (s *folderDB) DebugFilePattern(out io.Writer, name string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\t%d\t%s\t%s\t%s\n", shortDevice(row.DeviceID), shortType(row.Type), row.Name, row.Sequence, delMap[row.Deleted], row.ModTime().UTC().Format(time.RFC3339Nano), row.Size, row.LocalFlags, row.Version, shortHash(row.BlocklistHash))
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\t%d\t%s\t%s\t%s\n", shortDevice(row.DeviceID), shortType(row.Type), row.Name, row.Sequence, delMap[row.Deleted], row.ModTime().UTC().Format(time.RFC3339Nano), row.Size, row.LocalFlags.HumanString(), row.Version, shortHash(row.BlocklistHash))
 	}
 	return tw.Flush()
 }

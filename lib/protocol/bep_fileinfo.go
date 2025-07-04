@@ -58,8 +58,8 @@ func (f FlagLocal) IsInvalid() bool {
 	return f&LocalInvalidFlags != 0
 }
 
-// String returns a permission-like string representation of the flag bits
-func (f FlagLocal) String() string {
+// HumanString returns a permission-like string representation of the flag bits
+func (f FlagLocal) HumanString() string {
 	if f == 0 {
 		return strings.Repeat("-", len(localFlagBitNames))
 	}
