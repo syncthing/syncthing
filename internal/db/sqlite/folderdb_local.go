@@ -153,6 +153,7 @@ func (s *folderDB) DebugCounts(out io.Writer) error {
 	}
 
 	tw := tabwriter.NewWriter(out, 2, 2, 2, ' ', 0)
+	fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", "DEVICE", "TYPE", "FLAGS", "DELETED", "COUNT", "SIZE")
 	for _, row := range res {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%d\n", shortDevice(row.DeviceID), shortType(row.Type), row.LocalFlags, delMap[row.Deleted], row.Count, row.Size)
 	}
@@ -181,6 +182,7 @@ func (s *folderDB) DebugFilePattern(out io.Writer, name string) error {
 	}
 
 	tw := tabwriter.NewWriter(out, 2, 2, 2, ' ', 0)
+	fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "DEVICE", "TYPE", "NAME", "SEQUENCE", "DELETED", "MODIFIED", "SIZE", "FLAGS", "VERSION", "BLOCKLIST")
 	for row, err := range res {
 		if err != nil {
 			return err
