@@ -896,18 +896,20 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 		return
 	}
 
-	if f.inConflict(cur.Version, file.Version) {
-		// There is a conflict here, which shouldn't happen as deletions
-		// always lose. Merge the version vector of the file we have
-		// locally and commit it to db to resolve the conflict.
-		cur.Version = cur.Version.Merge(file.Version)
-		dbUpdateChan <- dbUpdateJob{cur, dbUpdateHandleFile}
-		return
-	}
+	switch {
+	case f.inConflict(cur.Version, file.Version) && !cur.IsSymlink():
+		// If the delete constitutes winning a conflict, we move the file to
+		// a conflict copy instead of doing the delete
+		err = f.inWritableDir(func(name string) error {
+			return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
+		}, cur.Name)
 
-	if f.versioner != nil && !cur.IsSymlink() {
+	case f.versioner != nil && !cur.IsSymlink():
+		// If we have a versioner, use that to move the file away
 		err = f.inWritableDir(f.versioner.Archive, file.Name)
-	} else {
+
+	default:
+		// Delete the file
 		err = f.inWritableDir(f.mtimefs.Remove, file.Name)
 	}
 

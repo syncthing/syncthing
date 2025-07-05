@@ -458,12 +458,6 @@ func (e fileRow) Compare(other fileRow) int {
 			}
 			return -1 // they are invalid, we win
 		}
-		if e.Deleted != other.Deleted {
-			if e.Deleted { // we are deleted, we lose
-				return 1
-			}
-			return -1 // they are deleted, we win
-		}
 		if d := cmp.Compare(e.Modified, other.Modified); d != 0 {
 			return -d // positive d means we were newer, so we win (negative return)
 		}
