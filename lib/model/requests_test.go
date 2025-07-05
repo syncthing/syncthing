@@ -903,13 +903,24 @@ func TestRequestDeleteChanged(t *testing.T) {
 		t.Fatal("timed out")
 	}
 
-	// Check outcome
-	if _, err := tfs.Lstat(a); err != nil {
-		if fs.IsNotExist(err) {
-			t.Error(`Modified file "a" was removed`)
-		} else {
-			t.Error(`Error stating file "a":`, err)
+	// Check outcome. The file may have been moved to a conflict copy.
+	remains := false
+	files, err := tfs.Glob("a*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		if file == "a" {
+			remains = true
+			break
 		}
+		if strings.HasPrefix(file, "a.sync-conflict-") {
+			remains = true
+			break
+		}
+	}
+	if !remains {
+		t.Error(`Modified file "a" was removed`)
 	}
 }
 
