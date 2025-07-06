@@ -200,15 +200,6 @@ func (f *FileInfo) WinsConflict(other FileInfo) bool {
 		return !f.IsInvalid()
 	}
 
-	// If a modification is in conflict with a delete, we pick the
-	// modification.
-	if !f.IsDeleted() && other.IsDeleted() {
-		return true
-	}
-	if f.IsDeleted() && !other.IsDeleted() {
-		return false
-	}
-
 	// The one with the newer modification time wins.
 	if f.ModTime().After(other.ModTime()) {
 		return true
