@@ -994,14 +994,14 @@ angular.module('syncthing.core')
             if (folderInfo.needTotalItems > 0) {
                 return 'outofsync';
             }
+            if ($scope.hasFailedFiles(folderCfg.id)) {
+                return 'faileditems';
+            }
             if ($scope.hasReceiveOnlyChanged(folderCfg)) {
                 if (folderCfg.type === "receiveonly") {
                     return 'localadditions';
                 }
                 return 'localunencrypted';
-            }
-            if ($scope.hasFailedFiles(folderCfg.id)) {
-                return 'faileditems';
             }
             if (folderCfg.devices.length <= 1) {
                 return 'unshared';
