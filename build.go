@@ -902,7 +902,6 @@ func ldflags(tags []string) string {
 	b := new(strings.Builder)
 	b.WriteString("-w")
 	b.WriteString(" -buildid=")
-	b.WriteString(" -checklinkname=0")
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Version=%s", version)
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Stamp=%d", buildStamp())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.User=%s", buildUser())
