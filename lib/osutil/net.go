@@ -10,13 +10,13 @@ import (
 	"net"
 	"strings"
 
-	"github.com/wlynxg/anet"
+	"github.com/syncthing/syncthing/lib/netutil"
 )
 
 // GetInterfaceAddrs returns the IP networks of all interfaces that are up.
 // Point-to-point interfaces are exluded unless includePtP is true.
 func GetInterfaceAddrs(includePtP bool) ([]*net.IPNet, error) {
-	intfs, err := anet.Interfaces()
+	intfs, err := netutil.Interfaces()
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func GetInterfaceAddrs(includePtP bool) ([]*net.IPNet, error) {
 			// which, for our purposes, do not qualify as LANs.
 			continue
 		}
-		intfAddrs, err := anet.InterfaceAddrsByInterface(&intf)
+		intfAddrs, err := netutil.InterfaceAddrsByInterface(&intf)
 		if err != nil {
 			return nil, err
 		}
