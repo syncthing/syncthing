@@ -371,7 +371,7 @@
     "Show diff with previous version": "이전 버전과의 diff 보기",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "기기 아이디를 대신해 기기 목록에서 나타납니다. 다른 기기에 선택적 기본값 이름으로 통보됩니다.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "기기 아이디를 대신해 기기 목록에서 나타납니다. 비워 둘 경우 다른 기기에서 통보받은 이름으로 갱신됩니다.",
-    "Shutdown": "종료",
+    "Shut Down": "종료",
     "Shutdown Complete": "종료 완료",
     "Simple": "간단",
     "Simple File Versioning": "간단한 파일 버전 관리",

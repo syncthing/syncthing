@@ -337,7 +337,7 @@
     "Show diff with previous version": "Rodyti skirtumus su ankstesne versija",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Grupės būsenoje rodomas vietoje įrenginio vardo. Kiti įrenginiai matys kaip pasirinktinį vardą.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Grupės būsenoje rodomas vietoje įrenginio vardo. Bus atnaujintas į įrenginio vardą jei nieko neįrašysite.",
-    "Shutdown": "Išjungti",
+    "Shut Down": "Išjungti",
     "Shutdown Complete": "Sėkmingai išjungta",
     "Simple File Versioning": "Supaprastintas versijų valdymas",
     "Single level wildcard (matches within a directory only)": "Vieno lygio pakaitos simbolis (atitinka tik vieną katalogo lygį)",
