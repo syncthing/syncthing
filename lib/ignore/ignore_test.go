@@ -1482,10 +1482,11 @@ var pipeTests = []escapeTest{
 	{`|a|r|n`, `/a/r/n`, false}, // leading backslash is stripped off
 }
 
-// TestEscapeBackslash tests pipe (|) as the escape character.
+// TestEscapePipe tests when pipe (|) is the defaultEscapeChar character
+// (as it is on Windows).
 func TestEscapePipe(t *testing.T) {
-	if defaultEscapeChar == '\\' {
-		t.Skip("Skipping Windows only test")
+	if defaultEscapeChar != '|' {
+		t.Skip("Skipping: defaultEscapeChar is not a '|'")
 	}
 
 	testEscape(t, pipeTests, true)
