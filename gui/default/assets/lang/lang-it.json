@@ -370,7 +370,7 @@
     "Show diff with previous version": "Mostra le differenze con la versione precedente",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Visibile al posto dell'ID Dispositivo nello stato del cluster. Negli altri dispositivi verrà presentato come nome predefinito opzionale.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Visibile al posto dell'ID Dispositivo nello stato del cluster. Se viene lasciato vuoto, verrà utilizzato il nome proposto dal dispositivo.",
-    "Shutdown": "Arresta",
+    "Shut Down": "Arresta",
     "Shutdown Complete": "Arresto Eseguito",
     "Simple": "Semplice",
     "Simple File Versioning": "Controllo Versione Semplice",

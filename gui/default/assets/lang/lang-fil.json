@@ -370,7 +370,7 @@
     "Show diff with previous version": "Ipakita ang diff sa nakaraang bersyon",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Ipinapakita sa halip na Device ID sa status ng cluster. Ia-advertise sa iba pang mga device bilang opsyonal na default na pangalan.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Ipinapakita sa halip na Device ID sa status ng cluster. Ia-update sa pangalan na ina-advertise ng device kung iiwanang walang laman.",
-    "Shutdown": "I-shutdown",
+    "Shut Down": "I-shutdown",
     "Shutdown Complete": "Tapos na ang Shutdown",
     "Simple": "Simple",
     "Simple File Versioning": "Simpleng File Versioning",

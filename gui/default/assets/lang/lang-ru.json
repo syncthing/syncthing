@@ -371,7 +371,7 @@
     "Show diff with previous version": "Показать различия с предыдущей версией",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Отображается вместо ID устройства в статусе группы. Будет разослан другим устройствам в качестве имени по умолчанию.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Отображается вместо ID устройства в статусе группы. Если поле не заполнено, то будет установлено имя, передаваемое этим устройством.",
-    "Shutdown": "Выключить",
+    "Shut Down": "Выключить",
     "Shutdown Complete": "Выключение",
     "Simple": "Просто",
     "Simple File Versioning": "Простое управление версиями файлов",
