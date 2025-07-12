@@ -312,7 +312,7 @@
     "Show diff with previous version": "Show diff with previous version",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Vizibil în locul ID-ului dispozitivului într-un grup. Va fi sugerat celorlalte dispozitive ca nume opţional. ",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Vizibil în locul ID-ului dispozitivului într-un grup. Va fi înlocuit de numele sugerat de dispozitiv daca nu este completat. ",
-    "Shutdown": "Opreşte",
+    "Shut Down": "Opreşte",
     "Shutdown Complete": "Oprește Complet",
     "Simple File Versioning": "Versiuni simple ale documentelor",
     "Single level wildcard (matches within a directory only)": "Asterisc de nivel simplu (corespunde doar unui fişier)",

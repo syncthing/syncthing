@@ -370,7 +370,7 @@
     "Show diff with previous version": "أظهر الفرق مقارنةً بالنسخة السابقة",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "يُعرَض بدلا من المُعرِّف ضمن العناقيد. سيُروَّج للأجهزة الأخرى على أنه اسم أساسي محتمل.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "يُعرَض بدلا من المُعرِّف ضمن العناقيد. إذا تُرك فارغا، سيُحدَّث إلى الاسم المختار من قِبَل الجهاز.",
-    "Shutdown": "إغلاق",
+    "Shut Down": "إغلاق",
     "Shutdown Complete": "أُغلِق",
     "Simple": "بسيط",
     "Simple File Versioning": "التقسيم البسيط لإصدارات الملفات",
