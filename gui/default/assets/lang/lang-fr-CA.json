@@ -160,7 +160,7 @@
     "Show QR": "Afficher l'image QR",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Affiché à la place de l'ID de l'appareil dans l'état du groupe. Sera diffusé aux autres appareils comme nom convivial optionnel par défaut.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Affiché à la place de l'ID de l'appareil dans l'état du groupe. Si laissé vide, il sera renseigné par le nom convivial proposé par l'appareil distant.",
-    "Shutdown": "Arrêter",
+    "Shut Down": "Arrêter",
     "Shutdown Complete": "Arrêté !",
     "Simple File Versioning": "Suivi simplifié des versions",
     "Single level wildcard (matches within a directory only)": "Joker à un seul niveau (correspond uniquement à l’intérieur du répertoire)",

@@ -371,7 +371,7 @@
     "Show diff with previous version": "Önceki sürüm ile farklılıkları göster",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Küme durumunda Cihaz Kimliği yerine gösterilir. İsteğe bağlı varsayılan ad olarak diğer cihazlara duyurulacaktır.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Küme durumunda Cihaz Kimliği yerine gösterilir. Boş bırakılırsa duyurulan cihaz adına güncellenecektir.",
-    "Shutdown": "Kapat",
+    "Shut Down": "Kapat",
     "Shutdown Complete": "Kapatma İşlemi Tamamlandı",
     "Simple": "Basit",
     "Simple File Versioning": "Basit Dosya Sürümlendirme",

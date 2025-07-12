@@ -345,7 +345,7 @@
     "Show diff with previous version": "Előző verzió eltérésének megjelenítése",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Az eszközazonosító helyett jelenik meg. A többi eszközön alapértelmezett névként használható.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Az eszközazonosító helyett jelenik meg. Üresen hagyva az eszköz saját neve lesz alkalmazva.",
-    "Shutdown": "Leállítás",
+    "Shut Down": "Leállítás",
     "Shutdown Complete": "Leállítás kész",
     "Simple": "Egyszerű",
     "Simple File Versioning": "Egyszerű fájlverzió-követés",

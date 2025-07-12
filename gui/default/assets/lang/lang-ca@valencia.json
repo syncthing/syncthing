@@ -353,7 +353,7 @@
     "Show diff with previous version": "Mostrar les diferències amb la versió prèvia",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Mostrat en lloc de l'ID del dispositiu en l'estat del grup (cluster). S'anunciarà als altres dispositius com el nom opcional per defecte.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Mostrat en lloc de l'ID del dispositiu en l'estat del grup (cluster). S'actualitzarà al nom que el dispositiu anuncia si es deixa buit.",
-    "Shutdown": "Apagar",
+    "Shut Down": "Apagar",
     "Shutdown Complete": "Apagar completament",
     "Simple": "Senzill",
     "Simple File Versioning": "Versionat de fitxers senzill",

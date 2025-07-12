@@ -371,7 +371,7 @@
     "Show diff with previous version": "Taispeáin diff leis an leagan roimhe seo",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Taispeántar é in ionad ID gléis i stádas na braisle. Fógrófar é do ghléasanna eile mar ainm réamhshocraithe roghnach.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Taispeántar é in ionad ID gléis i stádas na braisle. Déanfar é a nuashonrú go dtí an t-ainm a fhógraíonn an gléas má fhágtar folamh é.",
-    "Shutdown": "Múchadh",
+    "Shut Down": "Múchadh",
     "Shutdown Complete": "Múchadh Críochnaithe",
     "Simple": "Simplí",
     "Simple File Versioning": "Leagan Simplí Comhad",
