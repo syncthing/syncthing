@@ -29,6 +29,7 @@ import (
 
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -1044,8 +1045,8 @@ func startHTTPWithShutdownTimeout(t *testing.T, cfg config.Wrapper, shutdownTime
 	diskEventSub := new(eventmocks.BufferedSubscription)
 	discoverer := new(discovermocks.Manager)
 	connections := new(connmocks.Service)
-	errorLog := new(loggermocks.Recorder)
-	systemLog := new(loggermocks.Recorder)
+	errorLog := new(slogutil.Recorder)
+	systemLog := new(slogutil.Recorder)
 	for _, l := range []*loggermocks.Recorder{errorLog, systemLog} {
 		l.SinceReturns([]logger.Line{
 			{

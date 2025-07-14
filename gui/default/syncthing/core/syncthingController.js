@@ -1615,7 +1615,7 @@ angular.module('syncthing.core')
             content: function () {
                 var content = "";
                 $.each($scope.logging.entries, function (idx, entry) {
-                    content += entry.when.split('.')[0].replace('T', ' ') + ' ' + entry.message + "\n";
+                    content += entry.when.split('.')[0].replace('T', ' ') + ' ' + entry.level + ' ' + entry.message + "\n";
                 });
                 return content;
             },

@@ -51,7 +51,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
-	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -97,8 +96,8 @@ type service struct {
 	miscDB               *db.Typed
 	shutdownTimeout      time.Duration
 
-	guiErrors logger.Recorder
-	systemLog logger.Recorder
+	guiErrors slogutil.Recorder
+	systemLog slogutil.Recorder
 }
 
 var _ config.Verifier = &service{}
@@ -109,7 +108,7 @@ type Service interface {
 	WaitForStart() error
 }
 
-func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog logger.Recorder, noUpgrade bool, miscDB *db.Typed) Service {
+func New(id protocol.DeviceID, cfg config.Wrapper, assetDir, tlsDefaultCommonName string, m model.Model, defaultSub, diskSub events.BufferedSubscription, evLogger events.Logger, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, fss model.FolderSummaryService, errors, systemLog slogutil.Recorder, noUpgrade bool, miscDB *db.Typed) Service {
 	return &service{
 		id:      id,
 		cfg:     cfg,
@@ -1097,7 +1096,7 @@ func (s *service) getSystemStatus(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *service) getSystemError(w http.ResponseWriter, _ *http.Request) {
-	sendJSON(w, map[string][]logger.Line{
+	sendJSON(w, map[string][]slogutil.Line{
 		"errors": s.guiErrors.Since(time.Time{}),
 	})
 }
@@ -1118,7 +1117,7 @@ func (s *service) getSystemLog(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		l.Debugln(err)
 	}
-	sendJSON(w, map[string][]logger.Line{
+	sendJSON(w, map[string][]slogutil.Line{
 		"messages": s.systemLog.Since(since),
 	})
 }

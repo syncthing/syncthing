@@ -13,10 +13,10 @@ type formattingHandler struct {
 	attrs  []slog.Attr
 	groups []string
 	out    io.Writer
-	rec    *lineRecorder
+	recs   []*lineRecorder
 }
 
-var s slog.Handler = (*formattingHandler)(nil)
+var _ slog.Handler = (*formattingHandler)(nil)
 
 func (h *formattingHandler) Enabled(context.Context, slog.Level) bool {
 	return true
@@ -59,13 +59,13 @@ func (h *formattingHandler) Handle(_ context.Context, rec slog.Record) error {
 	}
 
 	// If there is a recorder, record the line.
-	if h.rec != nil {
-		h.rec.record(line)
+	for _, rec := range h.recs {
+		rec.record(line)
 	}
 
 	// If there's an output, print the line.
 	if h.out != nil {
-		line.WriteTo(h.out)
+		_, _ = line.WriteTo(h.out)
 	}
 	return nil
 }
@@ -114,7 +114,7 @@ func (h *formattingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	return &formattingHandler{
 		attrs:  append(h.attrs, attrs...),
 		groups: h.groups,
-		rec:    h.rec,
+		recs:   h.recs,
 		out:    h.out,
 	}
 }
@@ -126,7 +126,7 @@ func (h *formattingHandler) WithGroup(name string) slog.Handler {
 	return &formattingHandler{
 		attrs:  h.attrs,
 		groups: append(h.groups, name),
-		rec:    h.rec,
+		recs:   h.recs,
 		out:    h.out,
 	}
 }

@@ -13,8 +13,8 @@ import (
 )
 
 var slogDef = &formattingHandler{
-	rec: globalRecorder,
-	out: os.Stdout,
+	recs: []*lineRecorder{GlobalRecorder, ErrorRecorder},
+	out:  os.Stdout,
 }
 
 // Log levels:
