@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
 	"iter"
 	"path/filepath"
 	"strings"
@@ -374,6 +375,22 @@ func (s *DB) DropDevice(device protocol.DeviceID) error {
 	return s.forEachFolder(func(fdb *folderDB) error {
 		return fdb.DropDevice(device)
 	})
+}
+
+func (s *DB) DebugCounts(out io.Writer, folder string) error {
+	fdb, err := s.getFolderDB(folder, false)
+	if err != nil {
+		return err
+	}
+	return fdb.DebugCounts(out)
+}
+
+func (s *DB) DebugFilePattern(out io.Writer, folder, name string) error {
+	fdb, err := s.getFolderDB(folder, false)
+	if err != nil {
+		return err
+	}
+	return fdb.DebugFilePattern(out, name)
 }
 
 // forEachFolder runs the function for each currently open folderDB,

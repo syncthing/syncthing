@@ -368,7 +368,7 @@
     "Show diff with previous version": "Vis forskelle fra tidligere version",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Vises i stedet for enheds-ID i klyngestatus. Vil blive sendt til andre enheder som valgfrit standardnavn.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Vises i stedet for enheds-ID i klyngestatus. Vil blive opdateret til det navn, som enheden sender, hvis det ikke er udfyldt.",
-    "Shutdown": "Luk ned",
+    "Shut Down": "Luk ned",
     "Shutdown Complete": "Nedlukning fuldført",
     "Simple": "Enkel",
     "Simple File Versioning": "Simpel filversionering",

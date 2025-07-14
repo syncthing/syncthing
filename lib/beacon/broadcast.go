@@ -11,7 +11,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/wlynxg/anet"
+	"github.com/syncthing/syncthing/lib/netutil"
 )
 
 func NewBroadcast(port int) Interface {
@@ -46,7 +46,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 			return doneCtx.Err()
 		}
 
-		intfs, err := anet.Interfaces()
+		intfs, err := netutil.Interfaces()
 		if err != nil {
 			l.Debugln("Failed to list interfaces:", err)
 			// net.Interfaces() is broken on Android. see https://github.com/golang/go/issues/40569
@@ -61,7 +61,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 				continue
 			}
 
-			addrs, err := anet.InterfaceAddrsByInterface(&intf)
+			addrs, err := netutil.InterfaceAddrsByInterface(&intf)
 			if err != nil {
 				l.Debugln("Failed to list interface addresses:", err)
 				// Interface discovery might work while retrieving the addresses doesn't. So log the error and carry on.

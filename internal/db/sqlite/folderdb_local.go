@@ -8,9 +8,14 @@ package sqlite
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"iter"
+	"strings"
+	"text/tabwriter"
+	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
@@ -125,4 +130,83 @@ func (s *folderDB) ListDevicesForFolder() ([]protocol.DeviceID, error) {
 		}
 	}
 	return devs, nil
+}
+
+func (s *folderDB) DebugCounts(out io.Writer) error {
+	type deviceCountsRow struct {
+		countsRow
+
+		DeviceID string
+	}
+
+	delMap := map[bool]string{
+		true:  "del",
+		false: "---",
+	}
+
+	var res []deviceCountsRow
+	if err := s.stmt(`
+		SELECT d.device_id as deviceid, s.type, s.count, s.size, s.local_flags, s.deleted FROM counts s
+		INNER JOIN devices d ON d.idx = s.device_idx
+	`).Select(&res); err != nil {
+		return wrap(err)
+	}
+
+	tw := tabwriter.NewWriter(out, 2, 2, 2, ' ', 0)
+	fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", "DEVICE", "TYPE", "FLAGS", "DELETED", "COUNT", "SIZE")
+	for _, row := range res {
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d\t%d\n", shortDevice(row.DeviceID), shortType(row.Type), row.LocalFlags.HumanString(), delMap[row.Deleted], row.Count, row.Size)
+	}
+	return tw.Flush()
+}
+
+func (s *folderDB) DebugFilePattern(out io.Writer, name string) error {
+	type hashFileMetadata struct {
+		db.FileMetadata
+
+		Version       dbVector
+		BlocklistHash []byte
+		DeviceID      string
+	}
+	name = "%" + name + "%"
+	res := itererr.Zip(iterStructs[hashFileMetadata](s.stmt(`
+		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.local_flags as localflags, f.version, f.blocklist_hash as blocklisthash, d.device_id as deviceid FROM files f
+		INNER JOIN devices d ON d.idx = f.device_idx
+		WHERE f.name LIKE ?
+		ORDER BY f.name, f.device_idx
+	`).Queryx(name)))
+
+	delMap := map[bool]string{
+		true:  "del",
+		false: "---",
+	}
+
+	tw := tabwriter.NewWriter(out, 2, 2, 2, ' ', 0)
+	fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", "DEVICE", "TYPE", "NAME", "SEQUENCE", "DELETED", "MODIFIED", "SIZE", "FLAGS", "VERSION", "BLOCKLIST")
+	for row, err := range res {
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\t%d\t%s\t%s\t%s\n", shortDevice(row.DeviceID), shortType(row.Type), row.Name, row.Sequence, delMap[row.Deleted], row.ModTime().UTC().Format(time.RFC3339Nano), row.Size, row.LocalFlags.HumanString(), row.Version.HumanString(), shortHash(row.BlocklistHash))
+	}
+	return tw.Flush()
+}
+
+func shortDevice(s string) string {
+	if dev, err := protocol.DeviceIDFromString(s); err == nil && dev == protocol.LocalDeviceID {
+		return "-local-"
+	}
+	short, _, _ := strings.Cut(s, "-")
+	return short
+}
+
+func shortType(t protocol.FileInfoType) string {
+	return strings.TrimPrefix(t.String(), "FILE_INFO_TYPE_")
+}
+
+func shortHash(bs []byte) string {
+	if len(bs) == 0 {
+		return "-nil-"
+	}
+	return base64.RawStdEncoding.EncodeToString(bs)[:8]
 }

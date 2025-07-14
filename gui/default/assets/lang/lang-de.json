@@ -371,7 +371,7 @@
     "Show diff with previous version": "Unterschied zur vorherigen Version anzeigen",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Wird anstelle der Gerätekennung im Verbundstatus angezeigt. Wird anderen Geräten als optionaler Standardname bekannt gegeben.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Wird anstelle der Gerätekennung im Verbundstatus angezeigt. Wird auf den Namen aktualisiert, den das Gerät anzeigt, wenn er leer bleibt.",
-    "Shutdown": "Herunterfahren",
+    "Shut Down": "Herunterfahren",
     "Shutdown Complete": "Vollständig heruntergefahren",
     "Simple": "Einfach",
     "Simple File Versioning": "Einfache Dateiversionierung",

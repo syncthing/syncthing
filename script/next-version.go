@@ -82,9 +82,14 @@ func main() {
 		}
 
 		// We want the next prerelease. We are already on a prerelease. If
-		// it's the correct prerelease compared to the logs we just got, we
-		// should just bump the prerelease counter.
-		if next.Major == latest.Major && next.Minor == latest.Minor && next.Patch == latest.Patch {
+		// it's the correct prerelease compared to the logs we just got, or
+		// newer, we should just bump the prerelease counter. We compare
+		// against the latest without the prerelease part, as otherwise it
+		// would compare less than next if they represent the same version
+		// -- pre being less than stable.
+		latestNoPre := *latest
+		latestNoPre.PreRelease = ""
+		if !latestNoPre.LessThan(next) {
 			parts := latest.PreRelease.Slice()
 			for i, p := range parts {
 				if v, err := strconv.Atoi(p); err == nil {

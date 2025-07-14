@@ -322,7 +322,7 @@
     "Show diff with previous version": "Tampilkan perbedaan dengan versi sebelumnya",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Ditampilkan sebagai ganti ID Perangkat dalam status gugus. Akan diumumkan ke perangkat lain sebagai nama bawaan opsional.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Ditampilkan sebagai ganti ID Perangkat dalam status gugus. Akan diubah menjadi nama yang perangkat umumkan jika tidak diisi.",
-    "Shutdown": "Matikan",
+    "Shut Down": "Matikan",
     "Shutdown Complete": "Pematian Selesai",
     "Simple File Versioning": "Pemversian Berkas Sederhana",
     "Single level wildcard (matches within a directory only)": "Wildcard tingkat tunggal (cocok hanya dalam satu direktori saja)",

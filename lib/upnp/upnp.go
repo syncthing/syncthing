@@ -48,7 +48,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wlynxg/anet"
+	"github.com/syncthing/syncthing/lib/netutil"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/dialer"
@@ -106,7 +106,7 @@ const (
 func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 	var results []nat.Device
 
-	interfaces, err := anet.Interfaces()
+	interfaces, err := netutil.Interfaces()
 	if err != nil {
 		l.Infoln("Listing network interfaces:", err)
 		return results
@@ -388,7 +388,7 @@ func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, re
 }
 
 func localIPv4(netInterface *net.Interface) (net.IP, error) {
-	addrs, err := anet.InterfaceAddrsByInterface(netInterface)
+	addrs, err := netutil.InterfaceAddrsByInterface(netInterface)
 	if err != nil {
 		return nil, err
 	}
@@ -631,7 +631,7 @@ func soapRequestWithIP(ctx context.Context, url, service, function, message stri
 }
 
 func interfaceHasGUAIPv6(intf net.Interface) (bool, error) {
-	addrs, err := anet.InterfaceAddrsByInterface(&intf)
+	addrs, err := netutil.InterfaceAddrsByInterface(&intf)
 	if err != nil {
 		return false, err
 	}

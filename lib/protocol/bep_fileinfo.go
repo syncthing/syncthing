@@ -11,6 +11,8 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/gen/bep"
@@ -40,8 +42,50 @@ const (
 	LocalAllFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan | FlagLocalReceiveOnly | FlagLocalGlobal | FlagLocalNeeded | FlagLocalRemoteInvalid
 )
 
+// localFlagBitNames maps flag values to characters which can be used to
+// build a permission-like bit string for easier reading.
+var localFlagBitNames = map[FlagLocal]string{
+	FlagLocalUnsupported:   "u",
+	FlagLocalIgnored:       "i",
+	FlagLocalMustRescan:    "r",
+	FlagLocalReceiveOnly:   "e",
+	FlagLocalGlobal:        "G",
+	FlagLocalNeeded:        "n",
+	FlagLocalRemoteInvalid: "v",
+}
+
 func (f FlagLocal) IsInvalid() bool {
 	return f&LocalInvalidFlags != 0
+}
+
+// HumanString returns a permission-like string representation of the flag bits
+func (f FlagLocal) HumanString() string {
+	if f == 0 {
+		return strings.Repeat("-", len(localFlagBitNames))
+	}
+
+	bit := FlagLocal(1)
+	var res bytes.Buffer
+	var extra strings.Builder
+	for f != 0 {
+		if f&bit != 0 {
+			if name, ok := localFlagBitNames[bit]; ok {
+				res.WriteString(name)
+			} else {
+				fmt.Fprintf(&extra, "+0x%x", bit)
+			}
+		} else {
+			res.WriteString("-")
+		}
+		f &^= bit
+		bit <<= 1
+	}
+	if res.Len() < len(localFlagBitNames) {
+		res.WriteString(strings.Repeat("-", len(localFlagBitNames)-res.Len()))
+	}
+	base := res.Bytes()
+	slices.Reverse(base)
+	return string(base) + extra.String()
 }
 
 // BlockSizes is the list of valid block sizes, from min to max
@@ -154,15 +198,6 @@ func (f *FileInfo) WinsConflict(other FileInfo) bool {
 	// If only one of the files is invalid, that one loses.
 	if f.IsInvalid() != other.IsInvalid() {
 		return !f.IsInvalid()
-	}
-
-	// If a modification is in conflict with a delete, we pick the
-	// modification.
-	if !f.IsDeleted() && other.IsDeleted() {
-		return true
-	}
-	if f.IsDeleted() && !other.IsDeleted() {
-		return false
 	}
 
 	// The one with the newer modification time wins.

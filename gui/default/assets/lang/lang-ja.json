@@ -311,7 +311,7 @@
     "Show diff with previous version": "前バージョンとの差分を表示",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "ステータス画面でデバイスIDの代わりに表示されます。他のデバイスに対してもデフォルトの名前として通知されます。",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "ステータス画面でデバイスIDの代わりに表示されます。空欄にすると相手側デバイスが通知してきた名前で更新されます。",
-    "Shutdown": "シャットダウン",
+    "Shut Down": "シャットダウン",
     "Shutdown Complete": "シャットダウン完了",
     "Simple File Versioning": "単純バージョン管理",
     "Single level wildcard (matches within a directory only)": "ワイルドカード (単一のディレクトリ内だけでマッチします)",
