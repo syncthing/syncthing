@@ -152,7 +152,7 @@
     "Show ID": "Паказаць ID",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.",
-    "Shutdown": "Выключыць",
+    "Shut Down": "Выключыць",
     "Shutdown Complete": "Выключэньне завершанае",
     "Simple File Versioning": "Простае захоўваньне вэрсій",
     "Single level wildcard (matches within a directory only)": "Single level wildcard (matches within a directory only)",

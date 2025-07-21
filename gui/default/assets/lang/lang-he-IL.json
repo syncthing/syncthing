@@ -371,7 +371,7 @@
     "Show diff with previous version": "הצג הבדל עם הגרסה הקודמת",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "מוצג במקום מזהה ההתקן במצב האשכול. יפורסם להתקנים אחרים כשם ברירת מחדל אופציונלי.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "מוצג במקום מזהה ההתקן במצב האשכול. יעודכן לשם שההתקן מפרסם אם נותר ריק.",
-    "Shutdown": "כיבוי",
+    "Shut Down": "כיבוי",
     "Shutdown Complete": "הכיבוי הושלם",
     "Simple": "פשוט",
     "Simple File Versioning": "ניהול גרסאות קבצים פשוט",

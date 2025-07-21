@@ -27,6 +27,7 @@ linters:
     - musttag
     - nestif
     - nlreturn
+    - noinlineerr
     - nonamedreturns
     - paralleltest
     - prealloc
@@ -42,6 +43,7 @@ linters:
     - whitespace
     - wrapcheck
     - wsl
+    - wsl_v5
   exclusions:
     generated: lax
     presets:

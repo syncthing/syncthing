@@ -38,6 +38,17 @@ func (v *Vector) String() string {
 	return buf.String()
 }
 
+func (v *Vector) HumanString() string {
+	var buf strings.Builder
+	for i, c := range v.Counters {
+		if i > 0 {
+			buf.WriteRune(',')
+		}
+		fmt.Fprintf(&buf, "%s:%d", c.ID, c.Value)
+	}
+	return buf.String()
+}
+
 func (v *Vector) ToWire() *bep.Vector {
 	counters := make([]*bep.Counter, len(v.Counters))
 	for i, c := range v.Counters {

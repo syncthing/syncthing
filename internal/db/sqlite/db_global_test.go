@@ -568,3 +568,59 @@ func TestNeedPagination(t *testing.T) {
 		t.Error("bad need")
 	}
 }
+
+func TestDeletedAfterConflict(t *testing.T) {
+	t.Parallel()
+
+	// A delete that comes after a conflict should be applied, not lose the
+	// conflict and suddenly cause an old conflict version to become
+	// promoted.
+
+	// 	D:\syncthing-windows-amd64-v2.0.0-rc.22.dev.11.gff88430e>syncthing --home=c:\PortableApp\SyncTrayzorPortable-x64\data\syncthing debug database-file tnhbr-gxtuf TreeSizeFreeSetup.exe
+	// DEVICE   TYPE  NAME                   SEQUENCE  DELETED  MODIFIED                      SIZE      FLAGS    VERSION                                BLOCKLIST
+	// -local-  FILE  TreeSizeFreeSetup.exe  499       del      2025-07-04T11:52:36.2804841Z  0         -------  HZJYWFM:1751507473,OMKHRPB:1751629956  -nil-
+	// J5WNYJ6  FILE  TreeSizeFreeSetup.exe  500       del      2025-07-04T11:52:36.2804841Z  0         -------  HZJYWFM:1751507473,OMKHRPB:1751629956  -nil-
+	// 23NHXGS  FILE  TreeSizeFreeSetup.exe  445       ---      2025-06-23T03:16:10.2804841Z  13832808  -nG----  HZJYWFM:1751507473                     7B4kLitF
+	// JKX6ZDN  FILE  TreeSizeFreeSetup.exe  320       ---      2025-06-23T03:16:10.2804841Z  13832808  -------  JKX6ZDN:1750992570                     7B4kLitF
+
+	db, err := OpenTemp()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// A file, updated by some remote device. This file is an old, conflicted copy.
+	file := genFile("test1", 1, 101)
+	file.ModifiedS = 1750992570
+	file.Version = protocol.Vector{Counters: []protocol.Counter{{ID: 5 << 60, Value: 1750992570}}}
+	if err := db.Update(folderID, protocol.DeviceID{5}, []protocol.FileInfo{file}); err != nil {
+		t.Fatal(err)
+	}
+
+	// The file, updated by a newer remote device. This file is the newer, conflict-winning copy.
+	file.ModifiedS = 1751507473
+	file.Version = protocol.Vector{Counters: []protocol.Counter{{ID: 2 << 60, Value: 1751507473}}}
+	if err := db.Update(folderID, protocol.DeviceID{2}, []protocol.FileInfo{file}); err != nil {
+		t.Fatal(err)
+	}
+
+	// The file, deleted locally after syncing the file from the remote above..
+	file.SetDeleted(4)
+	if err := db.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{file}); err != nil {
+		t.Fatal(err)
+	}
+
+	// The delete should be the global version
+	f, _, err := db.GetGlobalFile(folderID, "test1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !f.IsDeleted() {
+		t.Log(f)
+		t.Error("should be deleted")
+	}
+}
