@@ -17,6 +17,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/itererr"
@@ -30,13 +31,12 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/semaphore"
-	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
 var (
 	blockStats    = make(map[string]int)
-	blockStatsMut = sync.NewMutex()
+	blockStatsMut sync.Mutex
 )
 
 func init() {
@@ -121,7 +121,7 @@ type dbUpdateJob struct {
 }
 
 type sendReceiveFolder struct {
-	folder
+	*folder
 
 	queue              *jobQueue
 	blockPullReorderer blockPullReorderer
@@ -246,10 +246,10 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 	finisherChan := make(chan *sharedPullerState)
 	dbUpdateChan := make(chan dbUpdateJob)
 
-	pullWg := sync.NewWaitGroup()
-	copyWg := sync.NewWaitGroup()
-	doneWg := sync.NewWaitGroup()
-	updateWg := sync.NewWaitGroup()
+	var pullWg sync.WaitGroup
+	var copyWg sync.WaitGroup
+	var doneWg sync.WaitGroup
+	var updateWg sync.WaitGroup
 
 	l.Debugln(f, "copiers:", f.Copiers, "pullerPendingKiB:", f.PullerMaxPendingKiB)
 
@@ -1478,7 +1478,7 @@ func (*sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) err
 
 func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
 	requestLimiter := semaphore.New(f.PullerMaxPendingKiB * 1024)
-	wg := sync.NewWaitGroup()
+	var wg sync.WaitGroup
 
 	for state := range in {
 		if state.failed() != nil {

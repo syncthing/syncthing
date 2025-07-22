@@ -10,13 +10,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 	"sync/atomic"
 
 	"golang.org/x/time/rate"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // limiter manages a read and write rate limit, reacting to config changes
@@ -46,7 +46,6 @@ func newLimiter(myId protocol.DeviceID, cfg config.Wrapper) *limiter {
 		myID:                myId,
 		write:               rate.NewLimiter(rate.Inf, limiterBurstSize),
 		read:                rate.NewLimiter(rate.Inf, limiterBurstSize),
-		mu:                  sync.NewMutex(),
 		deviceReadLimiters:  make(map[protocol.DeviceID]*rate.Limiter),
 		deviceWriteLimiters: make(map[protocol.DeviceID]*rate.Limiter),
 	}

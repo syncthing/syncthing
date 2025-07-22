@@ -14,6 +14,7 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -23,7 +24,6 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sliceutil"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 const (
@@ -151,7 +151,6 @@ func Wrap(path string, cfg Configuration, myID protocol.DeviceID, evLogger event
 		myID:     myID,
 		queue:    make(chan modifyEntry, maxModifications),
 		waiter:   noopWaiter{}, // Noop until first config change
-		mut:      sync.NewMutex(),
 	}
 	return w
 }
@@ -328,7 +327,7 @@ func (w *wrapper) replaceLocked(to Configuration) (Waiter, error) {
 }
 
 func (w *wrapper) notifyListeners(from, to Configuration) Waiter {
-	wg := sync.NewWaitGroup()
+	wg := new(sync.WaitGroup)
 	wg.Add(len(w.subs))
 	for _, sub := range w.subs {
 		go func(committer Committer) {

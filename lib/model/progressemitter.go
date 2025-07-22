@@ -9,12 +9,12 @@ package model
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type ProgressEmitter struct {
@@ -53,7 +53,6 @@ func NewProgressEmitter(cfg config.Wrapper, evLogger events.Logger) *ProgressEmi
 		connections:        make(map[protocol.DeviceID]protocol.Connection),
 		foldersByConns:     make(map[protocol.DeviceID][]string),
 		evLogger:           evLogger,
-		mut:                sync.NewMutex(),
 	}
 
 	t.CommitConfiguration(config.Configuration{}, cfg.RawCopy())

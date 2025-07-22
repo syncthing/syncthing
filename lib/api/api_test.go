@@ -39,14 +39,11 @@ import (
 	eventmocks "github.com/syncthing/syncthing/lib/events/mocks"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
-	"github.com/syncthing/syncthing/lib/logger"
-	loggermocks "github.com/syncthing/syncthing/lib/logger/mocks"
 	"github.com/syncthing/syncthing/lib/model"
 	modelmocks "github.com/syncthing/syncthing/lib/model/mocks"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/ur"
 )
@@ -97,7 +94,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 
 	srv.started = make(chan string)
 
-	sup := suture.New("test", svcutil.SpecWithDebugLogger(l))
+	sup := suture.New("test", svcutil.SpecWithDebugLogger())
 	sup.Add(srv)
 	ctx, cancel := context.WithCancel(context.Background())
 	sup.ServeBackground(ctx)
@@ -151,7 +148,6 @@ func TestAssetsDir(t *testing.T) {
 
 	e := &staticsServer{
 		theme:    "foo",
-		mut:      sync.NewRWMutex(),
 		assetDir: "testdata",
 		assets: map[string]assets.Asset{
 			"foo/a":     foo, // overridden in foo/a
@@ -1045,16 +1041,8 @@ func startHTTPWithShutdownTimeout(t *testing.T, cfg config.Wrapper, shutdownTime
 	diskEventSub := new(eventmocks.BufferedSubscription)
 	discoverer := new(discovermocks.Manager)
 	connections := new(connmocks.Service)
-	errorLog := new(slogutil.Recorder)
-	systemLog := new(slogutil.Recorder)
-	for _, l := range []*loggermocks.Recorder{errorLog, systemLog} {
-		l.SinceReturns([]logger.Line{
-			{
-				When:    time.Now(),
-				Message: "Test message",
-			},
-		})
-	}
+	errorLog := slogutil.NewRecorder(0)
+	systemLog := slogutil.NewRecorder(0)
 	addrChan := make(chan string)
 	mockedSummary := &modelmocks.FolderSummaryService{}
 	mockedSummary.SummaryReturns(new(model.FolderSummary), nil)

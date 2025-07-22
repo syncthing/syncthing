@@ -8,8 +8,6 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
-	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var slogDef = &formattingHandler{
@@ -78,7 +76,7 @@ func (a adapter) Warnf(format string, vals ...interface{}) {
 }
 
 func (a adapter) log(msg string, level slog.Level) {
-	h := a.Logger.Handler()
+	h := a.Handler()
 	if !h.Enabled(context.Background(), level) {
 		return
 	}
@@ -90,7 +88,6 @@ func (a adapter) log(msg string, level slog.Level) {
 	_ = h.Handle(context.Background(), r)
 }
 
-func (a adapter) AddHandler(level logger.LogLevel, h logger.MessageHandler) {}
 func (a adapter) ShouldDebug(facility string) bool {
 	return globalLevels.Get(facility) >= slog.LevelDebug
 }

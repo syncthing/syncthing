@@ -13,12 +13,11 @@ import (
 	"math/rand"
 	"net"
 	"slices"
-	stdsync "sync"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // Service runs a loop for discovery of IGDs (Internet Gateway Devices) and
@@ -38,8 +37,6 @@ func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 		id:               id,
 		cfg:              cfg,
 		processScheduled: make(chan struct{}, 1),
-
-		mut: sync.NewRWMutex(),
 	}
 	cfgCopy := cfg.RawCopy()
 	s.CommitConfiguration(cfgCopy, cfgCopy)
@@ -64,7 +61,7 @@ func (s *Service) Serve(ctx context.Context) error {
 	s.cfg.Subscribe(s)
 	defer s.cfg.Unsubscribe(s)
 
-	announce := stdsync.Once{}
+	var announce sync.Once
 
 	timer := time.NewTimer(0)
 
@@ -171,7 +168,6 @@ func (s *Service) NewMapping(protocol Protocol, ipVersion IPVersion, ip net.IP, 
 			Port: port,
 		},
 		extAddresses: make(map[string][]Address),
-		mut:          sync.NewRWMutex(),
 		ipVersion:    ipVersion,
 	}
 

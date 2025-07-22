@@ -118,6 +118,7 @@ func (t *levelTracker) Levels() map[string]slog.Level {
 
 type levelTrackingHandler struct {
 	slog.Handler
+
 	levels *levelTracker
 	pkg    string
 }

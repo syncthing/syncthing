@@ -24,7 +24,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
-	stdsync "sync"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -45,7 +45,6 @@ import (
 	"github.com/syncthing/syncthing/lib/semaphore"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/ur/contract"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
@@ -213,7 +212,7 @@ var (
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
 func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb db.DB, protectedFiles []string, evLogger events.Logger, keyGen *protocol.KeyGenerator) Model {
-	spec := svcutil.SpecWithDebugLogger(l)
+	spec := svcutil.SpecWithDebugLogger()
 	m := &model{
 		Supervisor: suture.New("model", spec),
 
@@ -236,7 +235,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb db.DB, protectedFile
 		observed:             db.NewObservedDB(sdb),
 
 		// fields protected by mut
-		mut:                            sync.NewRWMutex(),
 		folderCfgs:                     make(map[string]config.FolderConfiguration),
 		deviceStatRefs:                 make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
 		folderIgnores:                  make(map[string]*ignore.Matcher),
@@ -1937,7 +1935,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 type requestResponse struct {
 	data   []byte
 	closed chan struct{}
-	once   stdsync.Once
+	once   sync.Once
 }
 
 func newRequestResponse(size int) *requestResponse {
@@ -2500,9 +2498,9 @@ func (m *model) ScanFolders() map[string]error {
 	m.mut.RUnlock()
 
 	errors := make(map[string]error, len(m.folderCfgs))
-	errorsMut := sync.NewMutex()
+	var errorsMut sync.Mutex
 
-	wg := sync.NewWaitGroup()
+	var wg sync.WaitGroup
 	wg.Add(len(folders))
 	for _, folder := range folders {
 		go func() {
@@ -3379,12 +3377,12 @@ func (s folderDeviceSet) hasDevice(dev protocol.DeviceID) bool {
 
 // syncMutexMap is a type safe wrapper for a sync.Map that holds mutexes
 type syncMutexMap struct {
-	inner stdsync.Map
+	inner sync.Map
 }
 
-func (m *syncMutexMap) Get(key string) sync.Mutex {
-	v, _ := m.inner.LoadOrStore(key, sync.NewMutex())
-	return v.(sync.Mutex)
+func (m *syncMutexMap) Get(key string) *sync.Mutex {
+	v, _ := m.inner.LoadOrStore(key, new(sync.Mutex))
+	return v.(*sync.Mutex)
 }
 
 type deviceIDSet map[protocol.DeviceID]struct{}

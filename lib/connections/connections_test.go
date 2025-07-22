@@ -17,6 +17,7 @@ import (
 	"net"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -27,7 +28,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 )
 
@@ -336,7 +336,7 @@ func BenchmarkConnections(b *testing.B) {
 						total := 0
 						b.ResetTimer()
 						for i := 0; i < b.N; i++ {
-							wg := sync.NewWaitGroup()
+							var wg sync.WaitGroup
 							wg.Add(2)
 							errC := make(chan error, 2)
 							go func() {

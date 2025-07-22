@@ -9,9 +9,8 @@ package nat
 import (
 	"fmt"
 	"net"
+	"sync"
 	"time"
-
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type MappingChangeSubscriber func()

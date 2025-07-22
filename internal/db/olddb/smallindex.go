@@ -9,9 +9,9 @@ package olddb
 import (
 	"encoding/binary"
 	"slices"
+	"sync"
 
 	"github.com/syncthing/syncthing/internal/db/olddb/backend"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // A smallIndex is an in memory bidirectional []byte to uint32 map. It gives
@@ -32,7 +32,6 @@ func newSmallIndex(db backend.Backend, prefix []byte) *smallIndex {
 		prefix: prefix,
 		id2val: make(map[uint32]string),
 		val2id: make(map[string]uint32),
-		mut:    sync.NewMutex(),
 	}
 	idx.load()
 	return idx

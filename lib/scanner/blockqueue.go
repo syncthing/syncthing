@@ -9,10 +9,10 @@ package scanner
 import (
 	"context"
 	"errors"
+	"sync"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // HashFile hashes the files and returns a list of blocks representing the file.
@@ -81,7 +81,6 @@ func newParallelHasher(ctx context.Context, folderID string, fs fs.Filesystem, w
 		inbox:    inbox,
 		counter:  counter,
 		done:     done,
-		wg:       sync.NewWaitGroup(),
 	}
 
 	ph.wg.Add(workers)

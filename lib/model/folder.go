@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
@@ -30,7 +31,6 @@ import (
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/stringutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
@@ -98,7 +98,7 @@ type puller interface {
 	pull() (bool, error) // true when successful and should not be retried
 }
 
-func newFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *semaphore.Semaphore, ver versioner.Versioner) folder {
+func newFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *semaphore.Semaphore, ver versioner.Versioner) *folder {
 	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
@@ -123,17 +123,13 @@ func newFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfigura
 
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
 
-		errorsMut: sync.NewMutex(),
-
 		doInSyncChan: make(chan syncRequest),
 
 		forcedRescanRequested: make(chan struct{}, 1),
 		forcedRescanPaths:     make(map[string]struct{}),
-		forcedRescanPathsMut:  sync.NewMutex(),
 
 		watchCancel:      func() {},
 		restartWatchChan: make(chan struct{}, 1),
-		watchMut:         sync.NewMutex(),
 
 		versioner: ver,
 	}
@@ -143,7 +139,7 @@ func newFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfigura
 
 	registerFolderMetrics(f.ID)
 
-	return f
+	return &f
 }
 
 func (f *folder) Serve(ctx context.Context) error {

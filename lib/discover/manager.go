@@ -14,6 +14,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/thejerf/suture/v4"
@@ -24,7 +25,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stringutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // The Manager aggregates results from multiple Finders. Each Finder has
@@ -53,7 +53,7 @@ type manager struct {
 
 func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate, evLogger events.Logger, lister AddressLister, registry *registry.Registry) Manager {
 	m := &manager{
-		Supervisor:    suture.New("discover.Manager", svcutil.SpecWithDebugLogger(l)),
+		Supervisor:    suture.New("discover.Manager", svcutil.SpecWithDebugLogger()),
 		myID:          myID,
 		cfg:           cfg,
 		cert:          cert,
@@ -62,7 +62,6 @@ func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate
 		registry:      registry,
 
 		finders: make(map[string]cachedFinder),
-		mut:     sync.NewRWMutex(),
 	}
 	m.Add(svcutil.AsService(m.serve, m.String()))
 	return m

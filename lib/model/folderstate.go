@@ -7,10 +7,10 @@
 package model
 
 import (
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type folderState int
@@ -94,7 +94,6 @@ func newStateTracker(id string, evLogger events.Logger) stateTracker {
 	return stateTracker{
 		folderID: id,
 		evLogger: evLogger,
-		mut:      sync.NewMutex(),
 	}
 }
 

@@ -8,17 +8,18 @@ import (
 
 const maxLogLines = 1000
 
-var GlobalRecorder = &lineRecorder{
-	level: -1000,
-}
-
-var ErrorRecorder = &lineRecorder{
-	level: slog.LevelError,
-}
+var (
+	GlobalRecorder = &lineRecorder{level: -1000}
+	ErrorRecorder  = &lineRecorder{level: slog.LevelError}
+)
 
 type Recorder interface {
 	Since(t time.Time) []Line
 	Clear()
+}
+
+func NewRecorder(level slog.Level) Recorder {
+	return &lineRecorder{level: level}
 }
 
 type lineRecorder struct {

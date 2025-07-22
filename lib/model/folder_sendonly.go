@@ -21,7 +21,7 @@ func init() {
 }
 
 type sendOnlyFolder struct {
-	folder
+	*folder
 }
 
 func newSendOnlyFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfiguration, _ versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {

@@ -16,6 +16,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -24,13 +25,12 @@ import (
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 var (
 	stdoutFirstLines []string // The first 10 lines of stdout
 	stdoutLastLines  []string // The last 50 lines of stdout
-	stdoutMut        = sync.NewMutex()
+	stdoutMut        sync.Mutex
 )
 
 const (
@@ -132,7 +132,7 @@ func (c *serveCmd) monitorMain() {
 		stdoutLastLines = make([]string, 0, 50)
 		stdoutMut.Unlock()
 
-		wg := sync.NewWaitGroup()
+		var wg sync.WaitGroup
 
 		wg.Add(1)
 		go func() {
@@ -444,7 +444,6 @@ func newAutoclosedFile(name string, closeDelay, maxOpenTime time.Duration) (*aut
 		name:        name,
 		closeDelay:  closeDelay,
 		maxOpenTime: maxOpenTime,
-		mut:         sync.NewMutex(),
 		closed:      make(chan struct{}),
 		closeTimer:  time.NewTimer(time.Minute),
 	}

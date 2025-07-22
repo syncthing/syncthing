@@ -46,7 +46,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
-	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
@@ -199,13 +198,8 @@ type serveCmd struct {
 func defaultVars() kong.Vars {
 	vars := kong.Vars{}
 
-	vars["logFlags"] = strconv.Itoa(logger.DefaultFlags)
 	vars["logMaxSize"] = strconv.Itoa(10 << 20) // 10 MiB
 	vars["logMaxFiles"] = "3"                   // plus the current one
-
-	if os.Getenv("STTRACE") != "" {
-		vars["logFlags"] = strconv.Itoa(logger.DebugFlags)
-	}
 
 	// On non-Windows, we explicitly default to "-" which means stdout. On
 	// Windows, the "default" options.logFile will later be replaced with the
@@ -429,7 +423,7 @@ func (c *serveCmd) syncthingMain() {
 
 	// earlyService is a supervisor that runs the services needed for or
 	// before app startup; the event logger, and the config service.
-	spec := svcutil.SpecWithDebugLogger(nil)
+	spec := svcutil.SpecWithDebugLogger()
 	earlyService := suture.New("early", spec)
 	earlyService.ServeBackground(ctx)
 

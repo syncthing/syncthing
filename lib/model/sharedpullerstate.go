@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -18,7 +19,6 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // A sharedPullerState is kept for each file that is being synced and is kept
@@ -70,7 +70,6 @@ func newSharedPullerState(file protocol.FileInfo, fs fs.Filesystem, folderID, te
 		ignorePerms:      ignorePerms,
 		hasCurFile:       hasCurFile,
 		curFile:          curFile,
-		mut:              sync.NewRWMutex(),
 		sparse:           sparse,
 		fsync:            fsync,
 		created:          time.Now(),
@@ -225,7 +224,7 @@ func (s *sharedPullerState) tempFileInWritableDir(_ string) error {
 	}
 
 	// Same fd will be used by all writers
-	s.writer = &lockedWriterAt{sync.NewRWMutex(), fd}
+	s.writer = &lockedWriterAt{fd: fd}
 	return nil
 }
 

@@ -54,7 +54,7 @@ const (
 
 func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, evLogger events.Logger) (FinderService, error) {
 	c := &localClient{
-		Supervisor:      suture.New("local", svcutil.SpecWithDebugLogger(l)),
+		Supervisor:      suture.New("local", svcutil.SpecWithDebugLogger()),
 		myID:            id,
 		addrList:        addrList,
 		evLogger:        evLogger,

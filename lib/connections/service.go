@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
 	stdsync "sync"
 	"time"
 
@@ -42,7 +43,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sliceutil"
 	"github.com/syncthing/syncthing/lib/stringutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/sync"
 
 	// Registers NAT service providers
 	_ "github.com/syncthing/syncthing/lib/pmp"
@@ -185,7 +185,7 @@ type service struct {
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger, registry *registry.Registry, keyGen *protocol.KeyGenerator) Service {
-	spec := svcutil.SpecWithInfoLogger(l)
+	spec := svcutil.SpecWithInfoLogger()
 	service := &service{
 		Supervisor:              suture.New("connections.Service", spec),
 		connectionStatusHandler: newConnectionStatusHandler(),
@@ -206,11 +206,9 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		keyGen:               keyGen,
 		lanChecker:           &lanChecker{cfg},
 
-		dialNowDevicesMut: sync.NewMutex(),
-		dialNow:           make(chan struct{}, 1),
-		dialNowDevices:    make(map[protocol.DeviceID]struct{}),
+		dialNow:        make(chan struct{}, 1),
+		dialNowDevices: make(map[protocol.DeviceID]struct{}),
 
-		listenersMut:   sync.NewRWMutex(),
 		listeners:      make(map[string]genericListener),
 		listenerTokens: make(map[string]suture.ServiceToken),
 	}
@@ -826,7 +824,7 @@ func (s *service) createListener(factory listenerFactory, uri *url.URL) bool {
 	// Retrying a listener many times in rapid succession is unlikely to help,
 	// thus back off quickly. A listener may soon be functional again, e.g. due
 	// to a network interface coming back online - retry every minute.
-	spec := svcutil.SpecWithInfoLogger(l)
+	spec := svcutil.SpecWithInfoLogger()
 	spec.FailureThreshold = 2
 	spec.FailureBackoff = time.Minute
 	sup := suture.New(fmt.Sprintf("listenerSupervisor@%v", listener), spec)
@@ -1007,8 +1005,7 @@ type connectionStatusHandler struct {
 
 func newConnectionStatusHandler() connectionStatusHandler {
 	return connectionStatusHandler{
-		connectionStatusMut: sync.NewRWMutex(),
-		connectionStatus:    make(map[string]ConnectionStatusEntry),
+		connectionStatus: make(map[string]ConnectionStatusEntry),
 	}
 }
 
@@ -1084,7 +1081,7 @@ func urlsToStrings(urls []*url.URL) []string {
 
 var (
 	warningLimiters    = make(map[protocol.DeviceID]*rate.Limiter)
-	warningLimitersMut = sync.NewMutex()
+	warningLimitersMut sync.Mutex
 )
 
 func warningFor(dev protocol.DeviceID, msg string) {

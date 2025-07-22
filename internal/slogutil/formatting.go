@@ -1,7 +1,6 @@
 package slogutil
 
 import (
-	"cmp"
 	"context"
 	"io"
 	"log/slog"
@@ -68,15 +67,6 @@ func (h *formattingHandler) Handle(_ context.Context, rec slog.Record) error {
 		_, _ = line.WriteTo(h.out)
 	}
 	return nil
-}
-
-func slogKeyCompare(a, b slog.Attr) int {
-	ad := strings.Count(a.Key, ".")
-	bd := strings.Count(b.Key, ".")
-	if c := cmp.Compare(ad, bd); c != 0 {
-		return c
-	}
-	return strings.Compare(a.Key, b.Key)
 }
 
 func expandAttrs(prefix string, a slog.Attr) []slog.Attr {

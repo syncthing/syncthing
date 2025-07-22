@@ -10,15 +10,15 @@ package osutil
 import (
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // Try to keep this entire operation atomic-like. We shouldn't be doing this
 // often enough that there is any contention on this lock.
-var renameLock = sync.NewMutex()
+var renameLock sync.Mutex
 
 // RenameOrCopy renames a file, leaving source file intact in case of failure.
 // Tries hard to succeed on various systems by temporarily tweaking directory
