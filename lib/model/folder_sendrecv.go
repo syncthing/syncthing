@@ -1393,7 +1393,7 @@ func (f *sendReceiveFolder) copyBlockFromFolder(folderID string, block protocol.
 			// We just ignore this and continue pulling instead (though
 			// there's a good chance that will fail too, if the DB is
 			// unhealthy).
-			l.Debugf("Failed to get information from DB about block %v in copier (folderID %v, file %v): %v", block.Hash, f.folderID, state.file.Name)
+			l.Debugf("Failed to get information from DB about block %v in copier (folderID %v, file %v): %v", block.Hash, f.folderID, state.file.Name, err)
 			return false
 		}
 

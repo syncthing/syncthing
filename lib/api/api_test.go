@@ -357,7 +357,7 @@ func TestAPIServiceRequests(t *testing.T) {
 			Prefix: "{",
 		},
 		{
-			URL:    "/rest/system/debug",
+			URL:    "/rest/system/loglevels",
 			Code:   200,
 			Type:   "application/json",
 			Prefix: "{",

@@ -105,7 +105,7 @@ func (c *staticClient) serve(ctx context.Context) error {
 				return errors.New("relay full")
 
 			default:
-				l.Debugln("Relay: protocol error: unexpected message %v", msg)
+				l.Debugf("Relay: protocol error: unexpected message %v", msg)
 				return fmt.Errorf("protocol error: unexpected message %v", msg)
 			}
 
