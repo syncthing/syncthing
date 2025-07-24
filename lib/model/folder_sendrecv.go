@@ -1853,7 +1853,7 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 			return err
 		}
 
-		l.Debugln("Output from command:", output)
+		l.Debugln("Output from command:", string(output))
 	}
 
 	if f.MaxConflicts == 0 {
