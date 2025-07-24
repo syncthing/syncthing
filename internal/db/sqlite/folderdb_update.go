@@ -46,8 +46,8 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 
 	//nolint:sqlclosecheck
 	insertFileStmt, err := txp.Preparex(`
-		INSERT OR REPLACE INTO files (device_idx, remote_sequence, name, type, modified, size, version, deleted, invalid, local_flags, blocklist_hash)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT OR REPLACE INTO files (device_idx, remote_sequence, name, type, modified, size, version, deleted, local_flags, blocklist_hash)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING sequence
 	`)
 	if err != nil {
@@ -101,7 +101,7 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 			remoteSeq = &f.Sequence
 		}
 		var localSeq int64
-		if err := insertFileStmt.Get(&localSeq, deviceIdx, remoteSeq, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.IsInvalid(), f.LocalFlags, blockshash); err != nil {
+		if err := insertFileStmt.Get(&localSeq, deviceIdx, remoteSeq, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.LocalFlags, blockshash); err != nil {
 			return wrap(err, "insert file")
 		}
 
@@ -329,7 +329,7 @@ func (s *folderDB) recalcGlobalForFolder(txp *txPreparedStmts) error {
 func (s *folderDB) recalcGlobalForFile(txp *txPreparedStmts, file string) error {
 	//nolint:sqlclosecheck
 	selStmt, err := txp.Preparex(`
-		SELECT name, device_idx, sequence, modified, version, deleted, invalid, local_flags FROM files
+		SELECT name, device_idx, sequence, modified, version, deleted, local_flags FROM files
 		WHERE name = ?
 	`)
 	if err != nil {
@@ -350,7 +350,7 @@ func (s *folderDB) recalcGlobalForFile(txp *txPreparedStmts, file string) error 
 	// The global version is the first one in the list that is not invalid,
 	// or just the first one in the list if all are invalid.
 	var global fileRow
-	globIdx := slices.IndexFunc(es, func(e fileRow) bool { return !e.Invalid })
+	globIdx := slices.IndexFunc(es, func(e fileRow) bool { return !e.IsInvalid() })
 	if globIdx < 0 {
 		globIdx = 0
 	}
@@ -368,7 +368,7 @@ func (s *folderDB) recalcGlobalForFile(txp *txPreparedStmts, file string) error 
 	// Set the global flag on the global entry. Set the need flag if the
 	// local device needs this file, unless it's invalid.
 	global.LocalFlags |= protocol.FlagLocalGlobal
-	if hasLocal || global.Invalid {
+	if hasLocal || global.IsInvalid() {
 		global.LocalFlags &= ^protocol.FlagLocalNeeded
 	} else {
 		global.LocalFlags |= protocol.FlagLocalNeeded
@@ -426,9 +426,8 @@ type fileRow struct {
 	Sequence   int64
 	Modified   int64
 	Size       int64
-	LocalFlags int64 `db:"local_flags"`
+	LocalFlags protocol.FlagLocal `db:"local_flags"`
 	Deleted    bool
-	Invalid    bool
 }
 
 func (e fileRow) Compare(other fileRow) int {
@@ -436,8 +435,8 @@ func (e fileRow) Compare(other fileRow) int {
 	vc := e.Version.Compare(other.Version.Vector)
 	switch vc {
 	case protocol.Equal:
-		if e.Invalid != other.Invalid {
-			if e.Invalid {
+		if e.IsInvalid() != other.IsInvalid() {
+			if e.IsInvalid() {
 				return 1
 			}
 			return -1
@@ -453,17 +452,11 @@ func (e fileRow) Compare(other fileRow) int {
 	case protocol.Lesser: // we are older
 		return 1
 	case protocol.ConcurrentGreater, protocol.ConcurrentLesser: // there is a conflict
-		if e.Invalid != other.Invalid {
-			if e.Invalid { // we are invalid, we lose
+		if e.IsInvalid() != other.IsInvalid() {
+			if e.IsInvalid() { // we are invalid, we lose
 				return 1
 			}
 			return -1 // they are invalid, we win
-		}
-		if e.Deleted != other.Deleted {
-			if e.Deleted { // we are deleted, we lose
-				return 1
-			}
-			return -1 // they are deleted, we win
 		}
 		if d := cmp.Compare(e.Modified, other.Modified); d != 0 {
 			return -d // positive d means we were newer, so we win (negative return)
@@ -475,6 +468,10 @@ func (e fileRow) Compare(other fileRow) int {
 	default:
 		return 0
 	}
+}
+
+func (e fileRow) IsInvalid() bool {
+	return e.LocalFlags.IsInvalid()
 }
 
 func (s *folderDB) periodicCheckpointLocked(fs []protocol.FileInfo) {

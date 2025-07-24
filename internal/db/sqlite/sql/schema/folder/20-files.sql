@@ -31,7 +31,6 @@ CREATE TABLE IF NOT EXISTS files (
     size INTEGER NOT NULL,
     version TEXT NOT NULL COLLATE BINARY,
     deleted INTEGER NOT NULL, -- boolean
-    invalid INTEGER NOT NULL, -- boolean
     local_flags INTEGER NOT NULL,
     blocklist_hash BLOB, -- null when there are no blocks
     FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE

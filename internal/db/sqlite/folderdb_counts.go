@@ -16,7 +16,7 @@ type countsRow struct {
 	Count      int
 	Size       int64
 	Deleted    bool
-	LocalFlags int64 `db:"local_flags"`
+	LocalFlags protocol.FlagLocal `db:"local_flags"`
 }
 
 func (s *folderDB) CountLocal(device protocol.DeviceID) (db.Counts, error) {
@@ -39,13 +39,10 @@ func (s *folderDB) CountNeed(device protocol.DeviceID) (db.Counts, error) {
 }
 
 func (s *folderDB) CountGlobal() (db.Counts, error) {
-	// Exclude ignored and receive-only changed files from the global count
-	// (legacy expectation? it's a bit weird since those files can in fact
-	// be global and you can get them with GetGlobal etc.)
 	var res []countsRow
 	err := s.stmt(`
 		SELECT s.type, s.count, s.size, s.local_flags, s.deleted FROM counts s
-		WHERE s.local_flags & {{.FlagLocalGlobal}} != 0 AND s.local_flags & {{or .FlagLocalReceiveOnly .FlagLocalIgnored}} = 0
+		WHERE s.local_flags & {{.FlagLocalGlobal}} != 0 AND s.local_flags & {{.LocalInvalidFlags}} = 0
 	`).Select(&res)
 	if err != nil {
 		return db.Counts{}, wrap(err)
@@ -84,7 +81,7 @@ func (s *folderDB) needSizeRemote(device protocol.DeviceID) (db.Counts, error) {
 	// See neededGlobalFilesRemote for commentary as that is the same query without summing
 	if err := s.stmt(`
 		SELECT g.type, count(*) as count, sum(g.size) as size, g.local_flags, g.deleted FROM files g
-		WHERE g.local_flags & {{.FlagLocalGlobal}} != 0 AND NOT g.deleted AND NOT g.invalid AND NOT EXISTS (
+		WHERE g.local_flags & {{.FlagLocalGlobal}} != 0 AND NOT g.deleted AND g.local_flags & {{.LocalInvalidFlags}} = 0 AND NOT EXISTS (
 			SELECT 1 FROM FILES f
 			INNER JOIN devices d ON d.idx = f.device_idx
 			WHERE f.name = g.name AND f.version = g.version AND d.device_id = ?
@@ -94,10 +91,10 @@ func (s *folderDB) needSizeRemote(device protocol.DeviceID) (db.Counts, error) {
 		UNION ALL
 
 		SELECT g.type, count(*) as count, sum(g.size) as size, g.local_flags, g.deleted FROM files g
-		WHERE g.local_flags & {{.FlagLocalGlobal}} != 0 AND g.deleted AND NOT g.invalid AND EXISTS (
+		WHERE g.local_flags & {{.FlagLocalGlobal}} != 0 AND g.deleted AND g.local_flags & {{.LocalInvalidFlags}} = 0 AND EXISTS (
 			SELECT 1 FROM FILES f
 			INNER JOIN devices d ON d.idx = f.device_idx
-			WHERE f.name = g.name AND d.device_id = ? AND NOT f.deleted AND NOT f.invalid
+			WHERE f.name = g.name AND d.device_id = ? AND NOT f.deleted AND f.local_flags & {{.LocalInvalidFlags}} = 0
 		)
 		GROUP BY g.type, g.local_flags, g.deleted
 	`).Select(&res, device.String(),

@@ -45,7 +45,7 @@ func TestIsEquivalent(t *testing.T) {
 		b         FileInfo
 		ignPerms  *bool // nil means should not matter, we'll test both variants
 		ignBlocks *bool
-		ignFlags  uint32
+		ignFlags  FlagLocal
 		eq        bool
 	}
 	cases := []testCase{
@@ -75,8 +75,8 @@ func TestIsEquivalent(t *testing.T) {
 			eq: false,
 		},
 		{
-			a:  FileInfo{RawInvalid: false},
-			b:  FileInfo{RawInvalid: true},
+			a:  FileInfo{LocalFlags: 0},
+			b:  FileInfo{LocalFlags: FlagLocalRemoteInvalid},
 			eq: false,
 		},
 		{
@@ -100,8 +100,8 @@ func TestIsEquivalent(t *testing.T) {
 			eq: false,
 		},
 		{
-			a:  FileInfo{RawInvalid: true},
-			b:  FileInfo{RawInvalid: true},
+			a:  FileInfo{LocalFlags: FlagLocalRemoteInvalid},
+			b:  FileInfo{LocalFlags: FlagLocalRemoteInvalid},
 			eq: true,
 		},
 		{
@@ -110,7 +110,7 @@ func TestIsEquivalent(t *testing.T) {
 			eq: true,
 		},
 		{
-			a:  FileInfo{RawInvalid: true},
+			a:  FileInfo{LocalFlags: FlagLocalRemoteInvalid},
 			b:  FileInfo{LocalFlags: FlagLocalUnsupported},
 			eq: true,
 		},
@@ -195,6 +195,42 @@ func TestIsEquivalent(t *testing.T) {
 			a:  FileInfo{Type: FileInfoTypeFile, SymlinkTarget: []byte("a")},
 			b:  FileInfo{Type: FileInfoTypeFile, SymlinkTarget: []byte("b")},
 			eq: true,
+		},
+		// Unix Ownership should be the same
+		{
+			a:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "A", GroupName: "A", UID: 1000, GID: 1000}}},
+			b:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "A", GroupName: "A", UID: 1000, GID: 1000}}},
+			eq: true,
+		},
+		// ... but matching ID is enough
+		{
+			a:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "A", GroupName: "A", UID: 1000, GID: 1000}}},
+			b:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "B", GroupName: "B", UID: 1000, GID: 1000}}},
+			eq: true,
+		},
+		// ... or matching name
+		{
+			a:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "A", GroupName: "A", UID: 1000, GID: 1000}}},
+			b:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "A", GroupName: "A", UID: 1001, GID: 1001}}},
+			eq: true,
+		},
+		// ... or empty name
+		{
+			a:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "A", GroupName: "A", UID: 1000, GID: 1000}}},
+			b:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "", GroupName: "", UID: 1000, GID: 1000}}},
+			eq: true,
+		},
+		// ... but not different ownership
+		{
+			a:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "A", GroupName: "A", UID: 1000, GID: 1000}}},
+			b:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "B", GroupName: "B", UID: 1001, GID: 1001}}},
+			eq: false,
+		},
+		// or missing ownership
+		{
+			a:  FileInfo{Platform: PlatformData{Unix: &UnixData{OwnerName: "A", GroupName: "A", UID: 1000, GID: 1000}}},
+			b:  FileInfo{Platform: PlatformData{}},
+			eq: false,
 		},
 	}
 

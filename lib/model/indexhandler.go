@@ -421,11 +421,6 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 				"precedingSeq": fs[i-1].Sequence,
 			})
 		}
-
-		// The local attributes should never be transmitted over the wire.
-		// Make sure they look like they weren't.
-		fs[i].LocalFlags = 0
-		fs[i].VersionHash = nil
 	}
 
 	// Verify the claimed last sequence number
@@ -481,22 +476,14 @@ func (s *indexHandler) logSequenceAnomaly(msg string, extra map[string]any) {
 }
 
 func prepareFileInfoForIndex(f protocol.FileInfo) protocol.FileInfo {
-	// Mark the file as invalid if any of the local bad stuff flags are set.
-	f.RawInvalid = f.IsInvalid()
 	// If the file is marked LocalReceive (i.e., changed locally on a
 	// receive only folder) we do not want it to ever become the
 	// globally best version, invalid or not.
 	if f.IsReceiveOnlyChanged() {
 		f.Version = protocol.Vector{}
 	}
-	// The trailer with the encrypted fileinfo is device local, don't send info
-	// about that to remotes
+	// The trailer with the encrypted fileinfo is device local, announce the size without it to remotes.
 	f.Size -= int64(f.EncryptionTrailerSize)
-	f.EncryptionTrailerSize = 0
-	// never sent externally
-	f.LocalFlags = 0
-	f.VersionHash = nil
-	f.InodeChangeNs = 0
 	return f
 }
 

@@ -903,13 +903,24 @@ func TestRequestDeleteChanged(t *testing.T) {
 		t.Fatal("timed out")
 	}
 
-	// Check outcome
-	if _, err := tfs.Lstat(a); err != nil {
-		if fs.IsNotExist(err) {
-			t.Error(`Modified file "a" was removed`)
-		} else {
-			t.Error(`Error stating file "a":`, err)
+	// Check outcome. The file may have been moved to a conflict copy.
+	remains := false
+	files, err := tfs.Glob("a*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		if file == "a" {
+			remains = true
+			break
 		}
+		if strings.HasPrefix(file, "a.sync-conflict-") {
+			remains = true
+			break
+		}
+	}
+	if !remains {
+		t.Error(`Modified file "a" was removed`)
 	}
 }
 
@@ -1118,7 +1129,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	// Remote paused
 
 	cc := basicClusterConfig(device1, myID, fcfg.ID)
-	cc.Folders[0].Paused = true
+	cc.Folders[0].StopReason = protocol.FolderStopReasonPaused
 	m.ClusterConfig(fc, cc)
 
 	seq++
@@ -1139,7 +1150,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 
 	// Remote unpaused
 
-	cc.Folders[0].Paused = false
+	cc.Folders[0].StopReason = protocol.FolderStopReasonRunning
 	m.ClusterConfig(fc, cc)
 	select {
 	case <-time.After(5 * time.Second):
@@ -1164,12 +1175,12 @@ func TestRequestIndexSenderPause(t *testing.T) {
 
 	// Local and remote paused, then first resume remote, then local
 
-	cc.Folders[0].Paused = true
+	cc.Folders[0].StopReason = protocol.FolderStopReasonPaused
 	m.ClusterConfig(fc, cc)
 
 	pauseFolder(t, m.cfg, fcfg.ID, true)
 
-	cc.Folders[0].Paused = false
+	cc.Folders[0].StopReason = protocol.FolderStopReasonRunning
 	m.ClusterConfig(fc, cc)
 
 	pauseFolder(t, m.cfg, fcfg.ID, false)

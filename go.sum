@@ -274,6 +274,8 @@ github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0 h1:okhMind4q9H1OxF44gN
 github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0/go.mod h1:TTbGUfE+cXXceWtbTHq6lqcTvYPBKLNejBEbnUsQJtU=
 github.com/willabides/kongplete v0.4.0 h1:eivXxkp5ud5+4+NVN9e4goxC5mSh3n1RHov+gsblM2g=
 github.com/willabides/kongplete v0.4.0/go.mod h1:0P0jtWD9aTsqPSUAl4de35DLghrr57XcayPyvqSi2X8=
+github.com/wlynxg/anet v0.0.5 h1:J3VJGi1gvo0JwZ/P1/Yc/8p63SoW98B5dHkYDmpgvvU=
+github.com/wlynxg/anet v0.0.5/go.mod h1:eay5PRQr7fIVAMbTbchTnO9gG65Hg/uYGdc7mguHxoA=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo0=
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=

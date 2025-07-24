@@ -41,6 +41,7 @@ require (
 	github.com/urfave/cli v1.22.16
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	github.com/willabides/kongplete v0.4.0
+	github.com/wlynxg/anet v0.0.5
 	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/crypto v0.38.0
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394
