@@ -40,7 +40,7 @@ func FormattedCommand(command string, keywords map[string]string) (*exec.Cmd, er
 }
 
 func commandWithFilteredEnv(progname string, args ...string) *exec.Cmd {
-	cmd := exec.CommandContext(context.Background(),  progname, args...)
+	cmd := exec.CommandContext(context.Background(), progname, args...)
 	env := os.Environ()
 	// filter STGUIAUTH and STGUIAPIKEY from environment variables
 	var filteredEnv []string
