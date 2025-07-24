@@ -1840,7 +1840,7 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 	if f.ConflictHandling.ExternalMergeEnabled {
 		keywords := map[string]string{
 			"%FOLDER_PATH%": f.mtimefs.URI(),
-			"%FILE_PATH%": name,
+			"%FILE_PATH%":   name,
 		}
 
 		cmd, err := cmdutil.FormattedCommand(f.ConflictHandling.ExternalMergeCommand, keywords)
