@@ -8,13 +8,14 @@
 package cmdutil
 
 import (
-	"github.com/kballard/go-shellquote"
-
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/kballard/go-shellquote"
 )
 
 func FormattedCommand(command string, keywords map[string]string) (*exec.Cmd, error) {
@@ -39,7 +40,7 @@ func FormattedCommand(command string, keywords map[string]string) (*exec.Cmd, er
 }
 
 func commandWithFilteredEnv(progname string, args ...string) *exec.Cmd {
-	cmd := exec.Command(progname, args...)
+	cmd := exec.CommandContext(context.Background(),  progname, args...)
 	env := os.Environ()
 	// filter STGUIAUTH and STGUIAPIKEY from environment variables
 	var filteredEnv []string

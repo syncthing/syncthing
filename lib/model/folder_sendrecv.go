@@ -1837,12 +1837,13 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 		return nil
 	}
 
-	if f.FolderConfiguration.ConflictHandling.ExternalMergeEnabled {
+	if f.ConflictHandling.ExternalMergeEnabled {
 		keywords := map[string]string{
+			"%FOLDER_PATH%": f.mtimefs.URI(),
 			"%FILE_PATH%": name,
 		}
 
-		cmd, err := cmdutil.FormattedCommand(f.FolderConfiguration.ConflictHandling.ExternalMergeCommand, keywords)
+		cmd, err := cmdutil.FormattedCommand(f.ConflictHandling.ExternalMergeCommand, keywords)
 		if err != nil {
 			return err
 		}
