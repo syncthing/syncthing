@@ -59,18 +59,6 @@ const (
 
 const (
 	extraUsage = `
-The --logflags value is a sum of the following:
-
-   1  Date
-   2  Time
-   4  Microsecond time
-   8  Long filename
-  16  Short filename
-
-I.e. to prefix each log line with time and filename, set --logflags=18 (2 + 16
-from above). The value 0 is used to disable all of the above. The default is
-to show date and time (3).
-
 Logging always happens to the command line (stdout) and optionally to the
 file at the path specified by --logfile=path. In addition to an path, the special
 values "default" and "-" may be used. The former logs to DATADIR/syncthing.log
@@ -169,7 +157,7 @@ type serveCmd struct {
 	GUIAddress                string        `name:"gui-address" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")" placeholder:"URL" env:"STGUIADDRESS"`
 	GUIAPIKey                 string        `name:"gui-apikey" help:"Override GUI API key" placeholder:"API-KEY" env:"STGUIAPIKEY"`
 	LogFile                   string        `name:"logfile" help:"Log file name (see below)" default:"${logFile}" placeholder:"PATH" env:"STLOGFILE"`
-	LogFlags                  int           `name:"logflags" help:"Select information in log line prefix (see below)" default:"${logFlags}" placeholder:"BITS" env:"STLOGFLAGS"`
+	LogFlags                  int           `name:"logflags" help:"Deprecated option that does nothing, kept for compatibility" hidden:""`
 	LogMaxFiles               int           `name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)" default:"${logMaxFiles}" placeholder:"N" env:"STLOGMAXOLDFILES"`
 	LogMaxSize                int           `help:"Maximum size of any file (zero to disable log rotation)" default:"${logMaxSize}" placeholder:"BYTES" env:"STLOGMAXSIZE"`
 	LogLevel                  slog.Level    `help:"Log level for all packages (DEBUG,INFO,WARN,ERROR)" env:"STLOGLEVEL" default:"INFO"`
