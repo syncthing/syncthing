@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -181,12 +182,12 @@ func (c *globalClient) Lookup(ctx context.Context, device protocol.DeviceID) (ad
 
 	resp, err := c.queryClient.Get(ctx, qURL.String())
 	if err != nil {
-		l.Debugln("globalClient.Lookup", qURL, err)
+		slog.DebugContext(ctx, "globalClient.Lookup", "url", qURL, "error", err)
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
-		l.Debugln("globalClient.Lookup", qURL, resp.Status)
+		slog.DebugContext(ctx, "globalClient.Lookup", "url", qURL, "status", resp.Status)
 		err := errors.New(resp.Status)
 		if secs, atoiErr := strconv.Atoi(resp.Header.Get("Retry-After")); atoiErr == nil && secs > 0 {
 			err = &lookupError{
@@ -238,7 +239,7 @@ func (c *globalClient) Serve(ctx context.Context) error {
 			} else if timerResetCount == maxAddressChangesBetweenAnnouncements {
 				// Yet only do it if we haven't had to reset maxAddressChangesBetweenAnnouncements times in a row,
 				// so if something is flip-flopping within 2 seconds, we don't end up in a permanent reset loop.
-				l.Warnf("Detected a flip-flopping listener")
+				slog.ErrorContext(ctx, "Detected a flip-flopping listener", "server", c.server)
 				c.setError(errors.New("flip flopping listener"))
 				// Incrementing the count above 10 will prevent us from warning or setting the error again
 				// It will also suppress event based resets until we've had a proper round after announceErrorRetryInterval
@@ -273,27 +274,27 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 	// The marshal doesn't fail, I promise.
 	postData, _ := json.Marshal(ann)
 
-	l.Debugf("%s Announcement: %v", c, ann)
+	slog.DebugContext(ctx, "send announcement", "server", c.server, "announcement", ann)
 
 	resp, err := c.announceClient.Post(ctx, c.server, "application/json", bytes.NewReader(postData))
 	if err != nil {
-		l.Debugln(c, "announce POST:", err)
+		slog.DebugContext(ctx, "announce POST", "server", c.server, "error", err)
 		c.setError(err)
 		timer.Reset(announceErrorRetryInterval)
 		return
 	}
-	l.Debugln(c, "announce POST:", resp.Status)
+	slog.DebugContext(ctx, "announce POST", "server", c.server, "status", resp.Status)
 	resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		l.Debugln(c, "announce POST:", resp.Status)
+		slog.DebugContext(ctx, "announce POST", "server", c.server, "status", resp.Status)
 		c.setError(errors.New(resp.Status))
 
 		if h := resp.Header.Get("Retry-After"); h != "" {
 			// The server has a recommendation on when we should
 			// retry. Follow it.
 			if secs, err := strconv.Atoi(h); err == nil && secs > 0 {
-				l.Debugln(c, "announce Retry-After:", secs, err)
+				slog.DebugContext(ctx, "server sets retry-after", "server", c.server, "seconds", secs)
 				timer.Reset(time.Duration(secs) * time.Second)
 				return
 			}
@@ -309,7 +310,7 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 		// The server has a recommendation on when we should
 		// reannounce. Follow it.
 		if secs, err := strconv.Atoi(h); err == nil && secs > 0 {
-			l.Debugln(c, "announce Reannounce-After:", secs, err)
+			slog.DebugContext(ctx, "announce sets reannounce-after", "server", c.server, "seconds", secs)
 			timer.Reset(time.Duration(secs) * time.Second)
 			return
 		}

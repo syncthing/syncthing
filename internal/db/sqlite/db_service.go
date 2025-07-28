@@ -9,6 +9,7 @@ package sqlite
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -56,7 +57,7 @@ func (s *Service) Serve(ctx context.Context) error {
 	if wait < 0 {
 		wait = time.Minute
 	}
-	l.Debugln("Next periodic run in", wait)
+	slog.DebugContext(ctx, "Next periodic run due", "after", wait)
 
 	timer := time.NewTimer(wait)
 	for {
@@ -71,17 +72,17 @@ func (s *Service) Serve(ctx context.Context) error {
 		}
 
 		timer.Reset(s.maintenanceInterval)
-		l.Debugln("Next periodic run in", s.maintenanceInterval)
+		slog.DebugContext(ctx, "Next periodic run due", "after", s.maintenanceInterval)
 		_ = s.internalMeta.PutTime(lastMaintKey, time.Now())
 	}
 }
 
 func (s *Service) periodic(ctx context.Context) error {
 	t0 := time.Now()
-	l.Debugln("Periodic start")
+	slog.DebugContext(ctx, "Periodic start")
 
 	t1 := time.Now()
-	defer func() { l.Debugln("Periodic done in", time.Since(t1), "+", t1.Sub(t0)) }()
+	defer func() { slog.DebugContext(ctx, "Periodic done in", "t1", time.Since(t1), "t0t1", t1.Sub(t0)) }()
 
 	s.sdb.updateLock.Lock()
 	err := tidy(ctx, s.sdb.sql)
@@ -94,7 +95,7 @@ func (s *Service) periodic(ctx context.Context) error {
 		fdb.updateLock.Lock()
 		defer fdb.updateLock.Unlock()
 
-		if err := garbageCollectOldDeletedLocked(fdb); err != nil {
+		if err := garbageCollectOldDeletedLocked(ctx, fdb); err != nil {
 			return wrap(err)
 		}
 		if err := garbageCollectBlocklistsAndBlocksLocked(ctx, fdb); err != nil {
@@ -118,15 +119,16 @@ func tidy(ctx context.Context, db *sqlx.DB) error {
 	return nil
 }
 
-func garbageCollectOldDeletedLocked(fdb *folderDB) error {
+func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB) error {
+	l := slog.With("fdb", fdb.baseDB)
 	if fdb.deleteRetention <= 0 {
-		l.Debugln(fdb.baseName, "delete retention is infinite, skipping cleanup")
+		l.DebugContext(ctx, "delete retention is infinite, skipping cleanup")
 		return nil
 	}
 
 	// Remove deleted files that are marked as not needed (we have processed
 	// them) and they were deleted more than MaxDeletedFileAge ago.
-	l.Debugln(fdb.baseName, "forgetting deleted files older than", fdb.deleteRetention)
+	l.DebugContext(ctx, "forgetting deleted files", "retention", fdb.deleteRetention)
 	res, err := fdb.stmt(`
 		DELETE FROM files
 		WHERE deleted AND modified < ? AND local_flags & {{.FlagLocalNeeded}} == 0
@@ -135,7 +137,7 @@ func garbageCollectOldDeletedLocked(fdb *folderDB) error {
 		return wrap(err)
 	}
 	if aff, err := res.RowsAffected(); err == nil {
-		l.Debugln(fdb.baseName, "removed old deleted file records:", aff)
+		l.DebugContext(ctx, "removed old deleted file records", "affected", aff)
 	}
 	return nil
 }
@@ -178,7 +180,7 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 		return wrap(err, "delete blocklists")
 	} else if shouldDebug() {
 		rows, err := res.RowsAffected()
-		l.Debugln(fdb.baseName, "blocklist GC:", rows, err)
+		slog.DebugContext(ctx, "blocklist GC", "fdb", fdb.baseName, "rows", rows, "error", err)
 	}
 
 	if res, err := tx.ExecContext(ctx, `
@@ -189,7 +191,7 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 		return wrap(err, "delete blocks")
 	} else if shouldDebug() {
 		rows, err := res.RowsAffected()
-		l.Debugln(fdb.baseName, "blocks GC:", rows, err)
+		slog.DebugContext(ctx, "blocks GC", "fdb", fdb.baseName, "rows", rows, "error", err)
 	}
 
 	return wrap(tx.Commit())

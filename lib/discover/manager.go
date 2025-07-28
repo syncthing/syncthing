@@ -13,6 +13,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log/slog"
 	"slices"
 	"sync"
 	"time"
@@ -116,8 +117,7 @@ func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addre
 
 			if cacheEntry.found && time.Since(cacheEntry.when) < finder.cacheTime {
 				// It's a positive, valid entry. Use it.
-				l.Debugln("cached discovery entry for", deviceID, "at", finder)
-				l.Debugln("  cache:", cacheEntry)
+				slog.DebugContext(ctx, "Found cached discovery entry", "device", deviceID, "finder", finder, "entry", cacheEntry)
 				addresses = append(addresses, cacheEntry.Addresses...)
 				continue
 			}
@@ -126,7 +126,7 @@ func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addre
 			if !cacheEntry.found && valid {
 				// It's a negative, valid entry. We should not make another
 				// attempt right now.
-				l.Debugln("negative cache entry for", deviceID, "at", finder, "valid until", cacheEntry.when.Add(finder.negCacheTime), "or", cacheEntry.validUntil)
+				slog.DebugContext(ctx, "Negative cache entry", "device", deviceID, "finder", finder, "until1", cacheEntry.when.Add(finder.negCacheTime), "until2", cacheEntry.validUntil)
 				continue
 			}
 
@@ -135,8 +135,7 @@ func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addre
 
 		// Perform the actual lookup and cache the result.
 		if addrs, err := finder.Lookup(ctx, deviceID); err == nil {
-			l.Debugln("lookup for", deviceID, "at", finder)
-			l.Debugln("  addresses:", addrs)
+			slog.DebugContext(ctx, "Got finder result", "device", deviceID, "finder", finder, "address", addrs)
 			addresses = append(addresses, addrs...)
 			finder.cache.Set(deviceID, CacheEntry{
 				Addresses: addrs,
@@ -160,8 +159,7 @@ func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addre
 	addresses = stringutil.UniqueTrimmedStrings(addresses)
 	slices.Sort(addresses)
 
-	l.Debugln("lookup results for", deviceID)
-	l.Debugln("  addresses: ", addresses)
+	slog.DebugContext(ctx, "Final lookup results", "device", deviceID, "addresses", addresses)
 
 	return addresses, nil
 }
