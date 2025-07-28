@@ -13,7 +13,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"log/slog"
 	"slices"
 	"sync"
 	"time"
@@ -117,7 +116,7 @@ func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addre
 
 			if cacheEntry.found && time.Since(cacheEntry.when) < finder.cacheTime {
 				// It's a positive, valid entry. Use it.
-				slog.DebugContext(ctx, "Found cached discovery entry", "device", deviceID, "finder", finder, "entry", cacheEntry)
+				l.DebugContext(ctx, "Found cached discovery entry", "device", deviceID, "finder", finder, "entry", cacheEntry)
 				addresses = append(addresses, cacheEntry.Addresses...)
 				continue
 			}
@@ -126,7 +125,7 @@ func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addre
 			if !cacheEntry.found && valid {
 				// It's a negative, valid entry. We should not make another
 				// attempt right now.
-				slog.DebugContext(ctx, "Negative cache entry", "device", deviceID, "finder", finder, "until1", cacheEntry.when.Add(finder.negCacheTime), "until2", cacheEntry.validUntil)
+				l.DebugContext(ctx, "Negative cache entry", "device", deviceID, "finder", finder, "until1", cacheEntry.when.Add(finder.negCacheTime), "until2", cacheEntry.validUntil)
 				continue
 			}
 
@@ -135,7 +134,7 @@ func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addre
 
 		// Perform the actual lookup and cache the result.
 		if addrs, err := finder.Lookup(ctx, deviceID); err == nil {
-			slog.DebugContext(ctx, "Got finder result", "device", deviceID, "finder", finder, "address", addrs)
+			l.DebugContext(ctx, "Got finder result", "device", deviceID, "finder", finder, "address", addrs)
 			addresses = append(addresses, addrs...)
 			finder.cache.Set(deviceID, CacheEntry{
 				Addresses: addrs,
@@ -159,7 +158,7 @@ func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addre
 	addresses = stringutil.UniqueTrimmedStrings(addresses)
 	slices.Sort(addresses)
 
-	slog.DebugContext(ctx, "Final lookup results", "device", deviceID, "addresses", addresses)
+	l.DebugContext(ctx, "Final lookup results", "device", deviceID, "addresses", addresses)
 
 	return addresses, nil
 }
