@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"runtime"
@@ -140,7 +141,7 @@ func (a *App) startup() error {
 
 	// Figure out our device ID, set it as the log prefix and log it.
 	a.myID = protocol.NewDeviceID(a.cert.Certificate[0])
-	l.Info("Got device ID", "myID", a.myID)
+	slog.Info("Got device ID", "myID", a.myID)
 
 	// Emit the Starting event, now that we know who we are.
 
@@ -167,12 +168,12 @@ func (a *App) startup() error {
 	}
 
 	perf := ur.CpuBench(context.Background(), 3, 150*time.Millisecond)
-	l.Info("Measured hashing performance", "perf", fmt.Sprintf("%.02f MB/s", perf))
+	slog.Info("Measured hashing performance", "perf", fmt.Sprintf("%.02f MB/s", perf))
 
 	if a.opts.ResetDeltaIdxs {
-		l.Info("Reinitializing delta index IDs")
+		slog.Info("Reinitializing delta index IDs")
 		if err := a.sdb.DropAllIndexIDs(); err != nil {
-			l.Error("Failed to drop index IDs", "error", err)
+			slog.Error("Failed to drop index IDs", "error", err)
 			return err
 		}
 	}
@@ -273,7 +274,7 @@ func (a *App) startup() error {
 	a.cfg.Modify(func(cfg *config.Configuration) {
 		// Candidate builds always run with usage reporting.
 		if build.IsCandidate {
-			l.Info("Anonymous usage reporting is always enabled for candidate releases")
+			slog.Info("Anonymous usage reporting is always enabled for candidate releases")
 			if cfg.Options.URAccepted != ur.Version {
 				cfg.Options.URAccepted = ur.Version
 				// Unique ID will be set and config saved below if necessary.
@@ -287,15 +288,15 @@ func (a *App) startup() error {
 	// GUI
 
 	if err := a.setupGUI(m, defaultSub, diskSub, discoveryManager, connectionsService, usageReportingSvc, slogutil.ErrorRecorder, slogutil.GlobalRecorder, miscDB); err != nil {
-		l.Error("Failed to start API", "error", err)
+		slog.Error("Failed to start API", "error", err)
 		return err
 	}
 
 	myDev, _ := a.cfg.Device(a.myID)
-	l.Info("Loaded configuration", "myName", myDev.Name)
+	slog.Info("Loaded configuration", "myName", myDev.Name)
 	for _, device := range a.cfg.Devices() {
 		if device.DeviceID != a.myID {
-			l.Info("Loaded peer device configuration", "id", device.DeviceID, "name", device.Name, "addrs", device.Addresses)
+			slog.Info("Loaded peer device configuration", "id", device.DeviceID, "name", device.Name, "addrs", device.Addresses)
 		}
 	}
 

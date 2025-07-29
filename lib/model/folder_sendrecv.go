@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -569,7 +570,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 		mode = 0o777
 	}
 
-	l.Debug("Need dir", "file", file, "cur", slogutil.Expensive(func() any {
+	slog.Debug("Need dir", "file", file, "cur", slogutil.Expensive(func() any {
 		curFile, _, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
 		return curFile
 	}))
@@ -732,7 +733,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 		})
 	}()
 
-	l.Debug("Need symlink", "file", file, "cur", slogutil.Expensive(func() any {
+	slog.Debug("Need symlink", "file", file, "cur", slogutil.Expensive(func() any {
 		curFile, _, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
 		return curFile
 	}))

@@ -16,9 +16,13 @@ import (
 	"time"
 )
 
-var slogDef = &formattingHandler{
+var slogDef = slog.New(&FormattingHandler{
 	recs: []*lineRecorder{GlobalRecorder, ErrorRecorder},
 	out:  os.Stdout,
+})
+
+func init() {
+	slog.SetDefault(slogDef)
 }
 
 // Log levels:
@@ -33,26 +37,20 @@ func NewAdapter(descr string) *adapter {
 	pc := pcs[0]
 	fr := runtime.CallersFrames([]uintptr{pc})
 	if fram, _ := fr.Next(); fram.Function != "" {
-		pkgName := funcNameToPkg(fram.Function)
+		pkgName, _ := funcNameToPkg(fram.Function)
 		globalLevels.SetDescr(pkgName, descr)
-		h := &levelTrackingHandler{
-			Handler: slogDef,
-			levels:  globalLevels,
-			pkg:     pkgName,
-		}
-		return &adapter{slog.New(h).With(slog.Group("log", "pkg", pkgName))}
 	}
-	return &adapter{slog.New(slogDef)}
+	return &adapter{slogDef}
 }
 
-func funcNameToPkg(fn string) string {
+func funcNameToPkg(fn string) (string, string) {
 	fn = strings.ToLower(fn)
 	fn = strings.TrimPrefix(fn, "github.com/syncthing/syncthing/lib/")
 	fn = strings.TrimPrefix(fn, "github.com/syncthing/syncthing/internal/")
 
 	pkgTypFn := strings.Split(fn, ".") // [package, type, method] or [package, function]
 	if len(pkgTypFn) <= 2 {
-		return pkgTypFn[0]
+		return pkgTypFn[0], ""
 	}
 
 	pkg := pkgTypFn[0]
@@ -62,9 +60,9 @@ func funcNameToPkg(fn string) string {
 	typ = strings.TrimSuffix(typ, "service")
 	switch typ {
 	case pkg, "", "serveparams":
-		return pkg
+		return pkg, ""
 	default:
-		return pkg + "." + typ
+		return pkg, typ
 	}
 }
 

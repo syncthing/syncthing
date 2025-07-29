@@ -7,7 +7,6 @@
 package slogutil
 
 import (
-	"context"
 	"log/slog"
 	"maps"
 	"os"
@@ -59,7 +58,7 @@ func init() {
 		if cutPkg, levelStr, ok := strings.Cut(pkg, ":"); ok {
 			pkg = cutPkg
 			if err := level.UnmarshalText([]byte(levelStr)); err != nil {
-				slog.New(slogDef).Warn("Bad log level requested in STTRACE", "pkg", pkg, "level", levelStr, "error", err)
+				slogDef.Warn("Bad log level requested in STTRACE", "pkg", pkg, "level", levelStr, "error", err)
 			}
 		}
 		globalLevels.Set(pkg, level)
@@ -120,31 +119,4 @@ func (t *levelTracker) Levels() map[string]slog.Level {
 		}
 	}
 	return m
-}
-
-type levelTrackingHandler struct {
-	slog.Handler
-
-	levels *levelTracker
-	pkg    string
-}
-
-func (l *levelTrackingHandler) Enabled(_ context.Context, level slog.Level) bool {
-	return l.levels.Get(l.pkg) <= level
-}
-
-func (l *levelTrackingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &levelTrackingHandler{
-		Handler: l.Handler.WithAttrs(attrs),
-		levels:  l.levels,
-		pkg:     l.pkg,
-	}
-}
-
-func (l *levelTrackingHandler) WithGroup(name string) slog.Handler {
-	return &levelTrackingHandler{
-		Handler: l.Handler.WithGroup(name),
-		levels:  l.levels,
-		pkg:     l.pkg,
-	}
 }

@@ -13,6 +13,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"log/slog"
 	"net"
 	"net/url"
 	"sync"
@@ -58,7 +59,7 @@ type quicListener struct {
 
 func (t *quicListener) OnNATTypeChanged(natType stun.NATType) {
 	if natType != stun.NATUnknown {
-		l.Info("Detected NAT type", "uri", t.uri, "type", natType)
+		slog.Info("Detected NAT type", "uri", t.uri, "type", natType)
 	}
 	t.nat.Store(uint64(natType))
 }
@@ -77,7 +78,7 @@ func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) 
 	t.mut.Unlock()
 
 	if uri != nil && (existingAddress == nil || existingAddress.String() != uri.String()) {
-		l.Info("Resolved external address", "uri", t.uri, "address", uri.String(), "via", via)
+		slog.Info("Resolved external address", "uri", t.uri, "address", uri.String(), "via", via)
 		t.notifyAddressesChanged(t)
 	} else if uri == nil && existingAddress != nil {
 		t.notifyAddressesChanged(t)
@@ -125,8 +126,8 @@ func (t *quicListener) serve(ctx context.Context) error {
 	t.notifyAddressesChanged(t)
 	defer t.clearAddresses(t)
 
-	l.Info("QUIC listener starting", "addr", udpConn.LocalAddr())
-	defer l.Info("QUIC listener shutting down", "addr", udpConn.LocalAddr())
+	slog.Info("QUIC listener starting", "addr", udpConn.LocalAddr())
+	defer slog.Info("QUIC listener shutting down", "addr", udpConn.LocalAddr())
 
 	var ipVersion nat.IPVersion
 	switch t.uri.Scheme {
@@ -185,13 +186,13 @@ func (t *quicListener) serve(ctx context.Context) error {
 
 		acceptFailures = 0
 
-		l.Debug("Incoming connection", "from", session.RemoteAddr())
+		slog.Debug("Incoming connection", "from", session.RemoteAddr())
 
 		streamCtx, cancel := context.WithTimeout(ctx, quicOperationTimeout)
 		stream, err := session.AcceptStream(streamCtx)
 		cancel()
 		if err != nil {
-			l.Debug("Failed to accept stream", "from", session.RemoteAddr(), "error", err)
+			slog.Debug("Failed to accept stream", "from", session.RemoteAddr(), "error", err)
 			_ = session.CloseWithError(1, err.Error())
 			continue
 		}

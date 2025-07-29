@@ -8,6 +8,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"runtime"
 	"runtime/pprof"
@@ -16,10 +17,10 @@ import (
 )
 
 func startHeapProfiler() {
-	l.Debug("Starting heap profiling")
+	slog.Debug("Starting heap profiling")
 	go func() {
 		err := saveHeapProfiles(1) // Only returns on error
-		l.Error("Heap profiler failed", "error", err)
+		slog.Error("Heap profiler failed", "error", err)
 		panic("Heap profiler failed")
 	}()
 }

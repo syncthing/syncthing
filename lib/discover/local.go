@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/url"
 	"strconv"
@@ -176,7 +177,7 @@ func (c *localClient) recvAnnouncements(ctx context.Context) error {
 			continue
 		}
 		if len(buf) < 4 {
-			l.DebugContext(ctx, "received short packet", "address", addr.String())
+			slog.DebugContext(ctx, "received short packet", "address", addr.String())
 			continue
 		}
 
@@ -188,25 +189,25 @@ func (c *localClient) recvAnnouncements(ctx context.Context) error {
 		case v13Magic:
 			// Old version
 			if !warnedAbout[addr.String()] {
-				l.ErrorContext(ctx, "Incompatible (v0.13) local discovery packet - upgrade that device to connect", "address", addr)
+				slog.ErrorContext(ctx, "Incompatible (v0.13) local discovery packet - upgrade that device to connect", "address", addr)
 				warnedAbout[addr.String()] = true
 			}
 			continue
 
 		default:
-			l.DebugContext(ctx, "Incorrect magic", "magic", magic, "address", addr)
+			slog.DebugContext(ctx, "Incorrect magic", "magic", magic, "address", addr)
 			continue
 		}
 
 		var pkt discoproto.Announce
 		err := proto.Unmarshal(buf[4:], &pkt)
 		if err != nil && !errors.Is(err, io.EOF) {
-			l.DebugContext(ctx, "Failed to unmarshal local announcement", "address", addr, "error", err, "packet", hex.Dump(buf[4:]))
+			slog.DebugContext(ctx, "Failed to unmarshal local announcement", "address", addr, "error", err, "packet", hex.Dump(buf[4:]))
 			continue
 		}
 
 		id, _ := protocol.DeviceIDFromBytes(pkt.Id)
-		l.DebugContext(ctx, "Received local announcement", "address", addr, "device", id)
+		slog.DebugContext(ctx, "Received local announcement", "address", addr, "device", id)
 
 		var newDevice bool
 		if !bytes.Equal(pkt.Id, c.myID[:]) {

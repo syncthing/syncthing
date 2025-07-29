@@ -9,6 +9,7 @@ package sqlite
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -56,7 +57,7 @@ func (s *Service) Serve(ctx context.Context) error {
 	if wait < 0 {
 		wait = time.Minute
 	}
-	l.DebugContext(ctx, "Next periodic run due", "after", wait)
+	slog.DebugContext(ctx, "Next periodic run due", "after", wait)
 
 	timer := time.NewTimer(wait)
 	for {
@@ -71,17 +72,17 @@ func (s *Service) Serve(ctx context.Context) error {
 		}
 
 		timer.Reset(s.maintenanceInterval)
-		l.DebugContext(ctx, "Next periodic run due", "after", s.maintenanceInterval)
+		slog.DebugContext(ctx, "Next periodic run due", "after", s.maintenanceInterval)
 		_ = s.internalMeta.PutTime(lastMaintKey, time.Now())
 	}
 }
 
 func (s *Service) periodic(ctx context.Context) error {
 	t0 := time.Now()
-	l.DebugContext(ctx, "Periodic start")
+	slog.DebugContext(ctx, "Periodic start")
 
 	t1 := time.Now()
-	defer func() { l.DebugContext(ctx, "Periodic done in", "t1", time.Since(t1), "t0t1", t1.Sub(t0)) }()
+	defer func() { slog.DebugContext(ctx, "Periodic done in", "t1", time.Since(t1), "t0t1", t1.Sub(t0)) }()
 
 	s.sdb.updateLock.Lock()
 	err := tidy(ctx, s.sdb.sql)
@@ -119,9 +120,9 @@ func tidy(ctx context.Context, db *sqlx.DB) error {
 }
 
 func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB) error {
-	l := l.With("fdb", fdb.baseDB)
+	l := slog.With("fdb", fdb.baseDB)
 	if fdb.deleteRetention <= 0 {
-		l.DebugContext(ctx, "delete retention is infinite, skipping cleanup")
+		slog.DebugContext(ctx, "delete retention is infinite, skipping cleanup")
 		return nil
 	}
 
@@ -179,7 +180,7 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 		return wrap(err, "delete blocklists")
 	} else if shouldDebug() {
 		rows, err := res.RowsAffected()
-		l.DebugContext(ctx, "blocklist GC", "fdb", fdb.baseName, "rows", rows, "error", err)
+		slog.DebugContext(ctx, "blocklist GC", "fdb", fdb.baseName, "rows", rows, "error", err)
 	}
 
 	if res, err := tx.ExecContext(ctx, `
@@ -190,7 +191,7 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 		return wrap(err, "delete blocks")
 	} else if shouldDebug() {
 		rows, err := res.RowsAffected()
-		l.DebugContext(ctx, "blocks GC", "fdb", fdb.baseName, "rows", rows, "error", err)
+		slog.DebugContext(ctx, "blocks GC", "fdb", fdb.baseName, "rows", rows, "error", err)
 	}
 
 	return wrap(tx.Commit())
