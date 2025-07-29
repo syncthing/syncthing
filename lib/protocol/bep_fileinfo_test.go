@@ -45,7 +45,7 @@ func TestIsEquivalent(t *testing.T) {
 		b         FileInfo
 		ignPerms  *bool // nil means should not matter, we'll test both variants
 		ignBlocks *bool
-		ignFlags  uint32
+		ignFlags  FlagLocal
 		eq        bool
 	}
 	cases := []testCase{
@@ -75,8 +75,8 @@ func TestIsEquivalent(t *testing.T) {
 			eq: false,
 		},
 		{
-			a:  FileInfo{RawInvalid: false},
-			b:  FileInfo{RawInvalid: true},
+			a:  FileInfo{LocalFlags: 0},
+			b:  FileInfo{LocalFlags: FlagLocalRemoteInvalid},
 			eq: false,
 		},
 		{
@@ -100,8 +100,8 @@ func TestIsEquivalent(t *testing.T) {
 			eq: false,
 		},
 		{
-			a:  FileInfo{RawInvalid: true},
-			b:  FileInfo{RawInvalid: true},
+			a:  FileInfo{LocalFlags: FlagLocalRemoteInvalid},
+			b:  FileInfo{LocalFlags: FlagLocalRemoteInvalid},
 			eq: true,
 		},
 		{
@@ -110,7 +110,7 @@ func TestIsEquivalent(t *testing.T) {
 			eq: true,
 		},
 		{
-			a:  FileInfo{RawInvalid: true},
+			a:  FileInfo{LocalFlags: FlagLocalRemoteInvalid},
 			b:  FileInfo{LocalFlags: FlagLocalUnsupported},
 			eq: true,
 		},

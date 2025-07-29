@@ -19,9 +19,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -31,7 +31,6 @@ import (
 	"github.com/syncthing/syncthing/lib/semaphore"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
-	"github.com/syncthing/syncthing/lib/weakhash"
 )
 
 var (
@@ -130,14 +129,14 @@ type sendReceiveFolder struct {
 	tempPullErrors map[string]string // pull errors that might be just transient
 }
 
-func newSendReceiveFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
+func newSendReceiveFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
 	f := &sendReceiveFolder{
-		folder:             newFolder(model, fset, ignores, cfg, evLogger, ioLimiter, ver),
+		folder:             newFolder(model, ignores, cfg, evLogger, ioLimiter, ver),
 		queue:              newJobQueue(),
 		blockPullReorderer: newBlockPullReorderer(cfg.BlockPullOrder, model.id, cfg.DeviceIDs()),
 		writeLimiter:       semaphore.New(cfg.MaxConcurrentWrites),
 	}
-	f.folder.puller = f
+	f.puller = f
 
 	if f.Copiers == 0 {
 		f.Copiers = defaultCopiers
@@ -180,7 +179,7 @@ func (f *sendReceiveFolder) pull() (bool, error) {
 	f.errorsMut.Unlock()
 
 	var err error
-	for tries := 0; tries < maxPullerIterations; tries++ {
+	for tries := range maxPullerIterations {
 		select {
 		case <-f.ctx.Done():
 			return false, f.ctx.Err()
@@ -241,12 +240,6 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 	f.tempPullErrors = make(map[string]string)
 	f.errorsMut.Unlock()
 
-	snap, err := f.dbSnapshot()
-	if err != nil {
-		return 0, err
-	}
-	defer snap.Release()
-
 	pullChan := make(chan pullBlockState)
 	copyChan := make(chan copyBlocksState)
 	finisherChan := make(chan *sharedPullerState)
@@ -266,7 +259,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 		updateWg.Done()
 	}()
 
-	for i := 0; i < f.Copiers; i++ {
+	for range f.Copiers {
 		copyWg.Add(1)
 		go func() {
 			// copierRoutine finishes when copyChan is closed
@@ -278,18 +271,18 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 	pullWg.Add(1)
 	go func() {
 		// pullerRoutine finishes when pullChan is closed
-		f.pullerRoutine(snap, pullChan, finisherChan)
+		f.pullerRoutine(pullChan, finisherChan)
 		pullWg.Done()
 	}()
 
 	doneWg.Add(1)
 	// finisherRoutine finishes when finisherChan is closed
 	go func() {
-		f.finisherRoutine(snap, finisherChan, dbUpdateChan, scanChan)
+		f.finisherRoutine(finisherChan, dbUpdateChan, scanChan)
 		doneWg.Done()
 	}()
 
-	changed, fileDeletions, dirDeletions, err := f.processNeeded(snap, dbUpdateChan, copyChan, scanChan)
+	changed, fileDeletions, dirDeletions, err := f.processNeeded(dbUpdateChan, copyChan, scanChan)
 
 	// Signal copy and puller routines that we are done with the in data for
 	// this iteration. Wait for them to finish.
@@ -304,7 +297,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 	doneWg.Wait()
 
 	if err == nil {
-		f.processDeletions(fileDeletions, dirDeletions, snap, dbUpdateChan, scanChan)
+		f.processDeletions(fileDeletions, dirDeletions, dbUpdateChan, scanChan)
 	}
 
 	// Wait for db updates and scan scheduling to complete
@@ -316,7 +309,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 	return changed, err
 }
 
-func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
+func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
 	changed := 0
 	var dirDeletions []protocol.FileInfo
 	fileDeletions := map[string]protocol.FileInfo{}
@@ -326,16 +319,20 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 	// Regular files to pull goes into the file queue, everything else
 	// (directories, symlinks and deletes) goes into the "process directly"
 	// pile.
-	snap.WithNeed(protocol.LocalDeviceID, func(file protocol.FileInfo) bool {
+loop:
+	for file, err := range itererr.Zip(f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, f.Order, 0, 0)) {
+		if err != nil {
+			return changed, nil, nil, err
+		}
 		select {
 		case <-f.ctx.Done():
-			return false
+			break loop
 		default:
 		}
 
 		if f.IgnoreDelete && file.IsDeleted() {
 			l.Debugln(f, "ignore file deletion (config)", file.FileName())
-			return true
+			continue
 		}
 
 		changed++
@@ -362,14 +359,18 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 			}
 
 		case file.IsDeleted():
-			if file.IsDirectory() {
+			switch {
+			case file.IsDirectory():
 				// Perform directory deletions at the end, as we may have
 				// files to delete inside them before we get to that point.
 				dirDeletions = append(dirDeletions, file)
-			} else if file.IsSymlink() {
-				f.deleteFile(file, snap, dbUpdateChan, scanChan)
-			} else {
-				df, ok := snap.Get(protocol.LocalDeviceID, file.Name)
+			case file.IsSymlink():
+				f.deleteFile(file, dbUpdateChan, scanChan)
+			default:
+				df, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
+				if err != nil {
+					return changed, nil, nil, err
+				}
 				// Local file can be already deleted, but with a lower version
 				// number, hence the deletion coming in again as part of
 				// WithNeed, furthermore, the file can simply be of the wrong
@@ -385,7 +386,10 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 			}
 
 		case file.Type == protocol.FileInfoTypeFile:
-			curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
+			curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
+			if err != nil {
+				return changed, nil, nil, err
+			}
 			if hasCurFile && file.BlocksEqual(curFile) {
 				// We are supposed to copy the entire file, and then fetch nothing. We
 				// are only updating metadata, so we don't actually *need* to make the
@@ -397,7 +401,7 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 			}
 
 		case (build.IsWindows || build.IsAndroid) && file.IsSymlink():
-			if err := f.handleSymlinkCheckExisting(file, snap, scanChan); err != nil {
+			if err := f.handleSymlinkCheckExisting(file, scanChan); err != nil {
 				f.newPullError(file.Name, fmt.Errorf("handling unsupported symlink: %w", err))
 				break
 			}
@@ -408,44 +412,25 @@ func (f *sendReceiveFolder) processNeeded(snap *db.Snapshot, dbUpdateChan chan<-
 		case file.IsDirectory() && !file.IsSymlink():
 			l.Debugln(f, "Handling directory", file.Name)
 			if f.checkParent(file.Name, scanChan) {
-				f.handleDir(file, snap, dbUpdateChan, scanChan)
+				f.handleDir(file, dbUpdateChan, scanChan)
 			}
 
 		case file.IsSymlink():
 			l.Debugln(f, "Handling symlink", file.Name)
 			if f.checkParent(file.Name, scanChan) {
-				f.handleSymlink(file, snap, dbUpdateChan, scanChan)
+				f.handleSymlink(file, dbUpdateChan, scanChan)
 			}
 
 		default:
 			l.Warnln(file)
 			panic("unhandleable item type, can't happen")
 		}
-
-		return true
-	})
+	}
 
 	select {
 	case <-f.ctx.Done():
 		return changed, nil, nil, f.ctx.Err()
 	default:
-	}
-
-	// Now do the file queue. Reorder it according to configuration.
-
-	switch f.Order {
-	case config.PullOrderRandom:
-		f.queue.Shuffle()
-	case config.PullOrderAlphabetic:
-	// The queue is already in alphabetic order.
-	case config.PullOrderSmallestFirst:
-		f.queue.SortSmallestFirst()
-	case config.PullOrderLargestFirst:
-		f.queue.SortLargestFirst()
-	case config.PullOrderOldestFirst:
-		f.queue.SortOldestFirst()
-	case config.PullOrderNewestFirst:
-		f.queue.SortNewestFirst()
 	}
 
 	// Process the file queue.
@@ -463,7 +448,10 @@ nextFile:
 			break
 		}
 
-		fi, ok := snap.GetGlobal(fileName)
+		fi, ok, err := f.model.sdb.GetGlobalFile(f.folderID, fileName)
+		if err != nil {
+			return changed, nil, nil, err
+		}
 		if !ok {
 			// File is no longer in the index. Mark it as done and drop it.
 			f.queue.Done(fileName)
@@ -490,7 +478,7 @@ nextFile:
 			// desired state with the delete bit set is in the deletion
 			// map.
 			desired := fileDeletions[candidate.Name]
-			if err := f.renameFile(candidate, desired, fi, snap, dbUpdateChan, scanChan); err != nil {
+			if err := f.renameFile(candidate, desired, fi, dbUpdateChan, scanChan); err != nil {
 				l.Debugf("rename shortcut for %s failed: %s", fi.Name, err.Error())
 				// Failed to rename, try next one.
 				continue
@@ -503,9 +491,11 @@ nextFile:
 			continue nextFile
 		}
 
-		devices := f.model.fileAvailability(f.FolderConfiguration, snap, fi)
+		devices := f.model.fileAvailability(f.FolderConfiguration, fi)
 		if len(devices) > 0 {
-			f.handleFile(fi, snap, copyChan)
+			if err := f.handleFile(fi, copyChan); err != nil {
+				f.newPullError(fileName, err)
+			}
 			continue
 		}
 		f.newPullError(fileName, errNotAvailable)
@@ -525,7 +515,7 @@ func popCandidate(buckets map[string][]protocol.FileInfo, key string) (protocol.
 	return cands[0], true
 }
 
-func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.FileInfo, dirDeletions []protocol.FileInfo, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.FileInfo, dirDeletions []protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	for _, file := range fileDeletions {
 		select {
 		case <-f.ctx.Done():
@@ -533,7 +523,7 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.F
 		default:
 		}
 
-		f.deleteFile(file, snap, dbUpdateChan, scanChan)
+		f.deleteFile(file, dbUpdateChan, scanChan)
 	}
 
 	// Process in reverse order to delete depth first
@@ -546,12 +536,12 @@ func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.F
 
 		dir := dirDeletions[len(dirDeletions)-i-1]
 		l.Debugln(f, "Deleting dir", dir.Name)
-		f.deleteDir(dir, snap, dbUpdateChan, scanChan)
+		f.deleteDir(dir, dbUpdateChan, scanChan)
 	}
 }
 
 // handleDir creates or updates the given directory
-func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -579,7 +569,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 	}
 
 	if shouldDebug() {
-		curFile, _ := snap.Get(protocol.LocalDeviceID, file.Name)
+		curFile, _, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
 		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
 	}
 
@@ -590,7 +580,11 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 	// that don't result in a conflict.
 	case err == nil && !info.IsDir():
 		// Check that it is what we have in the database.
-		curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
+		curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
+		if err != nil {
+			f.newPullError(file.Name, fmt.Errorf("handling dir: %w", err))
+			return
+		}
 		if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, false, scanChan); err != nil {
 			f.newPullError(file.Name, fmt.Errorf("handling dir: %w", err))
 			return
@@ -607,7 +601,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, snap *db.Snapshot,
 				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
 			}, curFile.Name)
 		} else {
-			err = f.deleteItemOnDisk(curFile, snap, scanChan)
+			err = f.deleteItemOnDisk(curFile, scanChan)
 		}
 		if err != nil {
 			f.newPullError(file.Name, err)
@@ -716,7 +710,7 @@ func (f *sendReceiveFolder) checkParent(file string, scanChan chan<- string) boo
 }
 
 // handleSymlink creates or updates the given symlink
-func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -739,8 +733,8 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 	}()
 
 	if shouldDebug() {
-		curFile, _ := snap.Get(protocol.LocalDeviceID, file.Name)
-		l.Debugf("need symlink\n\t%v\n\t%v", file, curFile)
+		curFile, ok, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
+		l.Debugf("need symlink\n\t%v\n\t%v", file, curFile, ok)
 	}
 
 	if len(file.SymlinkTarget) == 0 {
@@ -750,7 +744,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 		return
 	}
 
-	if err = f.handleSymlinkCheckExisting(file, snap, scanChan); err != nil {
+	if err = f.handleSymlinkCheckExisting(file, scanChan); err != nil {
 		f.newPullError(file.Name, fmt.Errorf("handling symlink: %w", err))
 		return
 	}
@@ -771,7 +765,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, snap *db.Snaps
 	}
 }
 
-func (f *sendReceiveFolder) handleSymlinkCheckExisting(file protocol.FileInfo, snap *db.Snapshot, scanChan chan<- string) error {
+func (f *sendReceiveFolder) handleSymlinkCheckExisting(file protocol.FileInfo, scanChan chan<- string) error {
 	// If there is already something under that name, we need to handle that.
 	info, err := f.mtimefs.Lstat(file.Name)
 	if err != nil {
@@ -781,7 +775,10 @@ func (f *sendReceiveFolder) handleSymlinkCheckExisting(file protocol.FileInfo, s
 		return err
 	}
 	// Check that it is what we have in the database.
-	curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
+	curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
+	if err != nil {
+		return err
+	}
 	if err := f.scanIfItemChanged(file.Name, info, curFile, hasCurFile, false, scanChan); err != nil {
 		return err
 	}
@@ -797,12 +794,12 @@ func (f *sendReceiveFolder) handleSymlinkCheckExisting(file protocol.FileInfo, s
 			return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
 		}, curFile.Name)
 	} else {
-		return f.deleteItemOnDisk(curFile, snap, scanChan)
+		return f.deleteItemOnDisk(curFile, scanChan)
 	}
 }
 
 // deleteDir attempts to remove a directory that was deleted on a remote
-func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -827,7 +824,10 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, snap *db.Snapshot,
 		})
 	}()
 
-	cur, hasCur := snap.Get(protocol.LocalDeviceID, file.Name)
+	cur, hasCur, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
+	if err != nil {
+		return
+	}
 
 	if err = f.checkToBeDeleted(file, cur, hasCur, scanChan); err != nil {
 		if fs.IsNotExist(err) || fs.IsErrCaseConflict(err) {
@@ -837,7 +837,7 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, snap *db.Snapshot,
 		return
 	}
 
-	if err = f.deleteDirOnDisk(file.Name, snap, scanChan); err != nil {
+	if err = f.deleteDirOnDisk(file.Name, scanChan); err != nil {
 		return
 	}
 
@@ -845,8 +845,12 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, snap *db.Snapshot,
 }
 
 // deleteFile attempts to delete the given file
-func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
-	cur, hasCur := snap.Get(protocol.LocalDeviceID, file.Name)
+func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+	cur, hasCur, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
+	if err != nil {
+		f.newPullError(file.Name, fmt.Errorf("delete file: %w", err))
+		return
+	}
 	f.deleteFileWithCurrent(file, cur, hasCur, dbUpdateChan, scanChan)
 }
 
@@ -892,18 +896,20 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 		return
 	}
 
-	if f.inConflict(cur.Version, file.Version) {
-		// There is a conflict here, which shouldn't happen as deletions
-		// always lose. Merge the version vector of the file we have
-		// locally and commit it to db to resolve the conflict.
-		cur.Version = cur.Version.Merge(file.Version)
-		dbUpdateChan <- dbUpdateJob{cur, dbUpdateHandleFile}
-		return
-	}
+	switch {
+	case f.inConflict(cur.Version, file.Version) && !cur.IsSymlink():
+		// If the delete constitutes winning a conflict, we move the file to
+		// a conflict copy instead of doing the delete
+		err = f.inWritableDir(func(name string) error {
+			return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
+		}, cur.Name)
 
-	if f.versioner != nil && !cur.IsSymlink() {
+	case f.versioner != nil && !cur.IsSymlink():
+		// If we have a versioner, use that to move the file away
 		err = f.inWritableDir(f.versioner.Archive, file.Name)
-	} else {
+
+	default:
+		// Delete the file
 		err = f.inWritableDir(f.mtimefs.Remove, file.Name)
 	}
 
@@ -925,7 +931,7 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 
 // renameFile attempts to rename an existing file to a destination
 // and set the right attributes on it.
-func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
+func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -967,10 +973,13 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 		return err
 	}
 	// Check that the target corresponds to what we have in the DB
-	curTarget, ok := snap.Get(protocol.LocalDeviceID, target.Name)
+	curTarget, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, target.Name)
+	if err != nil {
+		return err
+	}
 	switch stat, serr := f.mtimefs.Lstat(target.Name); {
 	case serr != nil:
-		var caseErr *fs.ErrCaseConflict
+		var caseErr *fs.CaseConflictError
 		switch {
 		case errors.As(serr, &caseErr):
 			if caseErr.Real != source.Name {
@@ -1017,7 +1026,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 	tempName := fs.TempName(target.Name)
 
 	if f.versioner != nil {
-		err = f.CheckAvailableSpace(uint64(source.Size))
+		err = f.CheckAvailableSpace(uint64(source.Size)) //nolint:gosec
 		if err == nil {
 			err = osutil.Copy(f.CopyRangeMethod.ToFS(), f.mtimefs, f.mtimefs, source.Name, tempName)
 			if err == nil {
@@ -1041,7 +1050,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 	// of the source and the creation of the target temp file. Fix-up the metadata,
 	// update the local index of the target file and rename from temp to real name.
 
-	if err = f.performFinish(target, curTarget, true, tempName, snap, dbUpdateChan, scanChan); err != nil {
+	if err = f.performFinish(target, curTarget, true, tempName, dbUpdateChan, scanChan); err != nil {
 		return err
 	}
 
@@ -1086,8 +1095,11 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, sn
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
-func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot, copyChan chan<- copyBlocksState) {
-	curFile, hasCurFile := snap.Get(protocol.LocalDeviceID, file.Name)
+func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState) error {
+	curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
+	if err != nil {
+		return err
+	}
 
 	have, _ := blockDiff(curFile.Blocks, file.Blocks)
 
@@ -1131,17 +1143,18 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, snap *db.Snapshot
 		have:              len(have),
 	}
 	copyChan <- cs
+	return nil
 }
 
 func (f *sendReceiveFolder) reuseBlocks(blocks []protocol.BlockInfo, reused []int, file protocol.FileInfo, tempName string) ([]protocol.BlockInfo, []int) {
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
-	tempBlocks, err := scanner.HashFile(f.ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil, false)
+	tempBlocks, err := scanner.HashFile(f.ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil)
 	if err != nil {
-		var caseErr *fs.ErrCaseConflict
+		var caseErr *fs.CaseConflictError
 		if errors.As(err, &caseErr) {
 			if rerr := f.mtimefs.Rename(caseErr.Real, tempName); rerr == nil {
-				tempBlocks, err = scanner.HashFile(f.ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil, false)
+				tempBlocks, err = scanner.HashFile(f.ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil)
 			}
 		}
 	}
@@ -1276,32 +1289,18 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 // copierRoutine reads copierStates until the in channel closes and performs
 // the relevant copies when possible, or passes it to the puller routine.
 func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
-	buf := protocol.BufferPool.Get(protocol.MinBlockSize)
-	defer func() {
-		protocol.BufferPool.Put(buf)
-	}()
-
-	folderFilesystems := make(map[string]fs.Filesystem)
-	// Hope that it's usually in the same folder, so start with that one.
-	folders := []string{f.folderID}
+	otherFolderFilesystems := make(map[string]fs.Filesystem)
 	for folder, cfg := range f.model.cfg.Folders() {
-		folderFilesystems[folder] = cfg.Filesystem(nil)
-		if folder != f.folderID {
-			folders = append(folders, folder)
+		if folder == f.ID {
+			continue
 		}
+		otherFolderFilesystems[folder] = cfg.Filesystem()
 	}
 
 	for state := range in {
-		if err := f.CheckAvailableSpace(uint64(state.file.Size)); err != nil {
+		if err := f.CheckAvailableSpace(uint64(state.file.Size)); err != nil { //nolint:gosec
 			state.fail(err)
 			// Nothing more to do for this failed file, since it would use to much disk space
-			out <- state.sharedPullerState
-			continue
-		}
-
-		dstFd, err := state.tempFile()
-		if err != nil {
-			// Nothing more to do for this failed file, since we couldn't create a temporary for it.
 			out <- state.sharedPullerState
 			continue
 		}
@@ -1309,8 +1308,6 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		if f.Type != config.FolderTypeReceiveEncrypted {
 			f.model.progressEmitter.Register(state.sharedPullerState)
 		}
-
-		weakHashFinder, file := f.initWeakHashFinder(state)
 
 	blocks:
 		for _, block := range state.blocks {
@@ -1334,147 +1331,140 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				continue
 			}
 
-			buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
-
-			var found bool
-			if f.Type != config.FolderTypeReceiveEncrypted {
-				found, err = weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
-					if f.verifyBuffer(buf, block) != nil {
-						return true
-					}
-
-					err = f.limitedWriteAt(dstFd, buf, block.Offset)
-					if err != nil {
-						state.fail(fmt.Errorf("dst write: %w", err))
-					}
-					if offset == block.Offset {
-						state.copiedFromOrigin(block.Size)
-					} else {
-						state.copiedFromOriginShifted(block.Size)
-					}
-
-					return false
-				})
-				if err != nil {
-					l.Debugln("weak hasher iter", err)
-				}
-			}
-
-			if !found {
-				found = f.model.finder.Iterate(folders, block.Hash, func(folder, path string, index int32) bool {
-					ffs := folderFilesystems[folder]
-					fd, err := ffs.Open(path)
-					if err != nil {
-						return false
-					}
-					defer fd.Close()
-
-					srcOffset := int64(state.file.BlockSize()) * int64(index)
-					_, err = fd.ReadAt(buf, srcOffset)
-					if err != nil {
-						return false
-					}
-
-					// Hash is not SHA256 as it's an encrypted hash token. In that
-					// case we can't verify the block integrity so we'll take it on
-					// trust. (The other side can and will verify.)
-					if f.Type != config.FolderTypeReceiveEncrypted {
-						if err := f.verifyBuffer(buf, block); err != nil {
-							l.Debugln("Finder failed to verify buffer", err)
-							return false
-						}
-					}
-
-					if f.CopyRangeMethod != config.CopyRangeMethodStandard {
-						err = f.withLimiter(func() error {
-							dstFd.mut.Lock()
-							defer dstFd.mut.Unlock()
-							return fs.CopyRange(f.CopyRangeMethod.ToFS(), fd, dstFd.fd, srcOffset, block.Offset, int64(block.Size))
-						})
-					} else {
-						err = f.limitedWriteAt(dstFd, buf, block.Offset)
-					}
-					if err != nil {
-						state.fail(fmt.Errorf("dst write: %w", err))
-					}
-					if path == state.file.Name {
-						state.copiedFromOrigin(block.Size)
-					} else {
-						state.copiedFromElsewhere(block.Size)
-					}
-					return true
-				})
+			if f.copyBlock(block, state, otherFolderFilesystems) {
+				state.copyDone(block)
+				continue
 			}
 
 			if state.failed() != nil {
 				break
 			}
 
-			if !found {
-				state.pullStarted()
-				ps := pullBlockState{
-					sharedPullerState: state.sharedPullerState,
-					block:             block,
-				}
-				pullChan <- ps
-			} else {
-				state.copyDone(block)
+			state.pullStarted()
+			ps := pullBlockState{
+				sharedPullerState: state.sharedPullerState,
+				block:             block,
 			}
+			pullChan <- ps
 		}
-		if file != nil {
-			// os.File used to return invalid argument if nil.
-			// fs.File panics as it's an interface.
-			file.Close()
+		// If there are no blocks to pull/copy, we still need the temporary file in place.
+		if len(state.blocks) == 0 {
+			_, err := state.tempFile()
+			if err != nil {
+				state.fail(err)
+			}
 		}
 
 		out <- state.sharedPullerState
 	}
 }
 
-func (f *sendReceiveFolder) initWeakHashFinder(state copyBlocksState) (*weakhash.Finder, fs.File) {
-	if f.Type == config.FolderTypeReceiveEncrypted {
-		l.Debugln("not weak hashing due to folder type", f.Type)
-		return nil, nil
+// Returns true when the block was successfully copied.
+func (f *sendReceiveFolder) copyBlock(block protocol.BlockInfo, state copyBlocksState, otherFolderFilesystems map[string]fs.Filesystem) bool {
+	buf := protocol.BufferPool.Get(block.Size)
+	defer protocol.BufferPool.Put(buf)
+
+	// Hope that it's usually in the same folder, so start with that
+	// one. Also possibly more efficient copy (same filesystem).
+	if f.copyBlockFromFolder(f.ID, block, state, f.mtimefs, buf) {
+		return true
+	}
+	if state.failed() != nil {
+		return false
 	}
 
-	blocksPercentChanged := 0
-	if tot := len(state.file.Blocks); tot > 0 {
-		blocksPercentChanged = (tot - state.have) * 100 / tot
-	}
-
-	if blocksPercentChanged < f.WeakHashThresholdPct {
-		l.Debugf("not weak hashing %s. not enough changed %.02f < %d", state.file.Name, blocksPercentChanged, f.WeakHashThresholdPct)
-		return nil, nil
-	}
-
-	hashesToFind := make([]uint32, 0, len(state.blocks))
-	for _, block := range state.blocks {
-		if block.WeakHash != 0 {
-			hashesToFind = append(hashesToFind, block.WeakHash)
+	for folderID, ffs := range otherFolderFilesystems {
+		if f.copyBlockFromFolder(folderID, block, state, ffs, buf) {
+			return true
+		}
+		if state.failed() != nil {
+			return false
 		}
 	}
 
-	if len(hashesToFind) == 0 {
-		l.Debugf("not weak hashing %s. file did not contain any weak hashes", state.file.Name)
-		return nil, nil
+	return false
+}
+
+// Returns true when the block was successfully copied.
+// The passed buffer must be large enough to accommodate the block.
+func (f *sendReceiveFolder) copyBlockFromFolder(folderID string, block protocol.BlockInfo, state copyBlocksState, ffs fs.Filesystem, buf []byte) bool {
+	for e, err := range itererr.Zip(f.model.sdb.AllLocalBlocksWithHash(folderID, block.Hash)) {
+		if err != nil {
+			// We just ignore this and continue pulling instead (though
+			// there's a good chance that will fail too, if the DB is
+			// unhealthy).
+			l.Debugf("Failed to get information from DB about block %v in copier (folderID %v, file %v): %v", block.Hash, f.folderID, state.file.Name)
+			return false
+		}
+
+		if !f.copyBlockFromFile(e.FileName, e.Offset, state, ffs, block, buf) {
+			if state.failed() != nil {
+				return false
+			}
+			continue
+		}
+
+		if e.FileName == state.file.Name {
+			state.copiedFromOrigin(block.Size)
+		} else {
+			state.copiedFromElsewhere(block.Size)
+		}
+		return true
 	}
 
-	file, err := f.mtimefs.Open(state.file.Name)
+	return false
+}
+
+// Returns true when the block was successfully copied.
+// The passed buffer must be large enough to accommodate the block.
+func (f *sendReceiveFolder) copyBlockFromFile(srcName string, srcOffset int64, state copyBlocksState, ffs fs.Filesystem, block protocol.BlockInfo, buf []byte) bool {
+	fd, err := ffs.Open(srcName)
 	if err != nil {
-		l.Debugln("weak hasher", err)
-		return nil, nil
+		l.Debugf("Failed to open file %v trying to copy block %v (folderID %v): %v", srcName, block.Hash, f.folderID, err)
+		return false
+	}
+	defer fd.Close()
+
+	_, err = fd.ReadAt(buf, srcOffset)
+	if err != nil {
+		l.Debugf("Failed to read block from file %v in copier (folderID: %v, hash: %v): %v", srcName, f.folderID, block.Hash, err)
+		return false
 	}
 
-	weakHashFinder, err := weakhash.NewFinder(f.ctx, file, state.file.BlockSize(), hashesToFind)
-	if err != nil {
-		l.Debugln("weak hasher", err)
-		return nil, file
+	// Hash is not SHA256 as it's an encrypted hash token. In that
+	// case we can't verify the block integrity so we'll take it on
+	// trust. (The other side can and will verify.)
+	if f.Type != config.FolderTypeReceiveEncrypted {
+		if err := f.verifyBuffer(buf, block); err != nil {
+			l.Debugf("Failed to verify buffer in copier (folderID: %v): %v", f.folderID, err)
+			return false
+		}
 	}
-	return weakHashFinder, file
+
+	dstFd, err := state.tempFile()
+	if err != nil {
+		// State is already marked as failed when an error is returned here.
+		return false
+	}
+
+	if f.CopyRangeMethod != config.CopyRangeMethodStandard {
+		err = f.withLimiter(func() error {
+			dstFd.mut.Lock()
+			defer dstFd.mut.Unlock()
+			return fs.CopyRange(f.CopyRangeMethod.ToFS(), fd, dstFd.fd, srcOffset, block.Offset, int64(block.Size))
+		})
+	} else {
+		err = f.limitedWriteAt(dstFd, buf, block.Offset)
+	}
+	if err != nil {
+		state.fail(fmt.Errorf("dst write: %w", err))
+		return false
+	}
+	return true
 }
 
 func (*sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) error {
-	if len(buf) != int(block.Size) {
+	if len(buf) != block.Size {
 		return fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
 	}
 
@@ -1486,7 +1476,7 @@ func (*sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) err
 	return nil
 }
 
-func (f *sendReceiveFolder) pullerRoutine(snap *db.Snapshot, in <-chan pullBlockState, out chan<- *sharedPullerState) {
+func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
 	requestLimiter := semaphore.New(f.PullerMaxPendingKiB * 1024)
 	wg := sync.NewWaitGroup()
 
@@ -1502,8 +1492,7 @@ func (f *sendReceiveFolder) pullerRoutine(snap *db.Snapshot, in <-chan pullBlock
 		// ongoing at any given time, based on the size of the blocks
 		// themselves.
 
-		state := state
-		bytes := int(state.block.Size)
+		bytes := state.block.Size
 
 		if err := requestLimiter.TakeWithContext(f.ctx, bytes); err != nil {
 			state.fail(err)
@@ -1517,13 +1506,13 @@ func (f *sendReceiveFolder) pullerRoutine(snap *db.Snapshot, in <-chan pullBlock
 			defer wg.Done()
 			defer requestLimiter.Give(bytes)
 
-			f.pullBlock(state, snap, out)
+			f.pullBlock(state, out)
 		}()
 	}
 	wg.Wait()
 }
 
-func (f *sendReceiveFolder) pullBlock(state pullBlockState, snap *db.Snapshot, out chan<- *sharedPullerState) {
+func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPullerState) {
 	// Get an fd to the temporary file. Technically we don't need it until
 	// after fetching the block, but if we run into an error here there is
 	// no point in issuing the request to the network.
@@ -1542,7 +1531,7 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, snap *db.Snapshot, o
 	}
 
 	var lastError error
-	candidates := f.model.blockAvailability(f.FolderConfiguration, snap, state.file, state.block)
+	candidates := f.model.blockAvailability(f.FolderConfiguration, state.file, state.block)
 loop:
 	for {
 		select {
@@ -1574,7 +1563,7 @@ loop:
 		activity.using(selected)
 		var buf []byte
 		blockNo := int(state.block.Offset / int64(state.file.BlockSize()))
-		buf, lastError = f.model.RequestGlobal(f.ctx, selected.ID, f.folderID, state.file.Name, blockNo, state.block.Offset, int(state.block.Size), state.block.Hash, state.block.WeakHash, selected.FromTemporary)
+		buf, lastError = f.model.RequestGlobal(f.ctx, selected.ID, f.folderID, state.file.Name, blockNo, state.block.Offset, state.block.Size, state.block.Hash, selected.FromTemporary)
 		activity.done(selected)
 		if lastError != nil {
 			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, selected.ID.Short(), "returned error:", lastError)
@@ -1607,7 +1596,7 @@ loop:
 	out <- state.sharedPullerState
 }
 
-func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCurFile bool, tempName string, snap *db.Snapshot, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
+func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCurFile bool, tempName string, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
 	// Set the correct permission bits on the new file
 	if !f.IgnorePerms && !file.NoPermissions {
 		if err := f.mtimefs.Chmod(tempName, fs.FileMode(file.Permissions&0o777)); err != nil {
@@ -1638,7 +1627,7 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
 			}, curFile.Name)
 		} else {
-			err = f.deleteItemOnDisk(curFile, snap, scanChan)
+			err = f.deleteItemOnDisk(curFile, scanChan)
 		}
 		if err != nil {
 			return fmt.Errorf("moving for conflict: %w", err)
@@ -1661,7 +1650,7 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 	return nil
 }
 
-func (f *sendReceiveFolder) finisherRoutine(snap *db.Snapshot, in <-chan *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	for state := range in {
 		if closed, err := state.finalClose(); closed {
 			l.Debugln(f, "closing", state.file.Name)
@@ -1669,7 +1658,7 @@ func (f *sendReceiveFolder) finisherRoutine(snap *db.Snapshot, in <-chan *shared
 			f.queue.Done(state.file.Name)
 
 			if err == nil {
-				err = f.performFinish(state.file, state.curFile, state.hasCurFile, state.tempName, snap, dbUpdateChan, scanChan)
+				err = f.performFinish(state.file, state.curFile, state.hasCurFile, state.tempName, dbUpdateChan, scanChan)
 			}
 
 			if err != nil {
@@ -1722,11 +1711,11 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 	var lastFile protocol.FileInfo
 	tick := time.NewTicker(maxBatchTime)
 	defer tick.Stop()
-	batch := db.NewFileInfoBatch(func(files []protocol.FileInfo) error {
+	batch := NewFileInfoBatch(func(files []protocol.FileInfo) error {
 		// sync directories
 		for dir := range changedDirs {
 			delete(changedDirs, dir)
-			if !f.FolderConfiguration.DisableFsync {
+			if !f.DisableFsync {
 				fd, err := f.mtimefs.Open(dir)
 				if err != nil {
 					l.Debugf("fsync %q failed: %v", dir, err)
@@ -1909,7 +1898,7 @@ func (f *sendReceiveFolder) newPullError(path string, err error) {
 }
 
 // deleteItemOnDisk deletes the file represented by old that is about to be replaced by new.
-func (f *sendReceiveFolder) deleteItemOnDisk(item protocol.FileInfo, snap *db.Snapshot, scanChan chan<- string) (err error) {
+func (f *sendReceiveFolder) deleteItemOnDisk(item protocol.FileInfo, scanChan chan<- string) (err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("%s: %w", contextRemovingOldItem, err)
@@ -1920,7 +1909,7 @@ func (f *sendReceiveFolder) deleteItemOnDisk(item protocol.FileInfo, snap *db.Sn
 	case item.IsDirectory():
 		// Directories aren't archived and need special treatment due
 		// to potential children.
-		return f.deleteDirOnDisk(item.Name, snap, scanChan)
+		return f.deleteDirOnDisk(item.Name, scanChan)
 
 	case !item.IsSymlink() && f.versioner != nil:
 		// If we should use versioning, let the versioner archive the
@@ -1936,12 +1925,12 @@ func (f *sendReceiveFolder) deleteItemOnDisk(item protocol.FileInfo, snap *db.Sn
 
 // deleteDirOnDisk attempts to delete a directory. It checks for files/dirs inside
 // the directory and removes them if possible or returns an error if it fails
-func (f *sendReceiveFolder) deleteDirOnDisk(dir string, snap *db.Snapshot, scanChan chan<- string) error {
+func (f *sendReceiveFolder) deleteDirOnDisk(dir string, scanChan chan<- string) error {
 	if err := osutil.TraversesSymlink(f.mtimefs, filepath.Dir(dir)); err != nil {
 		return err
 	}
 
-	if err := f.deleteDirOnDiskHandleChildren(dir, snap, scanChan); err != nil {
+	if err := f.deleteDirOnDiskHandleChildren(dir, scanChan); err != nil {
 		return err
 	}
 
@@ -1961,7 +1950,7 @@ func (f *sendReceiveFolder) deleteDirOnDisk(dir string, snap *db.Snapshot, scanC
 	return err
 }
 
-func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, snap *db.Snapshot, scanChan chan<- string) error {
+func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, scanChan chan<- string) error {
 	var dirsToDelete []string
 	var hasIgnored, hasKnown, hasToBeScanned, hasReceiveOnlyChanged bool
 	var delErr error
@@ -1988,7 +1977,10 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, snap *db.S
 			hasIgnored = true
 			return nil
 		}
-		cf, ok := snap.Get(protocol.LocalDeviceID, path)
+		cf, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, path)
+		if err != nil {
+			return err
+		}
 		switch {
 		case !ok || cf.IsDeleted():
 			// Something appeared in the dir that we either are not
@@ -2006,7 +1998,7 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, snap *db.S
 			// Lets just assume the file has changed.
 			scanChan <- path
 			hasToBeScanned = true
-			return nil
+			return nil //nolint:nilerr
 		}
 		if !cf.IsEquivalentOptional(diskFile, protocol.FileInfoComparison{
 			ModTimeWindow:   f.modTimeWindow,
@@ -2065,7 +2057,7 @@ func (f *sendReceiveFolder) deleteDirOnDiskHandleChildren(dir string, snap *db.S
 // not changed.
 func (f *sendReceiveFolder) scanIfItemChanged(name string, stat fs.FileInfo, item protocol.FileInfo, hasItem bool, fromDelete bool, scanChan chan<- string) (err error) {
 	defer func() {
-		if err == errModified {
+		if errors.Is(err, errModified) {
 			scanChan <- name
 		}
 	}()

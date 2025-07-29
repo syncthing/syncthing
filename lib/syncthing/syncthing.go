@@ -22,13 +22,12 @@ import (
 
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/lib/api"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/connections/registry"
-	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/locations"
@@ -52,21 +51,19 @@ const (
 )
 
 type Options struct {
-	AuditWriter    io.Writer
-	NoUpgrade      bool
-	ProfilerAddr   string
-	ResetDeltaIdxs bool
-	Verbose        bool
-	// null duration means use default value
-	DBRecheckInterval    time.Duration
-	DBIndirectGCInterval time.Duration
+	AuditWriter           io.Writer
+	NoUpgrade             bool
+	ProfilerAddr          string
+	ResetDeltaIdxs        bool
+	Verbose               bool
+	DBMaintenanceInterval time.Duration
 }
 
 type App struct {
 	myID              protocol.DeviceID
 	mainService       *suture.Supervisor
 	cfg               config.Wrapper
-	ll                *db.Lowlevel
+	sdb               db.DB
 	evLogger          events.Logger
 	cert              tls.Certificate
 	opts              Options
@@ -80,14 +77,10 @@ type App struct {
 	Internals *Internals
 }
 
-func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) (*App, error) {
-	ll, err := db.NewLowlevel(dbBackend, evLogger, db.WithRecheckInterval(opts.DBRecheckInterval), db.WithIndirectGCInterval(opts.DBIndirectGCInterval))
-	if err != nil {
-		return nil, err
-	}
+func New(cfg config.Wrapper, sdb db.DB, evLogger events.Logger, cert tls.Certificate, opts Options) (*App, error) {
 	a := &App{
 		cfg:      cfg,
-		ll:       ll,
+		sdb:      sdb,
 		evLogger: evLogger,
 		opts:     opts,
 		cert:     cert,
@@ -124,7 +117,7 @@ func (a *App) Start() error {
 func (a *App) startup() error {
 	a.mainService.Add(ur.NewFailureHandler(a.cfg, a.evLogger))
 
-	a.mainService.Add(a.ll)
+	a.mainService.Add(a.sdb.Service(a.opts.DBMaintenanceInterval))
 
 	if a.opts.AuditWriter != nil {
 		a.mainService.Add(newAuditService(a.opts.AuditWriter, a.evLogger))
@@ -177,17 +170,15 @@ func (a *App) startup() error {
 		}()
 	}
 
-	perf := ur.CpuBench(context.Background(), 3, 150*time.Millisecond, true)
+	perf := ur.CpuBench(context.Background(), 3, 150*time.Millisecond)
 	l.Infof("Hashing performance is %.02f MB/s", perf)
-
-	if err := db.UpdateSchema(a.ll); err != nil {
-		l.Warnln("Database schema:", err)
-		return err
-	}
 
 	if a.opts.ResetDeltaIdxs {
 		l.Infoln("Reinitializing delta index IDs")
-		db.DropDeltaIndexIDs(a.ll)
+		if err := a.sdb.DropAllIndexIDs(); err != nil {
+			l.Warnln("Drop index IDs:", err)
+			return err
+		}
 	}
 
 	protectedFiles := []string{
@@ -198,17 +189,22 @@ func (a *App) startup() error {
 	}
 
 	// Remove database entries for folders that no longer exist in the config
-	folders := a.cfg.Folders()
-	for _, folder := range a.ll.ListFolders() {
-		if _, ok := folders[folder]; !ok {
+	cfgFolders := a.cfg.Folders()
+	dbFolders, err := a.sdb.ListFolders()
+	if err != nil {
+		l.Warnln("Listing folders:", err)
+		return err
+	}
+	for _, folder := range dbFolders {
+		if _, ok := cfgFolders[folder]; !ok {
 			l.Infof("Cleaning metadata for dropped folder %q", folder)
-			db.DropFolder(a.ll, folder)
+			a.sdb.DropFolder(folder)
 		}
 	}
 
 	// Grab the previously running version string from the database.
 
-	miscDB := db.NewMiscDataNamespace(a.ll)
+	miscDB := db.NewMiscDB(a.sdb)
 	prevVersion, _, err := miscDB.String("prevVersion")
 	if err != nil {
 		l.Warnln("Database:", err)
@@ -229,7 +225,10 @@ func (a *App) startup() error {
 		if a.cfg.Options().SendFullIndexOnUpgrade {
 			// Drop delta indexes in case we've changed random stuff we
 			// shouldn't have. We will resend our index on next connect.
-			db.DropDeltaIndexIDs(a.ll)
+			if err := a.sdb.DropAllIndexIDs(); err != nil {
+				l.Warnln("Drop index IDs:", err)
+				return err
+			}
 		}
 	}
 
@@ -238,13 +237,13 @@ func (a *App) startup() error {
 		miscDB.PutString("prevVersion", build.Version)
 	}
 
-	if err := globalMigration(a.ll, a.cfg); err != nil {
+	if err := globalMigration(a.sdb, a.cfg); err != nil {
 		l.Warnln("Global migration:", err)
 		return err
 	}
 
 	keyGen := protocol.NewKeyGenerator()
-	m := model.NewModel(a.cfg, a.myID, a.ll, protectedFiles, a.evLogger, keyGen)
+	m := model.NewModel(a.cfg, a.myID, a.sdb, protectedFiles, a.evLogger, keyGen)
 	a.Internals = newInternals(m)
 
 	a.mainService.Add(m)
@@ -327,7 +326,7 @@ func (a *App) wait(errChan <-chan error) {
 
 	done := make(chan struct{})
 	go func() {
-		a.ll.Close()
+		a.sdb.Close()
 		close(done)
 	}()
 	select {
@@ -393,7 +392,7 @@ func (a *App) stopWithErr(stopReason svcutil.ExitStatus, err error) svcutil.Exit
 	return a.exitStatus
 }
 
-func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder, miscDB *db.NamespacedKV) error {
+func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder, miscDB *db.Typed) error {
 	guiCfg := a.cfg.GUI()
 
 	if !guiCfg.Enabled {

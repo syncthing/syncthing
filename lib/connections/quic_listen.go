@@ -49,9 +49,11 @@ type quicListener struct {
 	registry   *registry.Registry
 	lanChecker *lanChecker
 
-	address *url.URL
-	laddr   net.Addr
-	mut     sync.Mutex
+	address    *url.URL
+	natService *nat.Service
+	mapping    *nat.Mapping
+	laddr      net.Addr
+	mut        sync.Mutex
 }
 
 func (t *quicListener) OnNATTypeChanged(natType stun.NATType) {
@@ -126,7 +128,24 @@ func (t *quicListener) serve(ctx context.Context) error {
 	l.Infof("QUIC listener (%v) starting", udpConn.LocalAddr())
 	defer l.Infof("QUIC listener (%v) shutting down", udpConn.LocalAddr())
 
+	var ipVersion nat.IPVersion
+	switch t.uri.Scheme {
+	case "quic4":
+		ipVersion = nat.IPv4Only
+	case "quic6":
+		ipVersion = nat.IPv6Only
+	default:
+		ipVersion = nat.IPvAny
+	}
+	mapping := t.natService.NewMapping(nat.UDP, ipVersion, udpAddr.IP, udpAddr.Port)
+	mapping.OnChanged(func() {
+		t.notifyAddressesChanged(t)
+	})
+	// Should be called after t.mapping is nil'ed out.
+	defer t.natService.RemoveMapping(mapping)
+
 	t.mut.Lock()
+	t.mapping = mapping
 	t.laddr = udpConn.LocalAddr()
 	t.mut.Unlock()
 	defer func() {
@@ -196,6 +215,9 @@ func (t *quicListener) WANAddresses() []*url.URL {
 	if t.address != nil {
 		uris = append(uris, t.address)
 	}
+
+	uris = append(uris, portMappingURIs(t.mapping, *t.uri)...)
+
 	t.mut.Unlock()
 	return uris
 }
@@ -232,12 +254,13 @@ func (*quicListenerFactory) Valid(config.Configuration) error {
 	return nil
 }
 
-func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, _ *nat.Service, registry *registry.Registry, lanChecker *lanChecker) genericListener {
+func (f *quicListenerFactory) New(uri *url.URL, cfg config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service, registry *registry.Registry, lanChecker *lanChecker) genericListener {
 	l := &quicListener{
 		uri:        fixupPort(uri, config.DefaultQUICPort),
 		cfg:        cfg,
 		tlsCfg:     tlsCfg,
 		conns:      conns,
+		natService: natService,
 		factory:    f,
 		registry:   registry,
 		lanChecker: lanChecker,

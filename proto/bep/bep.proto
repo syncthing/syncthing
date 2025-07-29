@@ -47,11 +47,9 @@ message ClusterConfig {
 message Folder {
   string id = 1;
   string label = 2;
-  bool read_only = 3;
-  bool ignore_permissions = 4;
-  bool ignore_delete = 5;
-  bool disable_temp_indexes = 6;
-  bool paused = 7;
+  FolderType type = 3;
+  FolderStopReason stop_reason = 7;
+  reserved 4 to 6;
 
   repeated Device devices = 16;
 }
@@ -73,6 +71,18 @@ enum Compression {
   COMPRESSION_METADATA = 0;
   COMPRESSION_NEVER = 1;
   COMPRESSION_ALWAYS = 2;
+}
+
+enum FolderType {
+	FOLDER_TYPE_SEND_RECEIVE = 0;
+	FOLDER_TYPE_SEND_ONLY = 1;
+	FOLDER_TYPE_RECEIVE_ONLY = 2;
+	FOLDER_TYPE_RECEIVE_ENCRYPTED = 3;
+}
+
+enum FolderStopReason {
+  FOLDER_STOP_REASON_RUNNING = 0; // i.e., not stopped
+  FOLDER_STOP_REASON_PAUSED = 1;
 }
 
 // Index and Index Update
@@ -145,7 +155,7 @@ message BlockInfo {
   bytes hash = 3;
   int64 offset = 1;
   int32 size = 2;
-  uint32 weak_hash = 4;
+  reserved 4;
 }
 
 message Vector {
@@ -203,8 +213,8 @@ message Request {
   int32 size = 5;
   bytes hash = 6;
   bool from_temporary = 7;
-  uint32 weak_hash = 8;
   int32 block_no = 9;
+  reserved 8;
 }
 
 // Response

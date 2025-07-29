@@ -360,7 +360,7 @@
     "Show diff with previous version": "Ukázat rozdíl oproti předchozí verzi",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Zobrazeno místo identifikátoru zařízení na náhledu stavu clusteru. Bude odesíláno ostatním zařízením jako výchozí název zařízení.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Zobrazeno místo identifikátoru zařízení na náhledu stavu clusteru. Pokud nebude vyplněno, bude nastaveno na název, který zařízení odesílá.",
-    "Shutdown": "Vypnout",
+    "Shut Down": "Vypnout",
     "Shutdown Complete": "Vypnutí dokončeno",
     "Simple": "Jednoduché",
     "Simple File Versioning": "Jednoduchá správa verzí souborů",

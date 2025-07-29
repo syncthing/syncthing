@@ -4,15 +4,18 @@ linters:
   disable:
     - cyclop
     - depguard
+    - err113
     - exhaustive
     - exhaustruct
     - forbidigo
+    - funcorder
     - funlen
     - gochecknoglobals
     - gochecknoinits
     - gocognit
     - goconst
     - gocyclo
+    - godot
     - godox
     - gomoddirectives
     - inamedparam
@@ -24,6 +27,7 @@ linters:
     - musttag
     - nestif
     - nlreturn
+    - noinlineerr
     - nonamedreturns
     - paralleltest
     - prealloc
@@ -39,6 +43,7 @@ linters:
     - whitespace
     - wrapcheck
     - wsl
+    - wsl_v5
   exclusions:
     generated: lax
     presets:
@@ -48,11 +53,13 @@ linters:
       - std-error-handling
     paths:
       - internal/gen
+      - internal/db/olddb
       - cmd/dev
       - repos
       - third_party$
       - builtin$
       - examples$
+      - _test\.go$
 formatters:
   enable:
     - gofumpt

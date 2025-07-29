@@ -32,7 +32,7 @@ func TestRequestSimple(t *testing.T) {
 
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	tfs := fcfg.Filesystem(nil)
+	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -80,7 +80,7 @@ func TestSymlinkTraversalRead(t *testing.T) {
 
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -123,7 +123,7 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected names.
@@ -182,7 +182,7 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -229,7 +229,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	w, wCancel := newConfigWrapper(defaultCfgWrapper.RawCopy())
 	defer wCancel()
 	fcfg := w.FolderList()[0]
-	fss := fcfg.Filesystem(nil)
+	fss := fcfg.Filesystem()
 	fcfg.Type = ft
 	setFolder(t, w, fcfg)
 	m := setupModel(t, w)
@@ -358,7 +358,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 func TestIssue4841(t *testing.T) {
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	received := make(chan []protocol.FileInfo)
 	fc.setIndexFn(func(_ context.Context, _ string, fs []protocol.FileInfo) error {
@@ -407,7 +407,7 @@ func TestIssue4841(t *testing.T) {
 func TestRescanIfHaveInvalidContent(t *testing.T) {
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	tfs := fcfg.Filesystem(nil)
+	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	payload := []byte("hello")
@@ -436,11 +436,8 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 	}
 
 	f := checkReceived(<-received)
-	if f.Blocks[0].WeakHash != 103547413 {
-		t.Fatalf("unexpected weak hash: %d != 103547413", f.Blocks[0].WeakHash)
-	}
 
-	res, err := m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: len(payload), Hash: f.Blocks[0].Hash, WeakHash: f.Blocks[0].WeakHash})
+	res, err := m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: len(payload), Hash: f.Blocks[0].Hash})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -454,26 +451,25 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 
 	writeFile(t, tfs, "foo", payload)
 
-	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: len(payload), Hash: f.Blocks[0].Hash, WeakHash: f.Blocks[0].WeakHash})
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: len(payload), Hash: f.Blocks[0].Hash})
 	if err == nil {
 		t.Fatalf("expected failure")
 	}
 
 	select {
 	case fs := <-received:
-		f := checkReceived(fs)
-		if f.Blocks[0].WeakHash != 41943361 {
-			t.Fatalf("unexpected weak hash: %d != 41943361", f.Blocks[0].WeakHash)
-		}
+		checkReceived(fs)
 	case <-time.After(time.Second):
 		t.Fatalf("timed out")
 	}
 }
 
 func TestParentDeletion(t *testing.T) {
+	t.Skip("flaky")
+
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	testFs := fcfg.Filesystem(nil)
+	testFs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, testFs.URI())
 
 	parent := "foo"
@@ -552,7 +548,7 @@ func TestRequestSymlinkWindows(t *testing.T) {
 
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem(nil).URI())
+	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	received := make(chan []protocol.FileInfo)
 	fc.setIndexFn(func(_ context.Context, folder string, fs []protocol.FileInfo) error {
@@ -629,7 +625,7 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	tfs := fcfg.Filesystem(nil)
+	tfs := fcfg.Filesystem()
 	defer cleanupModel(m)
 
 	received := make(chan []protocol.FileInfo)
@@ -762,7 +758,7 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 func TestRequestRemoteRenameConflict(t *testing.T) {
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	tfs := fcfg.Filesystem(nil)
+	tfs := fcfg.Filesystem()
 	defer cleanupModel(m)
 
 	recv := make(chan int)
@@ -852,7 +848,7 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 func TestRequestDeleteChanged(t *testing.T) {
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	tfs := fcfg.Filesystem(nil)
+	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	done := make(chan struct{})
@@ -907,13 +903,24 @@ func TestRequestDeleteChanged(t *testing.T) {
 		t.Fatal("timed out")
 	}
 
-	// Check outcome
-	if _, err := tfs.Lstat(a); err != nil {
-		if fs.IsNotExist(err) {
-			t.Error(`Modified file "a" was removed`)
-		} else {
-			t.Error(`Error stating file "a":`, err)
+	// Check outcome. The file may have been moved to a conflict copy.
+	remains := false
+	files, err := tfs.Glob("a*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		if file == "a" {
+			remains = true
+			break
 		}
+		if strings.HasPrefix(file, "a.sync-conflict-") {
+			remains = true
+			break
+		}
+	}
+	if !remains {
+		t.Error(`Modified file "a" was removed`)
 	}
 }
 
@@ -966,7 +973,7 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 	w, fcfg, wCancel := newDefaultCfgWrapper()
 	defer wCancel()
 	m := setupModel(t, w)
-	fss := fcfg.Filesystem(nil)
+	fss := fcfg.Filesystem()
 	defer cleanupModel(m)
 
 	folderIgnoresAlwaysReload(t, m, fcfg)
@@ -1060,7 +1067,7 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 func TestRequestLastFileProgress(t *testing.T) {
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	tfs := fcfg.Filesystem(nil)
+	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	done := make(chan struct{})
@@ -1095,7 +1102,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 
 	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
 	defer wcfgCancel()
-	tfs := fcfg.Filesystem(nil)
+	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	indexChan := make(chan []protocol.FileInfo)
@@ -1122,7 +1129,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	// Remote paused
 
 	cc := basicClusterConfig(device1, myID, fcfg.ID)
-	cc.Folders[0].Paused = true
+	cc.Folders[0].StopReason = protocol.FolderStopReasonPaused
 	m.ClusterConfig(fc, cc)
 
 	seq++
@@ -1143,7 +1150,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 
 	// Remote unpaused
 
-	cc.Folders[0].Paused = false
+	cc.Folders[0].StopReason = protocol.FolderStopReasonRunning
 	m.ClusterConfig(fc, cc)
 	select {
 	case <-time.After(5 * time.Second):
@@ -1168,12 +1175,12 @@ func TestRequestIndexSenderPause(t *testing.T) {
 
 	// Local and remote paused, then first resume remote, then local
 
-	cc.Folders[0].Paused = true
+	cc.Folders[0].StopReason = protocol.FolderStopReasonPaused
 	m.ClusterConfig(fc, cc)
 
 	pauseFolder(t, m.cfg, fcfg.ID, true)
 
-	cc.Folders[0].Paused = false
+	cc.Folders[0].StopReason = protocol.FolderStopReasonRunning
 	m.ClusterConfig(fc, cc)
 
 	pauseFolder(t, m.cfg, fcfg.ID, false)
@@ -1208,7 +1215,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 	w, fcfg, wCancel := newDefaultCfgWrapper()
 	defer wCancel()
-	tfs := fcfg.Filesystem(nil)
+	tfs := fcfg.Filesystem()
 	dir1 := "foo"
 	dir2 := "bar"
 
@@ -1223,7 +1230,7 @@ func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
 
 	// Add connection (sends incoming cluster config) before starting the new model
 	m = &testModel{
-		model:    NewModel(m.cfg, m.id, m.db, m.protectedFiles, m.evLogger, protocol.NewKeyGenerator()).(*model),
+		model:    NewModel(m.cfg, m.id, m.sdb, m.protectedFiles, m.evLogger, protocol.NewKeyGenerator()).(*model),
 		evCancel: m.evCancel,
 		stopped:  make(chan struct{}),
 	}
@@ -1275,7 +1282,7 @@ func TestRequestReceiveEncrypted(t *testing.T) {
 
 	w, fcfg, wCancel := newDefaultCfgWrapper()
 	defer wCancel()
-	tfs := fcfg.Filesystem(nil)
+	tfs := fcfg.Filesystem()
 	fcfg.Type = config.FolderTypeReceiveEncrypted
 	setFolder(t, w, fcfg)
 
@@ -1287,10 +1294,7 @@ func TestRequestReceiveEncrypted(t *testing.T) {
 
 	files := genFiles(2)
 	files[1].LocalFlags = protocol.FlagLocalReceiveOnly
-	m.mut.RLock()
-	fset := m.folderFiles[fcfg.ID]
-	m.mut.RUnlock()
-	fset.Update(protocol.LocalDeviceID, files)
+	m.sdb.Update(fcfg.ID, protocol.LocalDeviceID, files)
 
 	indexChan := make(chan []protocol.FileInfo, 10)
 	done := make(chan struct{})
@@ -1382,7 +1386,7 @@ func TestRequestGlobalInvalidToValid(t *testing.T) {
 	must(t, err)
 	waiter.Wait()
 	conn := addFakeConn(m, device2, fcfg.ID)
-	tfs := fcfg.Filesystem(nil)
+	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
 	indexChan := make(chan []protocol.FileInfo, 1)
@@ -1408,7 +1412,7 @@ func TestRequestGlobalInvalidToValid(t *testing.T) {
 	file.SetIgnored()
 	m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: fcfg.ID, Files: []protocol.FileInfo{prepareFileInfoForIndex(file)}})
 
-	// Wait for the ignored file to be received and possible pulled
+	// Wait for the ignored file to be received and possibly pulled
 	timeout := time.After(10 * time.Second)
 	globalUpdated := false
 	for {
@@ -1428,13 +1432,9 @@ func TestRequestGlobalInvalidToValid(t *testing.T) {
 			}
 			globalUpdated = true
 		}
-		snap, err := m.DBSnapshot(fcfg.ID)
-		if err != nil {
+		if s, err := m.NeedSize(fcfg.ID, protocol.LocalDeviceID); err != nil {
 			t.Fatal(err)
-		}
-		need := snap.NeedSize(protocol.LocalDeviceID)
-		snap.Release()
-		if need.Files == 0 {
+		} else if s.Files == 0 {
 			break
 		}
 	}

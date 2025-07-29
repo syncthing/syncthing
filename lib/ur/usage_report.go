@@ -22,10 +22,10 @@ import (
 	"time"
 
 	"github.com/shirou/gopsutil/v4/process"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -41,7 +41,7 @@ const Version = 3
 var StartTime = time.Now().Truncate(time.Second)
 
 type Model interface {
-	DBSnapshot(folder string) (*db.Snapshot, error)
+	GlobalSize(folder string) (db.Counts, error)
 	UsageReportingStats(report *contract.Report, version int, preview bool)
 }
 
@@ -83,12 +83,10 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 	var totFiles, maxFiles int
 	var totBytes, maxBytes int64
 	for folderID := range s.cfg.Folders() {
-		snap, err := s.model.DBSnapshot(folderID)
+		global, err := s.model.GlobalSize(folderID)
 		if err != nil {
-			continue
+			return nil, err
 		}
-		global := snap.GlobalSize()
-		snap.Release()
 		totFiles += int(global.Files)
 		totBytes += global.Bytes
 		if int(global.Files) > maxFiles {
@@ -116,8 +114,8 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 	report.TotMiB = int(totBytes / 1024 / 1024)
 	report.FolderMaxMiB = int(maxBytes / 1024 / 1024)
 	report.MemoryUsageMiB = int((mem.Sys - mem.HeapReleased) / 1024 / 1024)
-	report.SHA256Perf = CpuBench(ctx, 5, 125*time.Millisecond, false)
-	report.HashPerf = CpuBench(ctx, 5, 125*time.Millisecond, true)
+	report.SHA256Perf = CpuBench(ctx, 5, 125*time.Millisecond)
+	report.HashPerf = report.SHA256Perf
 	report.MemorySize = int(memorySize() / 1024 / 1024)
 	report.NumCPU = runtime.NumCPU()
 
@@ -248,14 +246,6 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			}
 			if cfg.DisableSparseFiles {
 				report.FolderUsesV3.DisableSparseFiles++
-			}
-			if cfg.DisableTempIndexes {
-				report.FolderUsesV3.DisableTempIndexes++
-			}
-			if cfg.WeakHashThresholdPct < 0 {
-				report.FolderUsesV3.AlwaysWeakHash++
-			} else if cfg.WeakHashThresholdPct != 25 {
-				report.FolderUsesV3.CustomWeakHashThreshold++
 			}
 			if cfg.FSWatcherEnabled {
 				report.FolderUsesV3.FsWatcherEnabled++
@@ -443,7 +433,7 @@ var (
 )
 
 // CpuBench returns CPU performance as a measure of single threaded SHA-256 MiB/s
-func CpuBench(ctx context.Context, iterations int, duration time.Duration, useWeakHash bool) float64 {
+func CpuBench(ctx context.Context, iterations int, duration time.Duration) float64 {
 	blocksResultMut.Lock()
 	defer blocksResultMut.Unlock()
 
@@ -454,7 +444,7 @@ func CpuBench(ctx context.Context, iterations int, duration time.Duration, useWe
 
 	var perf float64
 	for i := 0; i < iterations; i++ {
-		if v := cpuBenchOnce(ctx, duration, useWeakHash, bs); v > perf {
+		if v := cpuBenchOnce(ctx, duration, bs); v > perf {
 			perf = v
 		}
 	}
@@ -467,13 +457,13 @@ func CpuBench(ctx context.Context, iterations int, duration time.Duration, useWe
 	return perf
 }
 
-func cpuBenchOnce(ctx context.Context, duration time.Duration, useWeakHash bool, bs []byte) float64 {
+func cpuBenchOnce(ctx context.Context, duration time.Duration, bs []byte) float64 {
 	t0 := time.Now()
 	b := 0
 	var err error
 	for time.Since(t0) < duration {
 		r := bytes.NewReader(bs)
-		blocksResult, err = scanner.Blocks(ctx, r, protocol.MinBlockSize, int64(len(bs)), nil, useWeakHash)
+		blocksResult, err = scanner.Blocks(ctx, r, protocol.MinBlockSize, int64(len(bs)), nil)
 		if err != nil {
 			return 0 // Context done
 		}

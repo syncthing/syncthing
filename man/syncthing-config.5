@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Jun 01, 2025" "v1.29.6" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Jul 21, 2025" "v1.29.7" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -608,8 +608,9 @@ to \fB\-1\fP to always use weak hash. Default is \fB25\fP\&.
 .INDENT 0.0
 .TP
 .B markerName
-Name of a directory or file in the folder root to be used as
-\fI\%How do I serve a folder from a read only filesystem?\fP\&. Default is \fB\&.stfolder\fP\&.
+Name of a directory or file in the folder root to be used as a marker \- see
+\fI\%marker FAQ\fP for its purpose.
+A marker directory is only created by Syncthing for the default \fB\&.stfolder\fP, not otherwise.
 .UNINDENT
 .INDENT 0.0
 .TP

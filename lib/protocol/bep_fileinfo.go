@@ -11,29 +11,82 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/gen/bep"
 	"github.com/syncthing/syncthing/lib/build"
 )
 
+type FlagLocal uint32
+
 // FileInfo.LocalFlags flags
 const (
-	FlagLocalUnsupported = 1 << 0 // The kind is unsupported, e.g. symlinks on Windows
-	FlagLocalIgnored     = 1 << 1 // Matches local ignore patterns
-	FlagLocalMustRescan  = 1 << 2 // Doesn't match content on disk, must be rechecked fully
-	FlagLocalReceiveOnly = 1 << 3 // Change detected on receive only folder
+	FlagLocalUnsupported   FlagLocal = 1 << 0 // 1: The kind is unsupported, e.g. symlinks on Windows
+	FlagLocalIgnored       FlagLocal = 1 << 1 // 2: Matches local ignore patterns
+	FlagLocalMustRescan    FlagLocal = 1 << 2 // 4: Doesn't match content on disk, must be rechecked fully
+	FlagLocalReceiveOnly   FlagLocal = 1 << 3 // 8: Change detected on receive only folder
+	FlagLocalGlobal        FlagLocal = 1 << 4 // 16: This is the global file version
+	FlagLocalNeeded        FlagLocal = 1 << 5 // 32: We need this file
+	FlagLocalRemoteInvalid FlagLocal = 1 << 6 // 64: The remote marked this as invalid
 
-	// Flags that should result in the Invalid bit on outgoing updates
-	LocalInvalidFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan | FlagLocalReceiveOnly
+	// Flags that should result in the Invalid bit on outgoing updates (or had it on ingoing ones)
+	LocalInvalidFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan | FlagLocalReceiveOnly | FlagLocalRemoteInvalid
 
 	// Flags that should result in a file being in conflict with its
 	// successor, due to us not having an up to date picture of its state on
 	// disk.
 	LocalConflictFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalReceiveOnly
 
-	LocalAllFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan | FlagLocalReceiveOnly
+	LocalAllFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan | FlagLocalReceiveOnly | FlagLocalGlobal | FlagLocalNeeded | FlagLocalRemoteInvalid
 )
+
+// localFlagBitNames maps flag values to characters which can be used to
+// build a permission-like bit string for easier reading.
+var localFlagBitNames = map[FlagLocal]string{
+	FlagLocalUnsupported:   "u",
+	FlagLocalIgnored:       "i",
+	FlagLocalMustRescan:    "r",
+	FlagLocalReceiveOnly:   "e",
+	FlagLocalGlobal:        "G",
+	FlagLocalNeeded:        "n",
+	FlagLocalRemoteInvalid: "v",
+}
+
+func (f FlagLocal) IsInvalid() bool {
+	return f&LocalInvalidFlags != 0
+}
+
+// HumanString returns a permission-like string representation of the flag bits
+func (f FlagLocal) HumanString() string {
+	if f == 0 {
+		return strings.Repeat("-", len(localFlagBitNames))
+	}
+
+	bit := FlagLocal(1)
+	var res bytes.Buffer
+	var extra strings.Builder
+	for f != 0 {
+		if f&bit != 0 {
+			if name, ok := localFlagBitNames[bit]; ok {
+				res.WriteString(name)
+			} else {
+				fmt.Fprintf(&extra, "+0x%x", bit)
+			}
+		} else {
+			res.WriteString("-")
+		}
+		f &^= bit
+		bit <<= 1
+	}
+	if res.Len() < len(localFlagBitNames) {
+		res.WriteString(strings.Repeat("-", len(localFlagBitNames)-res.Len()))
+	}
+	base := res.Bytes()
+	slices.Reverse(base)
+	return string(base) + extra.String()
+}
 
 // BlockSizes is the list of valid block sizes, from min to max
 var BlockSizes []int
@@ -80,7 +133,9 @@ type FileInfo struct {
 	// host only. It is not part of the protocol, doesn't get sent or
 	// received (we make sure to zero it), nonetheless we need it on our
 	// struct and to be able to serialize it to/from the database.
-	LocalFlags uint32
+	// It does carry the info to decide if the file is invalid, which is part of
+	// the protocol.
+	LocalFlags FlagLocal
 
 	// The version_hash is an implementation detail and not part of the wire
 	// format.
@@ -95,7 +150,6 @@ type FileInfo struct {
 	EncryptionTrailerSize int
 
 	Deleted       bool
-	RawInvalid    bool
 	NoPermissions bool
 
 	truncated bool // was created from a truncated file info without blocks
@@ -126,11 +180,11 @@ func (f *FileInfo) ToWire(withInternalFields bool) *bep.FileInfo {
 		BlockSize:     f.RawBlockSize,
 		Platform:      f.Platform.toWire(),
 		Deleted:       f.Deleted,
-		Invalid:       f.RawInvalid,
+		Invalid:       f.IsInvalid(),
 		NoPermissions: f.NoPermissions,
 	}
 	if withInternalFields {
-		w.LocalFlags = f.LocalFlags
+		w.LocalFlags = uint32(f.LocalFlags)
 		w.VersionHash = f.VersionHash
 		w.InodeChangeNs = f.InodeChangeNs
 		w.EncryptionTrailerSize = int32(f.EncryptionTrailerSize)
@@ -144,15 +198,6 @@ func (f *FileInfo) WinsConflict(other FileInfo) bool {
 	// If only one of the files is invalid, that one loses.
 	if f.IsInvalid() != other.IsInvalid() {
 		return !f.IsInvalid()
-	}
-
-	// If a modification is in conflict with a delete, we pick the
-	// modification.
-	if !f.IsDeleted() && other.IsDeleted() {
-		return true
-	}
-	if f.IsDeleted() && !other.IsDeleted() {
-		return false
 	}
 
 	// The one with the newer modification time wins.
@@ -205,6 +250,10 @@ type FileInfoWithoutBlocks interface {
 }
 
 func fileInfoFromWireWithBlocks(w FileInfoWithoutBlocks, blocks []BlockInfo) FileInfo {
+	var localFlags FlagLocal
+	if w.GetInvalid() {
+		localFlags = FlagLocalRemoteInvalid
+	}
 	return FileInfo{
 		Name:          w.GetName(),
 		Size:          w.GetSize(),
@@ -222,14 +271,14 @@ func fileInfoFromWireWithBlocks(w FileInfoWithoutBlocks, blocks []BlockInfo) Fil
 		RawBlockSize:  w.GetBlockSize(),
 		Platform:      platformDataFromWire(w.GetPlatform()),
 		Deleted:       w.GetDeleted(),
-		RawInvalid:    w.GetInvalid(),
+		LocalFlags:    localFlags,
 		NoPermissions: w.GetNoPermissions(),
 	}
 }
 
 func FileInfoFromDB(w *bep.FileInfo) FileInfo {
 	f := FileInfoFromWire(w)
-	f.LocalFlags = w.LocalFlags
+	f.LocalFlags = FlagLocal(w.LocalFlags)
 	f.VersionHash = w.VersionHash
 	f.InodeChangeNs = w.InodeChangeNs
 	f.EncryptionTrailerSize = int(w.EncryptionTrailerSize)
@@ -238,7 +287,7 @@ func FileInfoFromDB(w *bep.FileInfo) FileInfo {
 
 func FileInfoFromDBTruncated(w FileInfoWithoutBlocks) FileInfo {
 	f := fileInfoFromWireWithBlocks(w, nil)
-	f.LocalFlags = w.GetLocalFlags()
+	f.LocalFlags = FlagLocal(w.GetLocalFlags())
 	f.VersionHash = w.GetVersionHash()
 	f.InodeChangeNs = w.GetInodeChangeNs()
 	f.EncryptionTrailerSize = int(w.GetEncryptionTrailerSize())
@@ -250,13 +299,13 @@ func (f FileInfo) String() string {
 	switch f.Type {
 	case FileInfoTypeDirectory:
 		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, Platform:%v, InodeChangeTime:%v}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.Platform, f.InodeChangeTime())
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Deleted, f.IsInvalid(), f.LocalFlags, f.NoPermissions, f.Platform, f.InodeChangeTime())
 	case FileInfoTypeFile:
 		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d, NumBlocks:%d, BlocksHash:%x, Platform:%v, InodeChangeTime:%v}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Size, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.RawBlockSize, len(f.Blocks), f.BlocksHash, f.Platform, f.InodeChangeTime())
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Size, f.Deleted, f.IsInvalid(), f.LocalFlags, f.NoPermissions, f.RawBlockSize, len(f.Blocks), f.BlocksHash, f.Platform, f.InodeChangeTime())
 	case FileInfoTypeSymlink, FileInfoTypeSymlinkDirectory, FileInfoTypeSymlinkFile:
 		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q, Platform:%v, InodeChangeTime:%v}",
-			f.Name, f.Type, f.Sequence, f.Version, f.VersionHash, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.SymlinkTarget, f.Platform, f.InodeChangeTime())
+			f.Name, f.Type, f.Sequence, f.Version, f.VersionHash, f.Deleted, f.IsInvalid(), f.LocalFlags, f.NoPermissions, f.SymlinkTarget, f.Platform, f.InodeChangeTime())
 	default:
 		panic("mystery file type detected")
 	}
@@ -267,7 +316,7 @@ func (f FileInfo) IsDeleted() bool {
 }
 
 func (f FileInfo) IsInvalid() bool {
-	return f.RawInvalid || f.LocalFlags&LocalInvalidFlags != 0
+	return f.LocalFlags.IsInvalid()
 }
 
 func (f FileInfo) IsUnsupported() bool {
@@ -340,7 +389,7 @@ func (f FileInfo) FileName() string {
 	return f.Name
 }
 
-func (f FileInfo) FileLocalFlags() uint32 {
+func (f FileInfo) FileLocalFlags() FlagLocal {
 	return f.LocalFlags
 }
 
@@ -384,7 +433,7 @@ type FileInfoComparison struct {
 	ModTimeWindow   time.Duration
 	IgnorePerms     bool
 	IgnoreBlocks    bool
-	IgnoreFlags     uint32
+	IgnoreFlags     FlagLocal
 	IgnoreOwnership bool
 	IgnoreXattrs    bool
 }
@@ -531,8 +580,7 @@ func (f *FileInfo) SetDeleted(by ShortID) {
 	f.setNoContent()
 }
 
-func (f *FileInfo) setLocalFlags(flags uint32) {
-	f.RawInvalid = false
+func (f *FileInfo) setLocalFlags(flags FlagLocal) {
 	f.LocalFlags = flags
 	f.setNoContent()
 }
@@ -544,32 +592,29 @@ func (f *FileInfo) setNoContent() {
 }
 
 type BlockInfo struct {
-	Hash     []byte
-	Offset   int64
-	Size     int
-	WeakHash uint32
+	Hash   []byte
+	Offset int64
+	Size   int
 }
 
 func (b BlockInfo) ToWire() *bep.BlockInfo {
 	return &bep.BlockInfo{
-		Hash:     b.Hash,
-		Offset:   b.Offset,
-		Size:     int32(b.Size),
-		WeakHash: b.WeakHash,
+		Hash:   b.Hash,
+		Offset: b.Offset,
+		Size:   int32(b.Size),
 	}
 }
 
 func BlockInfoFromWire(w *bep.BlockInfo) BlockInfo {
 	return BlockInfo{
-		Hash:     w.Hash,
-		Offset:   w.Offset,
-		Size:     int(w.Size),
-		WeakHash: w.WeakHash,
+		Hash:   w.Hash,
+		Offset: w.Offset,
+		Size:   int(w.Size),
 	}
 }
 
 func (b BlockInfo) String() string {
-	return fmt.Sprintf("Block{%d/%d/%d/%x}", b.Offset, b.Size, b.WeakHash, b.Hash)
+	return fmt.Sprintf("Block{%d/%d/%x}", b.Offset, b.Size, b.Hash)
 }
 
 // For each block size, the hash of a block of all zeroes
@@ -596,7 +641,6 @@ func BlocksHash(bs []BlockInfo) []byte {
 	h := sha256.New()
 	for _, b := range bs {
 		_, _ = h.Write(b.Hash)
-		_ = binary.Write(h, binary.BigEndian, b.WeakHash)
 	}
 	return h.Sum(nil)
 }

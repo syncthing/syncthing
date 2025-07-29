@@ -13,7 +13,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const defaultNumConnections = 1 // number of connections to use by default; may change in the future.
+const defaultNumConnections = 3 // number of connections to use by default
 
 type DeviceConfiguration struct {
 	DeviceID                 protocol.DeviceID `json:"deviceID" xml:"id,attr" nodefault:"true"`

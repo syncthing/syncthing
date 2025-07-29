@@ -312,7 +312,7 @@
     "Show diff with previous version": "Ferskil (diff) mei de foarige ferzje sjen litte",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Wurd ynstee fan apparaat-ID sjen litten by de bondeltastân. Wurd nei oare apparaten advertearre as in mooglike standertnamme.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Wurd yn de bondeltastân sjen litten ynstee fan apparaat-ID. Wannear't leech litten wurd, wurd it fernijt nei de namme die it apparaat útstjoert.",
-    "Shutdown": "Ofslute",
+    "Shut Down": "Ofslute",
     "Shutdown Complete": "Ofsluten klear",
     "Simple File Versioning": "Ienfâldich triemferzjebehear",
     "Single level wildcard (matches within a directory only)": "Inkel-nivo jokerteken (wildcard) (fergeliket allinnich binnen in map)",

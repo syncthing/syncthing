@@ -56,7 +56,7 @@ type Config struct {
 	// Emit FolderScanProgress events if the number of files to hash is less than this.
 	ProgressTickIntervalIfFilesLessThan int
 	// Local flags to set on scanned files
-	LocalFlags uint32
+	LocalFlags protocol.FlagLocal
 	// Modification time is to be considered unchanged if the difference is lower.
 	ModTimeWindow time.Duration
 	// Event logger to which the scan progress events are sent

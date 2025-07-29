@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackpal/gateway"
 	natpmp "github.com/jackpal/go-nat-pmp"
 
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/netutil"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 )
@@ -30,7 +30,7 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 	var ip net.IP
 	err := svcutil.CallWithContext(ctx, func() error {
 		var err error
-		ip, err = gateway.DiscoverGateway()
+		ip, err = netutil.Gateway()
 		return err
 	})
 	if err != nil {

@@ -12,6 +12,8 @@ import (
 	"net"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/netutil"
+
 	"golang.org/x/net/ipv6"
 )
 
@@ -59,7 +61,7 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 			return doneCtx.Err()
 		}
 
-		intfs, err := net.Interfaces()
+		intfs, err := netutil.Interfaces()
 		if err != nil {
 			l.Debugln(err)
 			return err
@@ -117,7 +119,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 		conn.Close()
 	}()
 
-	intfs, err := net.Interfaces()
+	intfs, err := netutil.Interfaces()
 	if err != nil {
 		l.Debugln(err)
 		return err
