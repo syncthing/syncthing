@@ -555,7 +555,15 @@ delete files from other devices.  The mechanism is described in a
 .TP
 .B scanProgressIntervalS
 The interval in seconds with which scan progress information is sent to the GUI. Setting to \fB0\fP
-will cause Syncthing to use the default value of two.
+will cause Syncthing to use the default value of two. Setting a negative value will disable
+scan progress information. Enabling scan progress information will buffer the entire file list in RAM.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B scanProgressEnableIfFilesLessThan
+Disable emission of scan progress information if more than the specified number of files are encountered
+during the scan, useful to avoid OOMs while buffering the entire file list in RAM for truly large folders. 
+Setting to \fB0\fP will cause Syncthing to use the default value of \fB1024\fP.  
 .UNINDENT
 .INDENT 0.0
 .TP
