@@ -155,6 +155,37 @@ func TestWalk(t *testing.T) {
 	}
 }
 
+func TestWalkNoProgressFileCount(t *testing.T) {
+	testFs := newTestFs()
+	ignores := ignore.New(testFs)
+	err := ignores.Load(".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(ignores)
+
+	cfg, cancel := testConfig()
+	defer cancel()
+	cfg.Matcher = ignores
+	cfg.ProgressTickIntervalIfFilesLessThan = 1
+	fchan := Walk(context.TODO(), cfg)
+
+	var tmp []protocol.FileInfo
+	for f := range fchan {
+		if f.Err != nil {
+			t.Errorf("Error while scanning %v: %v", f.Err, f.Path)
+		}
+		tmp = append(tmp, f.File)
+	}
+	slices.SortFunc(fileList(tmp), compareByName)
+	files := fileList(tmp).testfiles()
+
+	if diff, equal := messagediff.PrettyDiff(testdata, files); !equal {
+		t.Errorf("Walk returned unexpected data. Diff:\n%s", diff)
+		t.Error(testdata[4], files[4])
+	}
+}
+
 func TestVerify(t *testing.T) {
 	blocksize := 16
 	// data should be an even multiple of blocksize long
