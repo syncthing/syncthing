@@ -31,43 +31,28 @@ func init() {
 // - WARN: errors that can be ignored or will be retried (e.g., sync failures)
 // - ERROR: errors that need handling, shown in the GUI
 
+func RegisterPackage(descr string) {
+	registerPackage(descr, 2)
+}
+
 func NewAdapter(descr string) *adapter {
+	registerPackage(descr, 2)
+	return &adapter{slogDef}
+}
+
+func registerPackage(descr string, frames int) {
 	var pcs [1]uintptr
-	runtime.Callers(2, pcs[:])
+	runtime.Callers(1+frames, pcs[:])
 	pc := pcs[0]
 	fr := runtime.CallersFrames([]uintptr{pc})
 	if fram, _ := fr.Next(); fram.Function != "" {
 		pkgName, _ := funcNameToPkg(fram.Function)
 		globalLevels.SetDescr(pkgName, descr)
 	}
-	return &adapter{slogDef}
-}
-
-func funcNameToPkg(fn string) (string, string) {
-	fn = strings.ToLower(fn)
-	fn = strings.TrimPrefix(fn, "github.com/syncthing/syncthing/lib/")
-	fn = strings.TrimPrefix(fn, "github.com/syncthing/syncthing/internal/")
-
-	pkgTypFn := strings.Split(fn, ".") // [package, type, method] or [package, function]
-	if len(pkgTypFn) <= 2 {
-		return pkgTypFn[0], ""
-	}
-
-	pkg := pkgTypFn[0]
-	// Remove parenthesis and asterisk from the type name
-	typ := strings.TrimLeft(strings.TrimRight(pkgTypFn[1], ")"), "(*")
-	// Skip certain type names that add no value
-	typ = strings.TrimSuffix(typ, "service")
-	switch typ {
-	case pkg, "", "serveparams":
-		return pkg, ""
-	default:
-		return pkg, typ
-	}
 }
 
 type adapter struct {
-	*slog.Logger
+	l *slog.Logger
 }
 
 func (a adapter) Debugln(vals ...interface{}) {
@@ -103,7 +88,7 @@ func (a adapter) Warnf(format string, vals ...interface{}) {
 }
 
 func (a adapter) log(msg string, level slog.Level) {
-	h := a.Handler()
+	h := a.l.Handler()
 	if !h.Enabled(context.Background(), level) {
 		return
 	}

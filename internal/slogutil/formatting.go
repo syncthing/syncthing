@@ -155,3 +155,26 @@ func (h *formattingHandler) WithGroup(name string) slog.Handler {
 		timeOverride: h.timeOverride,
 	}
 }
+
+func funcNameToPkg(fn string) (string, string) {
+	fn = strings.ToLower(fn)
+	fn = strings.TrimPrefix(fn, "github.com/syncthing/syncthing/lib/")
+	fn = strings.TrimPrefix(fn, "github.com/syncthing/syncthing/internal/")
+
+	pkgTypFn := strings.Split(fn, ".") // [package, type, method] or [package, function]
+	if len(pkgTypFn) <= 2 {
+		return pkgTypFn[0], ""
+	}
+
+	pkg := pkgTypFn[0]
+	// Remove parenthesis and asterisk from the type name
+	typ := strings.TrimLeft(strings.TrimRight(pkgTypFn[1], ")"), "(*")
+	// Skip certain type names that add no value
+	typ = strings.TrimSuffix(typ, "service")
+	switch typ {
+	case pkg, "", "serveparams":
+		return pkg, ""
+	default:
+		return pkg, typ
+	}
+}
