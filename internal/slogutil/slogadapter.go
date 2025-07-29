@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-var slogDef = slog.New(&FormattingHandler{
+var slogDef = slog.New(&formattingHandler{
 	recs: []*lineRecorder{GlobalRecorder, ErrorRecorder},
 	out:  os.Stdout,
 })

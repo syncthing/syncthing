@@ -18,7 +18,7 @@ import (
 	"time"
 )
 
-type FormattingHandler struct {
+type formattingHandler struct {
 	attrs        []slog.Attr
 	groups       []string
 	out          io.Writer
@@ -26,13 +26,13 @@ type FormattingHandler struct {
 	timeOverride time.Time
 }
 
-var _ slog.Handler = (*FormattingHandler)(nil)
+var _ slog.Handler = (*formattingHandler)(nil)
 
-func (h *FormattingHandler) Enabled(context.Context, slog.Level) bool {
+func (h *formattingHandler) Enabled(context.Context, slog.Level) bool {
 	return true
 }
 
-func (h *FormattingHandler) Handle(_ context.Context, rec slog.Record) error {
+func (h *formattingHandler) Handle(_ context.Context, rec slog.Record) error {
 	fr := runtime.CallersFrames([]uintptr{rec.PC})
 	var srcAttrs []slog.Attr
 	if fram, _ := fr.Next(); fram.Function != "" {
@@ -42,7 +42,10 @@ func (h *FormattingHandler) Handle(_ context.Context, rec slog.Record) error {
 			// Logging not enabled at the record's level
 			return nil
 		}
-		srcAttrs = append(srcAttrs, slog.String("pkg", pkgName), slog.String("type", typeName))
+		srcAttrs = append(srcAttrs, slog.String("pkg", pkgName))
+		if typeName != "" {
+			srcAttrs = append(srcAttrs, slog.String("type", typeName))
+		}
 		if lvl <= slog.LevelDebug {
 			// We are debugging, add additional source line data
 			srcAttrs = append(srcAttrs, slog.String("file", path.Base(fram.File)), slog.Int("line", fram.Line))
@@ -124,14 +127,14 @@ func appendAttr(sb *strings.Builder, prefix string, a slog.Attr) {
 	sb.WriteString(v)
 }
 
-func (h *FormattingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+func (h *formattingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	if len(h.groups) > 0 {
 		prefix := strings.Join(h.groups, ".") + "."
 		for i := range attrs {
 			attrs[i].Key = prefix + attrs[i].Key
 		}
 	}
-	return &FormattingHandler{
+	return &formattingHandler{
 		attrs:        append(h.attrs, attrs...),
 		groups:       h.groups,
 		recs:         h.recs,
@@ -140,11 +143,11 @@ func (h *FormattingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	}
 }
 
-func (h *FormattingHandler) WithGroup(name string) slog.Handler {
+func (h *formattingHandler) WithGroup(name string) slog.Handler {
 	if name == "" {
 		return h
 	}
-	return &FormattingHandler{
+	return &formattingHandler{
 		attrs:        h.attrs,
 		groups:       append([]string{name}, h.groups...),
 		recs:         h.recs,
