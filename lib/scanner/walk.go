@@ -145,8 +145,9 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		w.ProgressTickIntervalS = 2
 	}
 
+	const defaultProgressTickIntervalIfFilesLessThan = 1024
 	if w.ProgressTickIntervalIfFilesLessThan == 0 {
-		w.ProgressTickIntervalIfFilesLessThan = 1024
+		w.ProgressTickIntervalIfFilesLessThan = defaultProgressTickIntervalIfFilesLessThan
 	}
 
 	// We need to emit progress events, hence we create a routine which buffers
@@ -157,7 +158,14 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 	// Parallel hasher is stopped by this routine when we close the channel over
 	// which it receives the files we ask it to hash.
 	go func() {
-		filesToHash := make([]protocol.FileInfo, 0, min(1024, w.ProgressTickIntervalIfFilesLessThan))
+		filesToHash := make(
+			[]protocol.FileInfo,
+			0,
+			min(
+				defaultProgressTickIntervalIfFilesLessThan,
+				w.ProgressTickIntervalIfFilesLessThan,
+			),
+		)
 		var total int64 = 1
 
 		for file := range toHashChan {
