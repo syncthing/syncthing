@@ -423,7 +423,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	p := folderFactory(m, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
 	m.folderRunners.Add(folder, p)
 
-	slog.Info("Ready to synchronize folder", slogutil.Folder(cfg.ID, cfg.Label, cfg.Type.String()))
+	slog.Info("Ready to synchronize", slogutil.Folder(cfg.ID, cfg.Label, cfg.Type.String()))
 }
 
 func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguration, ignores *ignore.Matcher) {
