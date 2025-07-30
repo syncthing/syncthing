@@ -451,7 +451,7 @@ func (s *service) handleHellos(ctx context.Context) error {
 			s.dialNowDevicesMut.Unlock()
 		}()
 
-		slog.Info("Established secure connection", slogutil.Device(remoteID.Short()), slogutil.Address(c.RemoteAddr()))
+		slog.Info("Established secure connection", slogutil.Device(remoteID.Short()), slog.Any("connection", c))
 
 		s.model.AddConnection(protoConn, hello)
 		continue
