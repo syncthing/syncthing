@@ -11,6 +11,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"log/slog"
 	"math/rand"
 	"net"
 	"net/http"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/shirou/gopsutil/v4/process"
 	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -401,9 +403,9 @@ func (s *Service) Serve(ctx context.Context) error {
 			if s.cfg.Options().URAccepted >= 2 {
 				err := s.sendUsageReport(ctx)
 				if err != nil {
-					l.Infoln("Usage report:", err)
+					slog.Warn("Failed to send usage report", slogutil.Error(err))
 				} else {
-					l.Infof("Sent usage report (version %d)", s.cfg.Options().URAccepted)
+					slog.Info("Sent usage report", "version", s.cfg.Options().URAccepted)
 				}
 			}
 			t.Reset(24 * time.Hour) // next report tomorrow

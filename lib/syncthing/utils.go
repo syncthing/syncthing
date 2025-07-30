@@ -61,7 +61,7 @@ func LoadOrGenerateCertificate(certFile, keyFile string) (tls.Certificate, error
 }
 
 func GenerateCertificate(certFile, keyFile string) (tls.Certificate, error) {
-	l.Infof("Generating key and certificate for %s...", tlsDefaultCommonName)
+	slog.Info("Generating key and certificate", "cn", tlsDefaultCommonName)
 	return tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, deviceCertLifetimeDays, false)
 }
 
