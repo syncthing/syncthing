@@ -1030,3 +1030,24 @@ func BenchmarkWalk(b *testing.B) {
 		walkDir(testFs, "/", nil, nil, 0)
 	}
 }
+
+func BenchmarkWalkHuge(b *testing.B) {
+	errorFs := fs.NewFilesystem(fs.FilesystemType("error"), ".")
+	fs := fs.NewWalkFilesystem(&infiniteFS{errorFs, b.N, 1, 1e6})
+
+	cfg, cancel := testConfig()
+	defer cancel()
+	cfg.Filesystem = fs
+	cfg.Subs = []string{"/"}
+	cfg.AutoNormalize = true
+	cfg.ScanOwnership = true
+	cfg.Hashers = 4
+	fchan := Walk(context.TODO(), cfg)
+
+	var tmp []protocol.FileInfo
+	for f := range fchan {
+		if f.Err == nil {
+			tmp = append(tmp, f.File)
+		}
+	}
+}
