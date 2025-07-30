@@ -108,7 +108,7 @@ func (lim *limiter) processDevicesConfigurationLocked(from, to config.Configurat
 				writeLimitStr = fmt.Sprintf("limit is %d KiB/s", dev.MaxSendKbps)
 			}
 
-			slog.Info("Device is rate limited", slogutil.Device(dev.DeviceID), slog.String("send", writeLimitStr), slog.String("recv", readLimitStr))
+			slog.Info("Device is rate limited", slogutil.Device(dev.DeviceID.Short()), slog.String("send", writeLimitStr), slog.String("recv", readLimitStr))
 		}
 	}
 

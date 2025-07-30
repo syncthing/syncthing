@@ -296,7 +296,7 @@ func (a *App) startup() error {
 	slog.Info("Loaded configuration", "name", myDev.Name)
 	for _, device := range a.cfg.Devices() {
 		if device.DeviceID != a.myID {
-			slog.Info("Loaded peer device configuration", slogutil.Device(device.DeviceID), slog.String("name", device.Name), slogutil.Address(device.Addresses))
+			slog.Info("Loaded peer device configuration", slogutil.Device(device.DeviceID.Short()), slog.String("name", device.Name), slogutil.Address(device.Addresses))
 		}
 	}
 

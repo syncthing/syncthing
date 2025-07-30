@@ -282,7 +282,7 @@ func (s *service) handleConns(ctx context.Context) error {
 		}
 
 		if err := s.connectionCheckEarly(remoteID, c); err != nil {
-			slog.Debug("Connection rejected", slogutil.Device(remoteID), slogutil.Address(c.RemoteAddr()), slog.String("type", c.Type()), slogutil.Error(err))
+			slog.Debug("Connection rejected", slogutil.Device(remoteID.Short()), slogutil.Address(c.RemoteAddr()), slog.String("type", c.Type()), slogutil.Error(err))
 			c.Close()
 			continue
 		}
@@ -393,7 +393,7 @@ func (s *service) handleHellos(ctx context.Context) error {
 				warningFor(remoteID, msg)
 			} else {
 				// It's something else - connection reset or whatever
-				slog.Warn("Failed to exchange Hello messages", slogutil.Device(remoteID), slogutil.Address(c.RemoteAddr()), slogutil.Error(err))
+				slog.Warn("Failed to exchange Hello messages", slogutil.Device(remoteID.Short()), slogutil.Address(c.RemoteAddr()), slogutil.Error(err))
 			}
 			c.Close()
 			continue
@@ -403,14 +403,14 @@ func (s *service) handleHellos(ctx context.Context) error {
 		// The Model will return an error for devices that we don't want to
 		// have a connection with for whatever reason, for example unknown devices.
 		if err := s.model.OnHello(remoteID, c.RemoteAddr(), hello); err != nil {
-			slog.Warn("Connection rejected", slogutil.Device(remoteID), slogutil.Address(c.RemoteAddr()), slog.Any("type", c.Type()), slogutil.Error(err))
+			slog.Warn("Connection rejected", slogutil.Device(remoteID.Short()), slogutil.Address(c.RemoteAddr()), slog.Any("type", c.Type()), slogutil.Error(err))
 			c.Close()
 			continue
 		}
 
 		deviceCfg, ok := s.cfg.Device(remoteID)
 		if !ok {
-			slog.Warn("Device removed from config during connection attempt", slogutil.Device(remoteID), slogutil.Address(c.RemoteAddr()))
+			slog.Warn("Device removed from config during connection attempt", slogutil.Device(remoteID.Short()), slogutil.Address(c.RemoteAddr()))
 			c.Close()
 			continue
 		}
@@ -451,7 +451,7 @@ func (s *service) handleHellos(ctx context.Context) error {
 			s.dialNowDevicesMut.Unlock()
 		}()
 
-		slog.Info("Established secure connection", slogutil.Device(remoteID), slogutil.Address(c.RemoteAddr()))
+		slog.Info("Established secure connection", slogutil.Device(remoteID.Short()), slogutil.Address(c.RemoteAddr()))
 
 		s.model.AddConnection(protoConn, hello)
 		continue
