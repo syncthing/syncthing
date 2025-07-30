@@ -146,7 +146,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 	}
 
 	const defaultScanProgressFileLimit = 1024
-	if w.ScanProgressFileLimit == 0 {
+	if w.ScanProgressFileLimit <= 0 {
 		w.ScanProgressFileLimit = defaultScanProgressFileLimit
 	}
 
