@@ -9,6 +9,7 @@ package model
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -71,7 +72,7 @@ func (t *ProgressEmitter) Serve(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			l.Debugln("progress emitter: stopping")
+			slog.Debug("progress emitter: stopping")
 			return nil
 		case <-t.timer.C:
 			t.mut.Lock()
@@ -217,7 +218,7 @@ func (t *ProgressEmitter) CommitConfiguration(_, to config.Configuration) bool {
 	if newInterval > 0 {
 		if t.disabled {
 			t.disabled = false
-			l.Debugln("progress emitter: enabled")
+			slog.Debug("progress emitter: enabled")
 		}
 		if t.interval != newInterval {
 			t.interval = newInterval
@@ -226,7 +227,7 @@ func (t *ProgressEmitter) CommitConfiguration(_, to config.Configuration) bool {
 	} else if !t.disabled {
 		t.clearLocked()
 		t.disabled = true
-		l.Debugln("progress emitter: disabled")
+		slog.Debug("progress emitter: disabled")
 	}
 	t.minBlocks = to.Options.TempIndexMinBlocks
 	if t.interval < time.Second {

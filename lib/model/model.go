@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -286,7 +287,7 @@ func (m *model) serve(ctx context.Context) error {
 			l.Debugln(m, "fatal error, stopping", err)
 			return svcutil.AsFatalErr(err, svcutil.ExitError)
 		case <-m.promotionTimer.C:
-			l.Debugln("promotion timer fired")
+			slog.Debug("promotion timer fired")
 			m.promoteConnections()
 		}
 	}
@@ -2292,7 +2293,7 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	deviceID := conn.DeviceID()
 	deviceCfg, ok := m.cfg.Device(deviceID)
 	if !ok {
-		l.Infoln("Trying to add connection to unknown device")
+		slog.Info("Trying to add connection to unknown device")
 		return
 	}
 

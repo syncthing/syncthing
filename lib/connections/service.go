@@ -476,9 +476,9 @@ func (s *service) connect(ctx context.Context) error {
 		bestDialerPriority := s.bestDialerPriority(cfg)
 		isInitialRampup := initialRampup < stdConnectionLoopSleep
 
-		l.Debugln("Connection loop")
+		slog.Debug("Connection loop")
 		if isInitialRampup {
-			l.Debugln("Connection loop in initial rampup")
+			slog.Debug("Connection loop in initial rampup")
 		}
 
 		// Used for consistency throughout this loop run, as time passes

@@ -9,6 +9,7 @@ package api
 import (
 	"crypto/tls"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"slices"
@@ -203,7 +204,7 @@ func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg c
 		return "", false
 	}
 
-	l.Debugln("Sessionless HTTP request with authentication; this is expensive.")
+	slog.Debug("Sessionless HTTP request with authentication; this is expensive.")
 
 	if auth(username, password, guiCfg, ldapCfg) {
 		return username, true

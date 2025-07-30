@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -120,7 +121,7 @@ func (c *serveCmd) monitorMain() {
 			panic(err)
 		}
 
-		l.Debugln("Starting syncthing")
+		slog.Debug("Starting syncthing")
 		err = cmd.Start()
 		if err != nil {
 			l.Warnln("Error starting the main Syncthing process:", err)
@@ -182,7 +183,7 @@ func (c *serveCmd) monitorMain() {
 			if exitCode == svcutil.ExitUpgrade.AsInt() {
 				// Restart the monitor process to release the .old
 				// binary as part of the upgrade process.
-				l.Infoln("Restarting monitor...")
+				slog.Info("Restarting monitor...")
 				if err = restartMonitor(binary, args); err != nil {
 					l.Warnln("Restart:", err)
 				}

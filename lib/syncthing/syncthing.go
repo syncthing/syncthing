@@ -332,7 +332,7 @@ func (a *App) wait(errChan <-chan error) {
 		l.Warnln("Database failed to stop within 10s")
 	}
 
-	l.Infoln("Exiting")
+	slog.Info("Exiting")
 
 	close(a.stopped)
 }
@@ -380,7 +380,7 @@ func (a *App) stopWithErr(stopReason svcutil.ExitStatus, err error) svcutil.Exit
 		a.exitStatus = stopReason
 		a.err = err
 		if shouldDebug() {
-			l.Debugln("Services before stop:")
+			slog.Debug("Services before stop:")
 			printServiceTree(os.Stdout, a.mainService, 0)
 		}
 		a.mainServiceCancel()

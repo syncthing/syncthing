@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"log/slog"
 	"math/rand"
 	"net"
 	"slices"
@@ -46,11 +47,11 @@ func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 func (s *Service) CommitConfiguration(_, to config.Configuration) bool {
 	s.mut.Lock()
 	if !s.enabled && to.Options.NATEnabled {
-		l.Debugln("Starting NAT service")
+		slog.Debug("Starting NAT service")
 		s.enabled = true
 		s.scheduleProcess()
 	} else if s.enabled && !to.Options.NATEnabled {
-		l.Debugln("Stopping NAT service")
+		slog.Debug("Stopping NAT service")
 		s.enabled = false
 	}
 	s.mut.Unlock()

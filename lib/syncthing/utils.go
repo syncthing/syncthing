@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -68,7 +69,7 @@ func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, 
 	newCfg := config.New(myID)
 
 	if skipPortProbing {
-		l.Infoln("Using default network port numbers instead of probing for free ports")
+		slog.Info("Using default network port numbers instead of probing for free ports")
 		// Record address override initially
 		newCfg.GUI.RawAddress = newCfg.GUI.Address()
 	} else if err := newCfg.ProbeFreePorts(); err != nil {
@@ -183,7 +184,7 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 		return nil
 	}
 
-	l.Infoln("Migrating old-style database to SQLite; this may take a while...")
+	slog.Info("Migrating old-style database to SQLite; this may take a while...")
 	t0 := time.Now()
 
 	ll, err := olddb.NewLowlevel(be)
@@ -258,7 +259,7 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 		}
 	}
 
-	l.Infoln("Migrating virtual mtimes...")
+	slog.Info("Migrating virtual mtimes...")
 	if err := ll.IterateMtimes(sdb.PutMtime); err != nil {
 		l.Warnln("Failed to migrate mtimes:", err)
 	}

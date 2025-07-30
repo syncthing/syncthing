@@ -152,7 +152,7 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 	}
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
-		l.Infoln("Creating new HTTPS certificate")
+		slog.Info("Creating new HTTPS certificate")
 
 		// When generating the HTTPS certificate, use the system host name per
 		// default. If that isn't available, use the "syncthing" default.
@@ -443,10 +443,10 @@ func (s *service) Serve(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		// Shutting down permanently
-		l.Debugln("shutting down (stop)")
+		slog.Debug("shutting down (stop)")
 	case <-s.configChanged:
 		// Soft restart due to configuration change
-		l.Debugln("restarting (config changed)")
+		slog.Debug("restarting (config changed)")
 	case err = <-s.exitChan:
 	case err = <-serveError:
 		// Restart due to listen/serve failure
