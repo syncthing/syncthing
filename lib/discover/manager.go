@@ -20,6 +20,7 @@ import (
 
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/events"
@@ -89,7 +90,7 @@ func (m *manager) addLocked(identity string, finder Finder, cacheTime, negCacheT
 		entry.token = &token
 	}
 	m.finders[identity] = entry
-	l.Infoln("Using discovery mechanism:", identity)
+	slog.Info("Using discovery mechanism", "identity", identity)
 }
 
 func (m *manager) removeLocked(identity string) {
@@ -100,11 +101,11 @@ func (m *manager) removeLocked(identity string) {
 	if entry.token != nil {
 		err := m.Supervisor.Remove(*entry.token)
 		if err != nil {
-			l.Warnf("removing discovery %s: %s", identity, err)
+			slog.Warn("Failed to remove discovery mechanism", slog.String("identity", identity), slogutil.Error(err))
 		}
 	}
 	delete(m.finders, identity)
-	l.Infoln("Stopped using discovery mechanism: ", identity)
+	slog.Info("Stopped using discovery mechanism", "identity", identity)
 }
 
 // Lookup attempts to resolve the device ID using any of the added Finders,

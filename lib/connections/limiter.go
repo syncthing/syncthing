@@ -16,6 +16,7 @@ import (
 
 	"golang.org/x/time/rate"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -107,7 +108,7 @@ func (lim *limiter) processDevicesConfigurationLocked(from, to config.Configurat
 				writeLimitStr = fmt.Sprintf("limit is %d KiB/s", dev.MaxSendKbps)
 			}
 
-			slog.Info("Device is rate limited", "device", dev.DeviceID, "send", writeLimitStr, "recv", readLimitStr)
+			slog.Info("Device is rate limited", slogutil.Device(dev.DeviceID), slog.String("send", writeLimitStr), slog.String("recv", readLimitStr))
 		}
 	}
 

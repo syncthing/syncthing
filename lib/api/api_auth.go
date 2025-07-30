@@ -301,7 +301,7 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 		return false
 	}
 	if len(res.Entries) != 1 {
-		slog.Warn("Incorrect number of LDAP search results (expected one)", "results", len(res.Entries))
+		slog.Warn("Incorrect number of LDAP search results (expected one)", slog.Int("results", len(res.Entries)))
 		return false
 	}
 

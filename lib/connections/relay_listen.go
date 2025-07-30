@@ -48,7 +48,7 @@ type relayListener struct {
 func (t *relayListener) serve(ctx context.Context) error {
 	clnt, err := client.NewClient(t.uri, t.tlsCfg.Certificates, 10*time.Second)
 	if err != nil {
-		l.Infoln("Listen (BEP/relay):", err)
+		slog.Warn("Failed to listen (relay)", slogutil.Error(err))
 		return err
 	}
 
@@ -56,8 +56,8 @@ func (t *relayListener) serve(ctx context.Context) error {
 	t.client = clnt
 	t.mut.Unlock()
 
-	slog.Info("Relay listener starting", "id", t)
-	defer slog.Info("Relay listener shutting down", "id", t)
+	slog.Info("Relay listener starting", "id", t.String())
+	defer slog.Info("Relay listener shutting down", "id", t.String())
 	defer t.clearAddresses(t)
 
 	invitationCtx, cancel := context.WithCancel(ctx)

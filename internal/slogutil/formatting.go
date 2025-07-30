@@ -43,11 +43,11 @@ func (h *formattingHandler) Handle(_ context.Context, rec slog.Record) error {
 			return nil
 		}
 		srcAttrs = append(srcAttrs, slog.String("pkg", pkgName))
-		if typeName != "" {
-			srcAttrs = append(srcAttrs, slog.String("type", typeName))
-		}
 		if lvl <= slog.LevelDebug {
 			// We are debugging, add additional source line data
+			if typeName != "" {
+				srcAttrs = append(srcAttrs, slog.String("type", typeName))
+			}
 			srcAttrs = append(srcAttrs, slog.String("file", path.Base(fram.File)), slog.Int("line", fram.Line))
 		}
 	}

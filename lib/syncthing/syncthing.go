@@ -139,9 +139,9 @@ func (a *App) startup() error {
 	// report the error if there is one.
 	osutil.MaximizeOpenFileLimit()
 
-	// Figure out our device ID, set it as the log prefix and log it.
+	// Figure out our device ID and log it.
 	a.myID = protocol.NewDeviceID(a.cert.Certificate[0])
-	slog.Info("Got device ID", "myID", a.myID)
+	slog.Info("Calculated device ID", slogutil.Device(a.myID))
 
 	// Emit the Starting event, now that we know who we are.
 
@@ -293,10 +293,10 @@ func (a *App) startup() error {
 	}
 
 	myDev, _ := a.cfg.Device(a.myID)
-	slog.Info("Loaded configuration", "myName", myDev.Name)
+	slog.Info("Loaded configuration", "name", myDev.Name)
 	for _, device := range a.cfg.Devices() {
 		if device.DeviceID != a.myID {
-			slog.Info("Loaded peer device configuration", "id", device.DeviceID, "name", device.Name, "addrs", device.Addresses)
+			slog.Info("Loaded peer device configuration", slogutil.Device(device.DeviceID), slog.String("name", device.Name), slogutil.Address(device.Addresses))
 		}
 	}
 

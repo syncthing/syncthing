@@ -78,7 +78,7 @@ func (c *serveCmd) monitorMain() {
 			// Log to both stdout and file.
 			dst = io.MultiWriter(dst, fileDst)
 
-			slog.Info("Saved log output", "file", logFile)
+			slog.Info("Saved log output", slogutil.FilePath(logFile))
 		}
 	}
 
@@ -102,7 +102,7 @@ func (c *serveCmd) monitorMain() {
 		maybeReportPanics()
 
 		if t := time.Since(restarts[0]); t < restartLoopThreshold {
-			slog.Error("Too many restarts; not retrying further", "count", restartCounts, "interval", t)
+			slog.Error("Too many restarts; not retrying further", slog.Int("count", restartCounts), slog.Any("interval", t))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 
@@ -247,7 +247,7 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 				continue
 			}
 
-			slog.Error("Panic detected, writing to file", "file", panicFd.Name())
+			slog.Error("Panic detected, writing to file", slogutil.FilePath(panicFd.Name()))
 			slog.Info("Please check for existing issues with similar panic message at https://github.com/syncthing/syncthing/issues/")
 			slog.Info("If no issue with similar panic message exists, please create a new issue with the panic log attached")
 

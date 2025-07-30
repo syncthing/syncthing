@@ -240,7 +240,7 @@ func (c *globalClient) Serve(ctx context.Context) error {
 			} else if timerResetCount == maxAddressChangesBetweenAnnouncements {
 				// Yet only do it if we haven't had to reset maxAddressChangesBetweenAnnouncements times in a row,
 				// so if something is flip-flopping within 2 seconds, we don't end up in a permanent reset loop.
-				slog.ErrorContext(ctx, "Detected a flip-flopping listener", "server", c.server)
+				slog.ErrorContext(ctx, "Detected a flip-flopping listener", slog.String("server", c.server))
 				c.setError(errors.New("flip flopping listener"))
 				// Incrementing the count above 10 will prevent us from warning or setting the error again
 				// It will also suppress event based resets until we've had a proper round after announceErrorRetryInterval

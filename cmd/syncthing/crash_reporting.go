@@ -74,7 +74,7 @@ func uploadPanicLog(ctx context.Context, urlBase, file string) error {
 	data = filterLogLines(data)
 
 	hash := fmt.Sprintf("%x", sha256.Sum256(data))
-	slog.Info("Reporting crash", "path", filepath.Base(file), "reportID", hash[:8])
+	slog.Info("Reporting crash", slogutil.FilePath(filepath.Base(file)), slog.String("reportID", hash[:8]))
 
 	url := fmt.Sprintf("%s/%s", urlBase, hash)
 	headReq, err := http.NewRequest(http.MethodHead, url, nil)

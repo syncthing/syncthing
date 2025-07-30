@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -69,7 +70,7 @@ func Generate(confDir, guiUser, guiPassword string, skipPortProbing bool) error 
 		}
 	}
 	myID = protocol.NewDeviceID(cert.Certificate[0])
-	slog.Info("Genereated new keypair", "deviceID", myID)
+	slog.Info("Genereated new keypair", slogutil.Device(myID))
 
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, _, err := config.Load(cfgFile, myID, events.NoopLogger)

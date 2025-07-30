@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/thejerf/suture/v4"
 )
 
@@ -180,27 +181,29 @@ func spec(eventHook suture.EventHook) suture.Spec {
 func infoEventHook() suture.EventHook {
 	var prevTerminate suture.EventServiceTerminate
 	return func(ei suture.Event) {
+		m := ei.Map()
+		l := slog.Default().With("supervisor", m["supervisor_name"], "service", m["service_name"])
 		switch e := ei.(type) {
 		case suture.EventStopTimeout:
-			slog.Info("Service failed to terminate in a timely manner", "supervisor", e.SupervisorName, "service", e.ServiceName)
+			l.Warn("Service failed to terminate in a timely manner")
 		case suture.EventServicePanic:
-			slog.Error("Caught a service panic, which shouldn't happen")
-			slog.Info(e.String())
+			l.Error("Caught a service panic, which shouldn't happen")
+			l.Warn(e.String())
 		case suture.EventServiceTerminate:
 			if e.ServiceName == prevTerminate.ServiceName && e.Err == prevTerminate.Err {
-				slog.Debug("Service failed", "supervisor", e.SupervisorName, "service", e.ServiceName, "error", e.Err)
+				l.Debug("Service failed repeatedly", slogutil.Error(e.Err))
 			} else {
-				slog.Warn("Service failed", "supervisor", e.SupervisorName, "service", e.ServiceName, "error", e.Err)
+				l.Warn("Service failed", slogutil.Error(e.Err))
 			}
 			prevTerminate = e
-			slog.Debug(e.String()) // Contains some backoff statistics
+			l.Debug(e.String()) // Contains some backoff statistics
 		case suture.EventBackoff:
-			slog.Debug("Exiting the backoff state", "supervisor", e.SupervisorName)
+			l.Debug("Exiting the backoff state")
 		case suture.EventResume:
-			slog.Debug("Too many service failures - entering the backoff state", "supervisor", e.SupervisorName)
+			l.Debug("Too many service failures - entering the backoff state")
 		default:
-			slog.Error("Unknown suture supervisor event", "type", e.Type())
-			slog.Warn(e.String())
+			l.Warn("Unknown suture supervisor event", slog.Any("type", e.Type()))
+			l.Warn(e.String())
 		}
 	}
 }

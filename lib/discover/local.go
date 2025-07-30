@@ -190,7 +190,7 @@ func (c *localClient) recvAnnouncements(ctx context.Context) error {
 		case v13Magic:
 			// Old version
 			if !warnedAbout[addr.String()] {
-				slog.ErrorContext(ctx, "Incompatible (v0.13) local discovery packet - upgrade that device to connect", "address", addr)
+				slog.ErrorContext(ctx, "Incompatible (v0.13) local discovery packet - upgrade that device to connect", slogutil.Address(addr))
 				warnedAbout[addr.String()] = true
 			}
 			continue

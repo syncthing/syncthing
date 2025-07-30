@@ -108,14 +108,14 @@ func (cli *CLI) Run() error {
 		slog.Error("Failed to listen (usage reports)", slogutil.Error(err))
 		return err
 	}
-	slog.Info("Listening (usage reports)", "address", urListener.Addr())
+	slog.Info("Listening (usage reports)", slogutil.Address(urListener.Addr()))
 
 	internalListener, err := net.Listen("tcp", cli.ListenInternal)
 	if err != nil {
 		slog.Error("Failed to listen (internal)", slogutil.Error(err))
 		return err
 	}
-	slog.Info("Listening (internal)", "address", internalListener.Addr())
+	slog.Info("Listening (internal)", slogutil.Address(internalListener.Addr()))
 
 	var geo *geoip.Provider
 	if cli.GeoIPAccountID != 0 && cli.GeoIPLicenseKey != "" {

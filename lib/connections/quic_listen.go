@@ -60,7 +60,7 @@ type quicListener struct {
 
 func (t *quicListener) OnNATTypeChanged(natType stun.NATType) {
 	if natType != stun.NATUnknown {
-		slog.Info("Detected NAT type", "uri", t.uri, "type", natType)
+		slog.Info("Detected NAT type", slogutil.URL(t.uri), slog.Any("type", natType))
 	}
 	t.nat.Store(uint64(natType))
 }
@@ -79,7 +79,7 @@ func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) 
 	t.mut.Unlock()
 
 	if uri != nil && (existingAddress == nil || existingAddress.String() != uri.String()) {
-		slog.Info("Resolved external address", "uri", t.uri, "address", uri.String(), "via", via)
+		slog.Info("Resolved external address", slogutil.URL(t.uri), slogutil.Address(uri.String()), slog.String("via", via))
 		t.notifyAddressesChanged(t)
 	} else if uri == nil && existingAddress != nil {
 		t.notifyAddressesChanged(t)
@@ -91,13 +91,13 @@ func (t *quicListener) serve(ctx context.Context) error {
 
 	udpAddr, err := net.ResolveUDPAddr(network, t.uri.Host)
 	if err != nil {
-		l.Infoln("Listen (BEP/quic):", err)
+		slog.Warn("Failed to listen (QUIC)", slogutil.Error(err))
 		return err
 	}
 
 	udpConn, err := net.ListenUDP(network, udpAddr)
 	if err != nil {
-		l.Infoln("Listen (BEP/quic):", err)
+		slog.Warn("Failed to listen (QUIC)", slogutil.Error(err))
 		return err
 	}
 	defer udpConn.Close()
@@ -119,7 +119,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 
 	listener, err := quicTransport.Listen(t.tlsCfg, quicConfig)
 	if err != nil {
-		l.Infoln("Listen (BEP/quic):", err)
+		slog.Warn("Failed to listen (QUIC)", slogutil.Error(err))
 		return err
 	}
 	defer listener.Close()
@@ -127,8 +127,8 @@ func (t *quicListener) serve(ctx context.Context) error {
 	t.notifyAddressesChanged(t)
 	defer t.clearAddresses(t)
 
-	slog.Info("QUIC listener starting", "addr", udpConn.LocalAddr())
-	defer slog.Info("QUIC listener shutting down", "addr", udpConn.LocalAddr())
+	slog.Info("QUIC listener starting", slogutil.Address(udpConn.LocalAddr()))
+	defer slog.Info("QUIC listener shutting down", slogutil.Address(udpConn.LocalAddr()))
 
 	var ipVersion nat.IPVersion
 	switch t.uri.Scheme {
@@ -170,7 +170,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 		if errors.Is(err, context.Canceled) {
 			return nil
 		} else if err != nil {
-			l.Infoln("Listen (BEP/quic): Accepting connection:", err)
+			slog.Warn("Failed to accept QUIC connection", slogutil.Error(err))
 
 			acceptFailures++
 			if acceptFailures > maxAcceptFailures {

@@ -498,7 +498,7 @@ func (c *serveCmd) syncthingMain() {
 
 		// Ignore config option if command-line option is set
 		if c.AuditFile != "" {
-			slog.Debug("Using the audit file from the command-line parameter", "path", c.AuditFile)
+			slog.Debug("Using the audit file from the command-line parameter", slogutil.FilePath(c.AuditFile))
 			auditFile = c.AuditFile
 		}
 
@@ -544,7 +544,7 @@ func (c *serveCmd) syncthingMain() {
 	status := app.Wait()
 
 	if status == svcutil.ExitError {
-		slog.Error("Syncthing stopped with error", "error", app.Error())
+		slog.Error("Syncthing stopped with error", slogutil.Error(app.Error()))
 	}
 
 	if c.DebugProfileCPU {
@@ -618,7 +618,7 @@ func auditWriter(auditFile string) io.Writer {
 		auditDest = auditFile
 	}
 
-	slog.Info("Writing audit log", "path", auditDest)
+	slog.Info("Writing audit log", slogutil.FilePath(auditDest))
 
 	return fd
 }
@@ -645,7 +645,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 				continue
 			}
 			if cfg.Options().AutoUpgradeEnabled() {
-				slog.Info("Connected to device with a newer version; checking for upgrades", "device", data["id"], "ourVersion", build.Version, "theirVersion", data["clientVersion"])
+				slog.Info("Connected to device with a newer version; checking for upgrades", slogutil.Device(data["id"]), slog.String("ourVersion", build.Version), slog.String("theirVersion", data["clientVersion"]))
 			}
 		case <-timer.C:
 		}
@@ -684,7 +684,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 			continue
 		}
 		sub.Unsubscribe()
-		slog.Error("Automatically upgraded, restarting in 1 minute", "newVersion", rel.Tag)
+		slog.Error("Automatically upgraded, restarting in 1 minute", slog.String("newVersion", rel.Tag))
 		time.Sleep(time.Minute)
 		app.Stop(svcutil.ExitUpgrade)
 		return
@@ -752,7 +752,7 @@ func cleanConfigDirectory() {
 				if err = fs.RemoveAll(file); err != nil {
 					slog.Warn("Failed to clean config directory", slogutil.Error(err))
 				} else {
-					slog.Warn("Cleaned away old file", "path", filepath.Base(file))
+					slog.Warn("Cleaned away old file", slogutil.FilePath(filepath.Base(file)))
 				}
 			}
 		}
@@ -878,7 +878,7 @@ type debugCmd struct {
 type resetDatabaseCmd struct{}
 
 func (resetDatabaseCmd) Run() error {
-	slog.Info("Removing database", "path", locations.Get(locations.Database))
+	slog.Info("Removing database", slogutil.FilePath(locations.Get(locations.Database)))
 	if err := os.RemoveAll(locations.Get(locations.Database)); err != nil {
 		slog.Error("Failed to reset database", slogutil.Error(err))
 		os.Exit(svcutil.ExitError.AsInt())

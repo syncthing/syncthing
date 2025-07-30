@@ -257,7 +257,7 @@ func (s *service) handleConns(ctx context.Context) error {
 		// because there are implementations out there that don't support
 		// protocol negotiation (iOS for one...).
 		if cs.NegotiatedProtocol != s.bepProtocolName {
-			slog.Warn("Peer at did not negotiate bep/1.0", "address", c)
+			slog.Warn("Peer at did not negotiate bep/1.0", slogutil.Address(c.RemoteAddr()))
 		}
 
 		// We should have received exactly one certificate from the other
@@ -265,7 +265,7 @@ func (s *service) handleConns(ctx context.Context) error {
 		// connection.
 		certs := cs.PeerCertificates
 		if cl := len(certs); cl != 1 {
-			l.Infof("Got peer certificate list of length %d != 1 from peer at %s; protocol error", cl, c)
+			slog.Warn("Got peer certificate list of incorrect length", slog.Int("length", cl), slogutil.Address(c.RemoteAddr()))
 			c.Close()
 			continue
 		}
@@ -282,11 +282,7 @@ func (s *service) handleConns(ctx context.Context) error {
 		}
 
 		if err := s.connectionCheckEarly(remoteID, c); err != nil {
-			if errors.Is(err, errDeviceAlreadyConnected) {
-				slog.Debug("Connection rejected", "device", remoteID, "addr", c.RemoteAddr(), "type", c.Type(), slogutil.Error(err))
-			} else {
-				slog.Warn("Connection rejected", "device", remoteID, "addr", c.RemoteAddr(), "type", c.Type(), slogutil.Error(err))
-			}
+			slog.Debug("Connection rejected", slogutil.Device(remoteID), slogutil.Address(c.RemoteAddr()), slog.String("type", c.Type()), slogutil.Error(err))
 			c.Close()
 			continue
 		}
@@ -397,7 +393,7 @@ func (s *service) handleHellos(ctx context.Context) error {
 				warningFor(remoteID, msg)
 			} else {
 				// It's something else - connection reset or whatever
-				l.Infof("Failed to exchange Hello messages with %s at %s: %s", remoteID, c, err)
+				slog.Warn("Failed to exchange Hello messages", slogutil.Device(remoteID), slogutil.Address(c.RemoteAddr()), slogutil.Error(err))
 			}
 			c.Close()
 			continue
@@ -407,14 +403,14 @@ func (s *service) handleHellos(ctx context.Context) error {
 		// The Model will return an error for devices that we don't want to
 		// have a connection with for whatever reason, for example unknown devices.
 		if err := s.model.OnHello(remoteID, c.RemoteAddr(), hello); err != nil {
-			l.Infof("Connection from %s at %s (%s) rejected: %v", remoteID, c.RemoteAddr(), c.Type(), err)
+			slog.Warn("Connection rejected", slogutil.Device(remoteID), slogutil.Address(c.RemoteAddr()), slog.Any("type", c.Type()), slogutil.Error(err))
 			c.Close()
 			continue
 		}
 
 		deviceCfg, ok := s.cfg.Device(remoteID)
 		if !ok {
-			l.Infof("Device %s removed from config during connection attempt at %s", remoteID, c)
+			slog.Warn("Device removed from config during connection attempt", slogutil.Device(remoteID), slogutil.Address(c.RemoteAddr()))
 			c.Close()
 			continue
 		}
@@ -455,7 +451,7 @@ func (s *service) handleHellos(ctx context.Context) error {
 			s.dialNowDevicesMut.Unlock()
 		}()
 
-		l.Infof("Established secure connection to %s at %s", remoteID.Short(), c)
+		slog.Info("Established secure connection", slogutil.Device(remoteID), slogutil.Address(c.RemoteAddr()))
 
 		s.model.AddConnection(protoConn, hello)
 		continue

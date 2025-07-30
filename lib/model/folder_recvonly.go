@@ -7,11 +7,13 @@
 package model
 
 import (
+	"log/slog"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/itererr"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -69,7 +71,7 @@ func (f *receiveOnlyFolder) Revert() {
 }
 
 func (f *receiveOnlyFolder) revert() error {
-	l.Infof("Reverting folder %v", f.Description())
+	slog.Info("Reverting folder", slogutil.Folder(f.ID, f.Label, f.Type.String()))
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)
