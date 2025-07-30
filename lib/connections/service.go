@@ -32,6 +32,7 @@ import (
 	"github.com/thejerf/suture/v4"
 	"golang.org/x/time/rate"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
@@ -282,9 +283,9 @@ func (s *service) handleConns(ctx context.Context) error {
 
 		if err := s.connectionCheckEarly(remoteID, c); err != nil {
 			if errors.Is(err, errDeviceAlreadyConnected) {
-				slog.Debug("Connection rejected", "device", remoteID, "addr", c.RemoteAddr(), "type", c.Type(), "error", err)
+				slog.Debug("Connection rejected", "device", remoteID, "addr", c.RemoteAddr(), "type", c.Type(), slogutil.Error(err))
 			} else {
-				slog.Warn("Connection rejected", "device", remoteID, "addr", c.RemoteAddr(), "type", c.Type(), "error", err)
+				slog.Warn("Connection rejected", "device", remoteID, "addr", c.RemoteAddr(), "type", c.Type(), slogutil.Error(err))
 			}
 			c.Close()
 			continue

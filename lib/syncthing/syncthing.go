@@ -173,7 +173,7 @@ func (a *App) startup() error {
 	if a.opts.ResetDeltaIdxs {
 		slog.Info("Reinitializing delta index IDs")
 		if err := a.sdb.DropAllIndexIDs(); err != nil {
-			slog.Error("Failed to drop index IDs", "error", err)
+			slog.Error("Failed to drop index IDs", slogutil.Error(err))
 			return err
 		}
 	}
@@ -288,7 +288,7 @@ func (a *App) startup() error {
 	// GUI
 
 	if err := a.setupGUI(m, defaultSub, diskSub, discoveryManager, connectionsService, usageReportingSvc, slogutil.ErrorRecorder, slogutil.GlobalRecorder, miscDB); err != nil {
-		slog.Error("Failed to start API", "error", err)
+		slog.Error("Failed to start API", slogutil.Error(err))
 		return err
 	}
 

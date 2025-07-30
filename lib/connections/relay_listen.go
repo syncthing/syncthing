@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/dialer"
@@ -78,19 +79,19 @@ func (t *relayListener) handleInvitations(ctx context.Context, clnt client.Relay
 			conn, err := client.JoinSession(ctx, inv)
 			if err != nil {
 				if !errors.Is(err, context.Canceled) {
-					slog.Info("Failed to join session", "error", err)
+					slog.Info("Failed to join session", slogutil.Error(err))
 				}
 				continue
 			}
 
 			err = dialer.SetTCPOptions(conn)
 			if err != nil {
-				slog.Debug("Failed to set TCP options", "error", err)
+				slog.Debug("Failed to set TCP options", slogutil.Error(err))
 			}
 
 			err = dialer.SetTrafficClass(conn, t.cfg.Options().TrafficClass)
 			if err != nil {
-				slog.Debug("Failed to set traffic class", "error", err)
+				slog.Debug("Failed to set traffic class", slogutil.Error(err))
 			}
 
 			var tc *tls.Conn
@@ -103,7 +104,7 @@ func (t *relayListener) handleInvitations(ctx context.Context, clnt client.Relay
 			err = tlsTimedHandshake(tc)
 			if err != nil {
 				tc.Close()
-				slog.Warn("Failed TLS handshake", "error", err)
+				slog.Warn("Failed TLS handshake", slogutil.Error(err))
 				continue
 			}
 

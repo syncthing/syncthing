@@ -22,6 +22,7 @@ import (
 
 	"github.com/quic-go/quic-go"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/nat"
@@ -192,7 +193,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 		stream, err := session.AcceptStream(streamCtx)
 		cancel()
 		if err != nil {
-			slog.Debug("Failed to accept stream", "from", session.RemoteAddr(), "error", err)
+			slog.Debug("Failed to accept stream", "from", session.RemoteAddr(), slogutil.Error(err))
 			_ = session.CloseWithError(1, err.Error())
 			continue
 		}

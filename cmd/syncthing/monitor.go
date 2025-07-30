@@ -21,6 +21,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
@@ -63,7 +64,7 @@ func (c *serveCmd) monitorMain() {
 			fileDst, err = open(logFile)
 		}
 		if err != nil {
-			slog.Error("Failed to set up logging to file, proceeding with logging to stdout only", "error", err)
+			slog.Error("Failed to set up logging to file, proceeding with logging to stdout only", slogutil.Error(err))
 		} else {
 			if build.IsWindows {
 				// Translate line breaks to Windows standard
@@ -84,7 +85,7 @@ func (c *serveCmd) monitorMain() {
 	args := os.Args
 	binary, err := getBinary(args[0])
 	if err != nil {
-		slog.Error("Failed to start the main Syncthing process", "error", err)
+		slog.Error("Failed to start the main Syncthing process", slogutil.Error(err))
 		panic("Error starting the main Syncthing process")
 	}
 	var restarts [restartCounts]time.Time
@@ -124,7 +125,7 @@ func (c *serveCmd) monitorMain() {
 		slog.Debug("Starting syncthing")
 		err = cmd.Start()
 		if err != nil {
-			slog.Error("Failed to start the main Syncthing process", "error", err)
+			slog.Error("Failed to start the main Syncthing process", slogutil.Error(err))
 			panic("Error starting the main Syncthing process")
 		}
 
@@ -195,7 +196,7 @@ func (c *serveCmd) monitorMain() {
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 
-		slog.Info("Syncthing exited", "error", err)
+		slog.Info("Syncthing exited", slogutil.Error(err))
 		time.Sleep(restartPause)
 
 		if first {

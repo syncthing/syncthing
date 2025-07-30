@@ -24,6 +24,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/httpcache"
 	"github.com/syncthing/syncthing/lib/upgrade"
@@ -61,7 +62,7 @@ func server(params *cli) error {
 		slog.Info("Metrics listener started", "addr", params.MetricsListen)
 		go func() {
 			if err := http.Serve(metricsListen, mux); err != nil {
-				slog.Warn("Metrics server returned", "error", err)
+				slog.Warn("Metrics server returned", slogutil.Error(err))
 			}
 		}()
 	}
@@ -77,7 +78,7 @@ func server(params *cli) error {
 		for range time.NewTicker(params.CacheTime).C {
 			slog.Info("Refreshing cached releases", "url", params.URL)
 			if err := cache.Update(context.Background()); err != nil {
-				slog.Error("Failed to refresh cached releases", "url", params.URL, "error", err)
+				slog.Error("Failed to refresh cached releases", "url", params.URL, slogutil.Error(err))
 			}
 		}
 	}()

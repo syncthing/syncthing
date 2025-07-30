@@ -24,6 +24,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/syncthing/syncthing/internal/gen/discoproto"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/beacon"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -202,7 +203,7 @@ func (c *localClient) recvAnnouncements(ctx context.Context) error {
 		var pkt discoproto.Announce
 		err := proto.Unmarshal(buf[4:], &pkt)
 		if err != nil && !errors.Is(err, io.EOF) {
-			slog.DebugContext(ctx, "Failed to unmarshal local announcement", "address", addr, "error", err, "packet", hex.Dump(buf[4:]))
+			slog.DebugContext(ctx, "Failed to unmarshal local announcement", "address", addr, slogutil.Error(err), "packet", hex.Dump(buf[4:]))
 			continue
 		}
 

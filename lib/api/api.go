@@ -152,7 +152,7 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 	}
 	if err != nil {
 		if !os.IsNotExist(err) {
-			slog.Warn("Failed to load HTTPS certificate", "error", err)
+			slog.Warn("Failed to load HTTPS certificate", slogutil.Error(err))
 		}
 		slog.Info("Creating new HTTPS certificate")
 

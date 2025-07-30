@@ -216,7 +216,7 @@ func main() {
 		defaultVars(),
 	)
 	if err != nil {
-		slog.Error("Parsing startup", "error", err)
+		slog.Error("Parsing startup", slogutil.Error(err))
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 
@@ -256,7 +256,7 @@ func (c *serveCmd) Run() error {
 	if c.LogFile != "default" {
 		// We must set this *after* expandLocations above.
 		if err := locations.Set(locations.LogFile, c.LogFile); err != nil {
-			slog.Error("Failed to set log file path", "error", err)
+			slog.Error("Failed to set log file path", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 	}
@@ -265,7 +265,7 @@ func (c *serveCmd) Run() error {
 		// The asset dir is blank if STGUIASSETS wasn't set, in which case we
 		// should look for extra assets in the default place.
 		if err := locations.Set(locations.GUIAssets, c.DebugGUIAssetsDir); err != nil {
-			slog.Error("Failed to set GUI assets path", "error", err)
+			slog.Error("Failed to set GUI assets path", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 	}
@@ -273,7 +273,7 @@ func (c *serveCmd) Run() error {
 	// Ensure that our config and data directories exist.
 	for _, loc := range []locations.BaseDirEnum{locations.ConfigBaseDir, locations.DataBaseDir} {
 		if err := syncthing.EnsureDir(locations.GetBaseDir(loc), 0o700); err != nil {
-			slog.Error("Failed to ensure directory exists", "error", err)
+			slog.Error("Failed to ensure directory exists", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 	}
@@ -391,7 +391,7 @@ func (c *serveCmd) syncthingMain() {
 		locations.Get(locations.KeyFile),
 	)
 	if err != nil {
-		slog.Error("Failed to load/generate certificate", "error", err)
+		slog.Error("Failed to load/generate certificate", slogutil.Error(err))
 		os.Exit(1)
 	}
 
@@ -399,7 +399,7 @@ func (c *serveCmd) syncthingMain() {
 	lf := flock.New(locations.Get(locations.LockFile))
 	locked, err := lf.TryLock()
 	if err != nil {
-		slog.Error("Failed to acquire lock", "error", err)
+		slog.Error("Failed to acquire lock", slogutil.Error(err))
 		os.Exit(1)
 	} else if !locked {
 		slog.Error("Failed to acquire lock: is another Syncthing instance already running?")
@@ -420,7 +420,7 @@ func (c *serveCmd) syncthingMain() {
 
 	cfgWrapper, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, c.AllowNewerConfig, c.NoPortProbing)
 	if err != nil {
-		slog.Error("Failed to initialize config", "error", err)
+		slog.Error("Failed to initialize config", slogutil.Error(err))
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 	earlyService.Add(cfgWrapper)
@@ -444,13 +444,13 @@ func (c *serveCmd) syncthingMain() {
 	}
 
 	if err := syncthing.TryMigrateDatabase(c.DBDeleteRetentionInterval); err != nil {
-		slog.Error("Failed to migrate old-style database", "error", err)
+		slog.Error("Failed to migrate old-style database", slogutil.Error(err))
 		os.Exit(1)
 	}
 
 	sdb, err := syncthing.OpenDatabase(locations.Get(locations.Database), c.DBDeleteRetentionInterval)
 	if err != nil {
-		slog.Error("Error opening database", "error", err)
+		slog.Error("Error opening database", slogutil.Error(err))
 		os.Exit(1)
 	}
 
@@ -467,9 +467,9 @@ func (c *serveCmd) syncthingMain() {
 		}
 		if err != nil {
 			if _, ok := err.(*errNoUpgrade); ok || err == errTooEarlyUpgradeCheck || err == errTooEarlyUpgrade {
-				slog.Debug("Initial automatic upgrade", "error", err)
+				slog.Debug("Initial automatic upgrade", slogutil.Error(err))
 			} else {
-				slog.Info("Initial automatic upgrade", "error", err)
+				slog.Info("Initial automatic upgrade", slogutil.Error(err))
 			}
 		} else {
 			slog.Info("Upgraded, should exit now", "newVersion", release.Tag)
@@ -507,7 +507,7 @@ func (c *serveCmd) syncthingMain() {
 
 	app, err := syncthing.New(cfgWrapper, sdb, evLogger, cert, appOpts)
 	if err != nil {
-		slog.Error("Failed to start Syncthing", "error", err)
+		slog.Error("Failed to start Syncthing", slogutil.Error(err))
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 
@@ -520,11 +520,11 @@ func (c *serveCmd) syncthingMain() {
 	if c.DebugProfileCPU {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
-			slog.Error("Creating profile", "error", err)
+			slog.Error("Creating profile", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
-			slog.Error("Starting profile", "error", err)
+			slog.Error("Starting profile", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 	}
@@ -612,7 +612,7 @@ func auditWriter(auditFile string) io.Writer {
 		}
 		fd, err = os.OpenFile(auditFile, auditFlags, 0o600)
 		if err != nil {
-			slog.Error("Audit", "error", err)
+			slog.Error("Audit", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 		auditDest = auditFile
@@ -665,7 +665,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 		if err != nil {
 			// Don't complain too loudly here; we might simply not have
 			// internet connectivity, or the upgrade server might be down.
-			slog.Info("Automatic upgrade", "error", err)
+			slog.Info("Automatic upgrade", slogutil.Error(err))
 			timer.Reset(checkInterval)
 			continue
 		}
@@ -679,7 +679,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 		slog.Info("Automatic upgrade", "current", build.Version, "latest", rel.Tag)
 		err = upgrade.To(rel)
 		if err != nil {
-			slog.Error("Automatic upgrade", "error", err)
+			slog.Error("Automatic upgrade", slogutil.Error(err))
 			timer.Reset(checkInterval)
 			continue
 		}
@@ -737,20 +737,20 @@ func cleanConfigDirectory() {
 		fs := fs.NewFilesystem(fs.FilesystemTypeBasic, locations.GetBaseDir(locations.ConfigBaseDir))
 		files, err := fs.Glob(pat)
 		if err != nil {
-			slog.Warn("Failed to clean config directory", "error", err)
+			slog.Warn("Failed to clean config directory", slogutil.Error(err))
 			continue
 		}
 
 		for _, file := range files {
 			info, err := fs.Lstat(file)
 			if err != nil {
-				slog.Warn("Failed to clean config directory", "error", err)
+				slog.Warn("Failed to clean config directory", slogutil.Error(err))
 				continue
 			}
 
 			if time.Since(info.ModTime()) > dur {
 				if err = fs.RemoveAll(file); err != nil {
-					slog.Warn("Failed to clean config directory", "error", err)
+					slog.Warn("Failed to clean config directory", slogutil.Error(err))
 				} else {
 					slog.Warn("Cleaned away old file", "path", filepath.Base(file))
 				}
@@ -769,7 +769,7 @@ func setPauseState(cfgWrapper config.Wrapper, paused bool) {
 		}
 	})
 	if err != nil {
-		slog.Error("Cannot adjust paused state", "error", err)
+		slog.Error("Cannot adjust paused state", slogutil.Error(err))
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 }
@@ -796,7 +796,7 @@ func (deviceIDCmd) Run() error {
 		locations.Get(locations.KeyFile),
 	)
 	if err != nil {
-		slog.Error("Failed to read device ID", "error", err)
+		slog.Error("Failed to read device ID", slogutil.Error(err))
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 
@@ -819,7 +819,7 @@ type upgradeCmd struct {
 func (u upgradeCmd) Run() error {
 	if u.CheckOnly {
 		if _, err := checkUpgrade(); err != nil {
-			slog.Error("Failed to check for upgrade", "error", err)
+			slog.Error("Failed to check for upgrade", slogutil.Error(err))
 			os.Exit(exitCodeForUpgrade(err))
 		}
 		return nil
@@ -828,7 +828,7 @@ func (u upgradeCmd) Run() error {
 	if u.From != "" {
 		err := upgrade.ToURL(u.From)
 		if err != nil {
-			slog.Error("Failed to upgrade", "error", err)
+			slog.Error("Failed to upgrade", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 		slog.Info("Upgraded", "from", u.From)
@@ -841,7 +841,7 @@ func (u upgradeCmd) Run() error {
 		var locked bool
 		locked, err = lf.TryLock()
 		if err != nil {
-			slog.Error("Failed to lock for upgrade", "error", err)
+			slog.Error("Failed to lock for upgrade", slogutil.Error(err))
 			os.Exit(1)
 		} else if locked {
 			err = upgradeViaRest()
@@ -850,7 +850,7 @@ func (u upgradeCmd) Run() error {
 		}
 	}
 	if err != nil {
-		slog.Error("Failed to check for upgrade", "error", err)
+		slog.Error("Failed to check for upgrade", slogutil.Error(err))
 		os.Exit(exitCodeForUpgrade(err))
 	}
 	slog.Info("Upgraded", "to", release.Tag)
@@ -862,7 +862,7 @@ type browserCmd struct{}
 
 func (browserCmd) Run() error {
 	if err := openGUI(); err != nil {
-		slog.Error("Failed to open web UI", "error", err)
+		slog.Error("Failed to open web UI", slogutil.Error(err))
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 	return nil
@@ -880,7 +880,7 @@ type resetDatabaseCmd struct{}
 func (resetDatabaseCmd) Run() error {
 	slog.Info("Removing database", "path", locations.Get(locations.Database))
 	if err := os.RemoveAll(locations.Get(locations.Database)); err != nil {
-		slog.Error("Failed to reset database", "error", err)
+		slog.Error("Failed to reset database", slogutil.Error(err))
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 	slog.Info("Reset database - it will be rebuilt after next start")

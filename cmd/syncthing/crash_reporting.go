@@ -18,6 +18,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/slogutil"
 )
 
 const (
@@ -34,7 +36,7 @@ const (
 func uploadPanicLogs(ctx context.Context, urlBase, dir string) {
 	files, err := filepath.Glob(filepath.Join(dir, "panic-*.log"))
 	if err != nil {
-		slog.Error("Failed to list panic logs", "error", err)
+		slog.Error("Failed to list panic logs", slogutil.Error(err))
 		return
 	}
 
@@ -49,7 +51,7 @@ func uploadPanicLogs(ctx context.Context, urlBase, dir string) {
 		}
 
 		if err := uploadPanicLog(ctx, urlBase, file); err != nil {
-			slog.Error("Reporting crash", "error", err)
+			slog.Error("Reporting crash", slogutil.Error(err))
 		} else {
 			// Rename the log so we don't have to try to report it again. This
 			// succeeds, or it does not. There is no point complaining about it.

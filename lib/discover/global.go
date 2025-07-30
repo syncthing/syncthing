@@ -24,6 +24,7 @@ import (
 
 	"golang.org/x/net/http2"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
@@ -182,7 +183,7 @@ func (c *globalClient) Lookup(ctx context.Context, device protocol.DeviceID) (ad
 
 	resp, err := c.queryClient.Get(ctx, qURL.String())
 	if err != nil {
-		slog.DebugContext(ctx, "globalClient.Lookup", "url", qURL, "error", err)
+		slog.DebugContext(ctx, "globalClient.Lookup", "url", qURL, slogutil.Error(err))
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
@@ -278,7 +279,7 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 
 	resp, err := c.announceClient.Post(ctx, c.server, "application/json", bytes.NewReader(postData))
 	if err != nil {
-		slog.DebugContext(ctx, "announce POST", "server", c.server, "error", err)
+		slog.DebugContext(ctx, "announce POST", "server", c.server, slogutil.Error(err))
 		c.setError(err)
 		timer.Reset(announceErrorRetryInterval)
 		return

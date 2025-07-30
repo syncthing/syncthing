@@ -14,6 +14,8 @@ import (
 	"runtime/pprof"
 	"syscall"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/slogutil"
 )
 
 func startBlockProfiler() {
@@ -24,7 +26,7 @@ func startBlockProfiler() {
 	slog.Debug("Starting block profiling")
 	go func() {
 		err := saveBlockingProfiles(profiler) // Only returns on error
-		slog.Error("Block profiler failed", "error", err)
+		slog.Error("Block profiler failed", slogutil.Error(err))
 		panic("Block profiler failed")
 	}()
 }

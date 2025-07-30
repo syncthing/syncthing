@@ -58,7 +58,7 @@ func init() {
 		if cutPkg, levelStr, ok := strings.Cut(pkg, ":"); ok {
 			pkg = cutPkg
 			if err := level.UnmarshalText([]byte(levelStr)); err != nil {
-				slogDef.Warn("Bad log level requested in STTRACE", "pkg", pkg, "level", levelStr, "error", err)
+				slog.Warn("Bad log level requested in STTRACE", slog.String("pkg", pkg), slog.String("level", levelStr), Error(err))
 			}
 		}
 		globalLevels.Set(pkg, level)

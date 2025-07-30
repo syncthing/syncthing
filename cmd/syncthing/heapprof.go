@@ -14,13 +14,15 @@ import (
 	"runtime/pprof"
 	"syscall"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/slogutil"
 )
 
 func startHeapProfiler() {
 	slog.Debug("Starting heap profiling")
 	go func() {
 		err := saveHeapProfiles(1) // Only returns on error
-		slog.Error("Heap profiler failed", "error", err)
+		slog.Error("Heap profiler failed", slogutil.Error(err))
 		panic("Heap profiler failed")
 	}()
 }

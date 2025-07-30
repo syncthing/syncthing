@@ -14,6 +14,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/thejerf/suture/v4"
 )
 
@@ -180,7 +181,7 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 		return wrap(err, "delete blocklists")
 	} else if shouldDebug() {
 		rows, err := res.RowsAffected()
-		slog.DebugContext(ctx, "blocklist GC", "fdb", fdb.baseName, "rows", rows, "error", err)
+		slog.DebugContext(ctx, "blocklist GC", "fdb", fdb.baseName, "rows", rows, slogutil.Error(err))
 	}
 
 	if res, err := tx.ExecContext(ctx, `
@@ -191,7 +192,7 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 		return wrap(err, "delete blocks")
 	} else if shouldDebug() {
 		rows, err := res.RowsAffected()
-		slog.DebugContext(ctx, "blocks GC", "fdb", fdb.baseName, "rows", rows, "error", err)
+		slog.DebugContext(ctx, "blocks GC", "fdb", fdb.baseName, "rows", rows, slogutil.Error(err))
 	}
 
 	return wrap(tx.Commit())
