@@ -61,11 +61,13 @@ func (h *formattingHandler) Handle(_ context.Context, rec slog.Record) error {
 	var sb strings.Builder
 	sb.WriteString(rec.Message)
 
+	var attrCount int
+
 	// Collect all the attributes. Expand groups. Record attributes are
 	// qualified with the handler groups.
 	rec.Attrs(func(a slog.Attr) bool {
 		for _, attr := range expandAttrs("", a) {
-			appendAttr(&sb, prefix, attr)
+			appendAttr(&sb, prefix, attr, &attrCount)
 		}
 		return true
 	})
@@ -74,13 +76,17 @@ func (h *formattingHandler) Handle(_ context.Context, rec slog.Record) error {
 	// already prefixed.
 	for _, a := range h.attrs {
 		for _, attr := range expandAttrs("", a) {
-			appendAttr(&sb, "", attr)
+			appendAttr(&sb, "", attr, &attrCount)
 		}
 	}
 
 	// Add attributes for the logging package and type name
 	for _, attr := range srcAttrs {
-		appendAttr(&sb, "src.", attr)
+		appendAttr(&sb, "src.", attr, &attrCount)
+	}
+
+	if attrCount > 0 {
+		sb.WriteRune(')')
 	}
 
 	line := Line{
@@ -115,8 +121,11 @@ func expandAttrs(prefix string, a slog.Attr) []slog.Attr {
 	return attrs
 }
 
-func appendAttr(sb *strings.Builder, prefix string, a slog.Attr) {
+func appendAttr(sb *strings.Builder, prefix string, a slog.Attr, attrCount *int) {
 	sb.WriteRune(' ')
+	if *attrCount == 0 {
+		sb.WriteRune('(')
+	}
 	sb.WriteString(prefix)
 	sb.WriteString(a.Key)
 	sb.WriteRune('=')
@@ -125,6 +134,7 @@ func appendAttr(sb *strings.Builder, prefix string, a slog.Attr) {
 		v = strconv.Quote(v)
 	}
 	sb.WriteString(v)
+	*attrCount++
 }
 
 func (h *formattingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
