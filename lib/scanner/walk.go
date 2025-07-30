@@ -145,6 +145,8 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		w.ProgressTickIntervalS = 2
 	}
 
+	// The sizeof protocol.FileInfo is 288 bytes, 288*4096 = ~1 MiB,
+	// a reasonable default limit for the filesToHash array.
 	const defaultScanProgressFileLimit = 4096
 	if w.ScanProgressFileLimit <= 0 {
 		w.ScanProgressFileLimit = defaultScanProgressFileLimit
