@@ -7,7 +7,6 @@
 package model
 
 import (
-	"log/slog"
 	"slices"
 	"strings"
 	"time"
@@ -71,7 +70,7 @@ func (f *receiveOnlyFolder) Revert() {
 }
 
 func (f *receiveOnlyFolder) revert() error {
-	slog.Info("Reverting folder", slogutil.Folder(f.ID, f.Label, f.Type.String()))
+	f.sl.Info("Reverting folder")
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)
@@ -156,7 +155,7 @@ func (f *receiveOnlyFolder) revert() error {
 	// Handle any queued directories
 	deleted, err := delQueue.flush()
 	if err != nil {
-		l.Infoln("Revert:", err)
+		f.sl.Warn("Failed to revert directories", slogutil.Error(err))
 	}
 	now := time.Now()
 	for _, dir := range deleted {

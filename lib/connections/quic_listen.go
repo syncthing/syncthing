@@ -60,7 +60,7 @@ type quicListener struct {
 
 func (t *quicListener) OnNATTypeChanged(natType stun.NATType) {
 	if natType != stun.NATUnknown {
-		slog.Info("Detected NAT type", slogutil.URL(t.uri), slog.Any("type", natType))
+		slog.Info("Detected NAT type", slogutil.URI(t.uri), slog.Any("type", natType))
 	}
 	t.nat.Store(uint64(natType))
 }
@@ -79,7 +79,7 @@ func (t *quicListener) OnExternalAddressChanged(address *stun.Host, via string) 
 	t.mut.Unlock()
 
 	if uri != nil && (existingAddress == nil || existingAddress.String() != uri.String()) {
-		slog.Info("Resolved external address", slogutil.URL(t.uri), slogutil.Address(uri.String()), slog.String("via", via))
+		slog.Info("Resolved external address", slogutil.URI(t.uri), slogutil.Address(uri.String()), slog.String("via", via))
 		t.notifyAddressesChanged(t)
 	} else if uri == nil && existingAddress != nil {
 		t.notifyAddressesChanged(t)

@@ -212,7 +212,7 @@ func (f *sendReceiveFolder) pull() (bool, error) {
 	if pullErrNum > 0 {
 		f.pullErrors = make([]FileError, 0, len(f.tempPullErrors))
 		for path, err := range f.tempPullErrors {
-			l.Infof("Puller (folder %s, item %q): %v", f.Description(), path, err)
+			f.sl.Warn("Failed to sync", slogutil.FilePath(path), slogutil.Error(err))
 			f.pullErrors = append(f.pullErrors, FileError{
 				Err:  err,
 				Path: path,
@@ -223,7 +223,6 @@ func (f *sendReceiveFolder) pull() (bool, error) {
 	f.errorsMut.Unlock()
 
 	if pullErrNum > 0 {
-		l.Infof("%v: Failed to sync %v items", f.Description(), pullErrNum)
 		f.evLogger.Log(events.FolderErrors, map[string]interface{}{
 			"folder": f.folderID,
 			"errors": f.Errors(),
@@ -570,7 +569,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 		mode = 0o777
 	}
 
-	slog.Debug("Need dir", "file", file, "cur", slogutil.Expensive(func() any {
+	f.sl.Debug("Need dir", "file", file, "cur", slogutil.Expensive(func() any {
 		curFile, _, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
 		return curFile
 	}))
@@ -733,10 +732,10 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 		})
 	}()
 
-	slog.Debug("Need symlink", "file", file, "cur", slogutil.Expensive(func() any {
+	f.sl.Debug("Need symlink", slogutil.FilePath(file.Name), slog.Any("cur", slogutil.Expensive(func() any {
 		curFile, _, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
 		return curFile
-	}))
+	})))
 
 	if len(file.SymlinkTarget) == 0 {
 		// Index entry from a Syncthing predating the support for including
@@ -1776,7 +1775,7 @@ loop:
 					// (resp. whatever caused the error) will cause this file to
 					// change. Log at info level to leave a trace if a user
 					// notices, but no need to warn
-					l.Infof("Error updating metadata for %v at database commit: %v", job.file.Name, err)
+					f.sl.Warn("Failed to update metadata at database commit", slogutil.FilePath(job.file.Name), slogutil.Error(err))
 				}
 			}
 			job.file.Sequence = 0
@@ -1830,7 +1829,7 @@ func (f *sendReceiveFolder) inConflict(current, replacement protocol.Vector) boo
 
 func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan chan<- string) error {
 	if isConflict(name) {
-		l.Infoln("Conflict for", name, "which is already a conflict copy; not copying again.")
+		f.sl.Info("Conflict on existing conflict copy; not copying again", slogutil.FilePath(name))
 		if err := f.mtimefs.Remove(name); err != nil && !fs.IsNotExist(err) {
 			return fmt.Errorf("%s: %w", contextRemovingOldItem, err)
 		}

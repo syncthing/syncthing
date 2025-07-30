@@ -8,12 +8,10 @@ package model
 
 import (
 	"fmt"
-	"log/slog"
 	"slices"
 	"strings"
 
 	"github.com/syncthing/syncthing/internal/itererr"
-	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -42,7 +40,7 @@ func (f *receiveEncryptedFolder) Revert() {
 }
 
 func (f *receiveEncryptedFolder) revert() error {
-	slog.Info("Reverting unexpected items", slogutil.Folder(f.ID, f.Label, f.Type.String()))
+	f.sl.Info("Reverting unexpected items")
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)

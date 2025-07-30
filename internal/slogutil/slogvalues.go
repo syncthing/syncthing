@@ -27,6 +27,6 @@ func Folder(id, label, typ string) slog.Attr {
 	return slog.Group("folder", slog.String("id", id), slog.String("type", typ), slog.String("label", label))
 }
 
-func URL(v any) slog.Attr {
-	return slog.Any("url", v)
+func URI(v any) slog.Attr {
+	return slog.Any("uri", v)
 }

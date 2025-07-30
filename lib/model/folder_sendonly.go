@@ -7,10 +7,7 @@
 package model
 
 import (
-	"log/slog"
-
 	"github.com/syncthing/syncthing/internal/itererr"
-	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -96,7 +93,7 @@ func (f *sendOnlyFolder) Override() {
 }
 
 func (f *sendOnlyFolder) override() error {
-	slog.Info("Overriding global state ", slogutil.Folder(f.ID, f.Label, f.Type.String()))
+	f.sl.Info("Overriding global state ")
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)

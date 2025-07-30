@@ -671,7 +671,7 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 		uri, err := url.Parse(addr)
 		if err != nil {
 			s.setConnectionStatus(addr, err)
-			l.Infof("Parsing dialer address %s: %v", addr, err)
+			slog.WarnContext(ctx, "Failed to parse dialer address", slogutil.Address(addr), slogutil.Error(err))
 			continue
 		}
 
@@ -691,7 +691,7 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 			l.Debugf("Dialer for %v: %v", uri, err)
 			continue
 		} else if err != nil {
-			l.Infof("Dialer for %v: %v", uri, err)
+			slog.WarnContext(ctx, "Failed to get dialer", slogutil.URI(uri), slogutil.Error(err))
 			continue
 		}
 
@@ -896,7 +896,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 			l.Debugf("Listener for %v: %v", uri, err)
 			continue
 		} else if err != nil {
-			l.Infof("Listener for %v: %v", uri, err)
+			slog.Warn("Failed to get listener", slogutil.URI(uri), slogutil.Error(err))
 			continue
 		}
 
@@ -1210,7 +1210,7 @@ func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID)
 	// connection.
 	certs := cs.PeerCertificates
 	if cl := len(certs); cl != 1 {
-		l.Infof("Got peer certificate list of length %d != 1 from peer at %s; protocol error", cl, c)
+		slog.Warn("Got peer certificate list of incorrect length", slog.Int("length", cl), slogutil.Address(c.RemoteAddr()))
 		c.Close()
 		return fmt.Errorf("expected 1 certificate, got %d", cl)
 	}

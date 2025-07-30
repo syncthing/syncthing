@@ -76,9 +76,9 @@ func server(params *cli) error {
 
 	go func() {
 		for range time.NewTicker(params.CacheTime).C {
-			slog.Info("Refreshing cached releases", slogutil.URL(params.URL))
+			slog.Info("Refreshing cached releases", slogutil.URI(params.URL))
 			if err := cache.Update(context.Background()); err != nil {
-				slog.Error("Failed to refresh cached releases", slogutil.URL(params.URL), slogutil.Error(err))
+				slog.Error("Failed to refresh cached releases", slogutil.URI(params.URL), slogutil.Error(err))
 			}
 		}
 	}()
