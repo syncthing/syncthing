@@ -2327,9 +2327,9 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	m.evLogger.Log(events.DeviceConnected, event)
 
 	if len(m.deviceConnIDs[deviceID]) == 1 {
-		l.Infof(`Device %s client is "%s %s" named "%s" at %s`, deviceID.Short(), hello.ClientName, hello.ClientVersion, hello.DeviceName, conn)
+		slog.Info("New device connection", slogutil.Device(deviceID.Short()), slogutil.Address(conn.RemoteAddr()), slog.Group("remote", slog.String("name", hello.DeviceName), slog.String("client", hello.ClientName), slog.String("version", hello.ClientVersion)))
 	} else {
-		l.Infof(`Additional connection (+%d) for device %s at %s`, len(m.deviceConnIDs[deviceID])-1, deviceID.Short(), conn)
+		slog.Info("Additional device connection", slogutil.Device(deviceID.Short()), slogutil.Address(conn.RemoteAddr()), slog.Int("count", len(m.deviceConnIDs[deviceID])-1))
 	}
 
 	m.mut.Unlock()
