@@ -1031,9 +1031,9 @@ func BenchmarkWalk(b *testing.B) {
 	}
 }
 
-func BenchmarkWalkHuge(b *testing.B) {
+func BenchmarkWalkHugeWithBuffer(b *testing.B) {
 	errorFs := fs.NewFilesystem(fs.FilesystemType("error"), ".")
-	fs := fs.NewWalkFilesystem(&infiniteFS{errorFs, b.N, 1, 1e6})
+	fs := fs.NewWalkFilesystem(&infiniteFS{errorFs, b.N, 1, 1})
 
 	cfg, cancel := testConfig()
 	defer cancel()
@@ -1042,6 +1042,31 @@ func BenchmarkWalkHuge(b *testing.B) {
 	cfg.AutoNormalize = true
 	cfg.ScanOwnership = true
 	cfg.Hashers = 4
+	cfg.ScanProgressFileLimit = b.N
+	cfg.ProgressTickIntervalS = 2
+	fchan := Walk(context.TODO(), cfg)
+
+	var tmp []protocol.FileInfo
+	for f := range fchan {
+		if f.Err == nil {
+			tmp = append(tmp, f.File)
+		}
+	}
+}
+
+func BenchmarkWalkHugeNoBuffer(b *testing.B) {
+	errorFs := fs.NewFilesystem(fs.FilesystemType("error"), ".")
+	fs := fs.NewWalkFilesystem(&infiniteFS{errorFs, b.N, 1, 1})
+
+	cfg, cancel := testConfig()
+	defer cancel()
+	cfg.Filesystem = fs
+	cfg.Subs = []string{"/"}
+	cfg.AutoNormalize = true
+	cfg.ScanOwnership = true
+	cfg.Hashers = 4
+	cfg.ScanProgressFileLimit = 1
+	cfg.ProgressTickIntervalS = 2
 	fchan := Walk(context.TODO(), cfg)
 
 	var tmp []protocol.FileInfo

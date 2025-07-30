@@ -171,7 +171,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		for file := range toHashChan {
 			filesToHash = append(filesToHash, file)
 			total += file.Size
-			if len(filesToHash) >= w.ScanProgressFileLimit {
+			if len(filesToHash) > w.ScanProgressFileLimit {
 				total = -1
 				break
 			}
