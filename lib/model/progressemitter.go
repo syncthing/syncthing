@@ -72,7 +72,7 @@ func (t *ProgressEmitter) Serve(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Debug("progress emitter: stopping")
+			slog.Debug("Progress emitter: stopping")
 			return nil
 		case <-t.timer.C:
 			t.mut.Lock()
@@ -218,16 +218,16 @@ func (t *ProgressEmitter) CommitConfiguration(_, to config.Configuration) bool {
 	if newInterval > 0 {
 		if t.disabled {
 			t.disabled = false
-			slog.Debug("progress emitter: enabled")
+			slog.Debug("Progress emitter: enabled")
 		}
 		if t.interval != newInterval {
 			t.interval = newInterval
-			l.Debugln("progress emitter: updated interval", t.interval)
+			l.Debugln("Progress emitter: updated interval", t.interval)
 		}
 	} else if !t.disabled {
 		t.clearLocked()
 		t.disabled = true
-		slog.Debug("progress emitter: disabled")
+		slog.Debug("Progress emitter: disabled")
 	}
 	t.minBlocks = to.Options.TempIndexMinBlocks
 	if t.interval < time.Second {

@@ -287,7 +287,7 @@ func (m *model) serve(ctx context.Context) error {
 			l.Debugln(m, "fatal error, stopping", err)
 			return svcutil.AsFatalErr(err, svcutil.ExitError)
 		case <-m.promotionTimer.C:
-			slog.Debug("promotion timer fired")
+			slog.Debug("Promotion timer fired")
 			m.promoteConnections()
 		}
 	}

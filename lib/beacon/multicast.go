@@ -139,7 +139,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 	}
 
 	if joined == 0 {
-		slog.Debug("no multicast interfaces available")
+		slog.Debug("No multicast interfaces available")
 		return errors.New("no multicast interfaces available")
 	}
 
@@ -162,7 +162,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 		select {
 		case outbox <- recv{c, addr}:
 		default:
-			slog.Debug("dropping message")
+			slog.Debug("Dropping message")
 		}
 	}
 }

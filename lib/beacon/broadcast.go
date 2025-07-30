@@ -110,7 +110,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 		}
 
 		if success == 0 {
-			slog.Debug("couldn't send any broadcasts")
+			slog.Debug("Couldn't send any broadcasts")
 			return err
 		}
 	}
@@ -147,7 +147,7 @@ func readBroadcasts(ctx context.Context, outbox chan<- recv, port int) error {
 		case <-doneCtx.Done():
 			return doneCtx.Err()
 		default:
-			slog.Debug("dropping message")
+			slog.Debug("Dropping message")
 		}
 	}
 }

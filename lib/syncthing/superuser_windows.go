@@ -29,7 +29,7 @@ func isSuperUser() bool {
 	}
 
 	if user.User.Sid == nil {
-		slog.Debug("sid is nil")
+		slog.Debug("Sid is nil")
 		return false
 	}
 

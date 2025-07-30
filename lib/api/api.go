@@ -443,10 +443,10 @@ func (s *service) Serve(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		// Shutting down permanently
-		slog.Debug("shutting down (stop)")
+		slog.Debug("Shutting down (stop)")
 	case <-s.configChanged:
 		// Soft restart due to configuration change
-		slog.Debug("restarting (config changed)")
+		slog.Debug("Restarting (config changed)")
 	case err = <-s.exitChan:
 	case err = <-serveError:
 		// Restart due to listen/serve failure
