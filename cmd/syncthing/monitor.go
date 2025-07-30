@@ -63,7 +63,7 @@ func (c *serveCmd) monitorMain() {
 			fileDst, err = open(logFile)
 		}
 		if err != nil {
-			l.Warnln("Failed to set up logging to file, proceeding with logging to stdout only:", err)
+			slog.Error("Failed to set up logging to file, proceeding with logging to stdout only", "error", err)
 		} else {
 			if build.IsWindows {
 				// Translate line breaks to Windows standard
@@ -77,14 +77,14 @@ func (c *serveCmd) monitorMain() {
 			// Log to both stdout and file.
 			dst = io.MultiWriter(dst, fileDst)
 
-			l.Infof(`Log output saved to file "%s"`, logFile)
+			slog.Info("Saved log output", "file", logFile)
 		}
 	}
 
 	args := os.Args
 	binary, err := getBinary(args[0])
 	if err != nil {
-		l.Warnln("Error starting the main Syncthing process:", err)
+		slog.Error("Failed to start the main Syncthing process", "error", err)
 		panic("Error starting the main Syncthing process")
 	}
 	var restarts [restartCounts]time.Time
@@ -101,7 +101,7 @@ func (c *serveCmd) monitorMain() {
 		maybeReportPanics()
 
 		if t := time.Since(restarts[0]); t < restartLoopThreshold {
-			l.Warnf("%d restarts in %v; not retrying further", restartCounts, t)
+			slog.Error("Too many restarts; not retrying further", "count", restartCounts, "interval", t)
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 
@@ -124,7 +124,7 @@ func (c *serveCmd) monitorMain() {
 		slog.Debug("Starting syncthing")
 		err = cmd.Start()
 		if err != nil {
-			l.Warnln("Error starting the main Syncthing process:", err)
+			slog.Error("Failed to start the main Syncthing process", "error", err)
 			panic("Error starting the main Syncthing process")
 		}
 
@@ -157,13 +157,13 @@ func (c *serveCmd) monitorMain() {
 		stopped := false
 		select {
 		case s := <-stopSign:
-			l.Infof("Signal %d received; exiting", s)
+			slog.Info("Received signal; exiting", "signal", s)
 			cmd.Process.Signal(sigTerm)
 			err = <-exit
 			stopped = true
 
 		case s := <-restartSign:
-			l.Infof("Signal %d received; restarting", s)
+			slog.Info("Received signal; restarting", "signal", s)
 			cmd.Process.Signal(sigHup)
 			err = <-exit
 
@@ -195,7 +195,7 @@ func (c *serveCmd) monitorMain() {
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 
-		l.Infoln("Syncthing exited:", err)
+		slog.Info("Syncthing exited", "error", err)
 		time.Sleep(restartPause)
 
 		if first {
@@ -246,9 +246,9 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 				continue
 			}
 
-			l.Warnf("Panic detected, writing to \"%s\"", panicFd.Name())
-			l.Warnln("Please check for existing issues with similar panic message at https://github.com/syncthing/syncthing/issues/")
-			l.Warnln("If no issue with similar panic message exists, please create a new issue with the panic log attached")
+			slog.Error("Panic detected, writing to file", "file", panicFd.Name())
+			slog.Info("Please check for existing issues with similar panic message at https://github.com/syncthing/syncthing/issues/")
+			slog.Info("If no issue with similar panic message exists, please create a new issue with the panic log attached")
 
 			stdoutMut.Lock()
 			for _, line := range stdoutFirstLines {

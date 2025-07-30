@@ -44,11 +44,11 @@ func emitLoginAttempt(success bool, username string, r *http.Request, evLogger e
 	if success {
 		return
 	}
+	l := slog.Default()
 	if proxy != "" {
-		l.Infof("Wrong credentials supplied during API authorization from %s proxied by %s", remoteAddress, proxy)
-	} else {
-		l.Infof("Wrong credentials supplied during API authorization from %s", remoteAddress)
+		l = l.With("proxy", proxy)
 	}
+	l.Warn("Bad credentials supplied during API authorization", "address", remoteAddress)
 }
 
 func remoteAddress(r *http.Request) (remoteAddr, proxy string) {
@@ -301,7 +301,7 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 		return false
 	}
 	if len(res.Entries) != 1 {
-		l.Infof("Wrong number of LDAP search results, %d != 1", len(res.Entries))
+		slog.Warn("Incorrect number of LDAP search results (expected one)", "results", len(res.Entries))
 		return false
 	}
 

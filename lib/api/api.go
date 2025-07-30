@@ -151,7 +151,9 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 		err = shouldRegenerateCertificate(cert)
 	}
 	if err != nil {
-		l.Infoln("Loading HTTPS certificate:", err)
+		if !os.IsNotExist(err) {
+			slog.Warn("Failed to load HTTPS certificate", "error", err)
+		}
 		slog.Info("Creating new HTTPS certificate")
 
 		// When generating the HTTPS certificate, use the system host name per
@@ -409,8 +411,8 @@ func (s *service) Serve(ctx context.Context) error {
 		srv.ErrorLog = log.Default()
 	}
 
-	l.Infoln("GUI and API listening on", listener.Addr())
-	l.Infoln("Access the GUI via the following URL:", guiCfg.URL())
+	slog.Info("GUI and API listening", slogutil.Address(listener.Addr()))
+	slog.Info("Access the GUI via the following URL: " + guiCfg.URL())
 	if s.started != nil {
 		// only set when run by the tests
 		select {

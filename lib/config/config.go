@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/url"
 	"os"
@@ -21,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/netutil"
@@ -614,7 +616,7 @@ func cleanSymlinks(filesystem fs.Filesystem, dir string) {
 			return err
 		}
 		if info.IsSymlink() {
-			l.Infoln("Removing incorrectly versioned symlink", path)
+			slog.Warn("Removing incorrectly versioned symlink", slogutil.FilePath(path))
 			filesystem.Remove(path)
 			return fs.SkipDir
 		}
