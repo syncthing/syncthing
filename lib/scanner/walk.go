@@ -53,7 +53,7 @@ type Config struct {
 	// Optional progress tick interval which defines how often FolderScanProgress
 	// events are emitted. Negative number means disabled.
 	ProgressTickIntervalS int
-	// Emit FolderScanProgress events if the number of files to hash is less than this.
+	// Emit FolderScanProgress events if the number of files to hash is lower than this.
 	ScanProgressFileLimit int
 	// Local flags to set on scanned files
 	LocalFlags protocol.FlagLocal
