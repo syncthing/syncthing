@@ -167,7 +167,7 @@ func TestWalkNoProgressFileCount(t *testing.T) {
 	cfg, cancel := testConfig()
 	defer cancel()
 	cfg.Matcher = ignores
-	cfg.ProgressTickIntervalIfFilesLessThan = 1
+	cfg.ScanProgressFileLimit = 1
 	fchan := Walk(context.TODO(), cfg)
 
 	var tmp []protocol.FileInfo

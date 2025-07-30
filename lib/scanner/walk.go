@@ -54,7 +54,7 @@ type Config struct {
 	// events are emitted. Negative number means disabled.
 	ProgressTickIntervalS int
 	// Emit FolderScanProgress events if the number of files to hash is less than this.
-	ProgressTickIntervalIfFilesLessThan int
+	ScanProgressFileLimit int
 	// Local flags to set on scanned files
 	LocalFlags protocol.FlagLocal
 	// Modification time is to be considered unchanged if the difference is lower.
@@ -145,9 +145,9 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		w.ProgressTickIntervalS = 2
 	}
 
-	const defaultProgressTickIntervalIfFilesLessThan = 1024
-	if w.ProgressTickIntervalIfFilesLessThan == 0 {
-		w.ProgressTickIntervalIfFilesLessThan = defaultProgressTickIntervalIfFilesLessThan
+	const defaultScanProgressFileLimit = 1024
+	if w.ScanProgressFileLimit == 0 {
+		w.ScanProgressFileLimit = defaultScanProgressFileLimit
 	}
 
 	// We need to emit progress events, hence we create a routine which buffers
@@ -162,8 +162,8 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 			[]protocol.FileInfo,
 			0,
 			min(
-				defaultProgressTickIntervalIfFilesLessThan,
-				w.ProgressTickIntervalIfFilesLessThan,
+				defaultScanProgressFileLimit,
+				w.ScanProgressFileLimit,
 			),
 		)
 		var total int64 = 1
@@ -171,7 +171,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		for file := range toHashChan {
 			filesToHash = append(filesToHash, file)
 			total += file.Size
-			if len(filesToHash) >= w.ProgressTickIntervalIfFilesLessThan {
+			if len(filesToHash) >= w.ScanProgressFileLimit {
 				total = -1
 				break
 			}

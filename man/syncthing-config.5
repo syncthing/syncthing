@@ -560,7 +560,7 @@ scan progress information. Enabling scan progress information will buffer the en
 .UNINDENT
 .INDENT 0.0
 .TP
-.B scanProgressEnableIfFilesLessThan
+.B scanProgressFileLimit
 Disable emission of scan progress information if more than the specified number of files are encountered
 during the scan, useful to avoid OOMs while buffering the entire file list in RAM for truly large folders. 
 Setting to \fB0\fP will cause Syncthing to use the default value of \fB1024\fP.  
