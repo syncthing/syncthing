@@ -556,6 +556,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	})
 
 	defer func() {
+		slog.Info("Created or updated directory", f.LogAttr(), file.LogAttr("dir"))
 		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
 			"item":   file.Name,
@@ -874,6 +875,8 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 	defer func() {
 		if err != nil {
 			f.newPullError(file.Name, fmt.Errorf("delete file: %w", err))
+		} else {
+			slog.Info("Deleted file", f.LogAttr(), file.LogAttr("file"))
 		}
 		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
@@ -1671,6 +1674,8 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 			if err != nil {
 				f.newPullError(state.file.Name, fmt.Errorf("finishing: %w", err))
 			} else {
+				slog.Info("Synced file", f.LogAttr(), state.file.LogAttr("file"), slog.Group("blocks", slog.Int("reused", state.reused+state.copyTotal), slog.Int("transferred", state.pullTotal)))
+
 				minBlocksPerBlock := state.file.BlockSize() / protocol.MinBlockSize
 				blockStatsMut.Lock()
 				blockStats["total"] += (state.reused + state.copyTotal + state.pullTotal) * minBlocksPerBlock
@@ -1678,8 +1683,7 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 				blockStats["pulled"] += state.pullTotal * minBlocksPerBlock
 				// copyOriginShifted is counted towards copyOrigin due to progress bar reasons
 				// for reporting reasons we want to separate these.
-				blockStats["copyOrigin"] += (state.copyOrigin - state.copyOriginShifted) * minBlocksPerBlock
-				blockStats["copyOriginShifted"] += state.copyOriginShifted * minBlocksPerBlock
+				blockStats["copyOrigin"] += state.copyOrigin * minBlocksPerBlock
 				blockStats["copyElsewhere"] += (state.copyTotal - state.copyOrigin) * minBlocksPerBlock
 				blockStatsMut.Unlock()
 			}
@@ -1695,12 +1699,6 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 				"type":   "file",
 				"action": "update",
 			})
-
-			if err == nil {
-				slog.Info("Synced item", f.LogAttr(), state.file.LogAttr("item"))
-			} else {
-				slog.Info("Failed to sync", f.LogAttr(), state.file.LogAttr("item"), slogutil.Error(err))
-			}
 		}
 	}
 }
