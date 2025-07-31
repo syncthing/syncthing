@@ -215,18 +215,27 @@ func (f *FileInfo) WinsConflict(other FileInfo) bool {
 }
 
 func (f *FileInfo) LogAttr() slog.Attr {
-	kind := "file"
+	attrs := []any{
+		slog.String("name", f.Name),
+		slog.Any("modified", f.ModTime()),
+		slog.String("permissions", fmt.Sprintf("0%03o", f.Permissions)),
+	}
+	var kind string
 	switch f.Type {
+	case FileInfoTypeFile:
+		kind = "file"
+		if !f.Deleted {
+			attrs = append(attrs,
+				slog.Int64("size", f.Size),
+				slog.Int("blocksize", f.BlockSize()),
+			)
+		}
 	case FileInfoTypeDirectory:
 		kind = "dir"
 	case FileInfoTypeSymlink:
 		kind = "symlink"
 	}
-	return slog.Group(kind,
-		slog.String("name", f.Name),
-		slog.Int64("size", f.Size),
-		slog.Any("modified", f.ModTime()),
-		slog.String("permissions", fmt.Sprintf("0%03o", f.Permissions)))
+	return slog.Group(kind, attrs...)
 }
 
 func FileInfoFromWire(w *bep.FileInfo) FileInfo {

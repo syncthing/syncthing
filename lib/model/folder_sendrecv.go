@@ -1674,7 +1674,7 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 			if err != nil {
 				f.newPullError(state.file.Name, fmt.Errorf("finishing: %w", err))
 			} else {
-				slog.Info("Synced file", f.LogAttr(), state.file.LogAttr(), slog.Group("blocks", slog.Int("reused", state.reused+state.copyTotal), slog.Int("transferred", state.pullTotal)))
+				slog.Info("Synced file", f.LogAttr(), state.file.LogAttr(), slog.Group("blocks", slog.Int("local", state.reused+state.copyTotal), slog.Int("download", state.pullTotal)))
 
 				minBlocksPerBlock := state.file.BlockSize() / protocol.MinBlockSize
 				blockStatsMut.Lock()
