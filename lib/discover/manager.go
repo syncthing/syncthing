@@ -260,7 +260,7 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 			}
 			gd, err := NewGlobal(srv, m.cert, m.addressLister, m.evLogger, m.registry)
 			if err != nil {
-				l.Warnln("Global discovery:", err)
+				slog.Warn("Failed to initialize global discovery", slogutil.Error(err))
 				continue
 			}
 
@@ -277,7 +277,7 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 		if _, ok := m.finders[v4Identity]; !ok {
 			bcd, err := NewLocal(m.myID, fmt.Sprintf(":%d", to.Options.LocalAnnPort), m.addressLister, m.evLogger)
 			if err != nil {
-				l.Warnln("IPv4 local discovery:", err)
+				slog.Warn("Failed to initialize IPv4 local discovery", slogutil.Error(err))
 			} else {
 				m.addLocked(v4Identity, bcd, 0, 0)
 			}
@@ -288,7 +288,7 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 		if _, ok := m.finders[v6Identity]; !ok {
 			mcd, err := NewLocal(m.myID, to.Options.LocalAnnMCAddr, m.addressLister, m.evLogger)
 			if err != nil {
-				l.Warnln("IPv6 local discovery:", err)
+				slog.Warn("Failed to initialize IPv6 local discovery", slogutil.Error(err))
 			} else {
 				m.addLocked(v6Identity, mcd, 0, 0)
 			}

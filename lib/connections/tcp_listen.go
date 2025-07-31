@@ -9,6 +9,7 @@ package connections
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"log/slog"
 	"net"
 	"net/url"
@@ -123,8 +124,9 @@ func (t *tcpListener) serve(ctx context.Context) error {
 		default:
 		}
 		if err != nil {
-			if err, ok := err.(*net.OpError); !ok || !err.Timeout() {
-				l.Warnln("Listen (BEP/tcp): Accepting connection:", err)
+			var ne *net.OpError
+			if ok := errors.As(err, &ne); !ok || !ne.Timeout() {
+				slog.Warn("Failed to accept TCP connection", slogutil.Error(err))
 
 				acceptFailures++
 				if acceptFailures > maxAcceptFailures {

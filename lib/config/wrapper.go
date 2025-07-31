@@ -12,6 +12,7 @@ package config
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"os"
 	"reflect"
 	"sync"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -296,7 +298,7 @@ func (w *wrapper) serveSave() {
 		return
 	}
 	if err := w.Save(); err != nil {
-		l.Warnln("Failed to save config:", err)
+		slog.Error("Failed to save config", slogutil.Error(err))
 	}
 }
 

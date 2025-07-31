@@ -9,6 +9,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -32,7 +33,7 @@ type OptionJunctionsAsDirs struct{}
 
 func (*OptionJunctionsAsDirs) apply(fs Filesystem) Filesystem {
 	if basic, ok := fs.(*BasicFilesystem); !ok {
-		l.Warnln("WithJunctionsAsDirs must only be used with FilesystemTypeBasic")
+		slog.Warn("WithJunctionsAsDirs must only be used with FilesystemTypeBasic")
 	} else {
 		basic.junctionsAsDirs = true
 	}

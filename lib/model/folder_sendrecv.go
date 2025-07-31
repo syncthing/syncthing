@@ -423,7 +423,6 @@ loop:
 			}
 
 		default:
-			l.Warnln(file)
 			panic("unhandleable item type, can't happen")
 		}
 	}
