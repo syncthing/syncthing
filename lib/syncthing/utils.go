@@ -96,19 +96,16 @@ func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logg
 		if err != nil {
 			return nil, fmt.Errorf("failed to save default config: %w", err)
 		}
-		l.Infof("Default config saved. Edit %s to taste (with Syncthing stopped) or use the GUI", cfg.ConfigPath())
-	} else if err == io.EOF {
+		slog.Info("Default config saved. Edit to taste (with Syncthing stopped) or use the GUI", slogutil.FilePath(cfg.ConfigPath()))
+	} else if errors.Is(err, io.EOF) {
 		return nil, errors.New("failed to load config: unexpected end of file. Truncated or empty configuration?")
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
 	if originalVersion != config.CurrentVersion {
-		if originalVersion == config.CurrentVersion+1101 {
-			l.Infof("Now, THAT's what we call a config from the future! Don't worry. As long as you hit that wire with the connecting hook at precisely eighty-eight miles per hour the instant the lightning strikes the tower... everything will be fine.")
-		}
 		if originalVersion > config.CurrentVersion && !allowNewerConfig {
-			return nil, fmt.Errorf("config file version (%d) is newer than supported version (%d). If this is expected, use --allow-newer-config to override.", originalVersion, config.CurrentVersion)
+			return nil, fmt.Errorf("config file version (%d) is newer than supported version (%d); if this is expected, use --allow-newer-config to override", originalVersion, config.CurrentVersion)
 		}
 		err = archiveAndSaveConfig(cfg, originalVersion)
 		if err != nil {
