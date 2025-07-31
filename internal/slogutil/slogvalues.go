@@ -13,6 +13,9 @@ func Device(v any) slog.Attr {
 }
 
 func Error(err any) slog.Attr {
+	if err == nil {
+		return slog.Attr{}
+	}
 	return slog.Any("error", err)
 }
 

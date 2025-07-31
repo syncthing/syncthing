@@ -7,12 +7,14 @@
 package sqlite
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/slogutil"
 )
 
 const maxDBConns = 16
@@ -128,7 +130,7 @@ func OpenTemp() (*DB, error) {
 		return nil, wrap(err)
 	}
 	path := filepath.Join(dir, "db")
-	l.Debugln("Test DB in", path)
+	slog.Debug("Test DB", slogutil.FilePath(path))
 	return Open(path)
 }
 

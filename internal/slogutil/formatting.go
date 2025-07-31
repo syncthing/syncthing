@@ -111,11 +111,12 @@ func expandAttrs(prefix string, a slog.Attr) []slog.Attr {
 	if prefix != "" {
 		a.Key = prefix + "." + a.Key
 	}
-	if a.Value.Kind() != slog.KindGroup {
+	val := a.Value.Resolve()
+	if val.Kind() != slog.KindGroup {
 		return []slog.Attr{a}
 	}
 	var attrs []slog.Attr
-	for _, attr := range a.Value.Group() {
+	for _, attr := range val.Group() {
 		attrs = append(attrs, expandAttrs(a.Key, attr)...)
 	}
 	return attrs

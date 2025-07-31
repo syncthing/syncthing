@@ -8,6 +8,4 @@ package sqlite
 
 import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = slogutil.NewAdapter("SQLite database")
-
-func shouldDebug() bool { return l.ShouldDebug("sqlite") }
+func init() { slogutil.RegisterPackage("SQLite database") }

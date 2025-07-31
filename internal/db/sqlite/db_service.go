@@ -179,9 +179,14 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 			SELECT 1 FROM files WHERE files.blocklist_hash = blocklists.blocklist_hash
 		)`); err != nil {
 		return wrap(err, "delete blocklists")
-	} else if shouldDebug() {
-		rows, err := res.RowsAffected()
-		slog.DebugContext(ctx, "blocklist GC", "fdb", fdb.baseName, "rows", rows, slogutil.Error(err))
+	} else {
+		slog.DebugContext(ctx, "blocklist GC", "fdb", fdb.baseName, "result", slogutil.Expensive(func() any {
+			rows, err := res.RowsAffected()
+			if err != nil {
+				return slogutil.Error(err)
+			}
+			return slog.Int64("rows", rows)
+		}))
 	}
 
 	if res, err := tx.ExecContext(ctx, `
@@ -190,9 +195,14 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 			SELECT 1 FROM blocklists WHERE blocklists.blocklist_hash = blocks.blocklist_hash
 		)`); err != nil {
 		return wrap(err, "delete blocks")
-	} else if shouldDebug() {
-		rows, err := res.RowsAffected()
-		slog.DebugContext(ctx, "blocks GC", "fdb", fdb.baseName, "rows", rows, slogutil.Error(err))
+	} else {
+		slog.DebugContext(ctx, "blocks GC", "fdb", fdb.baseName, "result", slogutil.Expensive(func() any {
+			rows, err := res.RowsAffected()
+			if err != nil {
+				return slogutil.Error(err)
+			}
+			return slog.Int64("rows", rows)
+		}))
 	}
 
 	return wrap(tx.Commit())
