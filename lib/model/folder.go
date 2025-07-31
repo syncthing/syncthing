@@ -115,7 +115,7 @@ func newFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfigura
 		mtimefs:       cfg.Filesystem(fs.NewMtimeOption(model.sdb, cfg.ID)),
 		modTimeWindow: cfg.ModTimeWindow(),
 		done:          make(chan struct{}),
-		sl:            slog.Default().With(slogutil.Folder(cfg.ID, cfg.Label, cfg.Type.String())),
+		sl:            slog.Default().With(cfg.LogAttr()),
 
 		scanInterval:           time.Duration(cfg.RescanIntervalS) * time.Second,
 		scanTimer:              time.NewTimer(0), // The first scan should be done immediately.

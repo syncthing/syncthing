@@ -423,7 +423,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	p := folderFactory(m, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
 	m.folderRunners.Add(folder, p)
 
-	slog.Info("Ready to synchronize", slogutil.Folder(cfg.ID, cfg.Label, cfg.Type.String()))
+	slog.Info("Ready to synchronize", cfg.LogAttr())
 }
 
 func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguration, ignores *ignore.Matcher) {
@@ -460,8 +460,8 @@ func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguratio
 }
 
 func (m *model) removeFolder(cfg config.FolderConfiguration) {
-	slog.Info("Removing folder", slogutil.Folder(cfg.ID, cfg.Label, cfg.Type.String()))
-	defer slog.Info("Removed folder", slogutil.Folder(cfg.ID, cfg.Label, cfg.Type.String()))
+	slog.Info("Removing folder", cfg.LogAttr())
+	defer slog.Info("Removed folder", cfg.LogAttr())
 
 	m.mut.RLock()
 	wait := m.folderRunners.StopAndWaitChan(cfg.ID, 0)
@@ -2969,9 +2969,9 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
 			if cfg.Paused {
-				slog.Info("Paused folder", slogutil.Folder(cfg.ID, cfg.Label, cfg.Type.String()))
+				slog.Info("Paused folder", cfg.LogAttr())
 			} else {
-				slog.Info("Adding folder", slogutil.Folder(cfg.ID, cfg.Label, cfg.Type.String()))
+				slog.Info("Adding folder", cfg.LogAttr())
 				if err := m.newFolder(cfg, to.Options.CacheIgnoredFiles); err != nil {
 					m.fatal(err)
 					return true
