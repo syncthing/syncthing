@@ -56,7 +56,6 @@ type Options struct {
 	NoUpgrade             bool
 	ProfilerAddr          string
 	ResetDeltaIdxs        bool
-	Verbose               bool
 	DBMaintenanceInterval time.Duration
 }
 
@@ -122,10 +121,6 @@ func (a *App) startup() error {
 
 	if a.opts.AuditWriter != nil {
 		a.mainService.Add(newAuditService(a.opts.AuditWriter, a.evLogger))
-	}
-
-	if a.opts.Verbose {
-		a.mainService.Add(newVerboseService(a.evLogger))
 	}
 
 	// Event subscription for the API; must start early to catch the early

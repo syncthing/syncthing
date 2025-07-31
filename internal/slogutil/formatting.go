@@ -123,6 +123,9 @@ func expandAttrs(prefix string, a slog.Attr) []slog.Attr {
 }
 
 func appendAttr(sb *strings.Builder, prefix string, a slog.Attr, attrCount *int) {
+	if a.Key == "" {
+		return
+	}
 	sb.WriteRune(' ')
 	if *attrCount == 0 {
 		sb.WriteRune('(')

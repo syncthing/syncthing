@@ -482,6 +482,8 @@ nextFile:
 				l.Debugf("rename shortcut for %s failed: %s", fi.Name, err.Error())
 				// Failed to rename, try next one.
 				continue
+			} else {
+				slog.Info("Renamed file", f.LogAttr(), fi.LogAttr("to"), candidate.LogAttr("from"))
 			}
 
 			// Remove the pending deletion (as we performed it by renaming)
@@ -840,6 +842,8 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, dbUpdateChan chan<
 		return
 	}
 
+	slog.Info("Deleted directory", f.LogAttr(), file.LogAttr("item"))
+
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteDir}
 }
 
@@ -926,6 +930,8 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 		err = nil
 		dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
 	}
+
+	slog.Info("Deleted file", f.LogAttr(), file.LogAttr("item"))
 }
 
 // renameFile attempts to rename an existing file to a destination
@@ -1281,6 +1287,8 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 	}
 
 	f.mtimefs.Chtimes(file.Name, file.ModTime(), file.ModTime()) // never fails
+
+	slog.Info("Updated file metadata", f.LogAttr(), file.LogAttr("item"))
 
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateShortcutFile}
 }
@@ -1687,6 +1695,12 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 				"type":   "file",
 				"action": "update",
 			})
+
+			if err == nil {
+				slog.Info("Synced item", f.LogAttr(), state.file.LogAttr("item"))
+			} else {
+				slog.Info("Failed to sync", f.LogAttr(), state.file.LogAttr("item"), slogutil.Error(err))
+			}
 		}
 	}
 }

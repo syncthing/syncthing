@@ -167,7 +167,6 @@ type serveCmd struct {
 	NoUpgrade                 bool          `help:"Disable automatic upgrades" env:"STNOUPGRADE"`
 	Paused                    bool          `help:"Start with all devices and folders paused" env:"STPAUSED"`
 	Unpaused                  bool          `help:"Start with all devices and folders unpaused" env:"STUNPAUSED"`
-	Verbose                   bool          `help:"Print verbose log output" env:"STVERBOSE"`
 
 	// Debug options below
 	DebugGUIAssetsDir   string `help:"Directory to load GUI assets from" placeholder:"PATH" env:"STGUIASSETS"`
@@ -487,7 +486,6 @@ func (c *serveCmd) syncthingMain() {
 		NoUpgrade:             c.NoUpgrade,
 		ProfilerAddr:          c.DebugProfilerListen,
 		ResetDeltaIdxs:        c.DebugResetDeltaIdxs,
-		Verbose:               c.Verbose,
 		DBMaintenanceInterval: c.DBMaintenanceInterval,
 	}
 

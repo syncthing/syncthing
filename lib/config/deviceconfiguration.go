@@ -67,11 +67,11 @@ func (cfg *DeviceConfiguration) prepare(sharedFolders []string) {
 	// auto accept folders.
 	if cfg.Untrusted {
 		if cfg.Introducer {
-			slog.Warn("Device is both untrusted and an introducer, removing introducer flag", slogutil.Device(cfg.DeviceID))
+			slog.Warn("Device is both untrusted and an introducer, removing introducer flag", slogutil.Device(cfg.DeviceID.Short()))
 			cfg.Introducer = false
 		}
 		if cfg.AutoAcceptFolders {
-			slog.Warn("Device is both untrusted and auto-accepting folders, removing auto-accept flag", slogutil.Device(cfg.DeviceID))
+			slog.Warn("Device is both untrusted and auto-accepting folders, removing auto-accept flag", slogutil.Device(cfg.DeviceID.Short()))
 			cfg.AutoAcceptFolders = false
 		}
 	}

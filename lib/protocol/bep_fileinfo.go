@@ -11,6 +11,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"time"
@@ -211,6 +212,10 @@ func (f *FileInfo) WinsConflict(other FileInfo) bool {
 	// The modification times were equal. Use the device ID in the version
 	// vector as tie breaker.
 	return f.FileVersion().Compare(other.FileVersion()) == ConcurrentGreater
+}
+
+func (f *FileInfo) LogAttr(key string) slog.Attr {
+	return slog.Group(key, slog.String("name", f.Name), slog.String("kind", f.Type.String()), slog.Any("modified", f.ModTime()), slog.Int64("size", f.Size), slog.String("permissions", fmt.Sprintf("0%03o", f.Permissions)))
 }
 
 func FileInfoFromWire(w *bep.FileInfo) FileInfo {

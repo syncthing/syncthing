@@ -80,7 +80,7 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 			// the IndexID, or something else weird has
 			// happened. We send a full index to reset the
 			// situation.
-			slog.Warn("Peer is delta index compatible, but seems out of sync with reality", slogutil.Device(conn.DeviceID()), folder.LogAttr())
+			slog.Warn("Peer is delta index compatible, but seems out of sync with reality", slogutil.Device(conn.DeviceID().Short()), folder.LogAttr())
 			startSequence = 0
 		} else {
 			l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", conn.DeviceID().Short(), folder.Description(), startInfo.local.MaxSequence)
@@ -95,7 +95,7 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 		// not the right one. Either they are confused or we
 		// must have reset our database since last talking to
 		// them. We'll start with a full index transfer.
-		slog.Warn("Peer has mismatching index ID for us", slogutil.Device(conn.DeviceID()), folder.LogAttr(), slog.Group("indexid", slog.Any("ours", myIndexID), slog.Any("theirs", startInfo.local.IndexID)))
+		slog.Warn("Peer has mismatching index ID for us", slogutil.Device(conn.DeviceID().Short()), folder.LogAttr(), slog.Group("indexid", slog.Any("ours", myIndexID), slog.Any("theirs", startInfo.local.IndexID)))
 		startSequence = 0
 	}
 
@@ -120,7 +120,7 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 		// will probably send us a full index. We drop any
 		// information we have and remember this new index ID
 		// instead.
-		slog.Info("Peer has a new index ID", slogutil.Device(conn.DeviceID()), folder.LogAttr(), slog.Any("indexid", startInfo.remote.IndexID))
+		slog.Info("Peer has a new index ID", slogutil.Device(conn.DeviceID().Short()), folder.LogAttr(), slog.Any("indexid", startInfo.remote.IndexID))
 		if err := sdb.DropAllFiles(folder.ID, conn.DeviceID()); err != nil {
 			return nil, err
 		}

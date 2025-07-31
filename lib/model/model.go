@@ -3049,7 +3049,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 
 		if toCfg.Paused {
-			slog.Info("Pausing device", slogutil.Device(deviceID))
+			slog.Info("Pausing device", slogutil.Device(deviceID.Short()))
 			closeDevices = append(closeDevices, deviceID)
 			m.evLogger.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
 		} else {
@@ -3058,7 +3058,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				closeDevices = append(closeDevices, deviceID)
 			}
 
-			slog.Info("Resuming device", slogutil.Device(deviceID))
+			slog.Info("Resuming device", slogutil.Device(deviceID.Short()))
 			m.evLogger.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 

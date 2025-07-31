@@ -595,7 +595,7 @@ func ensureNoUntrustedTrustingSharing(f *FolderConfiguration, devices []FolderDe
 			continue
 		}
 		if devCfg := existingDevices[dev.DeviceID]; devCfg.Untrusted {
-			slog.Error("Folder is shared in trusted mode with untrusted device; unsharing", slogutil.Device(dev.DeviceID), f.LogAttr())
+			slog.Error("Folder is shared in trusted mode with untrusted device; unsharing", slogutil.Device(dev.DeviceID.Short()), f.LogAttr())
 			devices = sliceutil.RemoveAndZero(devices, i)
 			i--
 		}

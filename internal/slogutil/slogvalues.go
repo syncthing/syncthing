@@ -8,6 +8,8 @@ package slogutil
 
 import (
 	"log/slog"
+	"maps"
+	"slices"
 )
 
 func Address(v any) slog.Attr {
@@ -31,4 +33,12 @@ func FilePath(path string) slog.Attr {
 
 func URI(v any) slog.Attr {
 	return slog.Any("uri", v)
+}
+
+func Map[T any](m map[string]T) []any {
+	var attrs []any
+	for _, key := range slices.Sorted(maps.Keys(m)) {
+		attrs = append(attrs, slog.Any(key, m[key]))
+	}
+	return attrs
 }
