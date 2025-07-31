@@ -460,8 +460,8 @@ func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguratio
 }
 
 func (m *model) removeFolder(cfg config.FolderConfiguration) {
-	l.Infoln("Removing folder", cfg.Description())
-	defer l.Infoln("Removed folder", cfg.Description())
+	slog.Info("Removing folder", slogutil.Folder(cfg.ID, cfg.Label, cfg.Type.String()))
+	defer slog.Info("Removed folder", slogutil.Folder(cfg.ID, cfg.Label, cfg.Type.String()))
 
 	m.mut.RLock()
 	wait := m.folderRunners.StopAndWaitChan(cfg.ID, 0)
@@ -2969,9 +2969,9 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
 			if cfg.Paused {
-				l.Infoln("Paused folder", cfg.Description())
+				slog.Info("Paused folder", slogutil.Folder(cfg.ID, cfg.Label, cfg.Type.String()))
 			} else {
-				l.Infoln("Adding folder", cfg.Description())
+				slog.Info("Adding folder", slogutil.Folder(cfg.ID, cfg.Label, cfg.Type.String()))
 				if err := m.newFolder(cfg, to.Options.CacheIgnoredFiles); err != nil {
 					m.fatal(err)
 					return true
@@ -3049,7 +3049,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 
 		if toCfg.Paused {
-			l.Infoln("Pausing", deviceID)
+			slog.Info("Pausing device", slogutil.Device(deviceID))
 			closeDevices = append(closeDevices, deviceID)
 			m.evLogger.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
 		} else {
@@ -3058,7 +3058,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				closeDevices = append(closeDevices, deviceID)
 			}
 
-			l.Infoln("Resuming", deviceID)
+			slog.Info("Resuming device", slogutil.Device(deviceID))
 			m.evLogger.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 

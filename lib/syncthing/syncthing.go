@@ -216,7 +216,7 @@ func (a *App) startup() error {
 	curParts := strings.Split(build.Version, "-")
 	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
 		if prevVersion != "" {
-			l.Infoln("Detected upgrade from", prevVersion, "to", build.Version)
+			slog.Info("Detected upgrade", "from", prevVersion, "to", build.Version)
 		}
 
 		if a.cfg.Options().SendFullIndexOnUpgrade {

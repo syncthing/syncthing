@@ -1043,7 +1043,7 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 		if !f.Version.Equal(protocol.Vector{}) && f.Deleted {
 			t.Error("Received deleted index entry with non-empty version")
 		}
-		l.Infoln(f)
+		t.Log(f)
 		close(done)
 		return nil
 	})

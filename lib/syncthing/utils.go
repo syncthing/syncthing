@@ -20,6 +20,7 @@ import (
 	"github.com/syncthing/syncthing/internal/db/olddb"
 	"github.com/syncthing/syncthing/internal/db/olddb/backend"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -121,7 +122,7 @@ func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logg
 func archiveAndSaveConfig(cfg config.Wrapper, originalVersion int) error {
 	// Copy the existing config to an archive copy
 	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", originalVersion)
-	l.Infoln("Archiving a copy of old config file format at:", archivePath)
+	slog.Info("Archiving a copy of old config file format", slogutil.FilePath(archivePath))
 	if err := copyFile(cfg.ConfigPath(), archivePath); err != nil {
 		return err
 	}

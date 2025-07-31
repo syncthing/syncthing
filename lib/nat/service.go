@@ -95,11 +95,7 @@ func (s *Service) Serve(ctx context.Context) error {
 		timer.Reset(renewIn)
 		if found != -1 {
 			announce.Do(func() {
-				suffix := "s"
-				if found == 1 {
-					suffix = ""
-				}
-				l.Infoln("Detected", found, "NAT service"+suffix)
+				slog.Info("Detected NAT services", "count", found)
 			})
 		}
 	}
