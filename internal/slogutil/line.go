@@ -7,6 +7,7 @@
 package slogutil
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -48,4 +49,13 @@ func (l *Line) levelStr() string {
 	default:
 		return str("ERR", l.Level-slog.LevelError)
 	}
+}
+
+func (l *Line) MarshalJSON() ([]byte, error) {
+	// Custom marshal to get short level strings instead of default JSON serialisation
+	return json.Marshal(map[string]any{
+		"when":    l.When,
+		"message": l.Message,
+		"level":   l.levelStr(),
+	})
 }
