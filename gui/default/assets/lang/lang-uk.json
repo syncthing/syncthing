@@ -227,6 +227,7 @@
     "Learn more": "Дізнатися більше",
     "Learn more at {%url%}": "Дізнайтесь більше за посиланням {{url}}",
     "Limit": "Ліміт",
+    "Limit Bandwidth in LAN": "Обмеження пропускної здатності в локальній мережі",
     "Listener Failures": "Помилки приймачів",
     "Listener Status": "Стан приймача",
     "Listeners": "Приймачі",

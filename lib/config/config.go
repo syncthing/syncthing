@@ -72,8 +72,6 @@ var (
 	// The fallback stun servers are used if the primary ones can't be resolved or are down.
 	DefaultFallbackStunServers = []string{
 		"stun.counterpath.com:3478",
-		"stun.counterpath.net:3478",
-		"stun.ekiga.net:3478",
 		"stun.hitv.com:3478",
 		"stun.internetcalls.com:3478",
 		"stun.miwifi.com:3478",
@@ -82,7 +80,6 @@ var (
 		"stun.voip.aebc.com:3478",
 		"stun.voipbuster.com:3478",
 		"stun.voipstunt.com:3478",
-		"stun.xten.com:3478",
 	}
 )
 
