@@ -483,7 +483,7 @@ nextFile:
 				// Failed to rename, try next one.
 				continue
 			} else {
-				slog.Info("Renamed file", f.LogAttr(), fi.LogAttr("to"), candidate.LogAttr("from"))
+				slog.Info("Renamed file", f.LogAttr(), fi.LogAttr(), slog.String("from", candidate.Name))
 			}
 
 			// Remove the pending deletion (as we performed it by renaming)
@@ -556,7 +556,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	})
 
 	defer func() {
-		slog.Info("Created or updated directory", f.LogAttr(), file.LogAttr("dir"))
+		slog.Info("Created or updated directory", f.LogAttr(), file.LogAttr())
 		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
 			"item":   file.Name,
@@ -843,7 +843,7 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, dbUpdateChan chan<
 		return
 	}
 
-	slog.Info("Deleted directory", f.LogAttr(), file.LogAttr("item"))
+	slog.Info("Deleted directory", f.LogAttr(), file.LogAttr())
 
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteDir}
 }
@@ -876,7 +876,7 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 		if err != nil {
 			f.newPullError(file.Name, fmt.Errorf("delete file: %w", err))
 		} else {
-			slog.Info("Deleted file", f.LogAttr(), file.LogAttr("file"))
+			slog.Info("Deleted file", f.LogAttr(), file.LogAttr())
 		}
 		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
@@ -934,7 +934,7 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 		dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
 	}
 
-	slog.Info("Deleted file", f.LogAttr(), file.LogAttr("item"))
+	slog.Info("Deleted file", f.LogAttr(), file.LogAttr())
 }
 
 // renameFile attempts to rename an existing file to a destination
@@ -1291,7 +1291,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 
 	f.mtimefs.Chtimes(file.Name, file.ModTime(), file.ModTime()) // never fails
 
-	slog.Info("Updated file metadata", f.LogAttr(), file.LogAttr("item"))
+	slog.Info("Updated file metadata", f.LogAttr(), file.LogAttr())
 
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateShortcutFile}
 }
@@ -1674,7 +1674,7 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 			if err != nil {
 				f.newPullError(state.file.Name, fmt.Errorf("finishing: %w", err))
 			} else {
-				slog.Info("Synced file", f.LogAttr(), state.file.LogAttr("file"), slog.Group("blocks", slog.Int("reused", state.reused+state.copyTotal), slog.Int("transferred", state.pullTotal)))
+				slog.Info("Synced file", f.LogAttr(), state.file.LogAttr(), slog.Group("blocks", slog.Int("reused", state.reused+state.copyTotal), slog.Int("transferred", state.pullTotal)))
 
 				minBlocksPerBlock := state.file.BlockSize() / protocol.MinBlockSize
 				blockStatsMut.Lock()

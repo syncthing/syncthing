@@ -214,8 +214,19 @@ func (f *FileInfo) WinsConflict(other FileInfo) bool {
 	return f.FileVersion().Compare(other.FileVersion()) == ConcurrentGreater
 }
 
-func (f *FileInfo) LogAttr(key string) slog.Attr {
-	return slog.Group(key, slog.String("name", f.Name), slog.String("kind", f.Type.String()), slog.Any("modified", f.ModTime()), slog.Int64("size", f.Size), slog.String("permissions", fmt.Sprintf("0%03o", f.Permissions)))
+func (f *FileInfo) LogAttr() slog.Attr {
+	kind := "file"
+	switch f.Type {
+	case FileInfoTypeDirectory:
+		kind = "dir"
+	case FileInfoTypeSymlink:
+		kind = "symlink"
+	}
+	return slog.Group(kind,
+		slog.String("name", f.Name),
+		slog.Int64("size", f.Size),
+		slog.Any("modified", f.ModTime()),
+		slog.String("permissions", fmt.Sprintf("0%03o", f.Permissions)))
 }
 
 func FileInfoFromWire(w *bep.FileInfo) FileInfo {
