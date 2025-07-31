@@ -224,7 +224,7 @@ func (s *service) Serve(ctx context.Context) error {
 		case <-s.startedOnce:
 			// We let this be a loud user-visible warning as it may be the only
 			// indication they get that the GUI won't be available.
-			l.Warnln("Starting API/GUI:", err)
+			slog.Error("Failed to start API/GUI", slogutil.Error(err))
 
 		default:
 			// This is during initialization. A failure here should be fatal
@@ -452,7 +452,7 @@ func (s *service) Serve(ctx context.Context) error {
 	case err = <-s.exitChan:
 	case err = <-serveError:
 		// Restart due to listen/serve failure
-		l.Warnln("GUI/API:", err, "(restarting)")
+		slog.Error("GUI/API error (restarting)", slogutil.Error(err))
 	}
 	// Give it a moment to shut down gracefully, e.g. if we are restarting
 	// due to a config change through the API, let that finish successfully.
@@ -1147,7 +1147,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 
 	// Redacted configuration as a JSON
 	if jsonConfig, err := json.MarshalIndent(getRedactedConfig(s), "", "  "); err != nil {
-		l.Warnln("Support bundle: failed to create config.json:", err)
+		slog.Warn("Failed to create config.json in support bundle", slogutil.Error(err))
 	} else {
 		files = append(files, fileEntry{name: "config.json.txt", data: jsonConfig})
 	}
@@ -1162,7 +1162,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	// Errors as a JSON
 	if errs := s.guiErrors.Since(time.Time{}); len(errs) > 0 {
 		if jsonError, err := json.MarshalIndent(errs, "", "  "); err != nil {
-			l.Warnln("Support bundle: failed to create errors.json:", err)
+			slog.Warn("Failed to create errors.json in support bundle", slogutil.Error(err))
 		} else {
 			files = append(files, fileEntry{name: "errors.json.txt", data: jsonError})
 		}
@@ -1172,7 +1172,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	if panicFiles, err := filepath.Glob(filepath.Join(locations.GetBaseDir(locations.ConfigBaseDir), "panic*")); err == nil {
 		for _, f := range panicFiles {
 			if panicFile, err := os.ReadFile(f); err != nil {
-				l.Warnf("Support bundle: failed to load %s: %s", filepath.Base(f), err)
+				slog.Warn("Failed to load panic file for support bundle", slogutil.FilePath(filepath.Base(f)), slogutil.Error(err))
 			} else {
 				files = append(files, fileEntry{name: filepath.Base(f), data: panicFile})
 			}
@@ -1195,15 +1195,15 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}, "", "  "); err == nil {
 		files = append(files, fileEntry{name: "version-platform.json.txt", data: versionPlatform})
 	} else {
-		l.Warnln("Failed to create versionPlatform.json: ", err)
+		slog.Warn("Failed to create versionPlatform.json in support bundle", slogutil.Error(err))
 	}
 
 	// Report Data as a JSON
 	if r, err := s.urService.ReportDataPreview(r.Context(), ur.Version); err != nil {
-		l.Warnln("Support bundle: failed to create usage-reporting.json.txt:", err)
+		slog.Warn("Failed to create usage-reporting.json.txt in support bundle", slogutil.Error(err))
 	} else {
 		if usageReportingData, err := json.MarshalIndent(r, "", "  "); err != nil {
-			l.Warnln("Support bundle: failed to serialize usage-reporting.json.txt", err)
+			slog.Warn("Failed to serialize usage-reporting.json.txt in support bundle", slogutil.Error(err))
 		} else {
 			files = append(files, fileEntry{name: "usage-reporting.json.txt", data: usageReportingData})
 		}
@@ -1218,7 +1218,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	// Connection data as JSON
 	connStats := s.model.ConnectionStats()
 	if connStatsJSON, err := json.MarshalIndent(connStats, "", "  "); err != nil {
-		l.Warnln("Support bundle: failed to serialize connection-stats.json.txt", err)
+		slog.Warn("Failed to serialize connection-stats.json.txt in support bundle", slogutil.Error(err))
 	} else {
 		files = append(files, fileEntry{name: "connection-stats.json.txt", data: connStatsJSON})
 	}
@@ -1264,7 +1264,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	// Add buffer files to buffer zip
 	var zipFilesBuffer bytes.Buffer
 	if err := writeZip(&zipFilesBuffer, files); err != nil {
-		l.Warnln("Support bundle: failed to create support bundle zip:", err)
+		slog.Warn("Failed to create support bundle zip (buffer)", slogutil.Error(err))
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -1275,7 +1275,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 
 	// Write buffer zip to local zip file (back up)
 	if err := os.WriteFile(zipFilePath, zipFilesBuffer.Bytes(), 0o600); err != nil {
-		l.Warnln("Support bundle: support bundle zip could not be created:", err)
+		slog.Warn("Failed to create support bundle zip (file)", slogutil.FilePath(zipFilePath), slogutil.Error(err))
 	}
 
 	// Serve the buffer zip to client for download
@@ -1525,7 +1525,7 @@ func (s *service) postSystemUpgrade(w http.ResponseWriter, _ *http.Request) {
 	if upgrade.CompareVersions(rel.Tag, build.Version) > upgrade.Equal {
 		err = upgrade.To(rel)
 		if err != nil {
-			l.Warnln("upgrading:", err)
+			slog.Error("Failed to upgrade", slogutil.Error(err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

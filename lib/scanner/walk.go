@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -19,6 +20,7 @@ import (
 	metrics "github.com/rcrowley/go-metrics"
 	"golang.org/x/text/unicode/norm"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -613,7 +615,7 @@ func (w *walker) applyNormalization(path, normPath string, info fs.FileInfo) (st
 		if err = w.Filesystem.Rename(path, normPath); err != nil {
 			return "", err
 		}
-		l.Infof(`Normalized UTF8 encoding of file name "%s".`, path)
+		slog.Info("Normalized UTF8 encoding of file name", slogutil.FilePath(path))
 		return normPath, nil
 	}
 	if w.Filesystem.SameFile(info, normInfo) {

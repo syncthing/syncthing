@@ -186,7 +186,7 @@ func (c *serveCmd) monitorMain() {
 				// binary as part of the upgrade process.
 				slog.Info("Restarting monitor...")
 				if err = restartMonitor(binary, args); err != nil {
-					l.Warnln("Restart:", err)
+					slog.Error("Failed to restart monitor", slogutil.Error(err))
 				}
 				os.Exit(exitCode)
 			}
@@ -243,7 +243,7 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 		if panicFd == nil && (strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:")) {
 			panicFd, err = os.Create(locations.GetTimestamped(locations.PanicLog))
 			if err != nil {
-				l.Warnln("Create panic log:", err)
+				slog.Error("Failed to create panic log", slogutil.Error(err))
 				continue
 			}
 
@@ -537,7 +537,7 @@ func maybeReportPanics() {
 	// Try to get a config to see if/where panics should be reported.
 	cfg, err := loadOrDefaultConfig()
 	if err != nil {
-		l.Warnln("Couldn't load config; not reporting crash")
+		slog.Error("Couldn't load config; not reporting crash")
 		return
 	}
 
@@ -557,7 +557,7 @@ func maybeReportPanics() {
 		case <-ctx.Done():
 			return
 		case <-time.After(panicUploadNoticeWait):
-			l.Warnln("Uploading crash reports is taking a while, please wait...")
+			slog.Warn("Uploading crash reports is taking a while, please wait")
 		}
 	}()
 

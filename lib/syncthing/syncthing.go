@@ -194,7 +194,7 @@ func (a *App) startup() error {
 	}
 	for _, folder := range dbFolders {
 		if _, ok := cfgFolders[folder]; !ok {
-			l.Infof("Cleaning metadata for dropped folder %q", folder)
+			slog.Info("Cleaning metadata for dropped folder", "folder", folder)
 			a.sdb.DropFolder(folder)
 		}
 	}
@@ -204,7 +204,7 @@ func (a *App) startup() error {
 	miscDB := db.NewMiscDB(a.sdb)
 	prevVersion, _, err := miscDB.String("prevVersion")
 	if err != nil {
-		l.Warnln("Database:", err)
+		slog.Error("Database error when getting previous version", slogutil.Error(err))
 		return err
 	}
 

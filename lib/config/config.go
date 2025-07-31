@@ -126,8 +126,7 @@ func New(myID protocol.DeviceID) Configuration {
 
 	// Can't happen.
 	if err := cfg.prepare(myID); err != nil {
-		l.Warnln("bug: error in preparing new folder:", err)
-		panic("error in preparing new folder")
+		panic("bug: error in preparing new folder")
 	}
 
 	return cfg

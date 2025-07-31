@@ -216,7 +216,7 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 					if time.Since(t1) > 10*time.Second {
 						d := time.Since(t0) + 1
 						t1 = time.Now()
-						l.Infof("Migrating folder %s... (%d files and %dk blocks in %v, %.01f files/s)", folder, files, blocks/1000, d.Truncate(time.Second), float64(files)/d.Seconds())
+						slog.Info("Still migrating folder", "folder", folder, "files", files, "blocks", blocks, "duration", d.Truncate(time.Second), "filesrate", float64(files)/d.Seconds())
 					}
 				}
 			}
@@ -224,7 +224,7 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 				writeErr = sdb.Update(folder, protocol.LocalDeviceID, batch)
 			}
 			d := time.Since(t0) + 1
-			l.Infof("Migrated folder %s; %d files and %dk blocks in %v, %.01f files/s", folder, files, blocks/1000, d.Truncate(time.Second), float64(files)/d.Seconds())
+			slog.Info("Migrated folder", "folder", folder, "files", files, "blocks", blocks, "duration", d.Truncate(time.Second), "filesrate", float64(files)/d.Seconds())
 			totFiles += files
 			totBlocks += blocks
 		}()
@@ -259,7 +259,7 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 
 	slog.Info("Migrating virtual mtimes...")
 	if err := ll.IterateMtimes(sdb.PutMtime); err != nil {
-		l.Warnln("Failed to migrate mtimes:", err)
+		slog.Warn("Failed to migrate mtimes", slogutil.Error(err))
 	}
 
 	_ = miscDB.PutTime("migrated-from-leveldb-at", time.Now())
@@ -268,6 +268,6 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 	_ = be.Close()
 	_ = os.Rename(oldDBDir, oldDBDir+"-migrated")
 
-	l.Infof("Migration complete, %d files and %dk blocks in %s", totFiles, totBlocks/1000, time.Since(t0).Truncate(time.Second))
+	slog.Info("Migration complete", "files", totFiles, "blocks", totBlocks/1000, "duration", time.Since(t0).Truncate(time.Second))
 	return nil
 }
