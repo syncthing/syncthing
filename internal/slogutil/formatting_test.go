@@ -22,7 +22,7 @@ func TestFormattingHandler(t *testing.T) {
 	}
 
 	l := slog.New(h).With("a", "a")
-	l.Info("outer message here", "attr1", "val with spaces", "attr2", 2)
+	l.Info("outer message here", "attr1", "val with spaces", "attr2", 2, "attr3", `val"quote`)
 	l.Info("outer message here", "attr2", 2, "attr1", "val with spaces")
 	l.Info("outer message here", "attr1", "val1", slog.Group("foo", "attr2", 2, slog.Group("bar", "attr3", "3")))
 
@@ -34,7 +34,7 @@ func TestFormattingHandler(t *testing.T) {
 	l3.Info("bar group message here", "attr1", "val1", "attr2", 2, "attr1", "replaced")
 
 	exp := `
-2009-02-13 23:31:30 INF outer message here (attr1="val with spaces" attr2=2 a=a src.pkg=slogutil)
+2009-02-13 23:31:30 INF outer message here (attr1="val with spaces" attr2=2 attr3="val\"quote" a=a src.pkg=slogutil)
 2009-02-13 23:31:30 INF outer message here (attr2=2 attr1="val with spaces" a=a src.pkg=slogutil)
 2009-02-13 23:31:30 INF outer message here (attr1=val1 foo.attr2=2 foo.bar.attr3=3 a=a src.pkg=slogutil)
 2009-02-13 23:31:30 INF foo group message here (foo.attr1=val1 foo.attr2=2 a=a src.pkg=slogutil)

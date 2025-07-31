@@ -422,7 +422,7 @@ func (cfg *Configuration) removeDeprecatedProtocols() {
 
 func (cfg *Configuration) applyMigrations() {
 	if cfg.Version > 0 && cfg.Version < OldestHandledVersion {
-		l.Warnf("Configuration version %d is deprecated. Attempting best effort conversion, but please verify manually.", cfg.Version)
+		slog.Warn("Loaded deprecated configuration version; attempting best effort conversion, but please verify manually", "version", cfg.Version)
 	}
 
 	// Upgrade configuration versions as appropriate
@@ -595,7 +595,7 @@ func ensureNoUntrustedTrustingSharing(f *FolderConfiguration, devices []FolderDe
 			continue
 		}
 		if devCfg := existingDevices[dev.DeviceID]; devCfg.Untrusted {
-			l.Warnf("Folder %s (%s) is shared in trusted mode with untrusted device %s (%s); unsharing.", f.ID, f.Label, dev.DeviceID.Short(), devCfg.Name)
+			slog.Error("Folder is shared in trusted mode with untrusted device; unsharing", slogutil.Device(dev.DeviceID), f.LogAttr())
 			devices = sliceutil.RemoveAndZero(devices, i)
 			i--
 		}
