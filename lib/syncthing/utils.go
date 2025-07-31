@@ -96,7 +96,7 @@ func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logg
 		if err != nil {
 			return nil, fmt.Errorf("failed to save default config: %w", err)
 		}
-		slog.Info("Default config saved. Edit to taste (with Syncthing stopped) or use the GUI", slogutil.FilePath(cfg.ConfigPath()))
+		slog.Info("Default config saved; edit to taste (with Syncthing stopped) or use the GUI", slogutil.FilePath(cfg.ConfigPath()))
 	} else if errors.Is(err, io.EOF) {
 		return nil, errors.New("failed to load config: unexpected end of file. Truncated or empty configuration?")
 	} else if err != nil {
