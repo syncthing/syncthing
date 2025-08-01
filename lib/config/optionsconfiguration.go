@@ -69,6 +69,7 @@ type OptionsConfiguration struct {
 	FeatureFlags                []string `json:"featureFlags" xml:"featureFlag"`
 	AuditEnabled                bool     `json:"auditEnabled" xml:"auditEnabled" default:"false" restart:"true"`
 	AuditFile                   string   `json:"auditFile" xml:"auditFile" restart:"true"`
+	LANOnly                     bool     `json:"lanOnly" xml:"lanOnly" default:"false"`
 	// The number of connections at which we stop trying to connect to more
 	// devices, zero meaning no limit. Does not affect incoming connections.
 	ConnectionLimitEnough int `json:"connectionLimitEnough" xml:"connectionLimitEnough"`
@@ -107,6 +108,27 @@ func (opts OptionsConfiguration) Copy() OptionsConfiguration {
 
 func (opts *OptionsConfiguration) prepare(guiPWIsSet bool) {
 	structutil.FillNilSlices(opts)
+
+	if opts.LANOnly {
+		if opts.GlobalAnnEnabled {
+			l.Infoln("LAN-only mode enabled, disabling global discovery")
+			opts.GlobalAnnEnabled = false
+		}
+
+		if opts.RelaysEnabled {
+			l.Infoln("LAN-only mode enabled, disabling relays")
+			opts.RelaysEnabled = false
+		}
+
+		if opts.NATEnabled {
+			l.Infoln("LAN-only mode enabled, disabling NAT traversal")
+			opts.NATEnabled = false
+		}
+
+		// may not be needed, but I'll need to test this.
+		opts.RawGlobalAnnServers = []string{}
+		opts.RawStunServers = []string{}
+	}
 
 	opts.RawListenAddresses = stringutil.UniqueTrimmedStrings(opts.RawListenAddresses)
 	opts.RawGlobalAnnServers = stringutil.UniqueTrimmedStrings(opts.RawGlobalAnnServers)
