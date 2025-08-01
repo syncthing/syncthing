@@ -126,7 +126,7 @@ func (opts *OptionsConfiguration) prepare(guiPWIsSet bool) {
 		}
 
 		if opts.URAccepted != -1 {
-			l.Infoln("LAN-only mode enabled, disabling user reporting")
+			l.Infoln("LAN-only mode enabled, disabling usage reporting")
 			opts.URAccepted = -1
 		}
 
