@@ -120,6 +120,16 @@ func (opts *OptionsConfiguration) prepare(guiPWIsSet bool) {
 			opts.RelaysEnabled = false
 		}
 
+		if opts.AutoUpgradeIntervalH != -1 {
+			l.Infoln("LAN-only mode enabled, disabling auto upgrade")
+			opts.AutoUpgradeIntervalH = -1
+		}
+
+		if opts.URAccepted != -1 {
+			l.Infoln("LAN-only mode enabled, disabling user reporting")
+			opts.URAccepted = -1
+		}
+
 		if opts.NATEnabled {
 			l.Infoln("LAN-only mode enabled, disabling NAT traversal")
 			opts.NATEnabled = false
