@@ -41,6 +41,7 @@ type DB interface {
 	AllLocalFilesWithPrefix(folder string, device protocol.DeviceID, prefix string) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocalFilesWithBlocksHash(folder string, h []byte) (iter.Seq[FileMetadata], func() error)
 	AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit, offset int) (iter.Seq[protocol.FileInfo], func() error)
+	AllNeededGlobalFileMetadataLocal(folder string, order config.PullOrder, limit, offset int) (iter.Seq[FileMetadata], func() error)
 	AllLocalBlocksWithHash(folder string, hash []byte) (iter.Seq[BlockMapEntry], func() error)
 
 	// Cleanup
@@ -105,22 +106,26 @@ type FileMetadata struct {
 	Deleted    bool
 }
 
-func (f *FileMetadata) ModTime() time.Time {
+func (f FileMetadata) ModTime() time.Time {
 	return time.Unix(0, f.ModNanos)
 }
 
-func (f *FileMetadata) IsReceiveOnlyChanged() bool {
+func (f FileMetadata) IsReceiveOnlyChanged() bool {
 	return f.LocalFlags&protocol.FlagLocalReceiveOnly != 0
 }
 
-func (f *FileMetadata) IsDirectory() bool {
+func (f FileMetadata) IsDeleted() bool {
+	return f.Deleted
+}
+
+func (f FileMetadata) IsDirectory() bool {
 	return f.Type == protocol.FileInfoTypeDirectory
 }
 
-func (f *FileMetadata) ShouldConflict() bool {
+func (f FileMetadata) ShouldConflict() bool {
 	return f.LocalFlags&protocol.LocalConflictFlags != 0
 }
 
-func (f *FileMetadata) IsInvalid() bool {
+func (f FileMetadata) IsInvalid() bool {
 	return f.LocalFlags.IsInvalid()
 }

@@ -9,12 +9,13 @@ package config
 type PullOrder int32
 
 const (
-	PullOrderRandom        PullOrder = 0
-	PullOrderAlphabetic    PullOrder = 1
-	PullOrderSmallestFirst PullOrder = 2
-	PullOrderLargestFirst  PullOrder = 3
-	PullOrderOldestFirst   PullOrder = 4
-	PullOrderNewestFirst   PullOrder = 5
+	PullOrderRandom            PullOrder = 0
+	PullOrderAlphabetic        PullOrder = 1
+	PullOrderSmallestFirst     PullOrder = 2
+	PullOrderLargestFirst      PullOrder = 3
+	PullOrderOldestFirst       PullOrder = 4
+	PullOrderNewestFirst       PullOrder = 5
+	PullOrderAlphabeticInverse PullOrder = 6
 )
 
 func (o PullOrder) String() string {
@@ -23,6 +24,8 @@ func (o PullOrder) String() string {
 		return "random"
 	case PullOrderAlphabetic:
 		return "alphabetic"
+	case PullOrderAlphabeticInverse:
+		return "alphabeticInverse"
 	case PullOrderSmallestFirst:
 		return "smallestFirst"
 	case PullOrderLargestFirst:
@@ -45,6 +48,8 @@ func (o *PullOrder) UnmarshalText(bs []byte) error {
 	case "random":
 		*o = PullOrderRandom
 	case "alphabetic":
+		*o = PullOrderAlphabetic
+	case "alphabeticInverse":
 		*o = PullOrderAlphabetic
 	case "smallestFirst":
 		*o = PullOrderSmallestFirst
