@@ -190,23 +190,6 @@
             <label translate for="ListenAddressesStr">Sync Protocol Listen Addresses</label>&emsp;<a href="{{docsURL('users/config#listen-addresses')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
             <input id="ListenAddressesStr" class="form-control" type="text" ng-model="tmpOptions._listenAddressesStr" />
           </div>
-          
-          <!-- Perhaps it would be helpfull to grey out the global/NAT/discovery options when LAN only is enabled -->
-          <div class="row">
-            <div class="col-md-12">
-              <div class="form-group">
-                <div class="checkbox">
-                  <label>
-                    <input id="LANOnly" type="checkbox" ng-model="tmpOptions.lanOnly" /> <span translate>LAN Only</span>
-                  </label>
-                  <p class="help-block">
-                    <span translate>When enabled, disables global discovery, relaying, and NAT traversal to restrict connections to local network only.</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-          
           <div class="row">
             <div class="col-md-6">
               <div class="form-group" ng-class="{'has-error': settingsEditor.MaxRecvKbps.$invalid && settingsEditor.MaxRecvKbps.$dirty}">
