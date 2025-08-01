@@ -23,9 +23,11 @@ type Counter interface {
 	Update(bytes int64)
 }
 
+const bufSize = 32 << 10 // 32k
+
 var bufPool = sync.Pool{
 	New: func() any {
-		return make([]byte, 32<<10) // 32k buffer
+		return new([bufSize]byte) // 32k buffer
 	},
 }
 
@@ -61,7 +63,7 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 	}
 
 	// A 32k buffer is used for copying into the hash function.
-	buf := bufPool.Get().([]byte) //nolint:forcetypeassert
+	buf := bufPool.Get().(*[bufSize]byte)[:] //nolint:forcetypeassert
 
 	var offset int64
 	lr := io.LimitReader(r, int64(blocksize)).(*io.LimitedReader)
@@ -100,7 +102,7 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 
 		hf.Reset()
 	}
-	bufPool.Put(buf)
+	bufPool.Put((*[bufSize]byte)(buf))
 	hf.Reset()
 	hashPool.Put(hf)
 
