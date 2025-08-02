@@ -482,8 +482,6 @@ nextFile:
 				l.Debugf("rename shortcut for %s failed: %s", fi.Name, err.Error())
 				// Failed to rename, try next one.
 				continue
-			} else {
-				slog.Info("Renamed file", f.LogAttr(), fi.LogAttr(), slog.String("from", candidate.Name))
 			}
 
 			// Remove the pending deletion (as we performed it by renaming)
@@ -725,6 +723,11 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 	})
 
 	defer func() {
+		if err != nil {
+			slog.Warn("Failed to handle symlink", f.LogAttr(), file.LogAttr(), slogutil.Error(err))
+		} else {
+			slog.Info("Created or updated symlink", f.LogAttr(), file.LogAttr())
+		}
 		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
 			"item":   file.Name,
@@ -816,6 +819,9 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, dbUpdateChan chan<
 	defer func() {
 		if err != nil {
 			f.newPullError(file.Name, fmt.Errorf("delete dir: %w", err))
+			slog.Info("Failed to delete directory", f.LogAttr(), file.LogAttr(), slogutil.Error(err))
+		} else {
+			slog.Info("Deleted directory", f.LogAttr(), file.LogAttr())
 		}
 		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
@@ -843,8 +849,6 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, dbUpdateChan chan<
 		return
 	}
 
-	slog.Info("Deleted directory", f.LogAttr(), file.LogAttr())
-
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteDir}
 }
 
@@ -863,7 +867,7 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 	// care not declare another err.
 	var err error
 
-	l.Debugln(f, "Deleting file", file.Name)
+	l.Debugln(f, "Deleting file or symlink", file.Name)
 
 	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
@@ -873,10 +877,15 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 	})
 
 	defer func() {
+		kind := "file"
+		if file.IsSymlink() {
+			kind = "symlink"
+		}
 		if err != nil {
 			f.newPullError(file.Name, fmt.Errorf("delete file: %w", err))
+			slog.Info("Failed to delete "+kind, f.LogAttr(), file.LogAttr(), slogutil.Error(err))
 		} else {
-			slog.Info("Deleted file", f.LogAttr(), file.LogAttr())
+			slog.Info("Deleted "+kind, f.LogAttr(), file.LogAttr())
 		}
 		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
@@ -958,6 +967,11 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 	})
 
 	defer func() {
+		if err != nil {
+			slog.Info("Failed to rename file", f.LogAttr(), target.LogAttr(), slog.String("from", source.Name), slogutil.Error(err))
+		} else {
+			slog.Info("Renamed file", f.LogAttr(), target.LogAttr(), slog.String("from", source.Name))
+		}
 		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
 			"item":   source.Name,
@@ -1245,13 +1259,20 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 	})
 
 	var err error
-	defer f.evLogger.Log(events.ItemFinished, map[string]interface{}{
-		"folder": f.folderID,
-		"item":   file.Name,
-		"error":  events.Error(err),
-		"type":   "file",
-		"action": "metadata",
-	})
+	defer func() {
+		if err != nil {
+			slog.Info("Failed to update file metadata", f.LogAttr(), file.LogAttr(), slogutil.Error(err))
+		} else {
+			slog.Info("Updated file metadata", f.LogAttr(), file.LogAttr())
+		}
+		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
+			"folder": f.folderID,
+			"item":   file.Name,
+			"error":  events.Error(err),
+			"type":   "file",
+			"action": "metadata",
+		})
+	}()
 
 	f.queue.Done(file.Name)
 
@@ -1290,8 +1311,6 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 	}
 
 	f.mtimefs.Chtimes(file.Name, file.ModTime(), file.ModTime()) // never fails
-
-	slog.Info("Updated file metadata", f.LogAttr(), file.LogAttr())
 
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateShortcutFile}
 }
