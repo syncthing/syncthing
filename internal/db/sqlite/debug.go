@@ -6,10 +6,6 @@
 
 package sqlite
 
-import (
-	"github.com/syncthing/syncthing/lib/logger"
-)
+import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = logger.DefaultLogger.NewFacility("sqlite", "SQLite database")
-
-func shouldDebug() bool { return l.ShouldDebug("sqlite") }
+func init() { slogutil.RegisterPackage("SQLite database") }

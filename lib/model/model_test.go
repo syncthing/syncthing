@@ -3620,7 +3620,7 @@ func TestIssue6961(t *testing.T) {
 	if info, err := tfs.Lstat(name); err != nil {
 		t.Fatal(err)
 	} else {
-		l.Infoln("intest", info.Mode)
+		t.Log(info.Mode())
 	}
 	m.ScanFolders()
 

@@ -9,6 +9,7 @@ package api
 import (
 	"crypto/tls"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"slices"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	ldap "github.com/go-ldap/ldap/v3"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -43,11 +45,11 @@ func emitLoginAttempt(success bool, username string, r *http.Request, evLogger e
 	if success {
 		return
 	}
+	l := slog.Default()
 	if proxy != "" {
-		l.Infof("Wrong credentials supplied during API authorization from %s proxied by %s", remoteAddress, proxy)
-	} else {
-		l.Infof("Wrong credentials supplied during API authorization from %s", remoteAddress)
+		l = l.With("proxy", proxy)
 	}
+	slog.Warn("Bad credentials supplied during API authorization", "address", remoteAddress)
 }
 
 func remoteAddress(r *http.Request) (remoteAddr, proxy string) {
@@ -203,7 +205,7 @@ func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg c
 		return "", false
 	}
 
-	l.Debugln("Sessionless HTTP request with authentication; this is expensive.")
+	slog.Debug("Sessionless HTTP request with authentication; this is expensive.")
 
 	if auth(username, password, guiCfg, ldapCfg) {
 		return username, true
@@ -254,14 +256,14 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 	}
 
 	if err != nil {
-		l.Warnln("LDAP Dial:", err)
+		slog.Error("Failed to dial LDAP server", slogutil.Error(err))
 		return false
 	}
 
 	if cfg.Transport == config.LDAPTransportStartTLS {
 		err = connection.StartTLS(&tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify})
 		if err != nil {
-			l.Warnln("LDAP Start TLS:", err)
+			slog.Error("Failed to handshake start TLS With LDAP server", slogutil.Error(err))
 			return false
 		}
 	}
@@ -271,7 +273,7 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 	bindDN := formatOptionalPercentS(cfg.BindDN, escapeForLDAPDN(username))
 	err = connection.Bind(bindDN, password)
 	if err != nil {
-		l.Warnln("LDAP Bind:", err)
+		slog.Error("Failed to bind with LDAP server", slogutil.Error(err))
 		return false
 	}
 
@@ -281,7 +283,7 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 	}
 
 	if cfg.SearchFilter == "" || cfg.SearchBaseDN == "" {
-		l.Warnln("LDAP configuration: both searchFilter and searchBaseDN must be set, or neither.")
+		slog.Error("Bad LDAP configuration: both searchFilter and searchBaseDN must be set, or neither")
 		return false
 	}
 
@@ -296,11 +298,11 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 
 	res, err := connection.Search(searchReq)
 	if err != nil {
-		l.Warnln("LDAP Search:", err)
+		slog.Warn("Failed LDAP search", slogutil.Error(err))
 		return false
 	}
 	if len(res.Entries) != 1 {
-		l.Infof("Wrong number of LDAP search results, %d != 1", len(res.Entries))
+		slog.Warn("Incorrect number of LDAP search results (expected one)", slog.Int("results", len(res.Entries)))
 		return false
 	}
 

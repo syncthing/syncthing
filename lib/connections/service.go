@@ -19,17 +19,20 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"net"
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
 	stdsync "sync"
 	"time"
 
 	"github.com/thejerf/suture/v4"
 	"golang.org/x/time/rate"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
@@ -42,7 +45,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sliceutil"
 	"github.com/syncthing/syncthing/lib/stringutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/sync"
 
 	// Registers NAT service providers
 	_ "github.com/syncthing/syncthing/lib/pmp"
@@ -185,7 +187,7 @@ type service struct {
 }
 
 func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, bepProtocolName string, tlsDefaultCommonName string, evLogger events.Logger, registry *registry.Registry, keyGen *protocol.KeyGenerator) Service {
-	spec := svcutil.SpecWithInfoLogger(l)
+	spec := svcutil.SpecWithInfoLogger()
 	service := &service{
 		Supervisor:              suture.New("connections.Service", spec),
 		connectionStatusHandler: newConnectionStatusHandler(),
@@ -206,11 +208,9 @@ func NewService(cfg config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *t
 		keyGen:               keyGen,
 		lanChecker:           &lanChecker{cfg},
 
-		dialNowDevicesMut: sync.NewMutex(),
-		dialNow:           make(chan struct{}, 1),
-		dialNowDevices:    make(map[protocol.DeviceID]struct{}),
+		dialNow:        make(chan struct{}, 1),
+		dialNowDevices: make(map[protocol.DeviceID]struct{}),
 
-		listenersMut:   sync.NewRWMutex(),
 		listeners:      make(map[string]genericListener),
 		listenerTokens: make(map[string]suture.ServiceToken),
 	}
@@ -257,7 +257,7 @@ func (s *service) handleConns(ctx context.Context) error {
 		// because there are implementations out there that don't support
 		// protocol negotiation (iOS for one...).
 		if cs.NegotiatedProtocol != s.bepProtocolName {
-			l.Infof("Peer at %s did not negotiate bep/1.0", c)
+			slog.Warn("Peer at did not negotiate bep/1.0", slogutil.Address(c.RemoteAddr()))
 		}
 
 		// We should have received exactly one certificate from the other
@@ -265,7 +265,7 @@ func (s *service) handleConns(ctx context.Context) error {
 		// connection.
 		certs := cs.PeerCertificates
 		if cl := len(certs); cl != 1 {
-			l.Infof("Got peer certificate list of length %d != 1 from peer at %s; protocol error", cl, c)
+			slog.Warn("Got peer certificate list of incorrect length", slog.Int("length", cl), slogutil.Address(c.RemoteAddr()))
 			c.Close()
 			continue
 		}
@@ -276,17 +276,13 @@ func (s *service) handleConns(ctx context.Context) error {
 		// though, especially in the presence of NAT hairpinning, multiple
 		// clients between the same NAT gateway, and global discovery.
 		if remoteID == s.myID {
-			l.Debugf("Connected to myself (%s) at %s", remoteID, c)
+			slog.Debug("Connected to myself", "id", remoteID, "addr", c)
 			c.Close()
 			continue
 		}
 
 		if err := s.connectionCheckEarly(remoteID, c); err != nil {
-			if errors.Is(err, errDeviceAlreadyConnected) {
-				l.Debugf("Connection from %s at %s (%s) rejected: %v", remoteID, c.RemoteAddr(), c.Type(), err)
-			} else {
-				l.Infof("Connection from %s at %s (%s) rejected: %v", remoteID, c.RemoteAddr(), c.Type(), err)
-			}
+			slog.Debug("Connection rejected", slogutil.Device(remoteID.Short()), slogutil.Address(c.RemoteAddr()), slog.String("type", c.Type()), slogutil.Error(err))
 			c.Close()
 			continue
 		}
@@ -397,7 +393,7 @@ func (s *service) handleHellos(ctx context.Context) error {
 				warningFor(remoteID, msg)
 			} else {
 				// It's something else - connection reset or whatever
-				l.Infof("Failed to exchange Hello messages with %s at %s: %s", remoteID, c, err)
+				slog.Warn("Failed to exchange Hello messages", slogutil.Device(remoteID.Short()), slogutil.Address(c.RemoteAddr()), slogutil.Error(err))
 			}
 			c.Close()
 			continue
@@ -407,14 +403,14 @@ func (s *service) handleHellos(ctx context.Context) error {
 		// The Model will return an error for devices that we don't want to
 		// have a connection with for whatever reason, for example unknown devices.
 		if err := s.model.OnHello(remoteID, c.RemoteAddr(), hello); err != nil {
-			l.Infof("Connection from %s at %s (%s) rejected: %v", remoteID, c.RemoteAddr(), c.Type(), err)
+			slog.Warn("Connection rejected", slogutil.Device(remoteID.Short()), slogutil.Address(c.RemoteAddr()), slog.Any("type", c.Type()), slogutil.Error(err))
 			c.Close()
 			continue
 		}
 
 		deviceCfg, ok := s.cfg.Device(remoteID)
 		if !ok {
-			l.Infof("Device %s removed from config during connection attempt at %s", remoteID, c)
+			slog.Warn("Device removed from config during connection attempt", slogutil.Device(remoteID.Short()), slogutil.Address(c.RemoteAddr()))
 			c.Close()
 			continue
 		}
@@ -455,7 +451,7 @@ func (s *service) handleHellos(ctx context.Context) error {
 			s.dialNowDevicesMut.Unlock()
 		}()
 
-		l.Infof("Established secure connection to %s at %s", remoteID.Short(), c)
+		slog.Info("Established secure connection", slogutil.Device(remoteID.Short()), slog.Any("connection", c))
 
 		s.model.AddConnection(protoConn, hello)
 		continue
@@ -477,9 +473,9 @@ func (s *service) connect(ctx context.Context) error {
 		bestDialerPriority := s.bestDialerPriority(cfg)
 		isInitialRampup := initialRampup < stdConnectionLoopSleep
 
-		l.Debugln("Connection loop")
+		slog.Debug("Connection loop")
 		if isInitialRampup {
-			l.Debugln("Connection loop in initial rampup")
+			slog.Debug("Connection loop in initial rampup")
 		}
 
 		// Used for consistency throughout this loop run, as time passes
@@ -675,7 +671,7 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 		uri, err := url.Parse(addr)
 		if err != nil {
 			s.setConnectionStatus(addr, err)
-			l.Infof("Parsing dialer address %s: %v", addr, err)
+			slog.WarnContext(ctx, "Failed to parse dialer address", slogutil.Address(addr), slogutil.Error(err))
 			continue
 		}
 
@@ -695,7 +691,7 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 			l.Debugf("Dialer for %v: %v", uri, err)
 			continue
 		} else if err != nil {
-			l.Infof("Dialer for %v: %v", uri, err)
+			slog.WarnContext(ctx, "Failed to get dialer", slogutil.URI(uri), slogutil.Error(err))
 			continue
 		}
 
@@ -711,7 +707,7 @@ func (s *service) resolveDialTargets(ctx context.Context, now time.Time, cfg con
 			continue
 		}
 		if currentConns >= s.desiredConnectionsToDevice(deviceCfg.DeviceID) && priority == priorityCutoff {
-			l.Debugf("Not dialing %s at %s using %s as priority is equal and we already have %d/%d connections", deviceID.Short(), addr, dialerFactory, currentConns, deviceCfg.NumConnections)
+			l.Debugf("Not dialing %s at %s using %s as priority is equal and we already have %d/%d connections", deviceID.Short(), addr, dialerFactory, currentConns, deviceCfg.NumConnections())
 			continue
 		}
 
@@ -818,7 +814,7 @@ func (s *lanChecker) isLAN(addr net.Addr) bool {
 func (s *service) createListener(factory listenerFactory, uri *url.URL) bool {
 	// must be called with listenerMut held
 
-	l.Debugln("Starting listener", uri)
+	slog.Debug("Starting listener", "uri", uri)
 
 	listener := factory.New(uri, s.cfg, s.tlsCfg, s.conns, s.natService, s.registry, s.lanChecker)
 	listener.OnAddressesChanged(s.logListenAddressesChangedEvent)
@@ -826,7 +822,7 @@ func (s *service) createListener(factory listenerFactory, uri *url.URL) bool {
 	// Retrying a listener many times in rapid succession is unlikely to help,
 	// thus back off quickly. A listener may soon be functional again, e.g. due
 	// to a network interface coming back online - retry every minute.
-	spec := svcutil.SpecWithInfoLogger(l)
+	spec := svcutil.SpecWithInfoLogger()
 	spec.FailureThreshold = 2
 	spec.FailureBackoff = time.Minute
 	sup := suture.New(fmt.Sprintf("listenerSupervisor@%v", listener), spec)
@@ -875,7 +871,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 
 		uri, err := url.Parse(addr)
 		if err != nil {
-			l.Warnf("Skipping malformed listener URL %q: %v", addr, err)
+			slog.Error("Skipping malformed listener URL", slogutil.URI(addr), slogutil.Error(err))
 			continue
 		}
 
@@ -886,7 +882,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 		// mean something entirely different to the computer (e.g.,
 		// tcp:/127.0.0.1:22000 in fact being equivalent to tcp://:22000).
 		if canonical := uri.String(); canonical != addr {
-			l.Warnf("Skipping malformed listener URL %q (not canonical)", addr)
+			slog.Error("Skipping malformed listener URL (not canonical)", slogutil.URI(addr))
 			continue
 		}
 
@@ -900,7 +896,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 			l.Debugf("Listener for %v: %v", uri, err)
 			continue
 		} else if err != nil {
-			l.Infof("Listener for %v: %v", uri, err)
+			slog.Warn("Failed to get listener", slogutil.URI(uri), slogutil.Error(err))
 			continue
 		}
 
@@ -1007,8 +1003,7 @@ type connectionStatusHandler struct {
 
 func newConnectionStatusHandler() connectionStatusHandler {
 	return connectionStatusHandler{
-		connectionStatusMut: sync.NewRWMutex(),
-		connectionStatus:    make(map[string]ConnectionStatusEntry),
+		connectionStatus: make(map[string]ConnectionStatusEntry),
 	}
 }
 
@@ -1084,7 +1079,7 @@ func urlsToStrings(urls []*url.URL) []string {
 
 var (
 	warningLimiters    = make(map[protocol.DeviceID]*rate.Limiter)
-	warningLimitersMut = sync.NewMutex()
+	warningLimitersMut sync.Mutex
 )
 
 func warningFor(dev protocol.DeviceID, msg string) {
@@ -1215,7 +1210,7 @@ func (s *service) validateIdentity(c internalConn, expectedID protocol.DeviceID)
 	// connection.
 	certs := cs.PeerCertificates
 	if cl := len(certs); cl != 1 {
-		l.Infof("Got peer certificate list of length %d != 1 from peer at %s; protocol error", cl, c)
+		slog.Warn("Got peer certificate list of incorrect length", slog.Int("length", cl), slogutil.Address(c.RemoteAddr()))
 		c.Close()
 		return fmt.Errorf("expected 1 certificate, got %d", cl)
 	}

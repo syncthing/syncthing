@@ -376,6 +376,8 @@ func (fs *fakeFS) Lstat(name string) (FileInfo, error) {
 	}
 
 	info := &fakeFileInfo{*entry}
+	info.content = nil
+	info.children = nil
 	if fs.insens {
 		info.name = filepath.Base(name)
 	}

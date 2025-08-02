@@ -37,7 +37,7 @@ func newServiceMap[K comparable, S suture.Service](eventLogger events.Logger) *s
 		tokens:      make(map[K]suture.ServiceToken),
 		eventLogger: eventLogger,
 	}
-	m.supervisor = suture.New(m.String(), svcutil.SpecWithDebugLogger(l))
+	m.supervisor = suture.New(m.String(), svcutil.SpecWithDebugLogger())
 	return m
 }
 

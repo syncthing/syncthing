@@ -6,7 +6,10 @@
 
 package syncthing
 
-import "syscall"
+import (
+	"log/slog"
+	"syscall"
+)
 
 // https://docs.microsoft.com/windows/win32/secauthz/well-known-sids
 const securityLocalSystemRID = "S-1-5-18"
@@ -26,7 +29,7 @@ func isSuperUser() bool {
 	}
 
 	if user.User.Sid == nil {
-		l.Debugln("sid is nil")
+		slog.Debug("Sid is nil")
 		return false
 	}
 

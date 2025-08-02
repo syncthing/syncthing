@@ -8,9 +8,9 @@ package model
 
 import (
 	"slices"
+	"sync"
 
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // deviceFolderFileDownloadState holds current download state of a file that
@@ -122,7 +122,6 @@ func (t *deviceDownloadState) Update(folder string, updates []protocol.FileDownl
 
 	if !ok {
 		f = &deviceFolderDownloadState{
-			mut:   sync.NewRWMutex(),
 			files: make(map[string]deviceFolderFileDownloadState),
 		}
 		t.mut.Lock()
@@ -186,7 +185,6 @@ func (t *deviceDownloadState) BytesDownloaded(folder string) int64 {
 
 func newDeviceDownloadState() *deviceDownloadState {
 	return &deviceDownloadState{
-		mut:     sync.NewRWMutex(),
 		folders: make(map[string]*deviceFolderDownloadState),
 	}
 }

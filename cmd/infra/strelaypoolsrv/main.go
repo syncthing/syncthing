@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -31,7 +32,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/relay/client"
-	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 )
 
@@ -115,7 +115,7 @@ var (
 
 	requests chan request
 
-	mut             = sync.NewRWMutex()
+	mut             sync.RWMutex
 	knownRelays     = make([]*relay, 0)
 	permanentRelays = make([]*relay, 0)
 	evictionTimers  = make(map[string]*time.Timer)

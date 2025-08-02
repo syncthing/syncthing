@@ -21,6 +21,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -28,7 +29,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // APIKey is set via the STGUIAPIKEY variable when we launch the binary, to
@@ -60,7 +60,6 @@ func NewProcess(addr string) *Process {
 		addr:          addr,
 		sequence:      make(map[string]map[string]int64),
 		done:          make(map[string]bool),
-		eventMut:      sync.NewMutex(),
 		startComplete: make(chan struct{}),
 		stopped:       make(chan struct{}),
 	}
@@ -573,7 +572,7 @@ func (p *Process) eventLoop() {
 				folder := data["folder"].(string)
 				p.eventMut.Lock()
 				m := p.updateSequenceLocked(folder, device, data["sequence"])
-				l.Debugf("FolderCompletion %v\n\t%+v", p.id, folder, m)
+				l.Debugln("FolderCompletion", p.id, folder, m)
 				p.eventMut.Unlock()
 			}
 		}

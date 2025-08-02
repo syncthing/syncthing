@@ -6,8 +6,6 @@
 
 package config
 
-import (
-	"github.com/syncthing/syncthing/lib/logger"
-)
+import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = logger.DefaultLogger.NewFacility("config", "Configuration loading and saving")
+var l = slogutil.NewAdapter("Configuration loading and saving")

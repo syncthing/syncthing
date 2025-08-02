@@ -16,11 +16,11 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/syncutil"
 	"github.com/thejerf/suture/v4"
-
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type EventType int64
@@ -474,7 +474,7 @@ type bufferedSubscription struct {
 	next int
 	cur  int // Current SubscriptionID
 	mut  sync.Mutex
-	cond *sync.TimeoutCond
+	cond *syncutil.TimeoutCond
 }
 
 type BufferedSubscription interface {
@@ -486,9 +486,8 @@ func NewBufferedSubscription(s Subscription, size int) BufferedSubscription {
 	bs := &bufferedSubscription{
 		sub: s,
 		buf: make([]Event, size),
-		mut: sync.NewMutex(),
 	}
-	bs.cond = sync.NewTimeoutCond(bs.mut)
+	bs.cond = syncutil.NewTimeoutCond(&bs.mut)
 	go bs.pollingLoop()
 	return bs
 }

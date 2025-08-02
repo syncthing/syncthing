@@ -8,6 +8,7 @@ package config
 
 import (
 	"cmp"
+	"log/slog"
 	"net/url"
 	"os"
 	"path"
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/netutil"
@@ -239,7 +241,7 @@ func migrateToConfigV23(cfg *Configuration) {
 				fs.Hide(DefaultMarkerName) // ignore error
 			}
 			if err != nil {
-				l.Infoln("Failed to upgrade folder marker:", err)
+				slog.Warn("Failed to upgrade folder marker", slogutil.Error(err))
 			}
 		}
 	}

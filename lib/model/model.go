@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -24,7 +25,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
-	stdsync "sync"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -45,7 +47,6 @@ import (
 	"github.com/syncthing/syncthing/lib/semaphore"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/ur/contract"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
@@ -213,7 +214,7 @@ var (
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
 func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb db.DB, protectedFiles []string, evLogger events.Logger, keyGen *protocol.KeyGenerator) Model {
-	spec := svcutil.SpecWithDebugLogger(l)
+	spec := svcutil.SpecWithDebugLogger()
 	m := &model{
 		Supervisor: suture.New("model", spec),
 
@@ -236,7 +237,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb db.DB, protectedFile
 		observed:             db.NewObservedDB(sdb),
 
 		// fields protected by mut
-		mut:                            sync.NewRWMutex(),
 		folderCfgs:                     make(map[string]config.FolderConfiguration),
 		deviceStatRefs:                 make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
 		folderIgnores:                  make(map[string]*ignore.Matcher),
@@ -288,7 +288,7 @@ func (m *model) serve(ctx context.Context) error {
 			l.Debugln(m, "fatal error, stopping", err)
 			return svcutil.AsFatalErr(err, svcutil.ExitError)
 		case <-m.promotionTimer.C:
-			l.Debugln("promotion timer fired")
+			slog.Debug("Promotion timer fired")
 			m.promoteConnections()
 		}
 	}
@@ -423,7 +423,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	p := folderFactory(m, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
 	m.folderRunners.Add(folder, p)
 
-	l.Infof("Ready to synchronize %s (%s)", cfg.Description(), cfg.Type)
+	slog.Info("Ready to synchronize", cfg.LogAttr())
 }
 
 func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguration, ignores *ignore.Matcher) {
@@ -460,8 +460,8 @@ func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguratio
 }
 
 func (m *model) removeFolder(cfg config.FolderConfiguration) {
-	l.Infoln("Removing folder", cfg.Description())
-	defer l.Infoln("Removed folder", cfg.Description())
+	slog.Info("Removing folder", cfg.LogAttr())
+	defer slog.Info("Removed folder", cfg.LogAttr())
 
 	m.mut.RLock()
 	wait := m.folderRunners.StopAndWaitChan(cfg.ID, 0)
@@ -1937,7 +1937,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 type requestResponse struct {
 	data   []byte
 	closed chan struct{}
-	once   stdsync.Once
+	once   sync.Once
 }
 
 func newRequestResponse(size int) *requestResponse {
@@ -2294,7 +2294,7 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	deviceID := conn.DeviceID()
 	deviceCfg, ok := m.cfg.Device(deviceID)
 	if !ok {
-		l.Infoln("Trying to add connection to unknown device")
+		slog.Info("Trying to add connection to unknown device")
 		return
 	}
 
@@ -2327,9 +2327,9 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	m.evLogger.Log(events.DeviceConnected, event)
 
 	if len(m.deviceConnIDs[deviceID]) == 1 {
-		l.Infof(`Device %s client is "%s %s" named "%s" at %s`, deviceID.Short(), hello.ClientName, hello.ClientVersion, hello.DeviceName, conn)
+		slog.Info("New device connection", slogutil.Device(deviceID.Short()), slogutil.Address(conn.RemoteAddr()), slog.Group("remote", slog.String("name", hello.DeviceName), slog.String("client", hello.ClientName), slog.String("version", hello.ClientVersion)))
 	} else {
-		l.Infof(`Additional connection (+%d) for device %s at %s`, len(m.deviceConnIDs[deviceID])-1, deviceID.Short(), conn)
+		slog.Info("Additional device connection", slogutil.Device(deviceID.Short()), slogutil.Address(conn.RemoteAddr()), slog.Int("count", len(m.deviceConnIDs[deviceID])-1))
 	}
 
 	m.mut.Unlock()
@@ -2500,9 +2500,9 @@ func (m *model) ScanFolders() map[string]error {
 	m.mut.RUnlock()
 
 	errors := make(map[string]error, len(m.folderCfgs))
-	errorsMut := sync.NewMutex()
+	var errorsMut sync.Mutex
 
-	wg := sync.NewWaitGroup()
+	var wg sync.WaitGroup
 	wg.Add(len(folders))
 	for _, folder := range folders {
 		go func() {
@@ -2969,9 +2969,9 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
 			if cfg.Paused {
-				l.Infoln("Paused folder", cfg.Description())
+				slog.Info("Paused folder", cfg.LogAttr())
 			} else {
-				l.Infoln("Adding folder", cfg.Description())
+				slog.Info("Adding folder", cfg.LogAttr())
 				if err := m.newFolder(cfg, to.Options.CacheIgnoredFiles); err != nil {
 					m.fatal(err)
 					return true
@@ -3049,7 +3049,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 
 		if toCfg.Paused {
-			l.Infoln("Pausing", deviceID)
+			slog.Info("Pausing device", slogutil.Device(deviceID.Short()))
 			closeDevices = append(closeDevices, deviceID)
 			m.evLogger.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
 		} else {
@@ -3058,7 +3058,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				closeDevices = append(closeDevices, deviceID)
 			}
 
-			l.Infoln("Resuming", deviceID)
+			slog.Info("Resuming device", slogutil.Device(deviceID.Short()))
 			m.evLogger.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 
@@ -3379,12 +3379,12 @@ func (s folderDeviceSet) hasDevice(dev protocol.DeviceID) bool {
 
 // syncMutexMap is a type safe wrapper for a sync.Map that holds mutexes
 type syncMutexMap struct {
-	inner stdsync.Map
+	inner sync.Map
 }
 
-func (m *syncMutexMap) Get(key string) sync.Mutex {
-	v, _ := m.inner.LoadOrStore(key, sync.NewMutex())
-	return v.(sync.Mutex)
+func (m *syncMutexMap) Get(key string) *sync.Mutex {
+	v, _ := m.inner.LoadOrStore(key, new(sync.Mutex))
+	return v.(*sync.Mutex)
 }
 
 type deviceIDSet map[protocol.DeviceID]struct{}
