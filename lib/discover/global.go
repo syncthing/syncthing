@@ -19,7 +19,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	stdsync "sync"
+	"sync"
 	"time"
 
 	"golang.org/x/net/http2"
@@ -426,7 +426,7 @@ func (c *idCheckingHTTPClient) Post(ctx context.Context, url, ctype string, data
 
 type errorHolder struct {
 	err error
-	mut stdsync.Mutex // uses stdlib sync as I want this to be trivially embeddable, and there is no risk of blocking
+	mut sync.Mutex // uses stdlib sync as I want this to be trivially embeddable, and there is no risk of blocking
 }
 
 func (e *errorHolder) setError(err error) {

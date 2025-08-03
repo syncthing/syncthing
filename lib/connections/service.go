@@ -26,7 +26,6 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	stdsync "sync"
 	"time"
 
 	"github.com/thejerf/suture/v4"
@@ -599,9 +598,9 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 	// Perform dials according to the queue, stopping when we've reached the
 	// allowed additional number of connections (if limited).
 	numConns := 0
-	var numConnsMut stdsync.Mutex
+	var numConnsMut sync.Mutex
 	dialSemaphore := semaphore.New(dialMaxParallel)
-	dialWG := new(stdsync.WaitGroup)
+	dialWG := new(sync.WaitGroup)
 	dialCtx, dialCancel := context.WithCancel(ctx)
 	defer func() {
 		dialWG.Wait()
@@ -1117,7 +1116,7 @@ func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, 
 	for _, prio := range priorities {
 		tgts := dialTargetBuckets[prio]
 		res := make(chan internalConn, len(tgts))
-		wg := stdsync.WaitGroup{}
+		wg := sync.WaitGroup{}
 		for _, tgt := range tgts {
 			sema.Take(1)
 			wg.Add(1)
@@ -1325,7 +1324,7 @@ func (s *service) desiredConnectionsToDevice(deviceID protocol.DeviceID) int {
 // connected to and how many connections we have to each device. It also
 // tracks how many connections they are willing to use.
 type deviceConnectionTracker struct {
-	connectionsMut  stdsync.Mutex
+	connectionsMut  sync.Mutex
 	connections     map[protocol.DeviceID][]protocol.Connection // current connections
 	wantConnections map[protocol.DeviceID]int                   // number of connections they want
 }
