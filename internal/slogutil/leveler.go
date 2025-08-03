@@ -9,8 +9,6 @@ package slogutil
 import (
 	"log/slog"
 	"maps"
-	"os"
-	"strings"
 	"sync"
 )
 
@@ -24,11 +22,6 @@ import (
 //     STTRACE="model,protocol"  # model and protocol are at DEBUG level
 // however you can also give specific levels after a colon:
 //     STTRACE="model:WARNING,protocol:DEBUG"
-
-var globalLevels = &levelTracker{
-	levels: make(map[string]slog.Level),
-	descrs: make(map[string]string),
-}
 
 func PackageDescrs() map[string]string {
 	return globalLevels.Descrs()
@@ -44,25 +37,6 @@ func SetPackageLevel(pkg string, level slog.Level) {
 
 func SetDefaultLevel(level slog.Level) {
 	globalLevels.SetDefault(level)
-}
-
-func init() {
-	// Handle legacy STTRACE var
-	pkgs := strings.Split(os.Getenv("STTRACE"), ",")
-	for _, pkg := range pkgs {
-		pkg = strings.TrimSpace(pkg)
-		if pkg == "" {
-			continue
-		}
-		level := slog.LevelDebug
-		if cutPkg, levelStr, ok := strings.Cut(pkg, ":"); ok {
-			pkg = cutPkg
-			if err := level.UnmarshalText([]byte(levelStr)); err != nil {
-				slog.Warn("Bad log level requested in STTRACE", slog.String("pkg", pkg), slog.String("level", levelStr), Error(err))
-			}
-		}
-		globalLevels.Set(pkg, level)
-	}
 }
 
 type levelTracker struct {
@@ -83,14 +57,22 @@ func (t *levelTracker) Get(pkg string) slog.Level {
 
 func (t *levelTracker) Set(pkg string, level slog.Level) {
 	t.mut.Lock()
+	changed := t.levels[pkg] != level
 	t.levels[pkg] = level
 	t.mut.Unlock()
+	if changed {
+		slog.Info("Changed package log level", "package", pkg, "level", level)
+	}
 }
 
 func (t *levelTracker) SetDefault(level slog.Level) {
 	t.mut.Lock()
+	changed := t.defLevel != level
 	t.defLevel = level
 	t.mut.Unlock()
+	if changed {
+		slog.Info("Changed default log level", "level", level)
+	}
 }
 
 func (t *levelTracker) SetDescr(pkg, descr string) {

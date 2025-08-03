@@ -10,20 +10,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 	"runtime"
 	"strings"
 	"time"
 )
-
-var slogDef = slog.New(&formattingHandler{
-	recs: []*lineRecorder{GlobalRecorder, ErrorRecorder},
-	out:  os.Stdout,
-})
-
-func init() {
-	slog.SetDefault(slogDef)
-}
 
 // Log levels:
 // - DEBUG: programmers only (not user troubleshooting)

@@ -14,11 +14,6 @@ import (
 
 const maxLogLines = 1000
 
-var (
-	GlobalRecorder = &lineRecorder{level: -1000}
-	ErrorRecorder  = &lineRecorder{level: slog.LevelError}
-)
-
 type Recorder interface {
 	Since(t time.Time) []Line
 	Clear()
