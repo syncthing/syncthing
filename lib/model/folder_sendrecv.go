@@ -1309,6 +1309,8 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			f.model.progressEmitter.Register(state.sharedPullerState)
 		}
 
+		f.setState(FolderSyncing) // Does nothing if already FolderSyncing
+
 	blocks:
 		for _, block := range state.blocks {
 			select {
