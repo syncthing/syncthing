@@ -8,10 +8,11 @@ package nat
 
 import (
 	"fmt"
+	"log/slog"
 	"net"
+	"strconv"
+	"sync"
 	"time"
-
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type MappingChangeSubscriber func()
@@ -28,14 +29,14 @@ type Mapping struct {
 }
 
 func (m *Mapping) setAddressLocked(id string, addresses []Address) {
-	l.Infof("New external port opened: external %s address(es) %v to local address %s.", m.protocol, addresses, m.address)
+	slog.Info("New external port opened", "protocol", m.protocol, "external", addresses, "local", m.address, "gateway", id)
 	m.extAddresses[id] = addresses
 }
 
 func (m *Mapping) removeAddressLocked(id string) {
 	addresses, ok := m.extAddresses[id]
 	if ok {
-		l.Infof("Removing external open port: %s address(es) %v for gateway %s.", m.protocol, addresses, id)
+		slog.Info("Removing external open port", "protocol", m.protocol, "external", addresses, "gateway", id)
 		delete(m.extAddresses, id)
 	}
 }
@@ -123,7 +124,7 @@ func (a Address) String() string {
 	} else {
 		ipStr = a.IP.String()
 	}
-	return net.JoinHostPort(ipStr, fmt.Sprintf("%d", a.Port))
+	return net.JoinHostPort(ipStr, strconv.Itoa(a.Port))
 }
 
 func (a Address) GoString() string {

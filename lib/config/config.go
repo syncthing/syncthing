@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/url"
 	"os"
@@ -21,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/netutil"
@@ -121,8 +123,7 @@ func New(myID protocol.DeviceID) Configuration {
 
 	// Can't happen.
 	if err := cfg.prepare(myID); err != nil {
-		l.Warnln("bug: error in preparing new folder:", err)
-		panic("error in preparing new folder")
+		panic("bug: error in preparing new folder")
 	}
 
 	return cfg
@@ -418,7 +419,7 @@ func (cfg *Configuration) removeDeprecatedProtocols() {
 
 func (cfg *Configuration) applyMigrations() {
 	if cfg.Version > 0 && cfg.Version < OldestHandledVersion {
-		l.Warnf("Configuration version %d is deprecated. Attempting best effort conversion, but please verify manually.", cfg.Version)
+		slog.Warn("Loaded deprecated configuration version; attempting best effort conversion, but please verify manually", "version", cfg.Version)
 	}
 
 	// Upgrade configuration versions as appropriate
@@ -591,7 +592,7 @@ func ensureNoUntrustedTrustingSharing(f *FolderConfiguration, devices []FolderDe
 			continue
 		}
 		if devCfg := existingDevices[dev.DeviceID]; devCfg.Untrusted {
-			l.Warnf("Folder %s (%s) is shared in trusted mode with untrusted device %s (%s); unsharing.", f.ID, f.Label, dev.DeviceID.Short(), devCfg.Name)
+			slog.Error("Folder is shared in trusted mode with untrusted device; unsharing", dev.DeviceID.LogAttr(), f.LogAttr())
 			devices = sliceutil.RemoveAndZero(devices, i)
 			i--
 		}
@@ -611,7 +612,7 @@ func cleanSymlinks(filesystem fs.Filesystem, dir string) {
 			return err
 		}
 		if info.IsSymlink() {
-			l.Infoln("Removing incorrectly versioned symlink", path)
+			slog.Warn("Removing incorrectly versioned symlink", slogutil.FilePath(path))
 			filesystem.Remove(path)
 			return fs.SkipDir
 		}

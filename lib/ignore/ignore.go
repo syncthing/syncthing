@@ -15,6 +15,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gobwas/glob"
@@ -24,7 +25,6 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore/ignoreresult"
 	"github.com/syncthing/syncthing/lib/osutil"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // A ParseError signifies an error with contents of an ignore file,
@@ -140,7 +140,6 @@ func New(fs fs.Filesystem, opts ...Option) *Matcher {
 	m := &Matcher{
 		fs:   fs,
 		stop: make(chan struct{}),
-		mut:  sync.NewMutex(),
 	}
 	for _, opt := range opts {
 		opt(m)

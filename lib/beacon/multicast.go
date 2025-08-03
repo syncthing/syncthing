@@ -9,6 +9,7 @@ package beacon
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net"
 	"time"
 
@@ -138,7 +139,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 	}
 
 	if joined == 0 {
-		l.Debugln("no multicast interfaces available")
+		slog.DebugContext(ctx, "No multicast interfaces available")
 		return errors.New("no multicast interfaces available")
 	}
 
@@ -161,7 +162,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 		select {
 		case outbox <- recv{c, addr}:
 		default:
-			l.Debugln("dropping message")
+			slog.DebugContext(ctx, "Dropping message")
 		}
 	}
 }

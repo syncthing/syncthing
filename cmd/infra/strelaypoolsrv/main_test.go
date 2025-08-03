@@ -13,7 +13,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
-	"sync"
 	"testing"
 )
 
@@ -28,8 +27,6 @@ func init() {
 		{URL: "known2"},
 		{URL: "known3"},
 	}
-
-	mut = new(sync.RWMutex)
 }
 
 // Regression test: handleGetRequest should not modify permanentRelays.

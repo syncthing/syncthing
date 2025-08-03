@@ -29,6 +29,7 @@ import (
 	"github.com/syncthing/syncthing/internal/blob"
 	"github.com/syncthing/syncthing/internal/blob/azureblob"
 	"github.com/syncthing/syncthing/internal/blob/s3"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/geoip"
 	"github.com/syncthing/syncthing/lib/ur/contract"
@@ -104,23 +105,23 @@ func (cli *CLI) Run() error {
 
 	urListener, err := net.Listen("tcp", cli.Listen)
 	if err != nil {
-		slog.Error("Failed to listen (usage reports)", "error", err)
+		slog.Error("Failed to listen (usage reports)", slogutil.Error(err))
 		return err
 	}
-	slog.Info("Listening (usage reports)", "address", urListener.Addr())
+	slog.Info("Listening (usage reports)", slogutil.Address(urListener.Addr()))
 
 	internalListener, err := net.Listen("tcp", cli.ListenInternal)
 	if err != nil {
-		slog.Error("Failed to listen (internal)", "error", err)
+		slog.Error("Failed to listen (internal)", slogutil.Error(err))
 		return err
 	}
-	slog.Info("Listening (internal)", "address", internalListener.Addr())
+	slog.Info("Listening (internal)", slogutil.Address(internalListener.Addr()))
 
 	var geo *geoip.Provider
 	if cli.GeoIPAccountID != 0 && cli.GeoIPLicenseKey != "" {
 		geo, err = geoip.NewGeoLite2CityProvider(context.Background(), cli.GeoIPAccountID, cli.GeoIPLicenseKey, os.TempDir())
 		if err != nil {
-			slog.Error("Failed to load GeoIP", "error", err)
+			slog.Error("Failed to load GeoIP", slogutil.Error(err))
 			return err
 		}
 		go geo.Serve(context.TODO())
@@ -132,20 +133,20 @@ func (cli *CLI) Run() error {
 	if cli.S3Endpoint != "" {
 		blobs, err = s3.NewSession(cli.S3Endpoint, cli.S3Region, cli.S3Bucket, cli.S3AccessKeyID, cli.S3SecretKey)
 		if err != nil {
-			slog.Error("Failed to create S3 session", "error", err)
+			slog.Error("Failed to create S3 session", slogutil.Error(err))
 			return err
 		}
 	} else if cli.AzureBlobAccount != "" {
 		blobs, err = azureblob.NewBlobStore(cli.AzureBlobAccount, cli.AzureBlobKey, cli.AzureBlobContainer)
 		if err != nil {
-			slog.Error("Failed to create Azure blob store", "error", err)
+			slog.Error("Failed to create Azure blob store", slogutil.Error(err))
 			return err
 		}
 	}
 
 	if _, err := os.Stat(cli.DumpFile); err != nil && blobs != nil {
 		if err := cli.downloadDumpFile(blobs); err != nil {
-			slog.Error("Failed to download dump file", "error", err)
+			slog.Error("Failed to download dump file", slogutil.Error(err))
 		}
 	}
 
@@ -167,7 +168,7 @@ func (cli *CLI) Run() error {
 	go func() {
 		for range time.Tick(cli.DumpInterval) {
 			if err := cli.saveDumpFile(srv, blobs); err != nil {
-				slog.Error("Failed to write dump file", "error", err)
+				slog.Error("Failed to write dump file", slogutil.Error(err))
 			}
 		}
 	}()
@@ -307,7 +308,7 @@ func (s *server) handleNewData(w http.ResponseWriter, r *http.Request) {
 	lr := &io.LimitedReader{R: r.Body, N: 40 * 1024}
 	bs, _ := io.ReadAll(lr)
 	if err := json.Unmarshal(bs, &rep); err != nil {
-		log.Error("Failed to decode JSON", "error", err)
+		log.Error("Failed to decode JSON", slogutil.Error(err))
 		http.Error(w, "JSON Decode Error", http.StatusInternalServerError)
 		return
 	}
@@ -317,7 +318,7 @@ func (s *server) handleNewData(w http.ResponseWriter, r *http.Request) {
 	rep.Address = addr
 
 	if err := rep.Validate(); err != nil {
-		log.Error("Failed to validate report", "error", err)
+		log.Error("Failed to validate report", slogutil.Error(err))
 		http.Error(w, "Validation Error", http.StatusInternalServerError)
 		return
 	}
@@ -394,7 +395,7 @@ func (s *server) load(r io.Reader) {
 		if err := dec.Decode(&rep); errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
-			slog.Error("Failed to load record", "error", err)
+			slog.Error("Failed to load record", slogutil.Error(err))
 			break
 		}
 		s.addReport(&rep)

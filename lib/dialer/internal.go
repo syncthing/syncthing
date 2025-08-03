@@ -7,6 +7,7 @@
 package dialer
 
 import (
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -31,15 +32,15 @@ func init() {
 		// Defer this, so that logging gets set up.
 		go func() {
 			time.Sleep(500 * time.Millisecond)
-			l.Infoln("Proxy settings detected")
+			slog.Info("Proxy settings detected")
 			if noFallback {
-				l.Infoln("Proxy fallback disabled")
+				slog.Info("Proxy fallback disabled")
 			}
 		}()
 	} else {
 		go func() {
 			time.Sleep(500 * time.Millisecond)
-			l.Debugln("Dialer logging disabled, as no proxy was detected")
+			slog.Debug("Dialer logging disabled, as no proxy was detected")
 		}()
 	}
 }

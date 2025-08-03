@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path"
@@ -28,6 +29,7 @@ import (
 	"time"
 
 	"github.com/shirou/gopsutil/v4/host"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/signature"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -96,18 +98,18 @@ func upgradeClientGet(url, version string) (*http.Response, error) {
 func FetchLatestReleases(releasesURL, current string) []Release {
 	resp, err := upgradeClientGet(releasesURL, current)
 	if err != nil {
-		l.Infoln("Couldn't fetch release information:", err)
+		slog.Warn("Failed to fetch latest release information", slogutil.Error(err))
 		return nil
 	}
 	if resp.StatusCode > 299 {
-		l.Infoln("API call returned HTTP error:", resp.Status)
+		slog.Warn("Failed to fetch latest release information", slogutil.Error(resp.Status))
 		return nil
 	}
 
 	var rels []Release
 	err = json.NewDecoder(io.LimitReader(resp.Body, maxMetadataSize)).Decode(&rels)
 	if err != nil {
-		l.Infoln("Fetching release information:", err)
+		slog.Warn("Failed to decode latest release information", slogutil.Error(err))
 	}
 	resp.Body.Close()
 

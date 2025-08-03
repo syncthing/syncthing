@@ -10,10 +10,12 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"log/slog"
 	"net/url"
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/dialer"
@@ -46,7 +48,7 @@ type relayListener struct {
 func (t *relayListener) serve(ctx context.Context) error {
 	clnt, err := client.NewClient(t.uri, t.tlsCfg.Certificates, 10*time.Second)
 	if err != nil {
-		l.Infoln("Listen (BEP/relay):", err)
+		slog.WarnContext(ctx, "Failed to listen (relay)", slogutil.Error(err))
 		return err
 	}
 
@@ -54,8 +56,8 @@ func (t *relayListener) serve(ctx context.Context) error {
 	t.client = clnt
 	t.mut.Unlock()
 
-	l.Infof("Relay listener (%v) starting", t)
-	defer l.Infof("Relay listener (%v) shutting down", t)
+	slog.InfoContext(ctx, "Relay listener starting", "id", t.String())
+	defer slog.InfoContext(ctx, "Relay listener shutting down", "id", t.String())
 	defer t.clearAddresses(t)
 
 	invitationCtx, cancel := context.WithCancel(ctx)
@@ -77,19 +79,19 @@ func (t *relayListener) handleInvitations(ctx context.Context, clnt client.Relay
 			conn, err := client.JoinSession(ctx, inv)
 			if err != nil {
 				if !errors.Is(err, context.Canceled) {
-					l.Infoln("Listen (BEP/relay): joining session:", err)
+					slog.InfoContext(ctx, "Failed to join session", slogutil.Error(err))
 				}
 				continue
 			}
 
 			err = dialer.SetTCPOptions(conn)
 			if err != nil {
-				l.Debugln("Listen (BEP/relay): setting tcp options:", err)
+				slog.DebugContext(ctx, "Failed to set TCP options", slogutil.Error(err))
 			}
 
 			err = dialer.SetTrafficClass(conn, t.cfg.Options().TrafficClass)
 			if err != nil {
-				l.Debugln("Listen (BEP/relay): setting traffic class:", err)
+				slog.DebugContext(ctx, "Failed to set traffic class", slogutil.Error(err))
 			}
 
 			var tc *tls.Conn
@@ -102,7 +104,7 @@ func (t *relayListener) handleInvitations(ctx context.Context, clnt client.Relay
 			err = tlsTimedHandshake(tc)
 			if err != nil {
 				tc.Close()
-				l.Infoln("Listen (BEP/relay): TLS handshake:", err)
+				slog.WarnContext(ctx, "Failed TLS handshake", slogutil.Error(err))
 				continue
 			}
 

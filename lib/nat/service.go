@@ -10,15 +10,16 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"log/slog"
 	"math/rand"
 	"net"
 	"slices"
-	stdsync "sync"
+	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // Service runs a loop for discovery of IGDs (Internet Gateway Devices) and
@@ -38,8 +39,6 @@ func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 		id:               id,
 		cfg:              cfg,
 		processScheduled: make(chan struct{}, 1),
-
-		mut: sync.NewRWMutex(),
 	}
 	cfgCopy := cfg.RawCopy()
 	s.CommitConfiguration(cfgCopy, cfgCopy)
@@ -49,11 +48,11 @@ func NewService(id protocol.DeviceID, cfg config.Wrapper) *Service {
 func (s *Service) CommitConfiguration(_, to config.Configuration) bool {
 	s.mut.Lock()
 	if !s.enabled && to.Options.NATEnabled {
-		l.Debugln("Starting NAT service")
+		slog.Debug("Starting NAT service")
 		s.enabled = true
 		s.scheduleProcess()
 	} else if s.enabled && !to.Options.NATEnabled {
-		l.Debugln("Stopping NAT service")
+		slog.Debug("Stopping NAT service")
 		s.enabled = false
 	}
 	s.mut.Unlock()
@@ -64,7 +63,7 @@ func (s *Service) Serve(ctx context.Context) error {
 	s.cfg.Subscribe(s)
 	defer s.cfg.Unsubscribe(s)
 
-	announce := stdsync.Once{}
+	var announce sync.Once
 
 	timer := time.NewTimer(0)
 
@@ -97,11 +96,7 @@ func (s *Service) Serve(ctx context.Context) error {
 		timer.Reset(renewIn)
 		if found != -1 {
 			announce.Do(func() {
-				suffix := "s"
-				if found == 1 {
-					suffix = ""
-				}
-				l.Infoln("Detected", found, "NAT service"+suffix)
+				slog.Info("Detected NAT services", "count", found)
 			})
 		}
 	}
@@ -171,7 +166,6 @@ func (s *Service) NewMapping(protocol Protocol, ipVersion IPVersion, ip net.IP, 
 			Port: port,
 		},
 		extAddresses: make(map[string][]Address),
-		mut:          sync.NewRWMutex(),
 		ipVersion:    ipVersion,
 	}
 
@@ -259,7 +253,7 @@ func (s *Service) verifyExistingLocked(ctx context.Context, mapping *Mapping, na
 			// entry always has the external port.
 			responseAddrs, err := s.tryNATDevice(ctx, nat, mapping.address, extAddrs[0].Port, mapping.protocol, leaseTime)
 			if err != nil {
-				l.Infof("Failed to renew %s -> %v open port on %s: %s", mapping, extAddrs, id, err)
+				slog.WarnContext(ctx, "Failed to renew open port", slog.String("mapping", mapping.String()), slog.Any("addresses", extAddrs), slog.String("id", id), slogutil.Error(err))
 				mapping.removeAddressLocked(id)
 				change = true
 				continue
@@ -311,7 +305,7 @@ func (s *Service) acquireNewLocked(ctx context.Context, mapping *Mapping, nats m
 
 		addrs, err := s.tryNATDevice(ctx, nat, mapping.address, 0, mapping.protocol, leaseTime)
 		if err != nil {
-			l.Infof("Failed to acquire %s open port on %s: %s", mapping, id, err)
+			slog.WarnContext(ctx, "Failed to acquire open port", slog.String("mapping", mapping.String()), slog.String("id", id), slogutil.Error(err))
 			continue
 		}
 

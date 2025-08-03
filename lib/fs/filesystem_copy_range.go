@@ -7,14 +7,13 @@
 package fs
 
 import (
+	"sync"
 	"syscall"
-
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 var (
 	copyRangeMethods = make(map[CopyRangeMethod]copyRangeImplementation)
-	mut              = sync.NewMutex()
+	mut              sync.Mutex
 )
 
 type copyRangeImplementation func(src, dst File, srcOffset, dstOffset, size int64) error

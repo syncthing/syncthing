@@ -300,12 +300,10 @@ func doubleWalkFSWithOtherOps(fsys Filesystem, paths []string, otherOpEvery int,
 	if err := fsys.Walk("/", func(path string, info FileInfo, err error) error {
 		i++
 		if otherOpEvery != 0 && i%otherOpEvery == 0 {
-			// l.Infoln("AAA", otherOpPath)
 			if _, err := fsys.Lstat(otherOpPath); err != nil {
 				return err
 			}
 		}
-		// l.Infoln("CCC", path)
 		return err
 	}); err != nil {
 		return err
@@ -316,11 +314,9 @@ func doubleWalkFSWithOtherOps(fsys Filesystem, paths []string, otherOpEvery int,
 			i++
 			if otherOpEvery != 0 && i%otherOpEvery == 0 {
 				if _, err := fsys.Lstat(otherOpPath); err != nil {
-					// l.Infoln("AAA", otherOpPath)
 					return err
 				}
 			}
-			// l.Infoln("CCC", p)
 			if _, err := fsys.Lstat(p); err != nil {
 				return err
 			}
