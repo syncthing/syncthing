@@ -34,7 +34,7 @@ func (h *formattingHandler) Enabled(context.Context, slog.Level) bool {
 
 func (h *formattingHandler) Handle(_ context.Context, rec slog.Record) error {
 	fr := runtime.CallersFrames([]uintptr{rec.PC})
-	var srcAttrs []slog.Attr
+	var logAttrs []any
 	if fram, _ := fr.Next(); fram.Function != "" {
 		pkgName, typeName := funcNameToPkg(fram.Function)
 		lvl := globalLevels.Get(pkgName)
@@ -42,13 +42,13 @@ func (h *formattingHandler) Handle(_ context.Context, rec slog.Record) error {
 			// Logging not enabled at the record's level
 			return nil
 		}
-		srcAttrs = append(srcAttrs, slog.String("pkg", pkgName))
+		logAttrs = append(logAttrs, slog.String("pkg", pkgName))
 		if lvl <= slog.LevelDebug {
 			// We are debugging, add additional source line data
 			if typeName != "" {
-				srcAttrs = append(srcAttrs, slog.String("type", typeName))
+				logAttrs = append(logAttrs, slog.String("type", typeName))
 			}
-			srcAttrs = append(srcAttrs, slog.String("file", path.Base(fram.File)), slog.Int("line", fram.Line))
+			logAttrs = append(logAttrs, slog.Group("src", slog.String("file", path.Base(fram.File)), slog.Int("line", fram.Line)))
 		}
 	}
 
@@ -61,30 +61,23 @@ func (h *formattingHandler) Handle(_ context.Context, rec slog.Record) error {
 	var sb strings.Builder
 	sb.WriteString(rec.Message)
 
-	var attrCount int
-
-	// Collect all the attributes. Expand groups. Record attributes are
-	// qualified with the handler groups.
-	rec.Attrs(func(a slog.Attr) bool {
-		for _, attr := range expandAttrs("", a) {
-			appendAttr(&sb, prefix, attr, &attrCount)
-		}
+	// Collect all the attributes, adding the handler prefix.
+	attrs := make([]slog.Attr, 0, rec.NumAttrs()+len(h.attrs)+1)
+	rec.Attrs(func(attr slog.Attr) bool {
+		attr.Key = prefix + attr.Key
+		attrs = append(attrs, attr)
 		return true
 	})
+	attrs = append(attrs, h.attrs...)
+	attrs = append(attrs, slog.Group("log", logAttrs...))
 
-	// Add already existing handler attributes; no prefix, because they are
-	// already prefixed.
-	for _, a := range h.attrs {
-		for _, attr := range expandAttrs("", a) {
+	// Expand and format attributes
+	var attrCount int
+	for _, attr := range attrs {
+		for _, attr := range expandAttrs("", attr) {
 			appendAttr(&sb, "", attr, &attrCount)
 		}
 	}
-
-	// Add attributes for the logging package and type name
-	for _, attr := range srcAttrs {
-		appendAttr(&sb, "src.", attr, &attrCount)
-	}
-
 	if attrCount > 0 {
 		sb.WriteRune(')')
 	}
