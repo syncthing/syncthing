@@ -22,30 +22,26 @@ func TestFormattingHandler(t *testing.T) {
 	}
 
 	l := slog.New(h).With("a", "a")
-	l.Info("outer message here", "attr1", "val with spaces", "attr2", 2, "attr3", `val"quote`)
-	l.Info("outer message here", "attr2", 2, "attr1", "val with spaces")
-	l.Info("outer message here", "attr1", "val1", slog.Group("foo", "attr2", 2, slog.Group("bar", "attr3", "3")))
+	l.Info("A basic info line", "attr1", "val with spaces", "attr2", 2, "attr3", `val"quote`)
+	l.Info("An info line with grouped values", "attr1", "val1", slog.Group("foo", "attr2", 2, slog.Group("bar", "attr3", "3")))
 
 	l2 := l.WithGroup("foo")
-	l2.Info("foo group message here", "attr1", "val1", "attr2", 2)
+	l2.Info("An info line with grouped values via logger", "attr1", "val1", "attr2", 2)
 
 	l3 := l2.WithGroup("bar")
-	l3.Info("bar group message here", "attr1", "val1", "attr2", 2)
-	l3.Info("bar group message here", "attr1", "val1", "attr2", 2, "attr1", "replaced")
+	l3.Info("An info line with nested grouped values via logger", "attr1", "val1", "attr2", 2)
 
-	l3.Debug("debug")
-	l3.Warn("warn")
-	l3.Error("error")
+	l3.Debug("A debug entry")
+	l3.Warn("A warning entry")
+	l3.Error("An error")
 
 	exp := `
-2009-02-13 23:31:30 INF outer message here (attr1="val with spaces" attr2=2 attr3="val\"quote" a=a log.pkg=slogutil)
-2009-02-13 23:31:30 INF outer message here (attr2=2 attr1="val with spaces" a=a log.pkg=slogutil)
-2009-02-13 23:31:30 INF outer message here (attr1=val1 foo.attr2=2 foo.bar.attr3=3 a=a log.pkg=slogutil)
-2009-02-13 23:31:30 INF foo group message here (foo.attr1=val1 foo.attr2=2 a=a log.pkg=slogutil)
-2009-02-13 23:31:30 INF bar group message here (bar.foo.attr1=val1 bar.foo.attr2=2 a=a log.pkg=slogutil)
-2009-02-13 23:31:30 INF bar group message here (bar.foo.attr1=val1 bar.foo.attr2=2 bar.foo.attr1=replaced a=a log.pkg=slogutil)
-2009-02-13 23:31:30 WRN warn (a=a log.pkg=slogutil)
-2009-02-13 23:31:30 ERR error (a=a log.pkg=slogutil)`
+2009-02-13 23:31:30 INF A basic info line (attr1="val with spaces" attr2=2 attr3="val\"quote" a=a log.pkg=slogutil)
+2009-02-13 23:31:30 INF An info line with grouped values (attr1=val1 foo.attr2=2 foo.bar.attr3=3 a=a log.pkg=slogutil)
+2009-02-13 23:31:30 INF An info line with grouped values via logger (foo.attr1=val1 foo.attr2=2 a=a log.pkg=slogutil)
+2009-02-13 23:31:30 INF An info line with nested grouped values via logger (bar.foo.attr1=val1 bar.foo.attr2=2 a=a log.pkg=slogutil)
+2009-02-13 23:31:30 WRN A warning entry (a=a log.pkg=slogutil)
+2009-02-13 23:31:30 ERR An error (a=a log.pkg=slogutil)`
 
 	if strings.TrimSpace(buf.String()) != strings.TrimSpace(exp) {
 		t.Log(buf.String())
