@@ -552,7 +552,7 @@ func (c *serveCmd) syncthingMain() {
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
-			slog.Error("Starting profile", slogutil.Error(err))
+			slog.Error("Failed to start profile", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 	}
