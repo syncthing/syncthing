@@ -548,7 +548,7 @@ func (c *serveCmd) syncthingMain() {
 	if c.DebugProfileCPU {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
-			slog.Error("Creating profile", slogutil.Error(err))
+			slog.Error("Failed to create profile", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
