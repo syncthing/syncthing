@@ -640,7 +640,7 @@ func auditWriter(auditFile string) io.Writer {
 		}
 		fd, err = os.OpenFile(auditFile, auditFlags, 0o600)
 		if err != nil {
-			slog.Error("Audit", slogutil.Error(err))
+			slog.Error("Failed to open audit file", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 		auditDest = auditFile
