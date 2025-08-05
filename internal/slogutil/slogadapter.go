@@ -67,5 +67,5 @@ func (a adapter) log(msg string, level slog.Level) {
 }
 
 func (a adapter) ShouldDebug(facility string) bool {
-	return globalLevels.Get(facility) >= slog.LevelDebug
+	return globalLevels.Get(facility) <= slog.LevelDebug
 }

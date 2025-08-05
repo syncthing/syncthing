@@ -11,5 +11,5 @@ import "github.com/syncthing/syncthing/internal/slogutil"
 var l = slogutil.NewAdapter("Main run facility")
 
 func shouldDebug() bool {
-	return l.ShouldDebug("app")
+	return l.ShouldDebug("syncthing")
 }
