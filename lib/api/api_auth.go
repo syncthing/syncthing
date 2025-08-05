@@ -45,11 +45,11 @@ func emitLoginAttempt(success bool, username string, r *http.Request, evLogger e
 	if success {
 		return
 	}
-	l := slog.Default()
+	l := slog.Default().With(slogutil.Address(remoteAddress), slog.String("username", username))
 	if proxy != "" {
 		l = l.With("proxy", proxy)
 	}
-	l.Warn("Bad credentials supplied during API authorization", "address", remoteAddress)
+	l.Warn("Bad credentials supplied during API authorization")
 }
 
 func remoteAddress(r *http.Request) (remoteAddr, proxy string) {
