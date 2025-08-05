@@ -58,7 +58,7 @@ type service interface {
 	DelayScan(d time.Duration)
 	ScheduleScan()
 	SchedulePull()                                    // something relevant changed, we should try a pull
-	Jobs(page, perpage int) ([]string, []string, int) // In progress, Queued, skipped
+	Jobs(page, perpage int) ([]string, []string, []string, int) // In progress, queued, rest, skipped
 	Scan(subs []string) error
 	Errors() []FileError
 	WatchError() error
@@ -994,74 +994,59 @@ func (m *model) FolderProgressBytesCompleted(folder string) int64 {
 	return m.progressEmitter.BytesCompleted(folder)
 }
 
-// NeedFolderFiles returns paginated list of currently needed files in
-// progress, queued, and to be queued on next puller iteration.
+// NeedFolderFiles returns needed files, split into ones currently in progress
+// and the rest. Paging is accross both lists with in-progress first.
 func (m *model) NeedFolderFiles(folder string, page, perpage int) ([]protocol.FileInfo, []protocol.FileInfo, []protocol.FileInfo, error) {
 	m.mut.RLock()
 	runner, runnerOk := m.folderRunners.Get(folder)
-	cfg, cfgOK := m.folderCfgs[folder]
+	_, cfgOK := m.folderCfgs[folder]
 	m.mut.RUnlock()
 
 	if !cfgOK {
 		return nil, nil, nil, ErrFolderMissing
 	}
 
-	var progress, queued, rest []protocol.FileInfo
+	if !runnerOk {
+		return nil, nil, nil, ErrFolderPaused
+	}
+
 	var seen map[string]struct{}
 
 	p := newPager(page, perpage)
 
-	if runnerOk {
-		progressNames, queuedNames, skipped := runner.Jobs(page, perpage)
+	progressNames, queuedNames, restNames, skipped := runner.Jobs(page, perpage)
 
-		progress = make([]protocol.FileInfo, len(progressNames))
-		queued = make([]protocol.FileInfo, len(queuedNames))
-		seen = make(map[string]struct{}, len(progressNames)+len(queuedNames))
+	progress := make([]protocol.FileInfo, len(progressNames))
+	queued := make([]protocol.FileInfo, len(queuedNames))
+	rest := make([]protocol.FileInfo, len(restNames))
+	seen = make(map[string]struct{}, len(progressNames)+len(queuedNames))
 
-		for i, name := range progressNames {
-			if f, ok, err := m.sdb.GetGlobalFile(folder, name); err == nil && ok {
-				progress[i] = f
-				seen[name] = struct{}{}
-			}
-		}
-
-		for i, name := range queuedNames {
-			if f, ok, err := m.sdb.GetGlobalFile(folder, name); err == nil && ok {
-				queued[i] = f
-				seen[name] = struct{}{}
-			}
-		}
-
-		p.get -= len(seen)
-		if p.get == 0 {
-			return progress, queued, nil, nil
-		}
-		p.toSkip -= skipped
-	}
-
-	if p.get > 0 {
-		rest = make([]protocol.FileInfo, 0, p.get)
-		it, errFn := m.sdb.AllNeededGlobalFiles(folder, protocol.LocalDeviceID, config.PullOrderAlphabetic, 0, 0)
-		for f := range it {
-			if cfg.IgnoreDelete && f.IsDeleted() {
-				continue
-			}
-
-			if p.skip() {
-				continue
-			}
-			if _, ok := seen[f.Name]; !ok {
-				rest = append(rest, f)
-				p.get--
-			}
-			if p.get == 0 {
-				break
-			}
-		}
-		if err := errFn(); err != nil {
-			return nil, nil, nil, err
+	for i, name := range progressNames {
+		if f, ok, err := m.sdb.GetGlobalFile(folder, name); err == nil && ok {
+			progress[i] = f
+			seen[name] = struct{}{}
 		}
 	}
+
+	for i, name := range queuedNames {
+		if f, ok, err := m.sdb.GetGlobalFile(folder, name); err == nil && ok {
+			queued[i] = f
+			seen[name] = struct{}{}
+		}
+	}
+
+	for i, name := range restNames {
+		if f, ok, err := m.sdb.GetGlobalFile(folder, name); err == nil && ok {
+			rest[i] = f
+			seen[name] = struct{}{}
+		}
+	}
+
+	p.get -= len(seen)
+	if p.get == 0 {
+		return progress, queued, nil, nil
+	}
+	p.toSkip -= skipped
 
 	return progress, queued, rest, nil
 }

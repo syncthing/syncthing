@@ -13,12 +13,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -132,11 +134,23 @@ type sendReceiveFolder struct {
 func newSendReceiveFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
 	f := &sendReceiveFolder{
 		folder:             newFolder(model, ignores, cfg, evLogger, ioLimiter, ver),
-		queue:              newJobQueue(),
 		blockPullReorderer: newBlockPullReorderer(cfg.BlockPullOrder, model.id, cfg.DeviceIDs()),
 		writeLimiter:       semaphore.New(cfg.MaxConcurrentWrites),
 	}
 	f.puller = f
+	f.queue = newJobQueue(func(name string) (protocol.FileInfo, bool) {
+		global, ok, err := f.model.sdb.GetGlobalFile(f.folderID, name)
+		if !ok || err != nil || global.LocalFlags & protocol.FlagLocalNeeded == 0 {
+			return protocol.FileInfo{}, false
+		}
+		return global, true
+	}, func() iter.Seq2[db.FileMetadata, error] {
+		it, errFn := f.model.sdb.AllNeededGlobalFileMetadataLocal(f.folderID, f.Order, 0, 0)
+		if f.IgnoreDelete {
+			it = filterDeleted(it)
+		}
+		return itererr.Zip(it, errFn)
+	})
 
 	if f.Copiers == 0 {
 		f.Copiers = defaultCopiers
@@ -282,7 +296,7 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 		doneWg.Done()
 	}()
 
-	changed, fileDeletions, dirDeletions, err := f.processNeeded(dbUpdateChan, copyChan, scanChan)
+	changed, err := f.processNeeded(dbUpdateChan, copyChan, scanChan)
 
 	// Signal copy and puller routines that we are done with the in data for
 	// this iteration. Wait for them to finish.
@@ -296,8 +310,8 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 	close(finisherChan)
 	doneWg.Wait()
 
-	if err == nil {
-		f.processDeletions(fileDeletions, dirDeletions, dbUpdateChan, scanChan)
+	if err == nil && !f.IgnoreDelete {
+		f.processDeletions(dbUpdateChan, scanChan)
 	}
 
 	// Wait for db updates and scan scheduling to complete
@@ -309,30 +323,70 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 	return changed, err
 }
 
-func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
-	changed := 0
-	var dirDeletions []protocol.FileInfo
-	fileDeletions := map[string]protocol.FileInfo{}
-	buckets := map[string][]protocol.FileInfo{}
+func (f *sendReceiveFolder) processNeeded(dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, error) {
+	// Iterate the list of items that we need a first time.
+	// Create directories and handle items other than files, as the dirs need to
+	// exist first. File deletions are skipped too, a those could be used for
+	// renames.
+	changed, err := f.processNeededExcludingFilesAndDeletions(dbUpdateChan, scanChan)
+	if err != nil {
+		return changed, err
+	}
 
-	// Iterate the list of items that we need and sort them into piles.
-	// Regular files to pull goes into the file queue, everything else
-	// (directories, symlinks and deletes) goes into the "process directly"
-	// pile.
-loop:
-	for file, err := range itererr.Zip(f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, f.Order, 0, 0)) {
+	it, errFn := f.iterAllNeeded(f.Order)
+	if f.IgnoreDelete {
+		it = filterDeleted(it)
+	}
+	for needed, err := range itererr.Zip(it, errFn) {
 		if err != nil {
-			return changed, nil, nil, err
+			return changed, err
+		}
+
+		// Handle any files the user pushed to the front first.
+		for {
+			select {
+			case <-f.ctx.Done():
+				return changed, f.ctx.Err()
+			default:
+			}
+
+			prioritized, ok := f.queue.StartPrioritized()
+			if !ok {
+				break
+			}
+
+			if err := f.processFile(prioritized, scanChan, dbUpdateChan, copyChan); err != nil {
+				return changed, err
+			}
+		}
+
+		f.queue.Start(needed.Name)
+		if err := f.processFile(needed, scanChan, dbUpdateChan, copyChan); err != nil {
+			return changed, err
+		}
+	}
+
+	return changed, nil
+}
+
+// Handles all the items that can be dealt with quickly, i.e.
+// that don't need copying/pulling of data. Also doesn't do deletions, that
+// happens at the end.
+func (f *sendReceiveFolder) processNeededExcludingFilesAndDeletions(dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) (int, error) {
+	changed := 0
+
+	it, errFn := f.iterAllNeeded(f.Order)
+	if f.IgnoreDelete {
+		it = filterDeleted(it)
+	}
+	for file, err := range itererr.Zip(it, errFn) {
+		if err != nil {
+			return 0, err
 		}
 		select {
 		case <-f.ctx.Done():
-			break loop
+			return 0, f.ctx.Err()
 		default:
-		}
-
-		if f.IgnoreDelete && file.IsDeleted() {
-			l.Debugln(f, "ignore file deletion (config)", file.FileName())
-			continue
 		}
 
 		changed++
@@ -359,46 +413,15 @@ loop:
 			}
 
 		case file.IsDeleted():
-			switch {
-			case file.IsDirectory():
-				// Perform directory deletions at the end, as we may have
-				// files to delete inside them before we get to that point.
-				dirDeletions = append(dirDeletions, file)
-			case file.IsSymlink():
+			if file.IsSymlink() {
 				f.deleteFile(file, dbUpdateChan, scanChan)
-			default:
-				df, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
-				if err != nil {
-					return changed, nil, nil, err
-				}
-				// Local file can be already deleted, but with a lower version
-				// number, hence the deletion coming in again as part of
-				// WithNeed, furthermore, the file can simply be of the wrong
-				// type if we haven't yet managed to pull it.
-				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
-					fileDeletions[file.Name] = file
-					// Put files into buckets per first hash
-					key := string(df.BlocksHash)
-					buckets[key] = append(buckets[key], df)
-				} else {
-					f.deleteFileWithCurrent(file, df, ok, dbUpdateChan, scanChan)
-				}
 			}
+			// Perform directory and file deletions at the end.
+			// Files we may be able to use for renames. And for directories we
+			// may have files to delete inside them before we get to that point.
 
 		case file.Type == protocol.FileInfoTypeFile:
-			curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
-			if err != nil {
-				return changed, nil, nil, err
-			}
-			if hasCurFile && file.BlocksEqual(curFile) {
-				// We are supposed to copy the entire file, and then fetch nothing. We
-				// are only updating metadata, so we don't actually *need* to make the
-				// copy.
-				f.shortcutFile(file, dbUpdateChan)
-			} else {
-				// Queue files for processing after directories and symlinks.
-				f.queue.Push(file.Name, file.Size, file.ModTime())
-			}
+			// Files are handled in a second go, after this round created all directories.
 
 		case (build.IsWindows || build.IsAndroid) && file.IsSymlink():
 			if err := f.handleSymlinkCheckExisting(file, scanChan); err != nil {
@@ -427,116 +450,137 @@ loop:
 		}
 	}
 
-	select {
-	case <-f.ctx.Done():
-		return changed, nil, nil, f.ctx.Err()
-	default:
+	return changed, nil
+}
+
+func (f *sendReceiveFolder) processFile(fi protocol.FileInfo, scanChan chan<- string, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState) error {
+	if fi.IsDeleted() || fi.IsInvalid() || fi.Type != protocol.FileInfoTypeFile {
+		// The item has changed type or status in the index while we
+		// were processing directories above.
+		f.queue.Done(fi.Name)
+		return nil
 	}
 
-	// Process the file queue.
+	if !f.checkParent(fi.Name, scanChan) {
+		f.queue.Done(fi.Name)
+		return nil
+	}
 
-nextFile:
-	for {
+	curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, fi.Name)
+	if err != nil {
+		f.queue.Done(fi.Name)
+		return err
+	}
+	if hasCurFile && fi.BlocksEqual(curFile) {
+		// We are supposed to copy the entire file, and then fetch nothing. We
+		// are only updating metadata, so we don't actually *need* to make the
+		// copy.
+		f.shortcutFile(fi, dbUpdateChan)
+		return nil
+	}
+
+	// Check if there's any identical local files that need to be deleted, in
+	// which case we can just do a rename instead.
+	for candidateMetadata, err := range itererr.Zip(f.model.sdb.AllLocalFilesWithBlocksHash(f.folderID, fi.BlocksHash)) {
+		if err != nil {
+			f.queue.Done(fi.Name)
+			return err
+		}
+
+		// I wouldn't expect a result from `AllLocalFilesWithBlocksHash` if any
+		// of the following applies, but in principle it's possible so lets keep
+		// these checks:
+		// Local file can be already deleted, but with a lower version
+		// number, hence the deletion coming in again as part of
+		// WithNeed, furthermore, the file can simply be of the wrong
+		// type if we haven't yet managed to pull it.
+		if candidateMetadata.Deleted || candidateMetadata.Type != protocol.FileInfoTypeFile || candidateMetadata.LocalFlags.IsInvalid() {
+			continue
+		}
+
+		desired, ok, err := f.model.sdb.GetGlobalFile(f.folderID, candidateMetadata.Name)
+		if err != nil {
+			f.queue.Done(fi.Name)
+			return err
+		}
+		if !ok || !desired.IsDeleted() || desired.LocalFlags&protocol.FlagLocalNeeded == 0 {
+			continue
+		}
+
+		candidate, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, candidateMetadata.Name)
+		if err != nil {
+			f.queue.Done(fi.Name)
+			return err
+		}
+		if !ok || candidateMetadata.Sequence != candidate.Sequence {
+			// Shouldn't be possible, as nothing else should be writing to the
+			// DB for this folder and local device at the same time
+			continue
+		}
+
+		if err := f.renameFile(candidate, desired, fi, dbUpdateChan, scanChan); err != nil {
+			l.Debugf("rename shortcut for %s failed: %s", fi.Name, err.Error())
+			// Failed to rename, try next one.
+			continue
+		}
+
+		f.queue.Done(fi.Name)
+		return nil
+	}
+
+	devices := f.model.fileAvailability(f.FolderConfiguration, fi)
+	if len(devices) > 0 {
+		if err := f.handleFile(fi, curFile, hasCurFile, copyChan); err != nil {
+			f.newPullError(fi.Name, err)
+		}
+		return nil
+	}
+	f.newPullError(fi.Name, errNotAvailable)
+	f.queue.Done(fi.Name)
+	return nil
+}
+
+func (f *sendReceiveFolder) processDeletions(dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+	// Process in reverse order to delete depth first
+	for needed, err := range itererr.Zip(f.iterAllNeeded(config.PullOrderAlphabeticInverse)) {
+		if err != nil {
+			return
+		}
+
 		select {
 		case <-f.ctx.Done():
-			return changed, fileDeletions, dirDeletions, f.ctx.Err()
+			return
 		default:
 		}
 
-		fileName, ok := f.queue.Pop()
-		if !ok {
-			break
-		}
-
-		fi, ok, err := f.model.sdb.GetGlobalFile(f.folderID, fileName)
-		if err != nil {
-			return changed, nil, nil, err
-		}
-		if !ok {
-			// File is no longer in the index. Mark it as done and drop it.
-			f.queue.Done(fileName)
+		if !needed.IsDeleted() {
 			continue
 		}
 
-		if fi.IsDeleted() || fi.IsInvalid() || fi.Type != protocol.FileInfoTypeFile {
-			// The item has changed type or status in the index while we
-			// were processing directories above.
-			f.queue.Done(fileName)
-			continue
+		switch {
+		case needed.IsDirectory():
+			l.Debugln(f, "Deleting dir", needed.Name)
+			f.deleteDir(needed, dbUpdateChan, scanChan)
+		case needed.Type == protocol.FileInfoTypeFile:
+			f.deleteFile(needed, dbUpdateChan, scanChan)
 		}
+	}
+}
 
-		if !f.checkParent(fi.Name, scanChan) {
-			f.queue.Done(fileName)
-			continue
-		}
+func (f *sendReceiveFolder) iterAllNeeded(order config.PullOrder) (iter.Seq[protocol.FileInfo], func() error) {
+	return f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, order, 0, 0)
+}
 
-		// Check our list of files to be removed for a match, in which case
-		// we can just do a rename instead.
-		key := string(fi.BlocksHash)
-		for candidate, ok := popCandidate(buckets, key); ok; candidate, ok = popCandidate(buckets, key) {
-			// candidate is our current state of the file, where as the
-			// desired state with the delete bit set is in the deletion
-			// map.
-			desired := fileDeletions[candidate.Name]
-			if err := f.renameFile(candidate, desired, fi, dbUpdateChan, scanChan); err != nil {
-				l.Debugf("rename shortcut for %s failed: %s", fi.Name, err.Error())
-				// Failed to rename, try next one.
+func filterDeleted[T interface{ IsDeleted() bool }](it iter.Seq[T]) iter.Seq[T] {
+	return func(yield func(T) bool) {
+		for file := range it {
+			if file.IsDeleted() {
 				continue
 			}
-
-			// Remove the pending deletion (as we performed it by renaming)
-			delete(fileDeletions, candidate.Name)
-
-			f.queue.Done(fileName)
-			continue nextFile
-		}
-
-		devices := f.model.fileAvailability(f.FolderConfiguration, fi)
-		if len(devices) > 0 {
-			if err := f.handleFile(fi, copyChan); err != nil {
-				f.newPullError(fileName, err)
+			if !yield(file) {
+				return
 			}
-			continue
 		}
-		f.newPullError(fileName, errNotAvailable)
-		f.queue.Done(fileName)
-	}
-
-	return changed, fileDeletions, dirDeletions, nil
-}
-
-func popCandidate(buckets map[string][]protocol.FileInfo, key string) (protocol.FileInfo, bool) {
-	cands := buckets[key]
-	if len(cands) == 0 {
-		return protocol.FileInfo{}, false
-	}
-
-	buckets[key] = cands[1:]
-	return cands[0], true
-}
-
-func (f *sendReceiveFolder) processDeletions(fileDeletions map[string]protocol.FileInfo, dirDeletions []protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
-	for _, file := range fileDeletions {
-		select {
-		case <-f.ctx.Done():
-			return
-		default:
-		}
-
-		f.deleteFile(file, dbUpdateChan, scanChan)
-	}
-
-	// Process in reverse order to delete depth first
-	for i := range dirDeletions {
-		select {
-		case <-f.ctx.Done():
-			return
-		default:
-		}
-
-		dir := dirDeletions[len(dirDeletions)-i-1]
-		l.Debugln(f, "Deleting dir", dir.Name)
-		f.deleteDir(dir, dbUpdateChan, scanChan)
 	}
 }
 
@@ -851,13 +895,6 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, dbUpdateChan chan
 		f.newPullError(file.Name, fmt.Errorf("delete file: %w", err))
 		return
 	}
-	f.deleteFileWithCurrent(file, cur, hasCur, dbUpdateChan, scanChan)
-}
-
-func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, hasCur bool, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
-	// Used in the defer closure below, updated by the function body. Take
-	// care not declare another err.
-	var err error
 
 	l.Debugln(f, "Deleting file", file.Name)
 
@@ -1095,12 +1132,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
-func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState) error {
-	curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
-	if err != nil {
-		return err
-	}
-
+func (f *sendReceiveFolder) handleFile(file, curFile protocol.FileInfo, hasCurFile bool, copyChan chan<- copyBlocksState) error {
 	have, _ := blockDiff(curFile.Blocks, file.Blocks)
 
 	tempName := fs.TempName(file.Name)
@@ -1699,7 +1731,7 @@ func (f *sendReceiveFolder) BringToFront(filename string) {
 	f.queue.BringToFront(filename)
 }
 
-func (f *sendReceiveFolder) Jobs(page, perpage int) ([]string, []string, int) {
+func (f *sendReceiveFolder) Jobs(page, perpage int) ([]string, []string, []string, int) {
 	return f.queue.Jobs(page, perpage)
 }
 
