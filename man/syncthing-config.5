@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Jul 21, 2025" "v1.29.7" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Aug 01, 2025" "v1.29.7" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -555,7 +555,8 @@ delete files from other devices.  The mechanism is described in a
 .TP
 .B scanProgressIntervalS
 The interval in seconds with which scan progress information is sent to the GUI. Setting to \fB0\fP
-will cause Syncthing to use the default value of two.
+will cause Syncthing to use the default value of two. If you don’t
+need to see scan progress, set this to \fB\-1\fP to disable it.
 .UNINDENT
 .INDENT 0.0
 .TP
