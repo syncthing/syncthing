@@ -387,7 +387,7 @@ func clean(ctx context.Context, versionsFs fs.Filesystem, toRemove func([]string
 
 	if err := versionsFs.Walk(".", walkFn); err != nil {
 		if !errors.Is(err, context.Canceled) {
-			slog.Warn("Failed to scan versions directory", slogutil.Error(err))
+			slog.WarnContext(ctx, "Failed to scan versions directory", slogutil.Error(err))
 		}
 		return err
 	}

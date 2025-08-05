@@ -178,7 +178,7 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 
 	miscDB := db.NewMiscDB(sdb)
 	if when, ok, err := miscDB.Time("migrated-from-leveldb-at"); err == nil && ok {
-		slog.Error("Old-style database present but already migrated; please manually move or remove.", slog.Any("migrated-at", when), slogutil.FilePath(oldDBDir))
+		slog.Error("Old-style database present but already migrated; please manually move or remove.", slog.Any("migratedAt", when), slogutil.FilePath(oldDBDir))
 		return nil
 	}
 
