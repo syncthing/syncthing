@@ -707,7 +707,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 		slog.Info("Automatic upgrade", "current", build.Version, "latest", rel.Tag)
 		err = upgrade.To(rel)
 		if err != nil {
-			slog.Error("Automatic upgrade", slogutil.Error(err))
+			slog.Error("Automatic upgrade failed", slogutil.Error(err))
 			timer.Reset(checkInterval)
 			continue
 		}
