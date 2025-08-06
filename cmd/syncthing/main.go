@@ -78,8 +78,8 @@ above.
 
  STTRACE           A comma separated string of packages to trace or change log
                    level for. The valid package strings are listed below. A log
-				   level (DEBUG, INFO, WARN or ERROR) can be added after each
-				   package, separated by a colon. Ex: "model:WARN,nat:DEBUG".
+                   level (DEBUG, INFO, WARN or ERROR) can be added after each
+                   package, separated by a colon. Ex: "model:WARN,nat:DEBUG".
 
  STVERSIONEXTRA    Add extra information to the version string in logs and the
                    version line in the GUI. Can be set to the name of a wrapper
@@ -160,9 +160,9 @@ type serveCmd struct {
 	GUIAPIKey                 string        `name:"gui-apikey" help:"Override GUI API key" placeholder:"API-KEY" env:"STGUIAPIKEY"`
 	LogFile                   string        `name:"logfile" help:"Log file name (see below)" default:"${logFile}" placeholder:"PATH" env:"STLOGFILE"`
 	LogFlags                  int           `name:"logflags" help:"Deprecated option that does nothing, kept for compatibility" hidden:""`
+	LogLevel                  slog.Level    `help:"Log level for all packages (DEBUG,INFO,WARN,ERROR)" env:"STLOGLEVEL" default:"INFO"`
 	LogMaxFiles               int           `name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)" default:"${logMaxFiles}" placeholder:"N" env:"STLOGMAXOLDFILES"`
 	LogMaxSize                int           `help:"Maximum size of any file (zero to disable log rotation)" default:"${logMaxSize}" placeholder:"BYTES" env:"STLOGMAXSIZE"`
-	LogLevel                  slog.Level    `help:"Log level for all packages (DEBUG,INFO,WARN,ERROR)" env:"STLOGLEVEL" default:"INFO"`
 	NoBrowser                 bool          `help:"Do not start browser" env:"STNOBROWSER"`
 	NoPortProbing             bool          `help:"Don't try to find free ports for GUI and listen addresses on first startup" env:"STNOPORTPROBING"`
 	NoRestart                 bool          `help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash" env:"STNORESTART"`
