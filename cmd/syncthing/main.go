@@ -63,7 +63,7 @@ const (
 const (
 	extraUsage = `
 Logging always happens to the command line (stdout) and optionally to the
-file at the path specified by --logfile=path. In addition to an path, the special
+file at the path specified by --log-file=path. In addition to an path, the special
 values "default" and "-" may be used. The former logs to DATADIR/syncthing.log
 (see --data), which is the default on Windows, and the latter only to stdout,
 no file, which is the default anywhere else.
@@ -158,7 +158,7 @@ type serveCmd struct {
 	DBDeleteRetentionInterval time.Duration `help:"Database deleted item retention interval" default:"4320h" env:"STDBDELETERETENTIONINTERVAL"`
 	GUIAddress                string        `name:"gui-address" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")" placeholder:"URL" env:"STGUIADDRESS"`
 	GUIAPIKey                 string        `name:"gui-apikey" help:"Override GUI API key" placeholder:"API-KEY" env:"STGUIAPIKEY"`
-	LogFile                   string        `name:"logfile" help:"Log file name (see below)" default:"${logFile}" placeholder:"PATH" env:"STLOGFILE"`
+	LogFile                   string        `name:"log-file" aliases:"logfile" help:"Log file name (see below)" default:"${logFile}" placeholder:"PATH" env:"STLOGFILE"`
 	LogFlags                  int           `name:"logflags" help:"Deprecated option that does nothing, kept for compatibility" hidden:""`
 	LogLevel                  slog.Level    `help:"Log level for all packages (DEBUG,INFO,WARN,ERROR)" env:"STLOGLEVEL" default:"INFO"`
 	LogMaxFiles               int           `name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)" default:"${logMaxFiles}" placeholder:"N" env:"STLOGMAXOLDFILES"`
