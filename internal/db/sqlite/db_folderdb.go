@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"time"
@@ -78,7 +79,7 @@ func (s *DB) getFolderDB(folder string, create bool) (*folderDB, error) {
 		}
 	}
 
-	l.Debugf("Folder %s in database %s", folder, dbName)
+	slog.Debug("Folder database opened", "folder", folder, "db", dbName)
 	path := dbName
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(s.pathBase, dbName)

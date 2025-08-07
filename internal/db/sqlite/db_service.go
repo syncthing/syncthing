@@ -9,10 +9,12 @@ package sqlite
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/thejerf/suture/v4"
 )
 
@@ -56,7 +58,7 @@ func (s *Service) Serve(ctx context.Context) error {
 	if wait < 0 {
 		wait = time.Minute
 	}
-	l.Debugln("Next periodic run in", wait)
+	slog.DebugContext(ctx, "Next periodic run due", "after", wait)
 
 	timer := time.NewTimer(wait)
 	for {
@@ -71,17 +73,17 @@ func (s *Service) Serve(ctx context.Context) error {
 		}
 
 		timer.Reset(s.maintenanceInterval)
-		l.Debugln("Next periodic run in", s.maintenanceInterval)
+		slog.DebugContext(ctx, "Next periodic run due", "after", s.maintenanceInterval)
 		_ = s.internalMeta.PutTime(lastMaintKey, time.Now())
 	}
 }
 
 func (s *Service) periodic(ctx context.Context) error {
 	t0 := time.Now()
-	l.Debugln("Periodic start")
+	slog.DebugContext(ctx, "Periodic start")
 
 	t1 := time.Now()
-	defer func() { l.Debugln("Periodic done in", time.Since(t1), "+", t1.Sub(t0)) }()
+	defer func() { slog.DebugContext(ctx, "Periodic done in", "t1", time.Since(t1), "t0t1", t1.Sub(t0)) }()
 
 	s.sdb.updateLock.Lock()
 	err := tidy(ctx, s.sdb.sql)
@@ -94,7 +96,7 @@ func (s *Service) periodic(ctx context.Context) error {
 		fdb.updateLock.Lock()
 		defer fdb.updateLock.Unlock()
 
-		if err := garbageCollectOldDeletedLocked(fdb); err != nil {
+		if err := garbageCollectOldDeletedLocked(ctx, fdb); err != nil {
 			return wrap(err)
 		}
 		if err := garbageCollectBlocklistsAndBlocksLocked(ctx, fdb); err != nil {
@@ -118,15 +120,16 @@ func tidy(ctx context.Context, db *sqlx.DB) error {
 	return nil
 }
 
-func garbageCollectOldDeletedLocked(fdb *folderDB) error {
+func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB) error {
+	l := slog.With("fdb", fdb.baseDB)
 	if fdb.deleteRetention <= 0 {
-		l.Debugln(fdb.baseName, "delete retention is infinite, skipping cleanup")
+		slog.DebugContext(ctx, "Delete retention is infinite, skipping cleanup")
 		return nil
 	}
 
 	// Remove deleted files that are marked as not needed (we have processed
 	// them) and they were deleted more than MaxDeletedFileAge ago.
-	l.Debugln(fdb.baseName, "forgetting deleted files older than", fdb.deleteRetention)
+	l.DebugContext(ctx, "Forgetting deleted files", "retention", fdb.deleteRetention)
 	res, err := fdb.stmt(`
 		DELETE FROM files
 		WHERE deleted AND modified < ? AND local_flags & {{.FlagLocalNeeded}} == 0
@@ -135,7 +138,7 @@ func garbageCollectOldDeletedLocked(fdb *folderDB) error {
 		return wrap(err)
 	}
 	if aff, err := res.RowsAffected(); err == nil {
-		l.Debugln(fdb.baseName, "removed old deleted file records:", aff)
+		l.DebugContext(ctx, "Removed old deleted file records", "affected", aff)
 	}
 	return nil
 }
@@ -176,9 +179,14 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 			SELECT 1 FROM files WHERE files.blocklist_hash = blocklists.blocklist_hash
 		)`); err != nil {
 		return wrap(err, "delete blocklists")
-	} else if shouldDebug() {
-		rows, err := res.RowsAffected()
-		l.Debugln(fdb.baseName, "blocklist GC:", rows, err)
+	} else {
+		slog.DebugContext(ctx, "Blocklist GC", "fdb", fdb.baseName, "result", slogutil.Expensive(func() any {
+			rows, err := res.RowsAffected()
+			if err != nil {
+				return slogutil.Error(err)
+			}
+			return slog.Int64("rows", rows)
+		}))
 	}
 
 	if res, err := tx.ExecContext(ctx, `
@@ -187,9 +195,14 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 			SELECT 1 FROM blocklists WHERE blocklists.blocklist_hash = blocks.blocklist_hash
 		)`); err != nil {
 		return wrap(err, "delete blocks")
-	} else if shouldDebug() {
-		rows, err := res.RowsAffected()
-		l.Debugln(fdb.baseName, "blocks GC:", rows, err)
+	} else {
+		slog.DebugContext(ctx, "Blocks GC", "fdb", fdb.baseName, "result", slogutil.Expensive(func() any {
+			rows, err := res.RowsAffected()
+			if err != nil {
+				return slogutil.Error(err)
+			}
+			return slog.Int64("rows", rows)
+		}))
 	}
 
 	return wrap(tx.Commit())

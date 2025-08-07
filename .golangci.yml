@@ -60,6 +60,16 @@ linters:
       - builtin$
       - examples$
       - _test\.go$
+    rules:
+      # relax the slog rules for debug lines, for now
+      - linters: [sloglint]
+        source: Debug
+  settings:
+    sloglint:
+      context: "scope"
+      static-msg: true
+      msg-style: capitalized
+      key-naming-case: camel
 formatters:
   enable:
     - gofumpt

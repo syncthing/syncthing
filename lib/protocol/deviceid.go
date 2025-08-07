@@ -13,6 +13,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 )
 
@@ -79,6 +80,14 @@ func (n DeviceID) String() string {
 	}
 	id = chunkify(id)
 	return id
+}
+
+func (n DeviceID) LogAttr() slog.Attr {
+	return slog.Any("device", n.LogValue())
+}
+
+func (n DeviceID) LogValue() slog.Value {
+	return slog.StringValue(n.Short().String())
 }
 
 func (n DeviceID) GoString() string {

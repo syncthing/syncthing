@@ -7,10 +7,11 @@
 package model
 
 import (
+	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type folderState int
@@ -94,7 +95,6 @@ func newStateTracker(id string, evLogger events.Logger) stateTracker {
 	return stateTracker{
 		folderID: id,
 		evLogger: evLogger,
-		mut:      sync.NewMutex(),
 	}
 }
 
@@ -115,12 +115,6 @@ func (s *stateTracker) setState(newState folderState) {
 		metricFolderState.WithLabelValues(s.folderID).Set(float64(s.current))
 	}()
 
-	/* This should hold later...
-	if s.current != FolderIdle && (newState == FolderScanning || newState == FolderSyncing) {
-		panic("illegal state transition " + s.current.String() + " -> " + newState.String())
-	}
-	*/
-
 	eventData := map[string]interface{}{
 		"folder": s.folderID,
 		"to":     newState.String(),
@@ -135,6 +129,7 @@ func (s *stateTracker) setState(newState folderState) {
 	s.changed = time.Now().Truncate(time.Second)
 
 	s.evLogger.Log(events.StateChanged, eventData)
+	slog.Info("Folder changed state", "folder", s.folderID, "state", newState)
 }
 
 // getState returns the current state, the time when it last changed, and the

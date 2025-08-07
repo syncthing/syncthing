@@ -17,6 +17,7 @@ import (
 	"runtime/pprof"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -28,7 +29,6 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 var blocks = []protocol.BlockInfo{
@@ -471,7 +471,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
 	copyChan, copyWg := startCopier(f, pullChan, finisherBufferChan)
-	pullWg := sync.NewWaitGroup()
+	var pullWg sync.WaitGroup
 	pullWg.Add(1)
 	go func() {
 		f.pullerRoutine(pullChan, finisherBufferChan)
@@ -1268,9 +1268,9 @@ func cleanupSharedPullerState(s *sharedPullerState) {
 	s.writer.mut.Unlock()
 }
 
-func startCopier(f *sendReceiveFolder, pullChan chan<- pullBlockState, finisherChan chan<- *sharedPullerState) (chan copyBlocksState, sync.WaitGroup) {
+func startCopier(f *sendReceiveFolder, pullChan chan<- pullBlockState, finisherChan chan<- *sharedPullerState) (chan copyBlocksState, *sync.WaitGroup) {
 	copyChan := make(chan copyBlocksState)
-	wg := sync.NewWaitGroup()
+	wg := new(sync.WaitGroup)
 	wg.Add(1)
 	go func() {
 		f.copierRoutine(copyChan, pullChan, finisherChan)

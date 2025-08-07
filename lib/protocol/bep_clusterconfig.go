@@ -8,6 +8,7 @@ package protocol
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/syncthing/syncthing/internal/gen/bep"
 )
@@ -108,6 +109,13 @@ func (f Folder) Description() string {
 		return f.ID
 	}
 	return fmt.Sprintf("%q (%s)", f.Label, f.ID)
+}
+
+func (f Folder) LogAttr() slog.Attr {
+	if f.Label == "" || f.Label == f.ID {
+		return slog.Group("folder", slog.String("id", f.ID))
+	}
+	return slog.Group("folder", slog.String("label", f.Label), slog.String("id", f.ID))
 }
 
 func (f Folder) IsRunning() bool {

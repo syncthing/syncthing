@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -26,7 +27,6 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore/ignoreresult"
 	"github.com/syncthing/syncthing/lib/osutil"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 const escapePrefix = "#escape"
@@ -153,7 +153,6 @@ func New(fs fs.Filesystem, opts ...Option) *Matcher {
 	m := &Matcher{
 		fs:   fs,
 		stop: make(chan struct{}),
-		mut:  sync.NewMutex(),
 	}
 	for _, opt := range opts {
 		opt(m)

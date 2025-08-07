@@ -40,6 +40,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -48,6 +49,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/netutil"
 
 	"github.com/syncthing/syncthing/lib/build"
@@ -108,7 +110,7 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 
 	interfaces, err := netutil.Interfaces()
 	if err != nil {
-		l.Infoln("Listing network interfaces:", err)
+		slog.WarnContext(ctx, "Failed to list network interfaces", slogutil.Error(err))
 		return results
 	}
 
@@ -215,7 +217,7 @@ USER-AGENT: syncthing/%s
 	if err != nil {
 		if runtime.GOOS == "windows" && ip6 {
 			// Requires https://github.com/golang/go/issues/63529 to be fixed.
-			l.Infoln("Support for IPv6 UPnP is currently not available on Windows:", err)
+			slog.InfoContext(ctx, "Support for IPv6 UPnP is currently not available on Windows", slogutil.Error(err))
 		} else {
 			l.Debugln("UPnP discovery: listening to udp multicast:", err)
 		}
@@ -244,7 +246,7 @@ USER-AGENT: syncthing/%s
 loop:
 	for {
 		if err := socket.SetDeadline(time.Now().Add(250 * time.Millisecond)); err != nil {
-			l.Infoln("UPnP socket:", err)
+			slog.WarnContext(ctx, "Failed to set UPnP socket deadline", slogutil.Error(err))
 			break
 		}
 
@@ -255,22 +257,21 @@ loop:
 				break loop
 			default:
 			}
-			if e, ok := err.(net.Error); ok && e.Timeout() {
+			var ne net.Error
+			if ok := errors.As(err, &ne); ok && ne.Timeout() {
 				continue // continue reading
 			}
-			l.Infoln("UPnP read:", err) // legitimate error, not a timeout.
+			slog.WarnContext(ctx, "Failed to read from UPnP socket", slogutil.Error(err)) // legitimate error, not a timeout.
 			break
 		}
 
 		igds, err := parseResponse(ctx, deviceType, udpAddr, resp[:n], intf)
 		if err != nil {
-			switch err.(type) {
-			case *UnsupportedDeviceTypeError:
+			var unsupp *UnsupportedDeviceTypeError
+			if errors.As(err, &unsupp) {
 				l.Debugln(err.Error())
-			default:
-				if !errors.Is(err, context.Canceled) {
-					l.Infoln("UPnP parse:", err)
-				}
+			} else if !errors.Is(err, context.Canceled) {
+				slog.WarnContext(ctx, "Failed to parse UPnP response", slogutil.Error(err))
 			}
 			continue
 		}
@@ -308,16 +309,11 @@ func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, re
 
 	deviceDescriptionURL, err := url.Parse(deviceDescriptionLocation)
 	if err != nil {
-		l.Infoln("Invalid IGD location: " + err.Error())
+		slog.WarnContext(ctx, "Got invalid IGD location", slogutil.Error(err))
 		return nil, err
 	}
 
-	if err != nil {
-		l.Infoln("Invalid source IP for IGD: " + err.Error())
-		return nil, err
-	}
-
-	deviceUSN := response.Header.Get("USN")
+	deviceUSN := response.Header.Get("Usn")
 	if deviceUSN == "" {
 		return nil, errors.New("invalid IGD response: USN not specified")
 	}
@@ -368,7 +364,7 @@ func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, re
 		// we are on an IPv6-only network though, so don't error out in case pinholing is available.
 		localIPv4Address, err = localIPv4Fallback(ctx, deviceDescriptionURL)
 		if err != nil {
-			l.Infoln("Unable to determine local IPv4 address for IGD: " + err.Error())
+			slog.WarnContext(ctx, "Unable to determine local IPv4 address for IGD", slogutil.Error(err))
 		}
 	}
 
@@ -496,7 +492,7 @@ func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, de
 	devices := getChildDevices(device, wanDeviceURN)
 
 	if len(devices) < 1 {
-		l.Infoln(rootURL, "- malformed InternetGatewayDevice description: no WANDevices specified.")
+		slog.Warn("Got malformed InternetGatewayDevice description: no WANDevices specified")
 		return result
 	}
 
@@ -504,20 +500,20 @@ func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, de
 		connections := getChildDevices(device, wanConnectionURN)
 
 		if len(connections) < 1 {
-			l.Infoln(rootURL, "- malformed ", wanDeviceURN, "description: no WANConnectionDevices specified.")
+			slog.Warn("Got malformed WAN device description: no WANConnectionDevices specified", "urn", wanDeviceURN)
 		}
 
 		for _, connection := range connections {
-			for _, URN := range URNs {
-				services := getChildServices(connection, URN)
+			for _, urn := range URNs {
+				services := getChildServices(connection, urn)
 
 				if len(services) == 0 {
-					l.Debugln(rootURL, "- no services of type", URN, " found on connection.")
+					l.Debugln(rootURL, "- no services of type", urn, " found on connection.")
 				}
 
 				for _, service := range services {
 					if service.ControlURL == "" {
-						l.Infoln(rootURL+"- malformed", service.Type, "description: no control URL.")
+						slog.Warn("Gor malformed service description: no control URL", "service", service.Type)
 					} else {
 						u, _ := url.Parse(rootURL)
 						replaceRawPath(u, service.ControlURL)
@@ -615,7 +611,7 @@ func soapRequestWithIP(ctx context.Context, url, service, function, message stri
 
 	resp, err = io.ReadAll(r.Body)
 	if err != nil {
-		l.Debugf("Error reading SOAP response: %s, partial response (if present):\n\n%s", resp)
+		l.Debugf("Error reading SOAP response: %v, partial response (if present):\n\n%s", err, resp)
 		return resp, err
 	}
 

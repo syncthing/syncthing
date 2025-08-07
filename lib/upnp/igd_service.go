@@ -37,9 +37,11 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/netutil"
 
 	"github.com/syncthing/syncthing/lib/nat"
@@ -105,7 +107,7 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, intA
 	for _, addr := range addrs {
 		ip, _, err := net.ParseCIDR(addr.String())
 		if err != nil {
-			l.Infof("Couldn't parse address %s: %s", addr, err)
+			slog.WarnContext(ctx, "Couldn't parse interface address", slogutil.Address(addr), slogutil.Error(err))
 			continue
 		}
 
@@ -115,7 +117,7 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, intA
 		}
 
 		if err := s.tryAddPinholeForIP6(ctx, protocol, intAddr.Port, duration, ip); err != nil {
-			l.Infof("Couldn't add pinhole for [%s]:%d/%s. %s", ip, intAddr.Port, protocol, err)
+			slog.WarnContext(ctx, "Couldn't add pinhole", slogutil.Address(ip), slog.Int("port", intAddr.Port), slog.Any("protocol", protocol), slogutil.Error(err))
 			returnErr = err
 		} else {
 			successfulIPs = append(successfulIPs, ip)

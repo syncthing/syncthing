@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -19,7 +20,6 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type tokenManager struct {
@@ -49,7 +49,6 @@ func newTokenManager(key string, miscDB *db.Typed, lifetime time.Duration, maxIt
 		lifetime: lifetime,
 		maxItems: maxItems,
 		timeNow:  time.Now,
-		mut:      sync.NewMutex(),
 		tokens:   &tokens,
 	}
 }

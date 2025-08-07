@@ -40,7 +40,7 @@ func (f *receiveEncryptedFolder) Revert() {
 }
 
 func (f *receiveEncryptedFolder) revert() error {
-	l.Infof("Reverting unexpected items in folder %v (receive-encrypted)", f.Description())
+	f.sl.Info("Reverting unexpected items")
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)

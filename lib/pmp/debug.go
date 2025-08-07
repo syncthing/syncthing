@@ -6,8 +6,6 @@
 
 package pmp
 
-import (
-	"github.com/syncthing/syncthing/lib/logger"
-)
+import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = logger.DefaultLogger.NewFacility("pmp", "NAT-PMP discovery and port mapping")
+var l = slogutil.NewAdapter("NAT-PMP discovery and port mapping")
