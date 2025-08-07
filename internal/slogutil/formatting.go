@@ -127,7 +127,7 @@ func appendAttr(sb *strings.Builder, prefix string, a slog.Attr, attrCount *int)
 	sb.WriteString(a.Key)
 	sb.WriteRune('=')
 	v := a.Value.Resolve().String()
-	if strings.ContainsAny(v, ` "`) {
+	if strings.ContainsAny(v, ` "()`) {
 		v = strconv.Quote(v)
 	}
 	sb.WriteString(v)
