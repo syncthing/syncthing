@@ -870,7 +870,6 @@ func testmocks() {
 		"github.com/syncthing/syncthing/lib/connections",
 		"github.com/syncthing/syncthing/lib/discover",
 		"github.com/syncthing/syncthing/lib/events",
-		"github.com/syncthing/syncthing/lib/logger",
 		"github.com/syncthing/syncthing/lib/model",
 		"github.com/syncthing/syncthing/lib/protocol",
 	}
