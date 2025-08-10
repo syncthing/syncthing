@@ -24,6 +24,7 @@ func TestFormattingHandler(t *testing.T) {
 	l := slog.New(h).With("a", "a")
 	l.Info("A basic info line", "attr1", "val with spaces", "attr2", 2, "attr3", `val"quote`)
 	l.Info("A basic info line", "attr1", "paren)thesis")
+	l.Info("An info line with an empty value", "attr1", "")
 	l.Info("An info line with grouped values", "attr1", "val1", slog.Group("foo", "attr2", 2, slog.Group("bar", "attr3", "3")))
 
 	l2 := l.WithGroup("foo")
@@ -39,6 +40,7 @@ func TestFormattingHandler(t *testing.T) {
 	exp := `
 2009-02-13 23:31:30 INF A basic info line (attr1="val with spaces" attr2=2 attr3="val\"quote" a=a log.pkg=slogutil)
 2009-02-13 23:31:30 INF A basic info line (attr1="paren)thesis" a=a log.pkg=slogutil)
+2009-02-13 23:31:30 INF An info line with an empty value (attr1="" a=a log.pkg=slogutil)
 2009-02-13 23:31:30 INF An info line with grouped values (attr1=val1 foo.attr2=2 foo.bar.attr3=3 a=a log.pkg=slogutil)
 2009-02-13 23:31:30 INF An info line with grouped values via logger (foo.attr1=val1 foo.attr2=2 a=a log.pkg=slogutil)
 2009-02-13 23:31:30 INF An info line with nested grouped values via logger (bar.foo.attr1=val1 bar.foo.attr2=2 a=a log.pkg=slogutil)
