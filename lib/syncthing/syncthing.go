@@ -136,7 +136,7 @@ func (a *App) startup() error {
 
 	// Figure out our device ID and log it.
 	a.myID = protocol.NewDeviceID(a.cert.Certificate[0])
-	slog.Info("Calculated our device ID", a.myID.LogAttr())
+	slog.Info("Calculated our device ID", slog.String("device", a.myID.String()))
 
 	// Emit the Starting event, now that we know who we are.
 
