@@ -12,6 +12,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -20,7 +21,6 @@ import (
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/syncthing"
-	"golang.org/x/exp/slog"
 )
 
 type CLI struct {
@@ -61,15 +61,16 @@ func Generate(confDir, guiUser, guiPassword string, skipPortProbing bool) error 
 	certFile, keyFile := locations.Get(locations.CertFile), locations.Get(locations.KeyFile)
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err == nil {
-		slog.Warn("Key exists; will not overwrite.")
+		slog.Warn("Key exists; will not overwrite")
 	} else {
 		cert, err = syncthing.GenerateCertificate(certFile, keyFile)
 		if err != nil {
 			return fmt.Errorf("create certificate: %w", err)
 		}
 	}
+
 	myID = protocol.NewDeviceID(cert.Certificate[0])
-	slog.Info("Genereated new keypair", myID.LogAttr())
+	slog.Info("Calculated device ID", slog.String("device", myID.String()))
 
 	cfgFile := locations.Get(locations.ConfigFile)
 	cfg, _, err := config.Load(cfgFile, myID, events.NoopLogger)
