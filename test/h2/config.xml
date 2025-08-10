@@ -65,7 +65,7 @@
         <remoteGUIPort>0</remoteGUIPort>
         <numConnections>3</numConnections>
     </device>
-    <gui enabled="true" tls="false" debugging="true" sendBasicAuthPrompt="false">
+    <gui enabled="true" tls="false" sendBasicAuthPrompt="false">
         <address>127.0.0.1:8082</address>
         <metricsWithoutAuth>false</metricsWithoutAuth>
         <apikey>abc123</apikey>
