@@ -36,7 +36,6 @@ import (
 	"github.com/calmh/incontainer"
 	"github.com/julienschmidt/httprouter"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/rcrowley/go-metrics"
 	"github.com/thejerf/suture/v4"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/text/runes"
@@ -336,16 +335,14 @@ func (s *service) Serve(ctx context.Context) error {
 
 	// Debug endpoints, not for general use
 	debugMux := http.NewServeMux()
-	debugMux.HandleFunc("/rest/debug/peerCompletion", s.getPeerCompletion)
-	debugMux.HandleFunc("/rest/debug/httpmetrics", s.getSystemHTTPMetrics)
 	debugMux.HandleFunc("/rest/debug/cpuprof", s.getCPUProf) // duration
 	debugMux.HandleFunc("/rest/debug/heapprof", s.getHeapProf)
 	debugMux.HandleFunc("/rest/debug/support", s.getSupportBundle)
 	debugMux.HandleFunc("/rest/debug/file", s.getDebugFile)
-	restMux.Handler(http.MethodGet, "/rest/debug/*method", s.whenDebugging(debugMux))
+	restMux.Handler(http.MethodGet, "/rest/debug/*method", debugMux)
 
 	// A handler that disables caching
-	noCacheRestMux := noCacheMiddleware(metricsMiddleware(restMux))
+	noCacheRestMux := noCacheMiddleware(restMux)
 
 	// The main routing handler
 	mux := http.NewServeMux()
@@ -489,9 +486,6 @@ func (*service) VerifyConfiguration(_, to config.Configuration) error {
 }
 
 func (s *service) CommitConfiguration(from, to config.Configuration) bool {
-	// No action required when this changes, so mask the fact that it changed at all.
-	from.GUI.Debugging = to.GUI.Debugging
-
 	if to.GUI == from.GUI {
 		// No GUI changes, we're done here.
 		return true
@@ -594,15 +588,6 @@ func corsMiddleware(next http.Handler, allowFrameLoading bool) http.Handler {
 	})
 }
 
-func metricsMiddleware(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t := metrics.GetOrRegisterTimer(r.URL.Path, nil)
-		t0 := time.Now()
-		h.ServeHTTP(w, r)
-		t.UpdateSince(t0)
-	})
-}
-
 func redirectToHTTPSMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.TLS == nil {
@@ -641,17 +626,6 @@ func localhostMiddleware(h http.Handler) http.Handler {
 		}
 
 		http.Error(w, "Host check error", http.StatusForbidden)
-	})
-}
-
-func (s *service) whenDebugging(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if s.cfg.GUI().Debugging {
-			h.ServeHTTP(w, r)
-			return
-		}
-
-		http.Error(w, "Debugging disabled", http.StatusForbidden)
 	})
 }
 
@@ -1284,26 +1258,6 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, &zipFilesBuffer)
 }
 
-func (*service) getSystemHTTPMetrics(w http.ResponseWriter, _ *http.Request) {
-	stats := make(map[string]interface{})
-	metrics.Each(func(name string, intf interface{}) {
-		if m, ok := intf.(*metrics.StandardTimer); ok {
-			pct := m.Percentiles([]float64{0.50, 0.95, 0.99})
-			for i := range pct {
-				pct[i] /= 1e6 // ns to ms
-			}
-			stats[name] = map[string]interface{}{
-				"count":         m.Count(),
-				"sumMs":         m.Sum() / 1e6, // ns to ms
-				"ratesPerS":     []float64{m.Rate1(), m.Rate5(), m.Rate15()},
-				"percentilesMs": pct,
-			}
-		}
-	})
-	bs, _ := json.MarshalIndent(stats, "", "  ")
-	w.Write(bs)
-}
-
 func (s *service) getSystemDiscovery(w http.ResponseWriter, _ *http.Request) {
 	devices := make(map[string]discover.CacheEntry)
 
@@ -1626,35 +1580,6 @@ func (*service) getQR(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "image/png")
 	w.Write(code.PNG())
-}
-
-func (s *service) getPeerCompletion(w http.ResponseWriter, _ *http.Request) {
-	tot := map[string]float64{}
-	count := map[string]float64{}
-
-	for _, folder := range s.cfg.Folders() {
-		for _, device := range folder.DeviceIDs() {
-			deviceStr := device.String()
-			if s.model.ConnectedTo(device) {
-				comp, err := s.model.Completion(device, folder.ID)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-				tot[deviceStr] += comp.CompletionPct
-			} else {
-				tot[deviceStr] = 0
-			}
-			count[deviceStr]++
-		}
-	}
-
-	comp := map[string]int{}
-	for device := range tot {
-		comp[device] = int(tot[device] / count[device])
-	}
-
-	sendJSON(w, comp)
 }
 
 func (s *service) getFolderVersions(w http.ResponseWriter, r *http.Request) {

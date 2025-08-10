@@ -308,9 +308,6 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			if guiCfg.InsecureAdminAccess {
 				report.GUIStats.InsecureAdminAccess++
 			}
-			if guiCfg.Debugging {
-				report.GUIStats.Debugging++
-			}
 			if guiCfg.InsecureSkipHostCheck {
 				report.GUIStats.InsecureSkipHostCheck++
 			}
