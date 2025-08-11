@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Aug 01, 2025" "v1.29.7" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Aug 11, 2025" "v2.0.0" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -152,9 +152,7 @@ Returns the current configuration.
       \(dqpullerPauseS\(dq: 0,
       \(dqmaxConflicts\(dq: \-1,
       \(dqdisableSparseFiles\(dq: false,
-      \(dqdisableTempIndexes\(dq: false,
       \(dqpaused\(dq: false,
-      \(dqweakHashThresholdPct\(dq: 25,
       \(dqmarkerName\(dq: \(dq.stfolder\(dq,
       \(dqcopyOwnershipFromParent\(dq: false,
       \(dqmodTimeWindowS\(dq: 0,
@@ -207,7 +205,6 @@ Returns the current configuration.
     \(dqapiKey\(dq: \(dqk1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1\(dq,
     \(dqinsecureAdminAccess\(dq: false,
     \(dqtheme\(dq: \(dqdefault\(dq,
-    \(dqdebugging\(dq: false,
     \(dqinsecureSkipHostcheck\(dq: false,
     \(dqinsecureAllowFrameLoading\(dq: false
   },
@@ -273,7 +270,6 @@ Returns the current configuration.
     \(dqstunServers\(dq: [
       \(dqdefault\(dq
     ],
-    \(dqdatabaseTuning\(dq: \(dqauto\(dq,
     \(dqmaxConcurrentIncomingRequestKiB\(dq: 0,
     \(dqannounceLANAddresses\(dq: true,
     \(dqsendFullIndexOnUpgrade\(dq: false,
@@ -328,9 +324,7 @@ Returns the current configuration.
       \(dqpullerPauseS\(dq: 0,
       \(dqmaxConflicts\(dq: 10,
       \(dqdisableSparseFiles\(dq: false,
-      \(dqdisableTempIndexes\(dq: false,
       \(dqpaused\(dq: false,
-      \(dqweakHashThresholdPct\(dq: 25,
       \(dqmarkerName\(dq: \(dq.stfolder\(dq,
       \(dqcopyOwnershipFromParent\(dq: false,
       \(dqmodTimeWindowS\(dq: 0,
@@ -464,61 +458,6 @@ The connection types are \fBTCP (Client)\fP, \fBTCP (Server)\fP, \fBRelay (Clien
 .EE
 .UNINDENT
 .UNINDENT
-.SS GET /rest/system/debug
-.sp
-Added in version 0.12.0.
-
-.sp
-Returns the set of debug facilities and which of them are currently enabled.
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.EX
-{
-  \(dqenabled\(dq: [
-    \(dqbeacon\(dq
-  ],
-  \(dqfacilities\(dq: {
-    \(dqbeacon\(dq: \(dqMulticast and broadcast discovery\(dq,
-    \(dqconfig\(dq: \(dqConfiguration loading and saving\(dq,
-    \(dqconnections\(dq: \(dqConnection handling\(dq,
-    \(dqdb\(dq: \(dqThe database layer\(dq,
-    \(dqdialer\(dq: \(dqDialing connections\(dq,
-    \(dqdiscover\(dq: \(dqRemote device discovery\(dq,
-    \(dqevents\(dq: \(dqEvent generation and logging\(dq,
-    \(dqhttp\(dq: \(dqREST API\(dq,
-    \(dqmain\(dq: \(dqMain package\(dq,
-    \(dqmodel\(dq: \(dqThe root hub\(dq,
-    \(dqprotocol\(dq: \(dqThe BEP protocol\(dq,
-    \(dqrelay\(dq: \(dqRelay connection handling\(dq,
-    \(dqscanner\(dq: \(dqFile change detection and hashing\(dq,
-    \(dqstats\(dq: \(dqPersistent device and folder statistics\(dq,
-    \(dqsync\(dq: \(dqMutexes\(dq,
-    \(dqupgrade\(dq: \(dqBinary upgrades\(dq,
-    \(dqupnp\(dq: \(dqUPnP discovery and port mapping\(dq,
-    \(dqversioner\(dq: \(dqFile versioning\(dq
-  }
-}
-.EE
-.UNINDENT
-.UNINDENT
-.SS POST /rest/system/debug
-.sp
-Added in version 0.12.0.
-
-.sp
-Enables or disables debugging for specified facilities. Give one or both of
-\fBenable\fP and \fBdisable\fP query parameters, with comma separated facility
-names. To disable debugging of the beacon and discovery packages, and enable it
-for config and db:
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.EX
-$ curl \-H X\-API\-Key:abc123 \-X POST \(aqhttp://localhost:8384/rest/system/debug?disable=beacon,discovery&enable=config,db\(aq
-.EE
-.UNINDENT
-.UNINDENT
 .SS GET /rest/system/discovery
 .sp
 Returns the contents of the local discovery cache.
@@ -612,6 +551,51 @@ the results to message newer than the given timestamp in \X'tty: link https://da
 .SS GET /rest/system/log.txt
 .sp
 Returns the same information, formatted as a text log instead of a JSON object.
+.SS GET /rest/system/loglevels
+.sp
+Added in version 2.0.0.
+
+.sp
+Returns the set of log facilities and their current log level.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+{
+  \(dqlevels\(dq: {
+    \(dqapi\(dq: \(dqINFO\(dq,
+    \(dqbeacon\(dq: \(dqINFO\(dq,
+    ...
+    \(dqversioner\(dq: \(dqINFO\(dq,
+    \(dqwatchaggregator\(dq: \(dqINFO\(dq
+  },
+  \(dqpackages\(dq: {
+    \(dqapi\(dq: \(dqREST API\(dq,
+    \(dqbeacon\(dq: \(dqMulticast and broadcast discovery\(dq,
+    ...
+    \(dqversioner\(dq: \(dqFile versioning\(dq,
+    \(dqwatchaggregator\(dq: \(dqFilesystem event watcher\(dq
+  }
+}
+.EE
+.UNINDENT
+.UNINDENT
+.SS POST /rest/system/loglevels
+.sp
+Added in version 2.0.0.
+
+.sp
+Changes the log level for specified facilities. Post an object with the log
+facilites as keys and desired log level (\fBDEBUG\fP, \fBINFO\fP, \fBWARN\fP, or
+\fBERROR\fP) as the values.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+$ curl \-H X\-API\-Key:abc123 \-d \(aq{\(dqbeacon\(dq:\(dqDEBUG\(dq,\(dqdiscovery\(dq:\(dqWARN\(dq}\(aq \(aqhttp://localhost:8384/rest/system/loglevels\(aq
+.EE
+.UNINDENT
+.UNINDENT
 .SS GET /rest/system/paths
 .sp
 Added in version 1.21.0.
@@ -631,7 +615,7 @@ and others.
   \(dqcertFile\(dq: \(dq/home/user/.config/syncthing/cert.pem\(dq,
   \(dqconfig\(dq: \(dq/home/user/.config/syncthing/config.xml\(dq,
   \(dqcsrfTokens\(dq: \(dq/home/user/.config/syncthing/csrftokens.txt\(dq,
-  \(dqdatabase\(dq: \(dq/home/user/.local/share/syncthing/index\-v0.14.0.db\(dq,
+  \(dqdatabase\(dq: \(dq/home/user/.local/share/syncthing/index\-v2\(dq,
   \(dqdefFolder\(dq: \(dq/home/user/Sync\(dq,
   \(dqguiAssets\(dq: \(dq/home/user/src/syncthing/gui\(dq,
   \(dqhttpsCertFile\(dq: \(dq/home/user/.config/syncthing/https\-cert.pem\(dq,
@@ -681,7 +665,7 @@ curl \-X POST \-H \(dqX\-API\-Key: abc123\(dq http://localhost:8384/rest/system/
 .UNINDENT
 .UNINDENT
 .sp
-\fBCaution\fP: See \fI\%\-\-reset\-database\fP for \fB\&.stfolder\fP creation
+\fBCaution\fP: See \fB\-\-reset\-database\fP for \fB\&.stfolder\fP creation
 side\-effect and caution regarding mountpoints.
 .SS POST /rest/system/restart
 .sp
@@ -1923,17 +1907,6 @@ Returns the data sent in the anonymous usage report.
 .UNINDENT
 .SH DEBUG ENDPOINTS
 .SS Debug Endpoints
-.sp
-These endpoints require the \fI\%gui.debugging\fP configuration option to
-be enabled and yield an access denied error code otherwise.
-.SS GET /rest/debug/peerCompletion
-.sp
-Summarizes the completion percentage for each remote device.  Returns an object
-with device IDs as keys and an integer percentage as values.
-.SS GET /rest/debug/httpmetrics
-.sp
-Returns statistics about each served REST API endpoint, to diagnose how much
-time was spent generating the responses.
 .SS GET /rest/debug/cpuprof
 .sp
 Used to capture a profile of what Syncthing is doing on the CPU.  See
@@ -1982,6 +1955,6 @@ Returns a \fB{\(dqstatus\(dq: \(dqOK\(dq}\fP object.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT
-2014-2019, The Syncthing Authors
+2014-2025, The Syncthing Authors
 .\" Generated by docutils manpage writer.
 .
