@@ -900,8 +900,11 @@ jobs:
       # Decide whether packages should go to stable, candidate or nightly
       - name: Prepare packages
         run: |
-          mkdir -p packages/syncthing-$RELEASE_GENERATION/$RELEASE_KIND
-          mv packages/*.deb packages/syncthing-$RELEASE_GENERATION/$RELEASE_KIND
+          if [[ $RELEASE_KIND == stable && $RELEASE_GENERATION == v2 ]] ; then
+            RELEASE_KIND=stable-v2
+          fi
+          mkdir -p packages/syncthing/$RELEASE_KIND
+          mv packages/*.deb packages/syncthing/$RELEASE_KIND
 
       - name: Pull archive
         uses: docker://docker.io/rclone/rclone:latest
