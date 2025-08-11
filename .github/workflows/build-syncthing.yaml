@@ -47,6 +47,7 @@ jobs:
     outputs:
       version: ${{ steps.get-version.outputs.version }}
       release-kind: ${{ steps.get-version.outputs.release-kind }}
+      release-generation: ${{ steps.get-version.outputs.release-generation }}
       go-version: ${{ steps.get-go.outputs.go-version }}
     steps:
       - uses: actions/checkout@v4
@@ -76,6 +77,12 @@ jobs:
           echo "release-kind=$kind" >> "$GITHUB_OUTPUT"
           echo "Release kind: $kind"
 
+          generation=v1
+          if [[ $version == v2.* ]] ; then
+            generation=v2
+          fi
+          echo "release-generation=$generation" >> "$GITHUB_OUTPUT"
+          echo "Release generation: $generation"
       - name: Get Go version
         id: get-go
         run: |
@@ -879,6 +886,7 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
+      RELEASE_GENERATION: ${{ needs.facts.outputs.release-generation }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -892,8 +900,8 @@ jobs:
       # Decide whether packages should go to stable, candidate or nightly
       - name: Prepare packages
         run: |
-          mkdir -p packages/syncthing/$RELEASE_KIND
-          mv packages/*.deb packages/syncthing/$RELEASE_KIND
+          mkdir -p packages/syncthing-$RELEASE_GENERATION/$RELEASE_KIND
+          mv packages/*.deb packages/syncthing-$RELEASE_GENERATION/$RELEASE_KIND
 
       - name: Pull archive
         uses: docker://docker.io/rclone/rclone:latest
