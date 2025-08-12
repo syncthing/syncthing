@@ -27,7 +27,7 @@ require (
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.11.3
 	github.com/maxmind/geoipupdate/v6 v6.1.0
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
-	github.com/oschwald/geoip2-golang v1.11.0
+	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/pierrec/lz4/v4 v4.1.22
 	github.com/prometheus/client_golang v1.22.0
 	github.com/puzpuzpuz/xsync/v3 v3.5.1
