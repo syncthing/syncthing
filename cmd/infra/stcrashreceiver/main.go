@@ -44,7 +44,7 @@ type cli struct {
 	SentryQueue    int    `help:"Maximum number of reports to queue for sending to Sentry" default:"64" env:"SENTRY_QUEUE"`
 	DiskQueue      int    `help:"Maximum number of reports to queue for writing to disk" default:"64" env:"DISK_QUEUE"`
 	MetricsListen  string `help:"HTTP listen address for metrics" default:":8081" env:"METRICS_LISTEN_ADDRESS"`
-	IngorePatterns string `help:"File containing ignore patterns (regexp)" env:"IGNORE_PATTERNS" type:"existingfile"`
+	IgnorePatterns string `help:"File containing ignore patterns (regexp)" env:"IGNORE_PATTERNS" type:"existingfile"`
 }
 
 func main() {
@@ -68,9 +68,9 @@ func main() {
 	go ss.Serve(context.Background())
 
 	var ip *ignorePatterns
-	if params.IngorePatterns != "" {
+	if params.IgnorePatterns != "" {
 		var err error
-		ip, err = loadIgnorePatterns(params.IngorePatterns)
+		ip, err = loadIgnorePatterns(params.IgnorePatterns)
 		if err != nil {
 			log.Fatalf("Failed to load ignore patterns: %v", err)
 		}

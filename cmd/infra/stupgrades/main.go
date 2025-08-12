@@ -138,7 +138,7 @@ func (p *githubReleases) serveReleases(w http.ResponseWriter, req *http.Request)
 	osv := req.Header.Get("Syncthing-Os-Version")
 	if ua != "" && osv != "" {
 		// We should determine the compatibility of the releases.
-		rels = filterForCompabitility(rels, ua, osv)
+		rels = filterForCompatibility(rels, ua, osv)
 	} else {
 		metricFilterCalls.WithLabelValues("no-ua-or-osversion").Inc()
 	}
@@ -224,7 +224,7 @@ func filterForLatest(rels []upgrade.Release) []upgrade.Release {
 
 var userAgentOSArchExp = regexp.MustCompile(`^syncthing.*\(.+ (\w+)-(\w+)\)$`)
 
-func filterForCompabitility(rels []upgrade.Release, ua, osv string) []upgrade.Release {
+func filterForCompatibility(rels []upgrade.Release, ua, osv string) []upgrade.Release {
 	osArch := userAgentOSArchExp.FindStringSubmatch(ua)
 	if len(osArch) != 3 {
 		metricFilterCalls.WithLabelValues("bad-os-arch").Inc()

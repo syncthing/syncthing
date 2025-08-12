@@ -14,7 +14,7 @@ import (
 )
 
 // deviceFolderFileDownloadState holds current download state of a file that
-// a remote device has advertised. blockIndexes represends indexes within
+// a remote device has advertised. blockIndexes represents indexes within
 // FileInfo.Blocks that the remote device already has, and version represents
 // the version of the file that the remote device is downloading.
 type deviceFolderFileDownloadState struct {

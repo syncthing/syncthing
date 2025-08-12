@@ -333,7 +333,7 @@ func (cfg *Configuration) prepareDeviceList() map[protocol.DeviceID]*DeviceConfi
 	// - free from duplicates
 	// - no devices with empty ID
 	// - sorted by ID
-	// Happen before preparting folders as that needs a correct device list.
+	// Happen before preparing folders as that needs a correct device list.
 	cfg.Devices = ensureNoDuplicateOrEmptyIDDevices(cfg.Devices)
 	slices.SortFunc(cfg.Devices, func(a, b DeviceConfiguration) int {
 		return a.DeviceID.Compare(b.DeviceID)

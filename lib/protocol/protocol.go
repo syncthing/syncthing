@@ -933,7 +933,7 @@ func (c *rawConnection) shouldCompressMessage(msg proto.Message) bool {
 	}
 }
 
-// Close is called when the connection is regularely closed and thus the Close
+// Close is called when the connection is regularly closed and thus the Close
 // BEP message is sent before terminating the actual connection. The error
 // argument specifies the reason for closing the connection.
 func (c *rawConnection) Close(err error) {

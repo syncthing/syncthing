@@ -139,7 +139,7 @@ type dynamicAnnouncement struct {
 // relayAddressesOrder checks the latency to each relay, rounds latency down to
 // the closest 50ms, and puts them in buckets of 50ms latency ranges. Then
 // shuffles each bucket, and returns all addresses starting with the ones from
-// the lowest latency bucket, ending with the highest latency buceket.
+// the lowest latency bucket, ending with the highest latency bucket.
 func relayAddressesOrder(ctx context.Context, input []string) []string {
 	buckets := make(map[int][]string)
 

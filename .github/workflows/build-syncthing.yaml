@@ -15,7 +15,7 @@ env:
   # expression.
   GO_VERSION: "~1.24.0"
 
-  # Optimize compatibility on the slow archictures.
+  # Optimize compatibility on the slow architectures.
   GOMIPS: softfloat
   GOARM: "6"
 
@@ -207,7 +207,7 @@ jobs:
             go run build.go -tags "${{env.TAGS}}" -goos windows -goarch amd64 -cc "zig cc -target x86_64-windows" zip $tgt
             go run build.go -tags "${{env.TAGS}}" -goos windows -goarch 386 -cc "zig cc -target x86-windows" zip $tgt
             go run build.go -tags "${{env.TAGS}}" -goos windows -goarch arm64 -cc "zig cc -target aarch64-windows" zip $tgt
-            # go run build.go -tags "${{env.TAGS}}" -goos windows -goarch arm -cc "zig cc -target thumb-windows" zip $tgt # failes with linker errors
+            # go run build.go -tags "${{env.TAGS}}" -goos windows -goarch arm -cc "zig cc -target thumb-windows" zip $tgt # fails with linker errors
           done
         env:
           CGO_ENABLED: "1"
