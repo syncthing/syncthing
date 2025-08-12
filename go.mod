@@ -50,7 +50,7 @@ require (
 	golang.org/x/text v0.28.0
 	golang.org/x/time v0.12.0
 	golang.org/x/tools v0.36.0
-	google.golang.org/protobuf v1.36.6
+	google.golang.org/protobuf v1.36.7
 	modernc.org/sqlite v1.37.0
 	sigs.k8s.io/yaml v1.4.0
 )
