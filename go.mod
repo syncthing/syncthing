@@ -51,7 +51,7 @@ require (
 	golang.org/x/time v0.12.0
 	golang.org/x/tools v0.36.0
 	google.golang.org/protobuf v1.36.7
-	modernc.org/sqlite v1.37.0
+	modernc.org/sqlite v1.38.2
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -103,9 +103,9 @@ require (
 	golang.org/x/mod v0.27.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	modernc.org/libc v1.62.1 // indirect
+	modernc.org/libc v1.66.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
-	modernc.org/memory v1.9.1 // indirect
+	modernc.org/memory v1.11.0 // indirect
 )
 
 // https://github.com/gobwas/glob/pull/55
