@@ -44,12 +44,12 @@ require (
 	github.com/wlynxg/anet v0.0.5
 	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/crypto v0.41.0
-	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394
-	golang.org/x/net v0.42.0
+	golang.org/x/exp v0.0.0-20250811191247-51f88131bc50
+	golang.org/x/net v0.43.0
 	golang.org/x/sys v0.35.0
 	golang.org/x/text v0.28.0
 	golang.org/x/time v0.11.0
-	golang.org/x/tools v0.35.0
+	golang.org/x/tools v0.36.0
 	google.golang.org/protobuf v1.36.6
 	modernc.org/sqlite v1.37.0
 	sigs.k8s.io/yaml v1.4.0
@@ -100,7 +100,7 @@ require (
 	github.com/tklauser/numcpus v0.10.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.uber.org/mock v0.5.2 // indirect
-	golang.org/x/mod v0.26.0 // indirect
+	golang.org/x/mod v0.27.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/libc v1.62.1 // indirect
