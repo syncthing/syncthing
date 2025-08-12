@@ -6,7 +6,7 @@ require (
 	github.com/AudriusButkevicius/recli v0.0.7
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.2
 	github.com/alecthomas/kong v1.12.1
-	github.com/aws/aws-sdk-go v1.55.7
+	github.com/aws/aws-sdk-go v1.55.8
 	github.com/calmh/incontainer v1.0.0
 	github.com/calmh/xdr v1.2.0
 	github.com/ccding/go-stun v0.1.5
