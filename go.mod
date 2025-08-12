@@ -113,4 +113,4 @@ require (
 replace github.com/gobwas/glob v0.2.3 => github.com/calmh/glob v0.0.0-20220615080505-1d823af5017b
 
 // https://github.com/mattn/go-sqlite3/pull/1338
-replace github.com/mattn/go-sqlite3 v1.14.28 => github.com/calmh/go-sqlite3 v1.14.29-0.20250520105817-2e94cda3f7f8
+replace github.com/mattn/go-sqlite3 v1.14.31 => github.com/calmh/go-sqlite3 v1.14.32-0.20250812195006-80712c77b76a

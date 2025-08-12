@@ -31,6 +31,8 @@ github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/calmh/glob v0.0.0-20220615080505-1d823af5017b h1:Fjm4GuJ+TGMgqfGHN42IQArJb77CfD/mAwLbDUoJe6g=
 github.com/calmh/glob v0.0.0-20220615080505-1d823af5017b/go.mod h1:91K7jfEsgJSyfSrX+gmrRfZMtntx6JsHolWubGXDopg=
+github.com/calmh/go-sqlite3 v1.14.32-0.20250812195006-80712c77b76a h1:lTe5qJApKNO+zZCa3/P/7UxM4c58CXWOegv9eODPWvs=
+github.com/calmh/go-sqlite3 v1.14.32-0.20250812195006-80712c77b76a/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
 github.com/calmh/incontainer v1.0.0 h1:g2cTUtZuFGmMGX8GoykPkN1Judj2uw8/3/aEtq4Z/rg=
 github.com/calmh/incontainer v1.0.0/go.mod h1:eOhqnw15c9X+4RNBe0W3HlUZFfX16O0EDsCOInTndHY=
 github.com/calmh/xdr v1.2.0 h1:GaGSNH4ZDw9kNdYqle6+RcAENiaQ8/611Ok+jQbBEeU=
@@ -165,8 +167,6 @@ github.com/maruel/panicparse/v2 v2.5.0/go.mod h1:DA2fDiBk63bKfBf4CVZP9gb4fuvzdPb
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
 github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D7dTCTo3Y=
 github.com/mattn/go-sqlite3 v1.14.22/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
-github.com/mattn/go-sqlite3 v1.14.31 h1:ldt6ghyPJsokUIlksH63gWZkG6qVGeEAu4zLeS4aVZM=
-github.com/mattn/go-sqlite3 v1.14.31/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
 github.com/maxbrunsfeld/counterfeiter/v6 v6.11.3 h1:Eaq36EIyJNp7b3qDhjV7jmDVq/yPeW2v4pTqzGbOGB4=
 github.com/maxbrunsfeld/counterfeiter/v6 v6.11.3/go.mod h1:6KKUoQBZBW6PDXJtNfqeEjPXMj/ITTk+cWK9t9uS5+E=
 github.com/maxmind/geoipupdate/v6 v6.1.0 h1:sdtTHzzQNJlXF5+fd/EoPTucRHyMonYt/Cok8xzzfqA=
