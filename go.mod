@@ -3,7 +3,7 @@ module github.com/syncthing/syncthing
 go 1.23.0
 
 require (
-	github.com/AudriusButkevicius/recli v0.0.7-0.20220911121932-d000ce8fbf0f
+	github.com/AudriusButkevicius/recli v0.0.7
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.1
 	github.com/alecthomas/kong v1.11.0
 	github.com/aws/aws-sdk-go v1.55.7

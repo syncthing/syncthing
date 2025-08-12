@@ -1,7 +1,7 @@
 filippo.io/edwards25519 v1.1.0 h1:FNf4tywRC1HmFuKW5xopWpigGjJKiJSV0Cqo0cJWDaA=
 filippo.io/edwards25519 v1.1.0/go.mod h1:BxyFTGdWcka3PhytdK4V28tE5sGfRvvvRV7EaN4VDT4=
-github.com/AudriusButkevicius/recli v0.0.7-0.20220911121932-d000ce8fbf0f h1:GmH5lT+moM7PbAJFBq57nH9WJ+wRnBXr/tyaYWbSAx8=
-github.com/AudriusButkevicius/recli v0.0.7-0.20220911121932-d000ce8fbf0f/go.mod h1:Nhfib1j/VFnLrXL9cHgA+/n2O6P5THuWelOnbfPNd78=
+github.com/AudriusButkevicius/recli v0.0.7 h1:9zjbYlTupi+W5SJXm2cR2sV2mJAIg1sIfDcsW7hrkPM=
+github.com/AudriusButkevicius/recli v0.0.7/go.mod h1:Nhfib1j/VFnLrXL9cHgA+/n2O6P5THuWelOnbfPNd78=
 github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.0 h1:Gt0j3wceWMwPmiazCa8MzMA0MfhmPIz0Qp0FJ6qcM0U=
 github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.0/go.mod h1:Ot/6aikWnKWi4l9QB7qVSwa8iMphQNqkWALMoNT3rzM=
 github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.9.0 h1:OVoM452qUFBrX+URdH3VpR299ma4kfom0yB0URYky9g=
