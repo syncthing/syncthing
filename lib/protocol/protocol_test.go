@@ -289,7 +289,7 @@ func TestWriteCompressed(t *testing.T) {
 
 		msg := (&Response{Data: make([]byte, 10240)}).toWire()
 		if random {
-			// This should make the message uncompressible.
+			// This should make the message incompressible.
 			rand.Read(msg.Data)
 		}
 

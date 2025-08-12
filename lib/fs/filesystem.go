@@ -323,7 +323,7 @@ func Canonicalize(file string) (string, error) {
 	}
 
 	// The relative path should be clean from internal dotdots and similar
-	// funkyness.
+	// funkiness.
 	file = filepath.Clean(file)
 
 	// It is not acceptable to attempt to traverse upwards.

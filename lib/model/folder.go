@@ -951,7 +951,7 @@ func (f *folder) scanTimerFired() error {
 		if err != nil {
 			f.sl.Error("Failed initial scan", slogutil.Error(err))
 		} else {
-			f.sl.Info("Competed initial scan")
+			f.sl.Info("Completed initial scan")
 		}
 		close(f.initialScanFinished)
 	}

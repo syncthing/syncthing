@@ -1133,7 +1133,7 @@ fi
 
 if [ "$ft_search" = "1" ];
 then
-  # detect bower comoponents location
+  # detect bower components location
   bower_components="bower_components"
   bower_rc=$(cd "$git_root" && cat .bowerrc 2>/dev/null || echo "")
   if [ "$bower_rc" != "" ];

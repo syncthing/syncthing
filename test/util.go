@@ -443,7 +443,7 @@ func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) chan er
 				name: rn,
 				mode: info.Mode(),
 				// comparing timestamps with better precision than a second
-				// is problematic as there is rounding and truncatign going
+				// is problematic as there is rounding and truncation going
 				// on at every level
 				mod:  info.ModTime().Unix(),
 				size: info.Size(),

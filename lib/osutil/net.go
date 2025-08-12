@@ -14,7 +14,7 @@ import (
 )
 
 // GetInterfaceAddrs returns the IP networks of all interfaces that are up.
-// Point-to-point interfaces are exluded unless includePtP is true.
+// Point-to-point interfaces are excluded unless includePtP is true.
 func GetInterfaceAddrs(includePtP bool) ([]*net.IPNet, error) {
 	intfs, err := netutil.Interfaces()
 	if err != nil {

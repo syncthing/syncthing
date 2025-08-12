@@ -235,7 +235,7 @@ func (opts OptionsConfiguration) MaxFolderConcurrency() int {
 		return 0
 	}
 	// Otherwise default to the number of CPU cores in the system as a rough
-	// approximation of system powerfullness.
+	// approximation of system powerfulness.
 	if n := runtime.GOMAXPROCS(-1); n > 0 {
 		return n
 	}

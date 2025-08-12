@@ -1541,7 +1541,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 	}
 
 	if isEncryptedRemote && isEncryptedLocal {
-		// Should never happen, but config racyness and be safe.
+		// Should never happen, but config raciness and be safe.
 		return errEncryptionInvConfigLocal
 	}
 
@@ -3105,7 +3105,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 	// Some options don't require restart as those components handle it fine
 	// by themselves. Compare the options structs containing only the
-	// attributes that require restart and act apprioriately.
+	// attributes that require restart and act appropriately.
 	if !reflect.DeepEqual(from.Options.RequiresRestartOnly(), to.Options.RequiresRestartOnly()) {
 		l.Debugln(m, "requires restart, options differ")
 		return false
