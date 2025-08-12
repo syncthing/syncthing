@@ -868,12 +868,16 @@ func (u upgradeCmd) Run() error {
 		lf := flock.New(locations.Get(locations.LockFile))
 		var locked bool
 		locked, err = lf.TryLock()
-		if err != nil {
+		// ErrNotExist is a valid error if this is a new/blank installation
+		// without a config dir, in which case we can proceed with a normal
+		// non-API upgrade.
+		switch {
+		case err != nil && !os.IsNotExist(err):
 			slog.Error("Failed to lock for upgrade", slogutil.Error(err))
 			os.Exit(1)
-		} else if locked {
+		case locked:
 			err = upgradeViaRest()
-		} else {
+		default:
 			err = upgrade.To(release)
 		}
 	}
