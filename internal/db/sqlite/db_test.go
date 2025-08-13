@@ -22,6 +22,7 @@ import (
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/internal/timeutil"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -1162,8 +1163,8 @@ func TestStrangeDeletedGlobalBug(t *testing.T) {
 func TestOpenSpecialName(t *testing.T) {
 	dir := t.TempDir()
 
-	// Create a "base" dir that is in the way if the path becomes incorrect
-	// truncated in the next steps.
+	// Create a "base" dir that is in the way if the path becomes
+	// incorrectly truncated in the next steps.
 	base := path.Join(dir, "test")
 	if err := os.Mkdir(base, 0o755); err != nil {
 		t.Fatal(err)
@@ -1173,17 +1174,28 @@ func TestOpenSpecialName(t *testing.T) {
 	p1 := base + "#foo"
 	db, err := Open(p1)
 	if err != nil {
-		t.Fatal()
+		t.Fatal(err)
 	}
 	t.Log(db.path)
 	db.Close()
 
-	// Should be able to open a path with something that looks like query
-	// params.
-	p2 := base + "?foo=bar"
+	if !build.IsWindows {
+		// Should be able to open a path with something that looks like
+		// query params.
+		p2 := base + "?foo=bar"
+		db, err = Open(p2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Log(db.path)
+		db.Close()
+	}
+
+	// Better not a have problem with a single ampersand either.
+	p2 := base + "&foo"
 	db, err = Open(p2)
 	if err != nil {
-		t.Fatal()
+		t.Fatal(err)
 	}
 	t.Log(db.path)
 	db.Close()
