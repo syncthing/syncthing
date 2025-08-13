@@ -47,7 +47,7 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 	// triggers (needed for the delete+insert triggers on row replace).
 	pathURL := url.URL{
 		Scheme:   "file",
-		Path:     filepath.ToSlash(path),
+		Path:     fileToUriPath(path),
 		RawQuery: commonOptions,
 	}
 	sqlDB, err := sqlx.Open(dbDriver, pathURL.String())
@@ -114,6 +114,16 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 	}
 
 	return db, nil
+}
+
+func fileToUriPath(path string) string {
+	path = filepath.ToSlash(path)
+	if (build.IsWindows && len(path) >= 2 && path[1] == ':') ||
+		(strings.HasPrefix(path, "//") && !strings.HasPrefix(path, "///")) {
+		// Add an extra leading slash for Windows drive letter or UNC path
+		path = "/" + path
+	}
+	return path
 }
 
 func (s *baseDB) Close() error {
