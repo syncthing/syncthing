@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"embed"
 	"io/fs"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -44,7 +45,12 @@ type baseDB struct {
 func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScripts []string) (*baseDB, error) {
 	// Open the database with options to enable foreign keys and recursive
 	// triggers (needed for the delete+insert triggers on row replace).
-	sqlDB, err := sqlx.Open(dbDriver, "file:"+path+"?"+commonOptions)
+	pathURL := url.URL{
+		Scheme:   "file",
+		Path:     path,
+		RawQuery: commonOptions,
+	}
+	sqlDB, err := sqlx.Open(dbDriver, pathURL.String())
 	if err != nil {
 		return nil, wrap(err)
 	}
