@@ -1080,7 +1080,7 @@ func TestIssue4901(t *testing.T) {
 
 	fd, err := pats.fs.Create(".stignore")
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 	if _, err := fd.Write([]byte(stignore)); err != nil {
 		t.Fatal(err)
@@ -1102,7 +1102,7 @@ func TestIssue4901(t *testing.T) {
 
 	fd, err = pats.fs.Create("unicorn-lazor-death")
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatal(err)
 	}
 	if _, err := fd.Write([]byte(" ")); err != nil {
 		t.Fatal(err)
