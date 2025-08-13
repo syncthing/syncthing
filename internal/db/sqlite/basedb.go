@@ -47,7 +47,7 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 	// triggers (needed for the delete+insert triggers on row replace).
 	pathURL := url.URL{
 		Scheme:   "file",
-		Path:     filepath.FromSlash(path),
+		Path:     filepath.ToSlash(path),
 		RawQuery: commonOptions,
 	}
 	sqlDB, err := sqlx.Open(dbDriver, pathURL.String())
