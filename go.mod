@@ -1,6 +1,6 @@
 module github.com/syncthing/syncthing
 
-go 1.23.0
+go 1.24.6
 
 require (
 	github.com/AudriusButkevicius/recli v0.0.7
