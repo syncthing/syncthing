@@ -17,13 +17,16 @@ import (
 	"github.com/syncthing/syncthing/internal/slogutil"
 )
 
-const maxDBConns = 16
+const (
+	maxDBConns         = 16
+	minDeleteRetention = 24 * time.Hour
+)
 
 type DB struct {
+	*baseDB
+
 	pathBase        string
 	deleteRetention time.Duration
-
-	*baseDB
 
 	folderDBsMut   sync.RWMutex
 	folderDBs      map[string]*folderDB
@@ -36,7 +39,7 @@ type Option func(*DB)
 
 func WithDeleteRetention(d time.Duration) Option {
 	return func(s *DB) {
-		s.deleteRetention = d
+		s.deleteRetention = max(d, minDeleteRetention)
 	}
 }
 
