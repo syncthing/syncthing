@@ -39,7 +39,11 @@ type Option func(*DB)
 
 func WithDeleteRetention(d time.Duration) Option {
 	return func(s *DB) {
-		s.deleteRetention = max(d, minDeleteRetention)
+		if d <= 0 {
+			s.deleteRetention = 0
+		} else {
+			s.deleteRetention = max(d, minDeleteRetention)
+		}
 	}
 }
 
