@@ -49,8 +49,6 @@ var (
 	replaceTags = map[string]string{
 		"sqlite_omit_load_extension": "",
 		"sqlite_dbstat":              "",
-		"osusergo":                   "",
-		"netgo":                      "",
 	}
 )
 
