@@ -19,10 +19,8 @@ import (
 )
 
 const (
-	internalMetaPrefix     = "dbsvc"
-	lastMaintKey           = "lastMaint"
-	defaultDeleteRetention = 180 * 24 * time.Hour
-	minDeleteRetention     = 24 * time.Hour
+	internalMetaPrefix = "dbsvc"
+	lastMaintKey       = "lastMaint"
 )
 
 func (s *DB) Service(maintenanceInterval time.Duration) suture.Service {
