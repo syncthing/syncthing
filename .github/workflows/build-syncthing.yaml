@@ -958,6 +958,7 @@ jobs:
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
+      TAGS: "sqlite_omit_load_extension sqlite_dbstat osusergo"
     strategy:
       matrix:
         pkg:
