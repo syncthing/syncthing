@@ -49,6 +49,8 @@ var (
 	replaceTags = map[string]string{
 		"sqlite_omit_load_extension": "",
 		"sqlite_dbstat":              "",
+		"netgo":                      "",
+		"osusergo":                   "",
 	}
 )
 
@@ -132,6 +134,7 @@ func TagsList() []string {
 		tags = tags[1:]
 	}
 
+	tags = slices.Compact(tags)
 	return tags
 }
 
