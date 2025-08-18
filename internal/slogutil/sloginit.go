@@ -25,7 +25,7 @@ var (
 
 func init() {
 	var out io.Writer = os.Stdout
-	if os.Getenv("LOGGER_DISCARD") == "1" {
+	if os.Getenv("LOGGER_DISCARD") != "" {
 		out = io.Discard
 	}
 	slogDef = slog.New(&formattingHandler{
