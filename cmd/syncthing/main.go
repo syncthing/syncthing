@@ -122,9 +122,10 @@ type CLI struct {
 	// subcommands. Their settings take effect on the `locations` package by
 	// way of the command line parser, so anything using `locations.Get` etc
 	// will be doing the right thing.
-	ConfDir string `name:"config" short:"C" placeholder:"PATH" env:"STCONFDIR" help:"Set configuration directory (config and keys)"`
-	DataDir string `name:"data" short:"D" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
-	HomeDir string `name:"home" short:"H" placeholder:"PATH" env:"STHOMEDIR" help:"Set configuration and data directory"`
+	ConfDir     string `name:"config" short:"C" placeholder:"PATH" env:"STCONFDIR" help:"Set configuration directory (config and keys)"`
+	DataDir     string `name:"data" short:"D" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
+	HomeDir     string `name:"home" short:"H" placeholder:"PATH" env:"STHOMEDIR" help:"Set configuration and data directory"`
+	VersionFlag bool   `name:"version" help:"Show current version, then exit"`
 
 	Serve serveCmd `cmd:"" help:"Run Syncthing (default)" default:"withargs"`
 	CLI   cli.CLI  `cmd:"" help:"Command line interface for Syncthing"`
@@ -224,6 +225,12 @@ func main() {
 	kongplete.Complete(parser)
 	ctx, err := parser.Parse(os.Args[1:])
 	parser.FatalIfErrorf(err)
+
+	if entrypoint.VersionFlag {
+		_ = versionCmd{}.Run()
+		return
+	}
+
 	err = ctx.Run()
 	parser.FatalIfErrorf(err)
 }
