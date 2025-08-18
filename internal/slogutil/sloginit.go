@@ -7,6 +7,7 @@
 package slogutil
 
 import (
+	"io"
 	"log/slog"
 	"os"
 	"strings"
@@ -19,13 +20,18 @@ var (
 		levels: make(map[string]slog.Level),
 		descrs: make(map[string]string),
 	}
-	slogDef = slog.New(&formattingHandler{
-		recs: []*lineRecorder{GlobalRecorder, ErrorRecorder},
-		out:  os.Stdout,
-	})
+	slogDef *slog.Logger
 )
 
 func init() {
+	var out io.Writer = os.Stdout
+	if os.Getenv("LOGGER_DISCARD") == "1" {
+		out = io.Discard
+	}
+	slogDef = slog.New(&formattingHandler{
+		recs: []*lineRecorder{GlobalRecorder, ErrorRecorder},
+		out:  out,
+	})
 	slog.SetDefault(slogDef)
 
 	// Handle legacy STTRACE var
