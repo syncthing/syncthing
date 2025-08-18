@@ -26,6 +26,8 @@ var (
 func init() {
 	var out io.Writer = os.Stdout
 	if os.Getenv("LOGGER_DISCARD") != "" {
+		// Hack to completely disable logging, for example when running
+		// benchmarks.
 		out = io.Discard
 	}
 	slogDef = slog.New(&formattingHandler{
