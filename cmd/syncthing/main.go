@@ -227,7 +227,7 @@ func main() {
 	parser.FatalIfErrorf(err)
 
 	if entrypoint.VersionFlag {
-		versionCmd{}.Run()
+		_ = versionCmd{}.Run()
 		return
 	}
 
