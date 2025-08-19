@@ -7,6 +7,7 @@
 package slogutil
 
 import (
+	"io"
 	"log/slog"
 	"os"
 	"strings"
@@ -21,9 +22,19 @@ var (
 	}
 	slogDef = slog.New(&formattingHandler{
 		recs: []*lineRecorder{GlobalRecorder, ErrorRecorder},
-		out:  os.Stdout,
+		out:  logWriter(),
 	})
 )
+
+func logWriter() io.Writer {
+	if os.Getenv("LOGGER_DISCARD") != "" {
+		// Hack to completely disable logging, for example when running
+		// benchmarks.
+		return io.Discard
+	}
+
+	return os.Stdout
+}
 
 func init() {
 	slog.SetDefault(slogDef)
