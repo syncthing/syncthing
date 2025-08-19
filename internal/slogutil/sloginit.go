@@ -20,20 +20,23 @@ var (
 		levels: make(map[string]slog.Level),
 		descrs: make(map[string]string),
 	}
-	slogDef *slog.Logger
+	slogDef = slog.New(&formattingHandler{
+		recs: []*lineRecorder{GlobalRecorder, ErrorRecorder},
+		out:  logWriter(),
+	})
 )
 
-func init() {
-	var out io.Writer = os.Stdout
+func logWriter() io.Writer {
 	if os.Getenv("LOGGER_DISCARD") != "" {
 		// Hack to completely disable logging, for example when running
 		// benchmarks.
-		out = io.Discard
+		return io.Discard
 	}
-	slogDef = slog.New(&formattingHandler{
-		recs: []*lineRecorder{GlobalRecorder, ErrorRecorder},
-		out:  out,
-	})
+
+	return os.Stdout
+}
+
+func init() {
 	slog.SetDefault(slogDef)
 
 	// Handle legacy STTRACE var
