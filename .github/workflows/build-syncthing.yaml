@@ -899,14 +899,6 @@ jobs:
           path: packages
 
       # Decide whether packages should go to stable, candidate or nightly
-      - name: Prepare packages
-        run: |
-          if [[ $RELEASE_KIND == stable && $RELEASE_GENERATION == v2 ]] ; then
-            RELEASE_KIND=stable-v2
-          fi
-          mkdir -p packages/syncthing/$RELEASE_KIND
-          mv packages/*.deb packages/syncthing/$RELEASE_KIND
-
       - name: Pull archive
         uses: docker://docker.io/rclone/rclone:latest
         env:
@@ -918,15 +910,17 @@ jobs:
           RCLONE_CONFIG_OBJSTORE_REGION: ${{ secrets.S3_REGION }}
           RCLONE_CONFIG_OBJSTORE_ACL: public-read
         with:
-          args: sync objstore:apt/dists dists
+          args: sync objstore:apt apt
+
+      - name: Prepare packages
+        run: |
+          mv packages/*.deb apt/pool
 
       - name: Update archive
         uses: docker://ghcr.io/kastelo/ezapt:latest
         with:
           args:
-            publish
-            --add packages
-            --dists dists
+            publish --root apt
         env:
           EZAPT_KEYRING_BASE64: ${{ secrets.APT_GPG_KEYRING_BASE64 }}
 
@@ -941,7 +935,7 @@ jobs:
           RCLONE_CONFIG_OBJSTORE_REGION: ${{ secrets.S3_REGION }}
           RCLONE_CONFIG_OBJSTORE_ACL: public-read
         with:
-          args: sync -v --no-update-modtime dists objstore:apt/dists
+          args: sync -v --no-update-modtime apt objstore:apt
 
   #
   # Build and push (except for PRs) to GHCR.
