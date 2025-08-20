@@ -890,8 +890,6 @@ jobs:
       RELEASE_GENERATION: ${{ needs.facts.outputs.release-generation }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
       - name: Download packages
         uses: actions/download-artifact@v4
         with:
@@ -914,6 +912,7 @@ jobs:
 
       - name: Prepare packages
         run: |
+          sudo chown -R $(id -u) apt/pool
           mv packages/*.deb apt/pool
 
       - name: Update archive
