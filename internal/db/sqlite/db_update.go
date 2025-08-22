@@ -62,7 +62,7 @@ func (s *DB) cleanDroppedFolders() error {
 		return wrap(err)
 	}
 
-	// Any files that don't match a name in the databare are removed.
+	// Any files that don't match a name in the database are removed.
 	for _, file := range files {
 		base := filepath.Base(file)
 		inDB := slices.ContainsFunc(names, func(name string) bool { return strings.HasPrefix(base, name) })
