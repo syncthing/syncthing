@@ -479,7 +479,7 @@ func (c *serveCmd) syncthingMain() {
 		})
 	}
 
-	if err := syncthing.TryMigrateDatabase(c.DBDeleteRetentionInterval); err != nil {
+	if err := syncthing.TryMigrateDatabase(ctx, c.DBDeleteRetentionInterval, cfgWrapper.GUI().Address()); err != nil {
 		slog.Error("Failed to migrate old-style database", slogutil.Error(err))
 		os.Exit(1)
 	}

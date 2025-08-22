@@ -7,11 +7,13 @@
 package syncthing
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -156,7 +158,7 @@ func OpenDatabase(path string, deleteRetention time.Duration) (db.DB, error) {
 }
 
 // Attempts migration of the old (LevelDB-based) database type to the new (SQLite-based) type
-func TryMigrateDatabase(deleteRetention time.Duration) error {
+func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration, apiAddr string) error {
 	oldDBDir := locations.Get(locations.LegacyDatabase)
 	if _, err := os.Lstat(oldDBDir); err != nil {
 		// No old database
@@ -169,6 +171,12 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 		return nil
 	}
 	defer be.Close()
+
+	// Start a temporary API server during the migration
+	api := migratingAPI{addr: apiAddr}
+	apiCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go api.Serve(apiCtx)
 
 	sdb, err := sqlite.OpenForMigration(locations.Get(locations.Database))
 	if err != nil {
@@ -283,4 +291,28 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 
 	slog.Info("Migration complete", "files", totFiles, "blocks", totBlocks/1000, "duration", time.Since(t0).Truncate(time.Second))
 	return nil
+}
+
+type migratingAPI struct {
+	addr string
+}
+
+func (m migratingAPI) Serve(ctx context.Context) error {
+	srv := &http.Server{
+		Addr: m.addr,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/plain")
+			w.Write([]byte("*** Database migration in progress ***\n\n"))
+			for _, line := range slogutil.GlobalRecorder.Since(time.Time{}) {
+				line.WriteTo(w)
+			}
+		}),
+	}
+	go func() {
+		slog.InfoContext(ctx, "Starting temporary GUI/API during migration", slogutil.Address(m.addr))
+		err := srv.ListenAndServe()
+		slog.InfoContext(ctx, "Temporary GUI/API closed", slogutil.Address(m.addr), slogutil.Error(err))
+	}()
+	<-ctx.Done()
+	return srv.Close()
 }
