@@ -82,6 +82,10 @@ func Open(path string, opts ...Option) (*DB, error) {
 		opt(db)
 	}
 
+	if err := db.cleanDroppedFolders(); err != nil {
+		slog.Warn("Failed to clean dropped folders", slogutil.Error(err))
+	}
+
 	return db, nil
 }
 
@@ -120,10 +124,9 @@ func OpenForMigration(path string) (*DB, error) {
 		folderDBOpener: openFolderDBForMigration,
 	}
 
-	// // Touch device IDs that should always exist and have a low index
-	// // numbers, and will never change
-	// db.localDeviceIdx, _ = db.deviceIdxLocked(protocol.LocalDeviceID)
-	// db.tplInput["LocalDeviceIdx"] = db.localDeviceIdx
+	if err := db.cleanDroppedFolders(); err != nil {
+		slog.Warn("Failed to clean dropped folders", slogutil.Error(err))
+	}
 
 	return db, nil
 }
