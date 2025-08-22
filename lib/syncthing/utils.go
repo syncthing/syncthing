@@ -197,12 +197,20 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 		var writeErr error
 		var wg sync.WaitGroup
 		wg.Add(1)
+		writerDone := make(chan struct{})
 		go func() {
 			defer wg.Done()
+			defer close(writerDone)
 			var batch []protocol.FileInfo
 			files, blocks := 0, 0
 			t0 := time.Now()
 			t1 := time.Now()
+
+			if writeErr = sdb.DropFolder(folder); writeErr != nil {
+				slog.Error("Failed database drop", slogutil.Error(writeErr))
+				return
+			}
+
 			for fi := range fis {
 				batch = append(batch, fi)
 				files++
@@ -210,6 +218,7 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 				if len(batch) == 1000 {
 					writeErr = sdb.Update(folder, protocol.LocalDeviceID, batch)
 					if writeErr != nil {
+						slog.Error("Failed database write", slogutil.Error(writeErr))
 						return
 					}
 					batch = batch[:0]
@@ -244,8 +253,12 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 				// criteria in the database
 				return true
 			}
-			fis <- fi
-			return true
+			select {
+			case fis <- fi:
+				return true
+			case <-writerDone:
+				return false
+			}
 		})
 		close(fis)
 		snap.Release()
