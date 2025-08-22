@@ -4,14 +4,12 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:generate -command counterfeiter go run github.com/maxbrunsfeld/counterfeiter/v6
-
 // Prevents import loop, for internal testing
-//go:generate counterfeiter -o mocked_connection_info_test.go --fake-name mockedConnectionInfo . ConnectionInfo
+//go:generate go tool counterfeiter -o mocked_connection_info_test.go --fake-name mockedConnectionInfo . ConnectionInfo
 //go:generate go run ../../script/prune_mocks.go -t mocked_connection_info_test.go
 
-//go:generate counterfeiter -o mocks/connection_info.go --fake-name ConnectionInfo . ConnectionInfo
-//go:generate counterfeiter -o mocks/connection.go --fake-name Connection . Connection
+//go:generate go tool counterfeiter -o mocks/connection_info.go --fake-name ConnectionInfo . ConnectionInfo
+//go:generate go tool counterfeiter -o mocks/connection.go --fake-name Connection . Connection
 
 package protocol
 
