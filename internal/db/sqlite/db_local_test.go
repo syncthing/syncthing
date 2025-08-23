@@ -138,6 +138,28 @@ func TestBlocksDeleted(t *testing.T) {
 	}
 }
 
+// If too many blocks are inserted at once (>8000), an error like this occurs:
+//   insertblockslocked-range1: too many SQL variables
+func TestBlocksTooManySQLVariables(t *testing.T) {
+	t.Parallel()
+
+	db, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal()
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	files := []protocol.FileInfo{genFile("file", 1e5, 0)}
+
+	if err := db.Update("test", protocol.LocalDeviceID, files); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRemoteSequence(t *testing.T) {
 	t.Parallel()
 

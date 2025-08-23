@@ -11,7 +11,6 @@ import "github.com/jmoiron/sqlx"
 type txPreparedStmts struct {
 	*sqlx.Tx
 	stmts map[string]*sqlx.Stmt
-	namedStmts map[string]*sqlx.NamedStmt
 }
 
 func (p *txPreparedStmts) Preparex(query string) (*sqlx.Stmt, error) {
@@ -30,37 +29,16 @@ func (p *txPreparedStmts) Preparex(query string) (*sqlx.Stmt, error) {
 	return stmt, nil
 }
 
-func (p *txPreparedStmts) PrepareNamed(query string) (*sqlx.NamedStmt, error) {
-	if p.namedStmts == nil {
-		p.namedStmts = make(map[string]*sqlx.NamedStmt)
-	}
-	stmt, ok := p.namedStmts[query]
-	if ok {
-		return stmt, nil
-	}
-	stmt, err := p.Tx.PrepareNamed(query)
-	if err != nil {
-		return nil, wrap(err)
-	}
-	p.namedStmts[query] = stmt
-	return stmt, nil
-}
-
 func (p *txPreparedStmts) Commit() error {
-	p.closeStmts()
+	for _, s := range p.stmts {
+		s.Close()
+	}
 	return p.Tx.Commit()
 }
 
 func (p *txPreparedStmts) Rollback() error {
-	p.closeStmts()
-	return p.Tx.Rollback()
-}
-
-func (p *txPreparedStmts) closeStmts() {
 	for _, s := range p.stmts {
 		s.Close()
 	}
-	for _, s := range p.namedStmts {
-		s.Close()
-	}
+	return p.Tx.Rollback()
 }

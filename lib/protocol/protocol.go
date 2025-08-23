@@ -49,7 +49,8 @@ const (
 	// MaxBlockSize is the maximum block size allowed
 	MaxBlockSize = 16 << MiB
 
-	// DesiredPerFileBlocks is the number of blocks we aim for per file
+	// DesiredPerFileBlocks is the number of blocks we aim for per file, resp.
+	// the upper bound of the desired range
 	DesiredPerFileBlocks = 2000
 
 	SyntheticDirectorySize = 128
