@@ -130,7 +130,7 @@ func (c *mockClock) wind(t time.Duration) {
 func TestTokenManager(t *testing.T) {
 	t.Parallel()
 
-	mdb, err := sqlite.OpenTemp()
+	mdb, err := sqlite.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
