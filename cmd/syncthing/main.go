@@ -479,7 +479,11 @@ func (c *serveCmd) syncthingMain() {
 		})
 	}
 
-	if err := syncthing.TryMigrateDatabase(ctx, c.DBDeleteRetentionInterval, cfgWrapper.GUI().Address()); err != nil {
+	var tempApiAddress string = ""
+	if cfgWrapper.GUI().Enabled {
+		tempApiAddress = cfgWrapper.GUI().Address()
+	}
+	if err := syncthing.TryMigrateDatabase(ctx, c.DBDeleteRetentionInterval, tempApiAddress); err != nil {
 		slog.Error("Failed to migrate old-style database", slogutil.Error(err))
 		os.Exit(1)
 	}
