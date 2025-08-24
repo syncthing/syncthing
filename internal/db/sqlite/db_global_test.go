@@ -17,7 +17,7 @@ import (
 func TestNeed(t *testing.T) {
 	t.Helper()
 
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestDropRecalcsGlobal(t *testing.T) {
 func testDropWithDropper(t *testing.T, dropper func(t *testing.T, db *DB)) {
 	t.Helper()
 
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +181,7 @@ func testDropWithDropper(t *testing.T, dropper func(t *testing.T, db *DB)) {
 func TestNeedDeleted(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,7 +224,7 @@ func TestNeedDeleted(t *testing.T) {
 func TestDontNeedIgnored(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +271,7 @@ func TestDontNeedIgnored(t *testing.T) {
 func TestDontNeedRemoteInvalid(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,7 +322,7 @@ func TestDontNeedRemoteInvalid(t *testing.T) {
 func TestRemoteDontNeedLocalIgnored(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -364,7 +364,7 @@ func TestRemoteDontNeedLocalIgnored(t *testing.T) {
 func TestLocalDontNeedDeletedMissing(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -406,7 +406,7 @@ func TestLocalDontNeedDeletedMissing(t *testing.T) {
 func TestRemoteDontNeedDeletedMissing(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -474,7 +474,7 @@ func TestRemoteDontNeedDeletedMissing(t *testing.T) {
 func TestNeedRemoteSymlinkAndDir(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -517,7 +517,7 @@ func TestNeedRemoteSymlinkAndDir(t *testing.T) {
 func TestNeedPagination(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -583,7 +583,7 @@ func TestDeletedAfterConflict(t *testing.T) {
 	// 23NHXGS  FILE  TreeSizeFreeSetup.exe  445       ---      2025-06-23T03:16:10.2804841Z  13832808  -nG----  HZJYWFM:1751507473                     7B4kLitF
 	// JKX6ZDN  FILE  TreeSizeFreeSetup.exe  320       ---      2025-06-23T03:16:10.2804841Z  13832808  -------  JKX6ZDN:1750992570                     7B4kLitF
 
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
