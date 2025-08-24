@@ -479,7 +479,7 @@ func (c *serveCmd) syncthingMain() {
 		})
 	}
 
-	var tempApiAddress string = ""
+	var tempApiAddress string
 	if cfgWrapper.GUI().Enabled {
 		tempApiAddress = cfgWrapper.GUI().Address()
 	}
