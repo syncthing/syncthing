@@ -188,6 +188,13 @@ type Report struct {
 	DistDist string `json:"distDist" metric:"distribution,gaugeVec:distribution"`
 	DistOS   string `json:"distOS" metric:"distribution,gaugeVec:os"`
 	DistArch string `json:"distArch" metric:"distribution,gaugeVec:arch"`
+
+	// Database counts
+	Database struct {
+		ModernCSQLite bool `json:"modernCSQLite" metric:"database_engine{engine=modernc-sqlite},gauge"`
+		MattnSQLite   bool `json:"mattnSQLite" metric:"database_engine{engine=mattn-sqlite},gauge"`
+		LevelDB       bool `json:"levelDB" metric:"database_engine{engine=leveldb},gauge"`
+	} `json:"database"`
 }
 
 func New() *Report {
