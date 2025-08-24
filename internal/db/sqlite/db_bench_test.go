@@ -21,7 +21,7 @@ import (
 var globalFi protocol.FileInfo
 
 func BenchmarkUpdate(b *testing.B) {
-	db, err := OpenTemp()
+	db, err := Open(b.TempDir())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -202,7 +202,7 @@ func TestBenchmarkDropAllRemote(t *testing.T) {
 		t.Skip("slow test")
 	}
 
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -16,7 +16,7 @@ import (
 func TestBlocks(t *testing.T) {
 	t.Parallel()
 
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal()
 	}
@@ -89,7 +89,7 @@ func TestBlocks(t *testing.T) {
 func TestBlocksDeleted(t *testing.T) {
 	t.Parallel()
 
-	sdb, err := OpenTemp()
+	sdb, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal()
 	}
@@ -141,7 +141,7 @@ func TestBlocksDeleted(t *testing.T) {
 func TestRemoteSequence(t *testing.T) {
 	t.Parallel()
 
-	sdb, err := OpenTemp()
+	sdb, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal()
 	}

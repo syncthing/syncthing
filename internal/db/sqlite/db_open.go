@@ -131,19 +131,6 @@ func OpenForMigration(path string) (*DB, error) {
 	return db, nil
 }
 
-func OpenTemp() (*DB, error) {
-	// SQLite has a memory mode, but it works differently with concurrency
-	// compared to what we need with the WAL mode. So, no memory databases
-	// for now.
-	dir, err := os.MkdirTemp("", "syncthing-db")
-	if err != nil {
-		return nil, wrap(err)
-	}
-	path := filepath.Join(dir, "db")
-	slog.Debug("Test DB", slogutil.FilePath(path))
-	return Open(path)
-}
-
 func (s *DB) Close() error {
 	s.folderDBsMut.Lock()
 	defer s.folderDBsMut.Unlock()
