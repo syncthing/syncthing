@@ -381,6 +381,13 @@ func (s *server) addReport(rep *contract.Report) bool {
 	rep.DistOS = rep.OS
 	rep.DistArch = rep.Arch
 
+	if strings.HasPrefix(rep.Version, "v2.") {
+		rep.Database.ModernCSQLite = strings.Contains(rep.LongVersion, "modernc-sqlite")
+		rep.Database.MattnSQLite = !rep.Database.ModernCSQLite
+	} else {
+		rep.Database.LevelDB = true
+	}
+
 	_, loaded := s.reports.LoadAndStore(rep.UniqueID, rep)
 	return loaded
 }
