@@ -158,6 +158,7 @@ func OpenDatabase(path string, deleteRetention time.Duration) (db.DB, error) {
 }
 
 // Attempts migration of the old (LevelDB-based) database type to the new (SQLite-based) type
+// This will attempt to provide a temporary API server during the migration, if `apiAddr` is not empty.
 func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration, apiAddr string) error {
 	oldDBDir := locations.Get(locations.LegacyDatabase)
 	if _, err := os.Lstat(oldDBDir); err != nil {
@@ -173,10 +174,12 @@ func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration, apiA
 	defer be.Close()
 
 	// Start a temporary API server during the migration
-	api := migratingAPI{addr: apiAddr}
-	apiCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	go api.Serve(apiCtx)
+	if apiAddr != "" {
+		api := migratingAPI{addr: apiAddr}
+		apiCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		go api.Serve(apiCtx)
+	}
 
 	sdb, err := sqlite.OpenForMigration(locations.Get(locations.Database))
 	if err != nil {
