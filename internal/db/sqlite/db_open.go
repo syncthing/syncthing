@@ -100,6 +100,9 @@ func OpenForMigration(path string) (*DB, error) {
 		"foreign_keys = 0",
 		"synchronous = 0",
 		"locking_mode = EXCLUSIVE",
+		"cache_size = -2000000", // 2GB cache
+		"mmap_size = 268435456", // 256MB mmap
+		"page_size = 4096",      // Larger page size
 	}
 	schemas := []string{
 		"sql/schema/common/*",

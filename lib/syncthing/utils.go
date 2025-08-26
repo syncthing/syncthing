@@ -216,6 +216,7 @@ func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration, apiA
 			files, blocks := 0, 0
 			t0 := time.Now()
 			t1 := time.Now()
+			lastLog := time.Now()
 
 			if writeErr = sdb.DropFolder(folder); writeErr != nil {
 				slog.Error("Failed database drop", slogutil.Error(writeErr))
@@ -226,16 +227,18 @@ func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration, apiA
 				batch = append(batch, fi)
 				files++
 				blocks += len(fi.Blocks)
-				if len(batch) == 1000 {
+				// Increase batch size for better performance with large datasets
+				if len(batch) >= 5000 {
 					writeErr = sdb.Update(folder, protocol.LocalDeviceID, batch)
 					if writeErr != nil {
 						slog.Error("Failed database write", slogutil.Error(writeErr))
 						return
 					}
 					batch = batch[:0]
-					if time.Since(t1) > 10*time.Second {
+					// Reduce logging frequency to avoid performance impact
+					if time.Since(lastLog) > 30*time.Second {
 						d := time.Since(t0) + 1
-						t1 = time.Now()
+						lastLog = time.Now()
 						slog.Info("Still migrating folder", "folder", folder, "files", files, "blocks", blocks, "duration", d.Truncate(time.Second), "filesrate", float64(files)/d.Seconds())
 					}
 				}
