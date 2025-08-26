@@ -2561,16 +2561,17 @@ func (m *model) numHashers(folder string) int {
 		return folderCfg.Hashers
 	}
 
+	numCpus := runtime.GOMAXPROCS(-1)
 	if build.IsWindows || build.IsDarwin || build.IsIOS || build.IsAndroid {
 		// Interactive operating systems; don't load the system too heavily by
 		// default.
-		return 1
+		numCpus = max(1, numCpus/4)
 	}
 
 	// For other operating systems and architectures, lets try to get some
 	// work done... Divide the available CPU cores among the configured
 	// folders.
-	if perFolder := runtime.GOMAXPROCS(-1) / numFolders; perFolder > 0 {
+	if perFolder := numCpus / numFolders; perFolder > 0 {
 		return perFolder
 	}
 
