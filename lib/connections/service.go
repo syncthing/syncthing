@@ -75,7 +75,6 @@ var (
 )
 
 const (
-	perDeviceWarningIntv          = 15 * time.Minute
 	tlsHandshakeTimeout           = 10 * time.Second
 	minConnectionLoopSleep        = 5 * time.Second
 	stdConnectionLoopSleep        = time.Minute

@@ -121,14 +121,11 @@ var (
 )
 
 const (
-	dbOpGet             = "get"
-	dbOpPut             = "put"
-	dbOpMerge           = "merge"
-	dbOpDelete          = "delete"
-	dbResSuccess        = "success"
-	dbResNotFound       = "not_found"
-	dbResError          = "error"
-	dbResUnmarshalError = "unmarsh_err"
+	dbOpGet       = "get"
+	dbOpPut       = "put"
+	dbOpMerge     = "merge"
+	dbResSuccess  = "success"
+	dbResNotFound = "not_found"
 )
 
 func init() {

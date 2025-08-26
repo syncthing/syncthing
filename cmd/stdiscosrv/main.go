@@ -32,8 +32,7 @@ import (
 )
 
 const (
-	addressExpiryTime          = 2 * time.Hour
-	databaseStatisticsInterval = 5 * time.Minute
+	addressExpiryTime = 2 * time.Hour
 
 	// Reannounce-After is set to reannounceAfterSeconds +
 	// random(reannounzeFuzzSeconds), similar for Retry-After
