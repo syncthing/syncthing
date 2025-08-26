@@ -2551,9 +2551,8 @@ func (m *model) numHashers(folder string) int {
 	// MaxFolderConcurrency already limits the number of scanned folders, so
 	// prefer it over the overall number of folders to avoid limiting performance
 	// further for no reason.
-	opts := m.cfg.Options()
-	if opts.MaxFolderConcurrency() > 0 && opts.MaxFolderConcurrency() < numFolders {
-		numFolders = opts.MaxFolderConcurrency()
+	if concurrency := m.cfg.Options().MaxFolderConcurrency(); concurrency > 0 {
+		numFolders = min(numFolders, concurrency)
 	}
 	m.mut.RUnlock()
 
