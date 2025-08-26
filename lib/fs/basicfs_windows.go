@@ -21,6 +21,20 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// Windows-specific notes on file watching:
+//
+// Due to limitations in the Windows file watching API (ReadDirectoryChangesW),
+// Syncthing uses a larger event buffer on Windows (2000 vs 500 on other platforms)
+// to better handle large filesets. This helps prevent buffer overflows that can
+// cause file change notifications to be missed, particularly when dealing with
+// thousands of files.
+//
+// If you're still experiencing issues with file watching on large directories
+// on Windows, consider:
+// 1. Increasing the frequency of full folder scans as a fallback
+// 2. Excluding temporary files and build artifacts from synchronization
+// 3. Using more specific folder paths rather than watching very large directory trees
+
 var errNotSupported = errors.New("symlinks not supported")
 
 func (BasicFilesystem) SymlinksSupported() bool {
