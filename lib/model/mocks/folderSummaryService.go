@@ -165,10 +165,6 @@ func (fake *FolderSummaryService) SummaryReturnsOnCall(i int, result1 *model.Fol
 func (fake *FolderSummaryService) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.serveMutex.RLock()
-	defer fake.serveMutex.RUnlock()
-	fake.summaryMutex.RLock()
-	defer fake.summaryMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

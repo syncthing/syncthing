@@ -24,7 +24,6 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/maruel/panicparse/v2 v2.5.0
 	github.com/mattn/go-sqlite3 v1.14.31
-	github.com/maxbrunsfeld/counterfeiter/v6 v6.11.3
 	github.com/maxmind/geoipupdate/v6 v6.1.0
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
 	github.com/oschwald/geoip2-golang v1.13.0
@@ -49,7 +48,6 @@ require (
 	golang.org/x/sys v0.35.0
 	golang.org/x/text v0.28.0
 	golang.org/x/time v0.12.0
-	golang.org/x/tools v0.36.0
 	google.golang.org/protobuf v1.36.7
 	modernc.org/sqlite v1.38.2
 	sigs.k8s.io/yaml v1.6.0
@@ -79,6 +77,7 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20240909124753-873cd0166683 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.11.3 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/nxadm/tail v1.4.11 // indirect
@@ -103,6 +102,7 @@ require (
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/mod v0.27.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/tools v0.36.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/libc v1.66.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
@@ -114,3 +114,9 @@ replace github.com/gobwas/glob v0.2.3 => github.com/calmh/glob v0.0.0-2022061508
 
 // https://github.com/mattn/go-sqlite3/pull/1338
 replace github.com/mattn/go-sqlite3 v1.14.31 => github.com/calmh/go-sqlite3 v1.14.32-0.20250812195006-80712c77b76a
+
+tool (
+	github.com/calmh/xdr/cmd/genxdr
+	github.com/maxbrunsfeld/counterfeiter/v6
+	golang.org/x/tools/cmd/goimports
+)

@@ -82,7 +82,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	}
 	w := config.Wrap("/dev/null", cfg, protocol.LocalDeviceID, events.NoopLogger)
 
-	mdb, err := sqlite.OpenTemp()
+	mdb, err := sqlite.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1049,7 +1049,7 @@ func startHTTPWithShutdownTimeout(t *testing.T, cfg config.Wrapper, shutdownTime
 
 	// Instantiate the API service
 	urService := ur.New(cfg, m, connections, false)
-	mdb, err := sqlite.OpenTemp()
+	mdb, err := sqlite.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1567,7 +1567,7 @@ func TestEventMasks(t *testing.T) {
 	cfg := newMockedConfig()
 	defSub := new(eventmocks.BufferedSubscription)
 	diskSub := new(eventmocks.BufferedSubscription)
-	mdb, err := sqlite.OpenTemp()
+	mdb, err := sqlite.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
