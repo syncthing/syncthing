@@ -211,7 +211,7 @@ func TestRepro9677MissingMtimeFS(t *testing.T) {
 		if !info.ModTime().Equal(testTime) {
 			t.Errorf("Expected mtime %v for %v, got %v", testTime, name, info.ModTime())
 		}
-		info, err = fs.Lstat(nameLower)
+		_, err = fs.Lstat(nameLower)
 		if !IsErrCaseConflict(err) {
 			t.Errorf("Expected case-conflict error, got %v", err)
 		}

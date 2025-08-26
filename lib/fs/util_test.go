@@ -7,8 +7,8 @@
 package fs
 
 import (
+	"crypto/rand"
 	"errors"
-	"math/rand"
 	"testing"
 	"unicode"
 	"unicode/utf8"
@@ -107,7 +107,10 @@ func TestSanitizePathFuzz(t *testing.T) {
 	buf := make([]byte, 128)
 
 	for i := 0; i < 100; i++ {
-		rand.Read(buf)
+		_, err := rand.Read(buf)
+		if err != nil {
+			t.Fatal(err)
+		}
 		path := SanitizePath(string(buf))
 		if !utf8.ValidString(path) {
 			t.Errorf("SanitizePath(%q) => %q, not valid UTF-8", buf, path)
