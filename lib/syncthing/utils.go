@@ -215,7 +215,6 @@ func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration, apiA
 			var batch []protocol.FileInfo
 			files, blocks := 0, 0
 			t0 := time.Now()
-			t1 := time.Now()
 			lastLog := time.Now()
 
 			if writeErr = sdb.DropFolder(folder); writeErr != nil {
