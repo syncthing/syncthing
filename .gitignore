@@ -18,3 +18,7 @@ deb
 /repos
 /proto/scripts/protoc-gen-gosyncthing
 /compat.json
+PULL_REQUEST_TEMPLATE.md
+build-all.bat
+build-simple.bat
+build.bat
