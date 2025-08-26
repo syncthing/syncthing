@@ -2559,7 +2559,7 @@ func (m *model) numHashers(folder string) int {
 	if build.IsWindows || build.IsDarwin || build.IsIOS || build.IsAndroid {
 		// Interactive operating systems; don't load the system too heavily by
 		// default.
-		numCpus = max(1, (numCpus / 4))
+		numCpus = max(1, numCpus/4)
 	}
 
 	// For other operating systems and architectures, lets try to get some
