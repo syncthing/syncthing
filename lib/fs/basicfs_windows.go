@@ -12,6 +12,7 @@ package fs
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -292,18 +293,61 @@ func (f *BasicFilesystem) resolveWin83(absPath string) string {
 	if !isMaybeWin83(absPath) {
 		return absPath
 	}
+
+	// Try to resolve the full path first using GetLongPathName
 	if in, err := syscall.UTF16FromString(absPath); err == nil {
 		out := make([]uint16, 4*len(absPath)) // *2 for UTF16 and *2 to double path length
 		if n, err := syscall.GetLongPathName(&in[0], &out[0], uint32(len(out))); err == nil {
 			if n <= uint32(len(out)) {
-				return syscall.UTF16ToString(out[:n])
-			}
-			out = make([]uint16, n)
-			if _, err = syscall.GetLongPathName(&in[0], &out[0], n); err == nil {
-				return syscall.UTF16ToString(out)
+				result := syscall.UTF16ToString(out[:n])
+				// Only return the result if it's different from the input and not empty
+				if result != "" && result != absPath {
+					return result
+				}
+			} else {
+				out = make([]uint16, n)
+				if _, err = syscall.GetLongPathName(&in[0], &out[0], n); err == nil {
+					result := syscall.UTF16ToString(out)
+					// Only return the result if it's different from the input and not empty
+					if result != "" && result != absPath {
+						return result
+					}
+				}
 			}
 		}
 	}
+
+	// If GetLongPathName failed, try a fallback approach
+	// This is needed for cases where 8.3 name generation is disabled
+	dir := filepath.Dir(absPath)
+	filename := filepath.Base(absPath)
+
+	// If the filename contains a tilde, it's likely a short name
+	if strings.Contains(filename, "~") {
+		// Check if the path with the 8.3 name actually exists
+		if _, err := os.Stat(absPath); err != nil {
+			// The 8.3 path doesn't exist, try to find a matching long name
+			entries, err := os.ReadDir(dir)
+			if err == nil {
+				// For each file in the directory, check if its short name matches
+				for _, entry := range entries {
+					longName := entry.Name()
+					// Skip directories for this check
+					if entry.IsDir() {
+						continue
+					}
+
+					// Generate what the 8.3 name would be for this long name
+					shortName := generate83Name(longName)
+					if strings.EqualFold(shortName, filename) {
+						// Found a match, return the path with the long name
+						return filepath.Join(dir, longName)
+					}
+				}
+			}
+		}
+	}
+
 	// Failed getting the long path. Return the part of the path which is
 	// already a long path.
 	lowerRoot := UnicodeLowercaseNormalized(f.root)
@@ -313,6 +357,50 @@ func (f *BasicFilesystem) resolveWin83(absPath string) string {
 		}
 	}
 	return f.root
+}
+
+// generate83Name generates what the 8.3 short name would be for a given long name
+// This is a simplified implementation that follows basic 8.3 naming rules
+func generate83Name(longName string) string {
+	// Remove extension for processing
+	ext := filepath.Ext(longName)
+	nameWithoutExt := strings.TrimSuffix(longName, ext)
+
+	// If the name is already short enough, return as is
+	if len(nameWithoutExt) <= 8 && len(ext) <= 4 {
+		return longName
+	}
+
+	// Truncate name to 6 characters and add ~1
+	if len(nameWithoutExt) > 6 {
+		nameWithoutExt = nameWithoutExt[:6]
+	}
+
+	// Truncate extension to 3 characters if needed
+	if len(ext) > 4 {
+		ext = ext[:4]
+	}
+
+	// Combine and add ~1 suffix
+	return strings.ToUpper(nameWithoutExt) + "~1" + strings.ToUpper(ext)
+}
+
+// Helper function to get short path name (8.3 format)
+func getShortPathName(longPath string) (string, error) {
+	if in, err := syscall.UTF16FromString(longPath); err == nil {
+		out := make([]uint16, len(in)) // Buffer for short path
+		if n, err := syscall.GetShortPathName(&in[0], &out[0], uint32(len(out))); err == nil {
+			if n <= uint32(len(out)) {
+				return syscall.UTF16ToString(out[:n]), nil
+			}
+			// Buffer was too small, try again with larger buffer
+			out = make([]uint16, n)
+			if _, err = syscall.GetShortPathName(&in[0], &out[0], n); err == nil {
+				return syscall.UTF16ToString(out), nil
+			}
+		}
+	}
+	return "", fmt.Errorf("failed to get short path name")
 }
 
 func isMaybeWin83(absPath string) bool {
