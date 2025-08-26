@@ -221,51 +221,6 @@ func (f *BasicFilesystem) unrootedChecked(absPath string, roots []string) (strin
 			return rel(absPath, root), nil
 		}
 	}
-
-	// If we're treating junctions as directories, check if this path might be within a junction
-	if f.junctionsAsDirs {
-		// For each root, check if there might be a junction within the path
-		for _, root := range roots {
-			// Check if absPath is within root
-			if strings.HasPrefix(UnicodeLowercaseNormalized(absPath), UnicodeLowercaseNormalized(root)) {
-				// Get the relative path
-				relPath := strings.TrimPrefix(absPath[len(root):], string(PathSeparator))
-				// Check each component of the relative path to see if it's a junction
-				parts := strings.Split(relPath, string(PathSeparator))
-				currentPath := root
-				for i, part := range parts {
-					if part == "" {
-						continue
-					}
-					currentPath = filepath.Join(currentPath, part)
-					// Check if currentPath is a junction
-					if info, err := f.underlyingLstat(currentPath); err == nil {
-						fsInfo := basicFileInfo{info}
-						if fsInfo.IsDir() && fsInfo.IsSymlink() {
-							// Check if it's a directory junction
-							if reparseTag, err := readReparseTag(currentPath); err == nil && isDirectoryJunction(reparseTag) {
-								// Get the target of the junction
-								if target, err := filepath.EvalSymlinks(currentPath); err == nil {
-									// Check if the rest of the path is within the target
-									restPath := strings.Join(parts[i+1:], string(PathSeparator))
-									fullTargetPath := filepath.Join(target, restPath)
-									// Check if this full target path is within any of our roots
-									for _, root := range roots {
-										if strings.HasPrefix(UnicodeLowercaseNormalized(fullTargetPath), UnicodeLowercaseNormalized(root)) {
-											return rel(fullTargetPath, root), nil
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-				// If we get here, the path is within the root but not in a recognizable junction
-				return rel(absPath, root), nil
-			}
-		}
-	}
-
 	return "", f.newErrWatchEventOutsideRoot(lowerAbsPath, roots)
 }
 
