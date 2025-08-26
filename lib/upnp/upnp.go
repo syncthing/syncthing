@@ -275,10 +275,10 @@ loop:
 			}
 			continue
 		}
-		for _, igd := range igds {
-			igd := igd // Copy before sending pointer to the channel.
+		for i := range igds {
+			igd := &igds[i] // Use pointer to avoid copying the struct with mutex
 			select {
-			case results <- &igd:
+			case results <- igd:
 			case <-ctx.Done():
 				return
 			}
@@ -520,7 +520,7 @@ func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, de
 
 						l.Debugln(rootURL, "- found", service.Type, "with URL", u)
 
-						service := IGDService{
+						service := &IGDService{
 							UUID:      deviceUUID,
 							Device:    device,
 							ServiceID: service.ID,
@@ -530,7 +530,7 @@ func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, de
 							LocalIPv4: localIPAddress,
 						}
 
-						result = append(result, service)
+						result = append(result, *service)
 					}
 				}
 			}

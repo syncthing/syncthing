@@ -128,15 +128,6 @@ func Validate(buf, hash []byte) bool {
 	return true
 }
 
-type noopHash struct{}
-
-func (noopHash) Sum32() uint32             { return 0 }
-func (noopHash) BlockSize() int            { return 0 }
-func (noopHash) Size() int                 { return 0 }
-func (noopHash) Reset()                    {}
-func (noopHash) Sum([]byte) []byte         { return nil }
-func (noopHash) Write([]byte) (int, error) { return 0, nil }
-
 type noopCounter struct{}
 
 func (*noopCounter) Update(_ int64) {}

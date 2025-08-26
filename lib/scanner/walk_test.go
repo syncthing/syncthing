@@ -18,7 +18,6 @@ import (
 	rdebug "runtime/debug"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/d4l3k/messagediff"
@@ -620,12 +619,8 @@ func (l testfileList) String() string {
 	return b.String()
 }
 
-var initOnce sync.Once
-
 const (
 	testdataSize = 17<<20 + 1
-	testdataName = "_random.data"
-	testFsPath   = "some_random_dir_path"
 )
 
 func BenchmarkHashFile(b *testing.B) {
@@ -633,23 +628,23 @@ func BenchmarkHashFile(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := HashFile(context.TODO(), "", testFs, testdataName, protocol.MinBlockSize, nil); err != nil {
+		if _, err := HashFile(context.TODO(), "", testFs, "_random.data", protocol.MinBlockSize, nil); err != nil {
 			b.Fatal(err)
 		}
 	}
 
-	b.SetBytes(testdataSize)
+	b.SetBytes(17<<20 + 1)
 	b.ReportAllocs()
 }
 
 func newDataFs() fs.Filesystem {
 	tfs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(16)+"?content=true")
-	fd, err := tfs.Create(testdataName)
+	fd, err := tfs.Create("_random.data")
 	if err != nil {
 		panic(err)
 	}
 
-	lr := io.LimitReader(rand.Reader, testdataSize)
+	lr := io.LimitReader(rand.Reader, 17<<20+1)
 	if _, err := io.Copy(fd, lr); err != nil {
 		panic(err)
 	}
