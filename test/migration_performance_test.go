@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/locations"
-	"github.com/syncthing/syncthing/lib/syncthing"
 )
 
 // TestMigrationPerformance tests that the database migration performance
@@ -35,13 +34,13 @@ func TestMigrationPerformance(t *testing.T) {
 
 	// Set up locations
 	locations.SetBaseDir(locations.ConfigBaseDir, tempDir)
-	locations.SetBaseDir(locations.Database, filepath.Join(tempDir, "database"))
+	locations.SetBaseDir(locations.DataBaseDir, filepath.Join(tempDir, "database"))
 
 	// Test with different file counts to verify performance scaling
 	testCases := []struct {
-		name       string
-		fileCount  int
-		maxTime    time.Duration
+		name      string
+		fileCount int
+		maxTime   time.Duration
 	}{
 		{"SmallDataset", 1000, 30 * time.Second},
 		{"MediumDataset", 10000, 5 * time.Minute},
@@ -55,18 +54,18 @@ func TestMigrationPerformance(t *testing.T) {
 			// 1. Create a mock LevelDB with tc.fileCount files
 			// 2. Time the migration process
 			// 3. Verify it completes within tc.maxTime
-			
+
 			fmt.Printf("Testing migration performance for %d files (max time: %v)\n", tc.fileCount, tc.maxTime)
-			
+
 			// Simulate the performance improvement
 			// With our fix, we expect better performance scaling
 			expectedBatchSize := 5000
 			expectedLogInterval := 30 * time.Second
-			
+
 			if expectedBatchSize <= 1000 {
 				t.Error("Batch size should be increased for better performance")
 			}
-			
+
 			if expectedLogInterval <= 10*time.Second {
 				t.Error("Logging interval should be increased to reduce performance impact")
 			}
@@ -78,7 +77,7 @@ func TestMigrationPerformance(t *testing.T) {
 func BenchmarkMigrationBatching(b *testing.B) {
 	// Test different batch sizes to find optimal performance
 	batchSizes := []int{1000, 2000, 5000, 10000}
-	
+
 	for _, batchSize := range batchSizes {
 		b.Run(fmt.Sprintf("BatchSize%d", batchSize), func(b *testing.B) {
 			// This is a placeholder for actual benchmarking
@@ -86,13 +85,13 @@ func BenchmarkMigrationBatching(b *testing.B) {
 			// 1. Create a mock LevelDB with a fixed number of files
 			// 2. Measure the time to migrate with different batch sizes
 			// 3. Report the performance metrics
-			
+
 			b.Logf("Testing batch size: %d", batchSize)
-			
+
 			// Simulate the performance test
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			
+
 			// This would normally call syncthing.TryMigrateDatabase
 			// But we're just verifying the batch size logic
 			select {
