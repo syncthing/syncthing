@@ -14,7 +14,7 @@
 CREATE TABLE IF NOT EXISTS blocklists (
     blocklist_hash BLOB NOT NULL PRIMARY KEY,
     blprotobuf BLOB NOT NULL
-) STRICT
+) STRICT, WITHOUT ROWID
 ;
 
 -- Blocks
@@ -30,5 +30,5 @@ CREATE TABLE IF NOT EXISTS blocks (
     size INTEGER NOT NULL,
     PRIMARY KEY (hash, blocklist_hash, idx),
     FOREIGN KEY(blocklist_hash) REFERENCES blocklists(blocklist_hash) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
-) STRICT
+) STRICT, WITHOUT ROWID
 ;
