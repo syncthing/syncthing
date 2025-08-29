@@ -194,7 +194,7 @@ func (a *App) startup() error {
 		} else {
 			// Touch/open the folder database, causing it to apply
 			// migrations early when appropriate.
-			_, _ = a.sdb.CountLocal(folder, protocol.LocalDeviceID)
+			_, _ = a.sdb.GetDeviceSequence(folder, protocol.LocalDeviceID)
 		}
 	}
 
