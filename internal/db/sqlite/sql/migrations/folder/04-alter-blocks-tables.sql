@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS blocks_v4 (
 ;
 
 INSERT INTO blocks_v4 (hash, blocklist_hash, idx, offset, size)
-SELECT hash, blocklist_hash, idx, offset, size FROM blocks
+SELECT hash, blocklist_hash, idx, offset, size FROM blocks ORDER BY hash, blocklist_hash, idx
 ;
 
 DROP TABLE blocks
