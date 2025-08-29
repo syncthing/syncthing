@@ -148,6 +148,20 @@ func BenchmarkUpdate(b *testing.B) {
 			b.ReportMetric(float64(count)/b.Elapsed().Seconds(), "files/s")
 		})
 
+		b.Run(fmt.Sprintf("n=AllLocalBlocksWithHash/size=%d", size), func(b *testing.B) {
+			count := 0
+			for range b.N {
+				it, errFn := db.AllLocalBlocksWithHash(folderID, globalFi.Blocks[0].Hash)
+				for range it {
+					count++
+				}
+				if err := errFn(); err != nil {
+					b.Fatal(err)
+				}
+			}
+			b.ReportMetric(float64(count)/b.Elapsed().Seconds(), "blocks/s")
+		})
+
 		b.Run(fmt.Sprintf("n=GetDeviceSequenceLoc/size=%d", size), func(b *testing.B) {
 			for range b.N {
 				_, err := db.GetDeviceSequence(folderID, protocol.LocalDeviceID)
