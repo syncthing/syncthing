@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS blocklists_v4 (
 ;
 
 INSERT INTO blocklists_v4 (blocklist_hash, blprotobuf)
-SELECT blocklist_hash, blprotobuf FROM blocklists
+SELECT blocklist_hash, blprotobuf FROM blocklists ORDER BY blocklist_hash
 ;
 
 DROP TABLE blocklists
