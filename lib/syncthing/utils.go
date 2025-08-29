@@ -236,7 +236,7 @@ func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration, apiA
 					if time.Since(t1) > 10*time.Second {
 						d := time.Since(t0) + 1
 						t1 = time.Now()
-						slog.Info("Still migrating folder", "folder", folder, "files", files, "blocks", blocks, "duration", d.Truncate(time.Second), "filesrate", float64(files)/d.Seconds())
+						slog.Info("Still migrating folder", "folder", folder, "files", files, "blocks", blocks, "duration", d.Truncate(time.Second), "blocksrate", float64(blocks)/d.Seconds(), "filesrate", float64(files)/d.Seconds())
 					}
 				}
 			}
