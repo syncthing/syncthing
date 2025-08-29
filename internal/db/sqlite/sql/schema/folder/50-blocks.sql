@@ -28,8 +28,7 @@ CREATE TABLE IF NOT EXISTS blocks (
     blocklist_hash BLOB NOT NULL,
     idx INTEGER NOT NULL,
     offset INTEGER NOT NULL,
-    size INTEGER NOT NULL
-) STRICT
-;
-CREATE INDEX IF NOT EXISTS blocks_hash_idx ON blocks (hash)
+    size INTEGER NOT NULL,
+    PRIMARY KEY(hash, blocklist_hash, idx)
+) STRICT, WITHOUT ROWID
 ;

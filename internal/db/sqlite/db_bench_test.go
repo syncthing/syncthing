@@ -7,7 +7,6 @@
 package sqlite
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -30,7 +29,6 @@ func BenchmarkUpdate(b *testing.B) {
 			b.Fatal(err)
 		}
 	})
-	svc := db.Service(time.Hour).(*Service)
 
 	fs := make([]protocol.FileInfo, 100)
 
@@ -39,12 +37,6 @@ func BenchmarkUpdate(b *testing.B) {
 	const numBlocks = 1000
 
 	for size < 200_000 {
-		t0 := time.Now()
-		if err := svc.periodic(context.Background()); err != nil {
-			b.Fatal(err)
-		}
-		b.Log("garbage collect in", time.Since(t0))
-
 		for {
 			local, err := db.CountLocal(folderID, protocol.LocalDeviceID)
 			if err != nil {
@@ -209,7 +201,7 @@ func BenchmarkUpdate(b *testing.B) {
 			b.ReportMetric(float64(count)/b.Elapsed().Seconds(), "files/s")
 		})
 
-		size <<= 1
+		size += 1000
 	}
 }
 
