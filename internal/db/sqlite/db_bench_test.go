@@ -7,7 +7,6 @@
 package sqlite
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -30,19 +29,14 @@ func BenchmarkUpdate(b *testing.B) {
 			b.Fatal(err)
 		}
 	})
-	svc := db.Service(time.Hour).(*Service)
 
 	fs := make([]protocol.FileInfo, 100)
+
 	seed := 0
+	size := 1000
+	const numBlocks = 1000
 
-	size := 10000
 	for size < 200_000 {
-		t0 := time.Now()
-		if err := svc.periodic(context.Background()); err != nil {
-			b.Fatal(err)
-		}
-		b.Log("garbage collect in", time.Since(t0))
-
 		for {
 			local, err := db.CountLocal(folderID, protocol.LocalDeviceID)
 			if err != nil {
@@ -53,7 +47,7 @@ func BenchmarkUpdate(b *testing.B) {
 			}
 			fs := make([]protocol.FileInfo, 1000)
 			for i := range fs {
-				fs[i] = genFile(rand.String(24), 64, 0)
+				fs[i] = genFile(rand.String(24), numBlocks, 0)
 			}
 			if err := db.Update(folderID, protocol.LocalDeviceID, fs); err != nil {
 				b.Fatal(err)
@@ -63,7 +57,7 @@ func BenchmarkUpdate(b *testing.B) {
 		b.Run(fmt.Sprintf("n=Insert100Loc/size=%d", size), func(b *testing.B) {
 			for range b.N {
 				for i := range fs {
-					fs[i] = genFile(rand.String(24), 64, 0)
+					fs[i] = genFile(rand.String(24), numBlocks, 0)
 				}
 				if err := db.Update(folderID, protocol.LocalDeviceID, fs); err != nil {
 					b.Fatal(err)
@@ -146,6 +140,20 @@ func BenchmarkUpdate(b *testing.B) {
 			b.ReportMetric(float64(count)/b.Elapsed().Seconds(), "files/s")
 		})
 
+		b.Run(fmt.Sprintf("n=AllLocalBlocksWithHash/size=%d", size), func(b *testing.B) {
+			count := 0
+			for range b.N {
+				it, errFn := db.AllLocalBlocksWithHash(folderID, globalFi.Blocks[0].Hash)
+				for range it {
+					count++
+				}
+				if err := errFn(); err != nil {
+					b.Fatal(err)
+				}
+			}
+			b.ReportMetric(float64(count)/b.Elapsed().Seconds(), "blocks/s")
+		})
+
 		b.Run(fmt.Sprintf("n=GetDeviceSequenceLoc/size=%d", size), func(b *testing.B) {
 			for range b.N {
 				_, err := db.GetDeviceSequence(folderID, protocol.LocalDeviceID)
@@ -193,7 +201,7 @@ func BenchmarkUpdate(b *testing.B) {
 			b.ReportMetric(float64(count)/b.Elapsed().Seconds(), "files/s")
 		})
 
-		size <<= 1
+		size += 1000
 	}
 }
 
