@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"embed"
 	"io/fs"
+	"log/slog"
 	"net/url"
 	"path/filepath"
 	"strconv"
@@ -19,6 +20,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -99,7 +101,12 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 			if err != nil {
 				return false
 			}
-			return int(n) > ver.SchemaVersion
+
+			if int(n) > ver.SchemaVersion {
+				slog.Info("Running database migration", slogutil.FilePath(db.baseName), "fromSchema", ver.SchemaVersion, "toSchema", n, "script", scr)
+				return true
+			}
+			return false
 		}
 		for _, script := range migrationScripts {
 			if err := db.runScripts(script, filter); err != nil {
