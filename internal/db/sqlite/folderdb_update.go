@@ -114,11 +114,9 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 			if err != nil {
 				return wrap(err, "marshal blocklist")
 			}
-			if _, err := insertBlockListStmt.Exec(f.BlocksHash, bs); err != nil {
+			if res, err := insertBlockListStmt.Exec(f.BlocksHash, bs); err != nil {
 				return wrap(err, "insert blocklist")
-			}
-
-			if device == protocol.LocalDeviceID {
+			} else if aff, _ := res.RowsAffected(); aff != 0 && device == protocol.LocalDeviceID {
 				// Insert all blocks
 				if err := s.insertBlocksLocked(txp, f.BlocksHash, f.Blocks); err != nil {
 					return wrap(err, "insert blocks")

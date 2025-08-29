@@ -12,28 +12,24 @@
 -- using a size cutoff simplifies queries. Block lists are garbage collected
 -- "manually", not using a trigger as that was too performance impacting.
 CREATE TABLE IF NOT EXISTS blocklists (
-    id INTEGER PRIMARY KEY,
-    blocklist_hash BLOB NOT NULL,
+    blocklist_hash BLOB NOT NULL PRIMARY KEY,
     blprotobuf BLOB NOT NULL
 ) STRICT, WITHOUT ROWID
-;
-CREATE UNIQUE INDEX IF NOT EXISTS blockslists_unique ON blocklists (blocklist_hash)
 ;
 
 -- Blocks
 --
 -- For all local files we store the blocks individually for quick lookup. A
 -- given block can exist in multiple blocklists and at multiple offsets in a
--- blocklist.
+-- blocklist. We eschew most indexes here as inserting millions of blocks is
+-- common and performance is critical.
 CREATE TABLE IF NOT EXISTS blocks (
-    id INTEGER PRIMARY KEY,
     hash BLOB NOT NULL,
     blocklist_hash BLOB NOT NULL,
     idx INTEGER NOT NULL,
     offset INTEGER NOT NULL,
-    size INTEGER NOT NULL,
-    FOREIGN KEY(blocklist_hash) REFERENCES blocklists(blocklist_hash) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
-) STRICT, WITHOUT ROWID
+    size INTEGER NOT NULL
+) STRICT
 ;
-CREATE UNIQUE INDEX IF NOT EXISTS blocks_unique ON blocks (hash, blocklist_hash, idx)
+CREATE INDEX IF NOT EXISTS blocks_hash_idx ON blocks (hash)
 ;

@@ -30,7 +30,7 @@ func BenchmarkUpdate(b *testing.B) {
 
 	fs := make([]protocol.FileInfo, 100)
 
-	size := 10000
+	size := 1000
 	const numBlocks = 1000
 	for size < 2_000_000 {
 		for {
