@@ -192,8 +192,8 @@ func (a *App) startup() error {
 			slog.Info("Cleaning metadata for dropped folder", "folder", folder)
 			a.sdb.DropFolder(folder)
 		} else {
-			// Touch/open the folder database, causing it to apply
-			// migrations early when appropriate.
+			// Open the folder database, causing it to apply migrations
+			// early when appropriate.
 			_, _ = a.sdb.GetDeviceSequence(folder, protocol.LocalDeviceID)
 		}
 	}
