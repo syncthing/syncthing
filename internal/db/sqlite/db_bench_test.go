@@ -31,10 +31,16 @@ func BenchmarkUpdate(b *testing.B) {
 	})
 
 	fs := make([]protocol.FileInfo, 100)
+	t0 := time.Now()
 
 	seed := 0
 	size := 1000
-	const numBlocks = 1000
+	const numBlocks = 500
+
+	fdb, err := db.getFolderDB(folderID, true)
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	for size < 200_000 {
 		for {
@@ -53,6 +59,17 @@ func BenchmarkUpdate(b *testing.B) {
 				b.Fatal(err)
 			}
 		}
+
+		var files, blocks int
+		if err := fdb.sql.QueryRowx(`SELECT count(*) FROM files`).Scan(&files); err != nil {
+			b.Fatal(err)
+		}
+		if err := fdb.sql.QueryRowx(`SELECT count(*) FROM blocks`).Scan(&blocks); err != nil {
+			b.Fatal(err)
+		}
+
+		d := time.Since(t0)
+		b.Logf("t=%s, files=%d, blocks=%d, files/s=%.01f, blocks/s=%.01f", d, files, blocks, float64(files)/d.Seconds(), float64(blocks)/d.Seconds())
 
 		b.Run(fmt.Sprintf("n=Insert100Loc/size=%d", size), func(b *testing.B) {
 			for range b.N {
