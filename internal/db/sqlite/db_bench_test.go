@@ -7,10 +7,13 @@
 package sqlite
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/timeutil"
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 )
@@ -27,12 +30,21 @@ func BenchmarkUpdate(b *testing.B) {
 			b.Fatal(err)
 		}
 	})
+	svc := db.Service(time.Hour).(*Service)
 
 	fs := make([]protocol.FileInfo, 100)
 
+	seed := 0
 	size := 1000
 	const numBlocks = 1000
-	for size < 2_000_000 {
+
+	for size < 200_000 {
+		t0 := time.Now()
+		if err := svc.periodic(context.Background()); err != nil {
+			b.Fatal(err)
+		}
+		b.Log("garbage collect in", time.Since(t0))
+
 		for {
 			local, err := db.CountLocal(folderID, protocol.LocalDeviceID)
 			if err != nil {
@@ -60,6 +72,127 @@ func BenchmarkUpdate(b *testing.B) {
 				}
 			}
 			b.ReportMetric(float64(b.N)*100.0/b.Elapsed().Seconds(), "files/s")
+		})
+
+		b.Run(fmt.Sprintf("n=RepBlocks100/size=%d", size), func(b *testing.B) {
+			for range b.N {
+				for i := range fs {
+					fs[i].Blocks = genBlocks(fs[i].Name, seed, 64)
+					fs[i].Version = fs[i].Version.Update(42)
+				}
+				seed++
+				if err := db.Update(folderID, protocol.LocalDeviceID, fs); err != nil {
+					b.Fatal(err)
+				}
+			}
+			b.ReportMetric(float64(b.N)*100.0/b.Elapsed().Seconds(), "files/s")
+		})
+
+		b.Run(fmt.Sprintf("n=RepSame100/size=%d", size), func(b *testing.B) {
+			for range b.N {
+				for i := range fs {
+					fs[i].Version = fs[i].Version.Update(42)
+				}
+				if err := db.Update(folderID, protocol.LocalDeviceID, fs); err != nil {
+					b.Fatal(err)
+				}
+			}
+			b.ReportMetric(float64(b.N)*100.0/b.Elapsed().Seconds(), "files/s")
+		})
+
+		b.Run(fmt.Sprintf("n=Insert100Rem/size=%d", size), func(b *testing.B) {
+			for range b.N {
+				for i := range fs {
+					fs[i].Blocks = genBlocks(fs[i].Name, seed, 64)
+					fs[i].Version = fs[i].Version.Update(42)
+					fs[i].Sequence = timeutil.StrictlyMonotonicNanos()
+				}
+				if err := db.Update(folderID, protocol.DeviceID{42}, fs); err != nil {
+					b.Fatal(err)
+				}
+			}
+			b.ReportMetric(float64(b.N)*100.0/b.Elapsed().Seconds(), "files/s")
+		})
+
+		b.Run(fmt.Sprintf("n=GetGlobal100/size=%d", size), func(b *testing.B) {
+			for range b.N {
+				for i := range fs {
+					_, ok, err := db.GetGlobalFile(folderID, fs[i].Name)
+					if err != nil {
+						b.Fatal(err)
+					}
+					if !ok {
+						b.Fatal("should exist")
+					}
+				}
+			}
+			b.ReportMetric(float64(b.N)*100.0/b.Elapsed().Seconds(), "files/s")
+		})
+
+		b.Run(fmt.Sprintf("n=LocalSequenced/size=%d", size), func(b *testing.B) {
+			count := 0
+			for range b.N {
+				cur, err := db.GetDeviceSequence(folderID, protocol.LocalDeviceID)
+				if err != nil {
+					b.Fatal(err)
+				}
+				it, errFn := db.AllLocalFilesBySequence(folderID, protocol.LocalDeviceID, cur-100, 0)
+				for f := range it {
+					count++
+					globalFi = f
+				}
+				if err := errFn(); err != nil {
+					b.Fatal(err)
+				}
+			}
+			b.ReportMetric(float64(count)/b.Elapsed().Seconds(), "files/s")
+		})
+
+		b.Run(fmt.Sprintf("n=GetDeviceSequenceLoc/size=%d", size), func(b *testing.B) {
+			for range b.N {
+				_, err := db.GetDeviceSequence(folderID, protocol.LocalDeviceID)
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+		b.Run(fmt.Sprintf("n=GetDeviceSequenceRem/size=%d", size), func(b *testing.B) {
+			for range b.N {
+				_, err := db.GetDeviceSequence(folderID, protocol.DeviceID{42})
+				if err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+
+		b.Run(fmt.Sprintf("n=RemoteNeed/size=%d", size), func(b *testing.B) {
+			count := 0
+			for range b.N {
+				it, errFn := db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0, 0)
+				for f := range it {
+					count++
+					globalFi = f
+				}
+				if err := errFn(); err != nil {
+					b.Fatal(err)
+				}
+			}
+			b.ReportMetric(float64(count)/b.Elapsed().Seconds(), "files/s")
+		})
+
+		b.Run(fmt.Sprintf("n=LocalNeed100Largest/size=%d", size), func(b *testing.B) {
+			count := 0
+			for range b.N {
+				it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderLargestFirst, 100, 0)
+				for f := range it {
+					globalFi = f
+					count++
+				}
+				if err := errFn(); err != nil {
+					b.Fatal(err)
+				}
+			}
+			b.ReportMetric(float64(count)/b.Elapsed().Seconds(), "files/s")
 		})
 
 		size <<= 1
