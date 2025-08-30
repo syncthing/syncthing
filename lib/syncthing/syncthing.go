@@ -191,6 +191,10 @@ func (a *App) startup() error {
 		if _, ok := cfgFolders[folder]; !ok {
 			slog.Info("Cleaning metadata for dropped folder", "folder", folder)
 			a.sdb.DropFolder(folder)
+		} else {
+			// Open the folder database, causing it to apply migrations
+			// early when appropriate.
+			_, _ = a.sdb.GetDeviceSequence(folder, protocol.LocalDeviceID)
 		}
 	}
 

@@ -11,6 +11,7 @@ import (
 	"database/sql"
 	"embed"
 	"io/fs"
+	"log/slog"
 	"net/url"
 	"path/filepath"
 	"slices"
@@ -21,11 +22,12 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const currentSchemaVersion = 3
+const currentSchemaVersion = 4
 
 //go:embed sql/**
 var embedded embed.FS
@@ -91,6 +93,7 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 	}
 
 	ver, _ := db.getAppliedSchemaVersion()
+	shouldVacuum := false
 	if ver.SchemaVersion > 0 {
 		type migration struct {
 			script  string
@@ -117,12 +120,21 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 			if err := db.applyMigration(m.version, m.script); err != nil {
 				return nil, wrap(err)
 			}
+			shouldVacuum = true
 		}
 	}
 
 	// Set the current schema version, if not already set
 	if err := setAppliedSchemaVersion(currentSchemaVersion, db.sql); err != nil {
 		return nil, wrap(err)
+	}
+
+	if shouldVacuum {
+		// We applied migrations and should take the opportunity to vaccuum
+		// the database.
+		if err := db.vacuumAndOptimize(); err != nil {
+			return nil, wrap(err)
+		}
 	}
 
 	return db, nil
@@ -200,6 +212,20 @@ func (s *baseDB) expandTemplateVars(tpl string) string {
 	return sb.String()
 }
 
+func (s *baseDB) vacuumAndOptimize() error {
+	stmts := []string{
+		"VACUUM;",
+		"PRAGMA optimize;",
+		"PRAGMA wal_checkpoint(truncate);",
+	}
+	for _, stmt := range stmts {
+		if _, err := s.sql.Exec(stmt); err != nil {
+			return wrap(err, stmt)
+		}
+	}
+	return nil
+}
+
 type stmt interface {
 	Exec(args ...any) (sql.Result, error)
 	Get(dest any, args ...any) error
@@ -251,6 +277,8 @@ func (s *baseDB) applyMigration(ver int, script string) error {
 		return wrap(err)
 	}
 	defer tx.Rollback() //nolint:errcheck
+
+	slog.Info("Applying database migration", slogutil.FilePath(s.baseName), "toSchema", ver, "script", script)
 
 	if err := s.execScript(tx, script); err != nil {
 		return wrap(err)
