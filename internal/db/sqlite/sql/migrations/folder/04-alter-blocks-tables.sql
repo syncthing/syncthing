@@ -6,7 +6,10 @@
 
 -- Copy blocks to new table with fewer indexes
 
-CREATE TABLE IF NOT EXISTS blocks_v4 (
+DROP TABLE IF EXISTS blocks_v4
+;
+
+CREATE TABLE blocks_v4 (
     hash BLOB NOT NULL,
     blocklist_hash BLOB NOT NULL,
     idx INTEGER NOT NULL,
@@ -28,7 +31,10 @@ ALTER TABLE blocks_v4 RENAME TO blocks
 
 -- Copy blocklists to new table with fewer indexes
 
-CREATE TABLE IF NOT EXISTS blocklists_v4 (
+DROP TABLE IF EXISTS blocklists_v4
+;
+
+CREATE TABLE blocklists_v4 (
     blocklist_hash BLOB NOT NULL PRIMARY KEY,
     blprotobuf BLOB NOT NULL
 ) STRICT, WITHOUT ROWID
