@@ -7,12 +7,14 @@
 package sqlite
 
 import (
+	"cmp"
 	"database/sql"
 	"embed"
 	"io/fs"
 	"log/slog"
 	"net/url"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -44,6 +46,7 @@ type baseDB struct {
 	tplInput      map[string]any
 }
 
+//nolint:noctx
 func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScripts []string) (*baseDB, error) {
 	// Open the database with options to enable foreign keys and recursive
 	// triggers (needed for the delete+insert triggers on row replace).
@@ -91,32 +94,36 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 
 	ver, _ := db.getAppliedSchemaVersion()
 	if ver.SchemaVersion > 0 {
-		filter := func(scr string) bool {
-			scr = filepath.Base(scr)
-			nstr, _, ok := strings.Cut(scr, "-")
+		type migration struct {
+			script  string
+			version int
+		}
+		migrations := make([]migration, 0, len(migrationScripts))
+		for _, script := range migrationScripts {
+			base := filepath.Base(script)
+			nstr, _, ok := strings.Cut(base, "-")
 			if !ok {
-				return false
+				continue
 			}
 			n, err := strconv.ParseInt(nstr, 10, 32)
 			if err != nil {
-				return false
+				continue
 			}
-
-			if int(n) > ver.SchemaVersion {
-				slog.Info("Running database migration", slogutil.FilePath(db.baseName), "fromSchema", ver.SchemaVersion, "toSchema", n, "script", scr)
-				return true
-			}
-			return false
+			migrations = append(migrations, migration{
+				script:  script,
+				version: int(n),
+			})
 		}
-		for _, script := range migrationScripts {
-			if err := db.runScripts(script, filter); err != nil {
+		slices.SortFunc(migrations, func(m1, m2 migration) int { return cmp.Compare(m1.version, m2.version) })
+		for _, m := range migrations {
+			if err := db.applyMigration(m.version, m.script); err != nil {
 				return nil, wrap(err)
 			}
 		}
 	}
 
 	// Set the current schema version, if not already set
-	if err := db.setAppliedSchemaVersion(currentSchemaVersion); err != nil {
+	if err := setAppliedSchemaVersion(currentSchemaVersion, db.sql); err != nil {
 		return nil, wrap(err)
 	}
 
@@ -211,6 +218,7 @@ func (f failedStmt) Get(_ any, _ ...any) error           { return f.err }
 func (f failedStmt) Queryx(_ ...any) (*sqlx.Rows, error) { return nil, f.err }
 func (f failedStmt) Select(_ any, _ ...any) error        { return f.err }
 
+//nolint:noctx
 func (s *baseDB) runScripts(glob string, filter ...func(s string) bool) error {
 	scripts, err := fs.Glob(embedded, glob)
 	if err != nil {
@@ -230,22 +238,51 @@ nextScript:
 				continue nextScript
 			}
 		}
-		bs, err := fs.ReadFile(embedded, scr)
-		if err != nil {
-			return wrap(err, scr)
-		}
-		// SQLite requires one statement per exec, so we split the init
-		// files on lines containing only a semicolon and execute them
-		// separately. We require it on a separate line because there are
-		// also statement-internal semicolons in the triggers.
-		for _, stmt := range strings.Split(string(bs), "\n;") {
-			if _, err := tx.Exec(s.expandTemplateVars(stmt)); err != nil {
-				return wrap(err, stmt)
-			}
+		if err := s.execScript(tx, scr); err != nil {
+			return wrap(err)
 		}
 	}
 
 	return wrap(tx.Commit())
+}
+
+//nolint:noctx
+func (s *baseDB) applyMigration(ver int, script string) error {
+	tx, err := s.sql.Begin()
+	if err != nil {
+		return wrap(err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	slog.Info("Applying database migration", slogutil.FilePath(s.baseName), "toSchema", ver, "script", script)
+
+	if err := s.execScript(tx, script); err != nil {
+		return wrap(err)
+	}
+
+	if err := setAppliedSchemaVersion(ver, tx); err != nil {
+		return wrap(err)
+	}
+
+	return wrap(tx.Commit())
+}
+
+//nolint:noctx
+func (s *baseDB) execScript(tx *sql.Tx, scr string) error {
+	bs, err := fs.ReadFile(embedded, scr)
+	if err != nil {
+		return wrap(err, scr)
+	}
+	// SQLite requires one statement per exec, so we split the init
+	// files on lines containing only a semicolon and execute them
+	// separately. We require it on a separate line because there are
+	// also statement-internal semicolons in the triggers.
+	for _, stmt := range strings.Split(string(bs), "\n;") {
+		if _, err := tx.Exec(s.expandTemplateVars(stmt)); err != nil {
+			return wrap(err, stmt)
+		}
+	}
+	return nil
 }
 
 type schemaVersion struct {
@@ -258,11 +295,11 @@ func (s *schemaVersion) AppliedTime() time.Time {
 	return time.Unix(0, s.AppliedAt)
 }
 
-func (s *baseDB) setAppliedSchemaVersion(ver int) error {
-	_, err := s.stmt(`
+func setAppliedSchemaVersion(ver int, execer sqlx.Execer) error {
+	_, err := execer.Exec(`
 		INSERT OR IGNORE INTO schemamigrations (schema_version, applied_at, syncthing_version)
 		VALUES (?, ?, ?)
-	`).Exec(ver, time.Now().UnixNano(), build.LongVersion)
+	`, ver, time.Now().UnixNano(), build.LongVersion)
 	return wrap(err)
 }
 
