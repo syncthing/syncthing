@@ -281,13 +281,17 @@ func (*folderDB) insertBlocksLocked(tx *txPreparedStmts, blocklistHash []byte, b
 		}
 	}
 
-	// Very large block lists (>8000 blocks) result in "too many variables"
-	// error. Chunk it to a reasonable size.
-	for chunk := range slices.Chunk(bs, 1000) {
-		if _, err := tx.NamedExec(`
-			INSERT OR IGNORE INTO blocks (hash, blocklist_hash, idx, offset, size)
-			VALUES (:hash, :blocklist_hash, :idx, :offset, :size)
-		`, chunk); err != nil {
+	//nolint:sqlclosecheck
+	insertBlocksStmt, err := tx.PrepareNamed(`
+		INSERT OR IGNORE INTO blocks (hash, blocklist_hash, idx, offset, size)
+		VALUES (:hash, :blocklist_hash, :idx, :offset, :size)
+	`)
+	if err != nil {
+		return wrap(err, "prepare insert blocks")
+	}
+
+	for _, block := range bs {
+		if _, err := insertBlocksStmt.Exec(block); err != nil {
 			return wrap(err)
 		}
 	}
