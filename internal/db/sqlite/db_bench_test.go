@@ -81,6 +81,7 @@ func BenchmarkUpdate(b *testing.B) {
 				}
 			}
 			b.ReportMetric(float64(b.N)*100.0/b.Elapsed().Seconds(), "files/s")
+			b.ReportMetric(float64(b.N)*100.0*numBlocks/b.Elapsed().Seconds(), "blocks/s")
 		})
 
 		b.Run(fmt.Sprintf("n=RepBlocks100/size=%d", size), func(b *testing.B) {
@@ -95,6 +96,7 @@ func BenchmarkUpdate(b *testing.B) {
 				}
 			}
 			b.ReportMetric(float64(b.N)*100.0/b.Elapsed().Seconds(), "files/s")
+			b.ReportMetric(float64(b.N)*100.0*64/b.Elapsed().Seconds(), "blocks/s")
 		})
 
 		b.Run(fmt.Sprintf("n=RepSame100/size=%d", size), func(b *testing.B) {
@@ -107,6 +109,38 @@ func BenchmarkUpdate(b *testing.B) {
 				}
 			}
 			b.ReportMetric(float64(b.N)*100.0/b.Elapsed().Seconds(), "files/s")
+			b.ReportMetric(float64(b.N)*100.0*64/b.Elapsed().Seconds(), "blocks/s")
+		})
+
+		b.Run(fmt.Sprintf("n=RepBlocksRand/size=%d", size), func(b *testing.B) {
+			blocksTotal := 0
+ 			for range b.N {
+ 				for i := range fs {
+					numBlocks := rand.Intn(protocol.DesiredPerFileBlocks)
+					blocksTotal += numBlocks
+					fs[i].Blocks = genBlocks(fs[i].Name, seed, numBlocks)
+					fs[i].Version = fs[i].Version.Update(42)
+ 				}
+ 				if err := db.Update(folderID, protocol.LocalDeviceID, fs); err != nil {
+ 					b.Fatal(err)
+				}
+			}
+			b.ReportMetric(float64(b.N)*100.0/b.Elapsed().Seconds(), "files/s")
+			b.ReportMetric(float64(b.N*blocksTotal)/b.Elapsed().Seconds(), "blocks/s")
+		})
+
+		b.Run(fmt.Sprintf("n=RepBlocks5/size=%d", size), func(b *testing.B) {
+ 			for range b.N {
+ 				for i := range fs {
+					fs[i].Blocks = genBlocks(fs[i].Name, seed, 5)
+					fs[i].Version = fs[i].Version.Update(42)
+ 				}
+ 				if err := db.Update(folderID, protocol.LocalDeviceID, fs); err != nil {
+ 					b.Fatal(err)
+				}
+			}
+			b.ReportMetric(float64(b.N)*100.0/b.Elapsed().Seconds(), "files/s")
+			b.ReportMetric(float64(b.N)*100.0*5/b.Elapsed().Seconds(), "blocks/s")
 		})
 
 		b.Run(fmt.Sprintf("n=Insert100Rem/size=%d", size), func(b *testing.B) {
@@ -124,22 +158,26 @@ func BenchmarkUpdate(b *testing.B) {
 		})
 
 		b.Run(fmt.Sprintf("n=GetGlobal100/size=%d", size), func(b *testing.B) {
+			blocksTotal := 0
 			for range b.N {
 				for i := range fs {
-					_, ok, err := db.GetGlobalFile(folderID, fs[i].Name)
+					f, ok, err := db.GetGlobalFile(folderID, fs[i].Name)
 					if err != nil {
 						b.Fatal(err)
 					}
 					if !ok {
 						b.Fatal("should exist")
 					}
+					blocksTotal += len(f.Blocks)
 				}
 			}
 			b.ReportMetric(float64(b.N)*100.0/b.Elapsed().Seconds(), "files/s")
+			b.ReportMetric(float64(b.N*blocksTotal)/b.Elapsed().Seconds(), "blocks/s")
 		})
 
 		b.Run(fmt.Sprintf("n=LocalSequenced/size=%d", size), func(b *testing.B) {
 			count := 0
+			blocksTotal := 0
 			for range b.N {
 				cur, err := db.GetDeviceSequence(folderID, protocol.LocalDeviceID)
 				if err != nil {
@@ -149,12 +187,14 @@ func BenchmarkUpdate(b *testing.B) {
 				for f := range it {
 					count++
 					globalFi = f
+					blocksTotal += len(f.Blocks)
 				}
 				if err := errFn(); err != nil {
 					b.Fatal(err)
 				}
 			}
 			b.ReportMetric(float64(count)/b.Elapsed().Seconds(), "files/s")
+			b.ReportMetric(float64(b.N*blocksTotal)/b.Elapsed().Seconds(), "blocks/s")
 		})
 
 		b.Run(fmt.Sprintf("n=AllLocalBlocksWithHash/size=%d", size), func(b *testing.B) {
@@ -190,32 +230,38 @@ func BenchmarkUpdate(b *testing.B) {
 
 		b.Run(fmt.Sprintf("n=RemoteNeed/size=%d", size), func(b *testing.B) {
 			count := 0
+			blocksTotal := 0
 			for range b.N {
 				it, errFn := db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0, 0)
 				for f := range it {
 					count++
 					globalFi = f
+					blocksTotal += len(f.Blocks)
 				}
 				if err := errFn(); err != nil {
 					b.Fatal(err)
 				}
 			}
 			b.ReportMetric(float64(count)/b.Elapsed().Seconds(), "files/s")
+			b.ReportMetric(float64(b.N*blocksTotal)/b.Elapsed().Seconds(), "blocks/s")
 		})
 
 		b.Run(fmt.Sprintf("n=LocalNeed100Largest/size=%d", size), func(b *testing.B) {
 			count := 0
+			blocksTotal := 0
 			for range b.N {
 				it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderLargestFirst, 100, 0)
 				for f := range it {
 					globalFi = f
 					count++
+					blocksTotal += len(f.Blocks)
 				}
 				if err := errFn(); err != nil {
 					b.Fatal(err)
 				}
 			}
 			b.ReportMetric(float64(count)/b.Elapsed().Seconds(), "files/s")
+			b.ReportMetric(float64(b.N*blocksTotal)/b.Elapsed().Seconds(), "blocks/s")
 		})
 
 		size += 1000
