@@ -93,6 +93,7 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 	}
 
 	ver, _ := db.getAppliedSchemaVersion()
+	shouldVacuum := false
 	if ver.SchemaVersion > 0 {
 		type migration struct {
 			script  string
@@ -119,12 +120,21 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 			if err := db.applyMigration(m.version, m.script); err != nil {
 				return nil, wrap(err)
 			}
+			shouldVacuum = true
 		}
 	}
 
 	// Set the current schema version, if not already set
 	if err := setAppliedSchemaVersion(currentSchemaVersion, db.sql); err != nil {
 		return nil, wrap(err)
+	}
+
+	if shouldVacuum {
+		// We applied migrations and should take the opportunity to vaccuum
+		// the database.
+		if err := db.vacuumAndOptimize(); err != nil {
+			return nil, wrap(err)
+		}
 	}
 
 	return db, nil
@@ -200,6 +210,20 @@ func (s *baseDB) expandTemplateVars(tpl string) string {
 		panic("bug: bad template: " + err.Error())
 	}
 	return sb.String()
+}
+
+func (s *baseDB) vacuumAndOptimize() error {
+	stmts := []string{
+		"VACUUM;",
+		"PRAGMA optimize;",
+		"PRAGMA wal_checkpoint(truncate);",
+	}
+	for _, stmt := range stmts {
+		if _, err := s.sql.Exec(stmt); err != nil {
+			return wrap(err, stmt)
+		}
+	}
+	return nil
 }
 
 type stmt interface {
