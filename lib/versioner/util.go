@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -17,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -152,7 +154,7 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 	_, err = dstFs.Stat(".")
 	if err != nil {
 		if fs.IsNotExist(err) {
-			l.Debugln("creating versions dir")
+			slog.Debug("Creating versions dir")
 			err := dstFs.MkdirAll(".", 0o755)
 			if err != nil {
 				return err
@@ -335,7 +337,7 @@ func findAllVersions(fs fs.Filesystem, filePath string) []string {
 	pattern := filepath.Join(inFolderPath, TagFilename(file, timeGlob))
 	versions, err := fs.Glob(pattern)
 	if err != nil {
-		l.Warnln("globbing:", err, "for", pattern)
+		slog.Warn("Failed to glob for versions", slog.String("pattern", pattern), slogutil.Error(err))
 		return nil
 	}
 	versions = stringutil.UniqueTrimmedStrings(versions)
@@ -385,7 +387,7 @@ func clean(ctx context.Context, versionsFs fs.Filesystem, toRemove func([]string
 
 	if err := versionsFs.Walk(".", walkFn); err != nil {
 		if !errors.Is(err, context.Canceled) {
-			l.Warnln("Versioner: scanning versions dir:", err)
+			slog.WarnContext(ctx, "Failed to scan versions directory", slogutil.Error(err))
 		}
 		return err
 	}
@@ -409,7 +411,7 @@ func cleanVersions(versionsFs fs.Filesystem, versions []string, toRemove func([]
 	l.Debugln("Versioner: Expiring versions", versions)
 	for _, file := range toRemove(versions, time.Now()) {
 		if err := versionsFs.Remove(file); err != nil {
-			l.Warnf("Versioner: can't remove %q: %v", file, err)
+			slog.Warn("Failed to remove versioned file during cleanup", slogutil.FilePath(file), slogutil.Error(err))
 		}
 	}
 }

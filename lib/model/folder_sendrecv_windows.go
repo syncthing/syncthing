@@ -20,13 +20,13 @@ func (f *sendReceiveFolder) syncOwnership(file *protocol.FileInfo, path string) 
 		return nil
 	}
 
-	l.Debugln("Owner name for %s is %s (group=%v)", path, file.Platform.Windows.OwnerName, file.Platform.Windows.OwnerIsGroup)
+	l.Debugf("Owner name for %s is %s (group=%v)", path, file.Platform.Windows.OwnerName, file.Platform.Windows.OwnerIsGroup)
 	usid, gsid, err := lookupUserAndGroup(file.Platform.Windows.OwnerName, file.Platform.Windows.OwnerIsGroup)
 	if err != nil {
 		return err
 	}
 
-	l.Debugln("Owner for %s resolved to uid=%q gid=%q", path, usid, gsid)
+	l.Debugf("Owner for %s resolved to uid=%q gid=%q", path, usid, gsid)
 	return f.mtimefs.Lchown(path, usid, gsid)
 }
 

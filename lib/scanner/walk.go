@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -19,6 +20,7 @@ import (
 	metrics "github.com/rcrowley/go-metrics"
 	"golang.org/x/text/unicode/norm"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -245,7 +247,7 @@ func (w *walker) scan(ctx context.Context, toHashChan chan<- protocol.FileInfo, 
 	if len(w.Subs) == 0 {
 		if err := w.Filesystem.Walk(".", hashFiles); isWarnableError(err) {
 			w.EventLogger.Log(events.Failure, walkFailureEventDesc)
-			l.Warnf("Aborted scan due to an unexpected error: %v", err)
+			slog.ErrorContext(ctx, "Aborted scan due to an unexpected error", slogutil.Error(err))
 		}
 	} else {
 		for _, sub := range w.Subs {
@@ -255,7 +257,7 @@ func (w *walker) scan(ctx context.Context, toHashChan chan<- protocol.FileInfo, 
 			}
 			if err := w.Filesystem.Walk(sub, hashFiles); isWarnableError(err) {
 				w.EventLogger.Log(events.Failure, walkFailureEventDesc)
-				l.Warnf("Aborted scan of path '%v' due to an unexpected error: %v", sub, err)
+				slog.ErrorContext(ctx, "Aborted scan due to an unexpected error", slogutil.FilePath(sub), slogutil.Error(err))
 			}
 		}
 	}
@@ -613,7 +615,7 @@ func (w *walker) applyNormalization(path, normPath string, info fs.FileInfo) (st
 		if err = w.Filesystem.Rename(path, normPath); err != nil {
 			return "", err
 		}
-		l.Infof(`Normalized UTF8 encoding of file name "%s".`, path)
+		slog.Info("Normalized UTF8 encoding of file name", slogutil.FilePath(path))
 		return normPath, nil
 	}
 	if w.Filesystem.SameFile(info, normInfo) {
@@ -631,7 +633,7 @@ func (w *walker) applyNormalization(path, normPath string, info fs.FileInfo) (st
 		if err = w.Filesystem.Rename(tempPath, normPath); err != nil {
 			// I don't ever expect this to happen, but if it does, we should probably tell our caller that the normalized
 			// path is the temp path: that way at least the user's data still gets synced.
-			l.Warnf(`Error renaming "%s" to "%s" while normalizating UTF8 encoding: %v. You will want to rename this file back manually`, tempPath, normPath, err)
+			slog.Error("Failed to rename while normalizating UTF8 encoding; please rename temp file manually", slog.String("from", tempPath), slog.String("to", normPath), slogutil.Error(err))
 			return tempPath, nil
 		}
 		return normPath, nil

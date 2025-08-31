@@ -7,7 +7,6 @@
 package sqlite
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -21,7 +20,7 @@ import (
 var globalFi protocol.FileInfo
 
 func BenchmarkUpdate(b *testing.B) {
-	db, err := OpenTemp()
+	db, err := Open(b.TempDir())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -30,19 +29,20 @@ func BenchmarkUpdate(b *testing.B) {
 			b.Fatal(err)
 		}
 	})
-	svc := db.Service(time.Hour).(*Service)
 
 	fs := make([]protocol.FileInfo, 100)
+	t0 := time.Now()
+
 	seed := 0
+	size := 1000
+	const numBlocks = 500
 
-	size := 10000
+	fdb, err := db.getFolderDB(folderID, true)
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	for size < 200_000 {
-		t0 := time.Now()
-		if err := svc.periodic(context.Background()); err != nil {
-			b.Fatal(err)
-		}
-		b.Log("garbage collect in", time.Since(t0))
-
 		for {
 			local, err := db.CountLocal(folderID, protocol.LocalDeviceID)
 			if err != nil {
@@ -53,17 +53,28 @@ func BenchmarkUpdate(b *testing.B) {
 			}
 			fs := make([]protocol.FileInfo, 1000)
 			for i := range fs {
-				fs[i] = genFile(rand.String(24), 64, 0)
+				fs[i] = genFile(rand.String(24), numBlocks, 0)
 			}
 			if err := db.Update(folderID, protocol.LocalDeviceID, fs); err != nil {
 				b.Fatal(err)
 			}
 		}
 
-		b.Run(fmt.Sprintf("Insert100Loc@%d", size), func(b *testing.B) {
+		var files, blocks int
+		if err := fdb.sql.QueryRowx(`SELECT count(*) FROM files`).Scan(&files); err != nil {
+			b.Fatal(err)
+		}
+		if err := fdb.sql.QueryRowx(`SELECT count(*) FROM blocks`).Scan(&blocks); err != nil {
+			b.Fatal(err)
+		}
+
+		d := time.Since(t0)
+		b.Logf("t=%s, files=%d, blocks=%d, files/s=%.01f, blocks/s=%.01f", d, files, blocks, float64(files)/d.Seconds(), float64(blocks)/d.Seconds())
+
+		b.Run(fmt.Sprintf("n=Insert100Loc/size=%d", size), func(b *testing.B) {
 			for range b.N {
 				for i := range fs {
-					fs[i] = genFile(rand.String(24), 64, 0)
+					fs[i] = genFile(rand.String(24), numBlocks, 0)
 				}
 				if err := db.Update(folderID, protocol.LocalDeviceID, fs); err != nil {
 					b.Fatal(err)
@@ -72,7 +83,7 @@ func BenchmarkUpdate(b *testing.B) {
 			b.ReportMetric(float64(b.N)*100.0/b.Elapsed().Seconds(), "files/s")
 		})
 
-		b.Run(fmt.Sprintf("RepBlocks100@%d", size), func(b *testing.B) {
+		b.Run(fmt.Sprintf("n=RepBlocks100/size=%d", size), func(b *testing.B) {
 			for range b.N {
 				for i := range fs {
 					fs[i].Blocks = genBlocks(fs[i].Name, seed, 64)
@@ -86,7 +97,7 @@ func BenchmarkUpdate(b *testing.B) {
 			b.ReportMetric(float64(b.N)*100.0/b.Elapsed().Seconds(), "files/s")
 		})
 
-		b.Run(fmt.Sprintf("RepSame100@%d", size), func(b *testing.B) {
+		b.Run(fmt.Sprintf("n=RepSame100/size=%d", size), func(b *testing.B) {
 			for range b.N {
 				for i := range fs {
 					fs[i].Version = fs[i].Version.Update(42)
@@ -98,7 +109,7 @@ func BenchmarkUpdate(b *testing.B) {
 			b.ReportMetric(float64(b.N)*100.0/b.Elapsed().Seconds(), "files/s")
 		})
 
-		b.Run(fmt.Sprintf("Insert100Rem@%d", size), func(b *testing.B) {
+		b.Run(fmt.Sprintf("n=Insert100Rem/size=%d", size), func(b *testing.B) {
 			for range b.N {
 				for i := range fs {
 					fs[i].Blocks = genBlocks(fs[i].Name, seed, 64)
@@ -112,7 +123,7 @@ func BenchmarkUpdate(b *testing.B) {
 			b.ReportMetric(float64(b.N)*100.0/b.Elapsed().Seconds(), "files/s")
 		})
 
-		b.Run(fmt.Sprintf("GetGlobal100@%d", size), func(b *testing.B) {
+		b.Run(fmt.Sprintf("n=GetGlobal100/size=%d", size), func(b *testing.B) {
 			for range b.N {
 				for i := range fs {
 					_, ok, err := db.GetGlobalFile(folderID, fs[i].Name)
@@ -127,7 +138,7 @@ func BenchmarkUpdate(b *testing.B) {
 			b.ReportMetric(float64(b.N)*100.0/b.Elapsed().Seconds(), "files/s")
 		})
 
-		b.Run(fmt.Sprintf("LocalSequenced@%d", size), func(b *testing.B) {
+		b.Run(fmt.Sprintf("n=LocalSequenced/size=%d", size), func(b *testing.B) {
 			count := 0
 			for range b.N {
 				cur, err := db.GetDeviceSequence(folderID, protocol.LocalDeviceID)
@@ -146,7 +157,21 @@ func BenchmarkUpdate(b *testing.B) {
 			b.ReportMetric(float64(count)/b.Elapsed().Seconds(), "files/s")
 		})
 
-		b.Run(fmt.Sprintf("GetDeviceSequenceLoc@%d", size), func(b *testing.B) {
+		b.Run(fmt.Sprintf("n=AllLocalBlocksWithHash/size=%d", size), func(b *testing.B) {
+			count := 0
+			for range b.N {
+				it, errFn := db.AllLocalBlocksWithHash(folderID, globalFi.Blocks[0].Hash)
+				for range it {
+					count++
+				}
+				if err := errFn(); err != nil {
+					b.Fatal(err)
+				}
+			}
+			b.ReportMetric(float64(count)/b.Elapsed().Seconds(), "blocks/s")
+		})
+
+		b.Run(fmt.Sprintf("n=GetDeviceSequenceLoc/size=%d", size), func(b *testing.B) {
 			for range b.N {
 				_, err := db.GetDeviceSequence(folderID, protocol.LocalDeviceID)
 				if err != nil {
@@ -154,7 +179,7 @@ func BenchmarkUpdate(b *testing.B) {
 				}
 			}
 		})
-		b.Run(fmt.Sprintf("GetDeviceSequenceRem@%d", size), func(b *testing.B) {
+		b.Run(fmt.Sprintf("n=GetDeviceSequenceRem/size=%d", size), func(b *testing.B) {
 			for range b.N {
 				_, err := db.GetDeviceSequence(folderID, protocol.DeviceID{42})
 				if err != nil {
@@ -163,7 +188,7 @@ func BenchmarkUpdate(b *testing.B) {
 			}
 		})
 
-		b.Run(fmt.Sprintf("RemoteNeed@%d", size), func(b *testing.B) {
+		b.Run(fmt.Sprintf("n=RemoteNeed/size=%d", size), func(b *testing.B) {
 			count := 0
 			for range b.N {
 				it, errFn := db.AllNeededGlobalFiles(folderID, protocol.DeviceID{42}, config.PullOrderAlphabetic, 0, 0)
@@ -178,7 +203,7 @@ func BenchmarkUpdate(b *testing.B) {
 			b.ReportMetric(float64(count)/b.Elapsed().Seconds(), "files/s")
 		})
 
-		b.Run(fmt.Sprintf("LocalNeed100Largest@%d", size), func(b *testing.B) {
+		b.Run(fmt.Sprintf("n=LocalNeed100Largest/size=%d", size), func(b *testing.B) {
 			count := 0
 			for range b.N {
 				it, errFn := db.AllNeededGlobalFiles(folderID, protocol.LocalDeviceID, config.PullOrderLargestFirst, 100, 0)
@@ -193,7 +218,7 @@ func BenchmarkUpdate(b *testing.B) {
 			b.ReportMetric(float64(count)/b.Elapsed().Seconds(), "files/s")
 		})
 
-		size <<= 1
+		size += 1000
 	}
 }
 
@@ -202,7 +227,7 @@ func TestBenchmarkDropAllRemote(t *testing.T) {
 		t.Skip("slow test")
 	}
 
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

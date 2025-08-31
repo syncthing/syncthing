@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"time"
 
@@ -129,7 +130,7 @@ func (s *Service) Serve(ctx context.Context) error {
 
 			// Are we disabled?
 			if s.cfg.Options().IsStunDisabled() {
-				l.Infoln("STUN disabled")
+				slog.InfoContext(ctx, "STUN disabled")
 				s.setNATType(NATUnknown)
 				s.setExternalAddress(nil, "")
 				goto disabled

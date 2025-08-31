@@ -7,21 +7,26 @@
 package sqlite
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/slogutil"
 )
 
-const maxDBConns = 16
+const (
+	maxDBConns         = 16
+	minDeleteRetention = 24 * time.Hour
+)
 
 type DB struct {
+	*baseDB
+
 	pathBase        string
 	deleteRetention time.Duration
-
-	*baseDB
 
 	folderDBsMut   sync.RWMutex
 	folderDBs      map[string]*folderDB
@@ -34,7 +39,11 @@ type Option func(*DB)
 
 func WithDeleteRetention(d time.Duration) Option {
 	return func(s *DB) {
-		s.deleteRetention = d
+		if d <= 0 {
+			s.deleteRetention = 0
+		} else {
+			s.deleteRetention = max(d, minDeleteRetention)
+		}
 	}
 }
 
@@ -71,6 +80,10 @@ func Open(path string, opts ...Option) (*DB, error) {
 
 	for _, opt := range opts {
 		opt(db)
+	}
+
+	if err := db.cleanDroppedFolders(); err != nil {
+		slog.Warn("Failed to clean dropped folders", slogutil.Error(err))
 	}
 
 	return db, nil
@@ -111,25 +124,11 @@ func OpenForMigration(path string) (*DB, error) {
 		folderDBOpener: openFolderDBForMigration,
 	}
 
-	// // Touch device IDs that should always exist and have a low index
-	// // numbers, and will never change
-	// db.localDeviceIdx, _ = db.deviceIdxLocked(protocol.LocalDeviceID)
-	// db.tplInput["LocalDeviceIdx"] = db.localDeviceIdx
+	if err := db.cleanDroppedFolders(); err != nil {
+		slog.Warn("Failed to clean dropped folders", slogutil.Error(err))
+	}
 
 	return db, nil
-}
-
-func OpenTemp() (*DB, error) {
-	// SQLite has a memory mode, but it works differently with concurrency
-	// compared to what we need with the WAL mode. So, no memory databases
-	// for now.
-	dir, err := os.MkdirTemp("", "syncthing-db")
-	if err != nil {
-		return nil, wrap(err)
-	}
-	path := filepath.Join(dir, "db")
-	l.Debugln("Test DB in", path)
-	return Open(path)
 }
 
 func (s *DB) Close() error {

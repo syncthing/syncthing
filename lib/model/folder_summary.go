@@ -4,8 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:generate -command counterfeiter go run github.com/maxbrunsfeld/counterfeiter/v6
-//go:generate counterfeiter -o mocks/folderSummaryService.go --fake-name FolderSummaryService . FolderSummaryService
+//go:generate go tool counterfeiter -o mocks/folderSummaryService.go --fake-name FolderSummaryService . FolderSummaryService
 
 package model
 
@@ -14,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/thejerf/suture/v4"
@@ -23,7 +23,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type FolderSummaryService interface {
@@ -49,14 +48,13 @@ type folderSummaryService struct {
 
 func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID, evLogger events.Logger) FolderSummaryService {
 	service := &folderSummaryService{
-		Supervisor: suture.New("folderSummaryService", svcutil.SpecWithDebugLogger(l)),
+		Supervisor: suture.New("folderSummaryService", svcutil.SpecWithDebugLogger()),
 		cfg:        cfg,
 		model:      m,
 		id:         id,
 		evLogger:   evLogger,
 		immediate:  make(chan string),
 		folders:    make(map[string]struct{}),
-		foldersMut: sync.NewMutex(),
 	}
 
 	service.Add(svcutil.AsService(service.listenForUpdates, fmt.Sprintf("%s/listenForUpdates", service)))

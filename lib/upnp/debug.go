@@ -6,8 +6,6 @@
 
 package upnp
 
-import (
-	"github.com/syncthing/syncthing/lib/logger"
-)
+import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = logger.DefaultLogger.NewFacility("upnp", "UPnP discovery and port mapping")
+var l = slogutil.NewAdapter("UPnP discovery and port mapping")

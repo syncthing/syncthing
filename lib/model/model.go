@@ -4,8 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:generate -command counterfeiter go run github.com/maxbrunsfeld/counterfeiter/v6
-//go:generate counterfeiter -o mocks/model.go --fake-name Model . Model
+//go:generate go tool counterfeiter -o mocks/model.go --fake-name Model . Model
 
 package model
 
@@ -17,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -24,7 +24,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
-	stdsync "sync"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -32,6 +32,7 @@ import (
 
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -45,7 +46,6 @@ import (
 	"github.com/syncthing/syncthing/lib/semaphore"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/ur/contract"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
@@ -213,7 +213,7 @@ var (
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
 func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb db.DB, protectedFiles []string, evLogger events.Logger, keyGen *protocol.KeyGenerator) Model {
-	spec := svcutil.SpecWithDebugLogger(l)
+	spec := svcutil.SpecWithDebugLogger()
 	m := &model{
 		Supervisor: suture.New("model", spec),
 
@@ -236,7 +236,6 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb db.DB, protectedFile
 		observed:             db.NewObservedDB(sdb),
 
 		// fields protected by mut
-		mut:                            sync.NewRWMutex(),
 		folderCfgs:                     make(map[string]config.FolderConfiguration),
 		deviceStatRefs:                 make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
 		folderIgnores:                  make(map[string]*ignore.Matcher),
@@ -288,7 +287,7 @@ func (m *model) serve(ctx context.Context) error {
 			l.Debugln(m, "fatal error, stopping", err)
 			return svcutil.AsFatalErr(err, svcutil.ExitError)
 		case <-m.promotionTimer.C:
-			l.Debugln("promotion timer fired")
+			slog.Debug("Promotion timer fired")
 			m.promoteConnections()
 		}
 	}
@@ -340,7 +339,7 @@ func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, cacheIgn
 	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(cacheIgnoredFiles))
 	if cfg.Type != config.FolderTypeReceiveEncrypted {
 		if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-			l.Warnln("Loading ignores:", err)
+			slog.Error("Failed to load ignores", slogutil.Error(err))
 		}
 	}
 
@@ -354,7 +353,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 
 	_, ok := m.folderRunners.Get(cfg.ID)
 	if ok {
-		l.Warnln("Cannot start already running folder", cfg.Description())
+		slog.Error("Cannot start already running folder", cfg.LogAttr())
 		panic("cannot start already running folder")
 	}
 
@@ -388,9 +387,9 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 		// it'll show up as errored later.
 
 		if err := cfg.CreateRoot(); err != nil {
-			l.Warnln("Failed to create folder root directory:", err)
+			slog.Error("Failed to create folder root directory", cfg.LogAttr(), slogutil.Error(err))
 		} else if err = cfg.CreateMarker(); err != nil {
-			l.Warnln("Failed to create folder marker:", err)
+			slog.Error("Failed to create folder marker", cfg.LogAttr(), slogutil.Error(err))
 		}
 	}
 
@@ -398,7 +397,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 		if encryptionToken, err := readEncryptionToken(cfg); err == nil {
 			m.folderEncryptionPasswordTokens[folder] = encryptionToken
 		} else if !fs.IsNotExist(err) {
-			l.Warnf("Failed to read encryption token: %v", err)
+			slog.Error("Failed to read encryption token", cfg.LogAttr(), slogutil.Error(err))
 		}
 	}
 
@@ -423,7 +422,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	p := folderFactory(m, ignores, cfg, ver, m.evLogger, m.folderIOLimiter)
 	m.folderRunners.Add(folder, p)
 
-	l.Infof("Ready to synchronize %s (%s)", cfg.Description(), cfg.Type)
+	slog.Info("Ready to synchronize", cfg.LogAttr())
 }
 
 func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguration, ignores *ignore.Matcher) {
@@ -455,13 +454,13 @@ func (m *model) warnAboutOverwritingProtectedFiles(cfg config.FolderConfiguratio
 	}
 
 	if len(filesAtRisk) > 0 {
-		l.Warnln("Some protected files may be overwritten and cause issues. See https://docs.syncthing.net/users/config.html#syncing-configuration-files for more information. The at risk files are:", strings.Join(filesAtRisk, ", "))
+		slog.Warn("Some protected files may be overwritten and cause issues; see https://docs.syncthing.net/users/config.html#syncing-configuration-files for more information", slog.Any("filesAtRisk", filesAtRisk))
 	}
 }
 
 func (m *model) removeFolder(cfg config.FolderConfiguration) {
-	l.Infoln("Removing folder", cfg.Description())
-	defer l.Infoln("Removed folder", cfg.Description())
+	slog.Info("Removing folder", cfg.LogAttr())
+	defer slog.Info("Removed folder", cfg.LogAttr())
 
 	m.mut.RLock()
 	wait := m.folderRunners.StopAndWaitChan(cfg.ID, 0)
@@ -515,7 +514,7 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 		panic("bug: cannot restart empty folder ID")
 	}
 	if to.ID != from.ID {
-		l.Warnf("bug: folder restart cannot change ID %q -> %q", from.ID, to.ID)
+		slog.Error("Bug: folder restart cannot change ID", "from", from.ID, "to", to.ID)
 		panic("bug: folder restart cannot change ID")
 	}
 	folder := to.ID
@@ -549,16 +548,14 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 		return nil
 	})
 
-	var infoMsg string
 	switch {
 	case to.Paused:
-		infoMsg = "Paused"
+		slog.Info("Paused folder", to.LogAttr())
 	case from.Paused:
-		infoMsg = "Unpaused"
+		slog.Info("Unpaused folder", to.LogAttr())
 	default:
-		infoMsg = "Restarted"
+		slog.Info("Restarted folder", to.LogAttr())
 	}
-	l.Infof("%v folder %v (%v)", infoMsg, to.Description(), to.Type)
 
 	return nil
 }
@@ -1172,7 +1169,7 @@ func (m *model) handleIndex(conn protocol.Connection, folder string, fs []protoc
 	l.Debugf("%v (in): %s / %q: %d files", op, deviceID, folder, len(fs))
 
 	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(deviceID) {
-		l.Warnf("%v for unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", op, folder, deviceID)
+		slog.Warn(`Operation for unexpected folder ID; ensure that the folder exists and that this device is selected under "Share With" in the folder configuration.`, slog.String("operation", op), cfg.LogAttr(), deviceID.LogAttr())
 		return fmt.Errorf("%s: %w", folder, ErrFolderMissing)
 	} else if cfg.Paused {
 		l.Debugf("%v for paused folder (ID %q) sent from device %q.", op, folder, deviceID)
@@ -1243,11 +1240,11 @@ func (m *model) ClusterConfig(conn protocol.Connection, cm *protocol.ClusterConf
 			}
 		}
 		if info.remote.ID == protocol.EmptyDeviceID {
-			l.Infof("Device %v sent cluster-config without the device info for the remote on folder %v", deviceID.Short(), folder.Description())
+			slog.Warn("Device sent cluster-config without the device info for the remote", folder.LogAttr(), deviceID.LogAttr())
 			return errMissingRemoteInClusterConfig
 		}
 		if info.local.ID == protocol.EmptyDeviceID {
-			l.Infof("Device %v sent cluster-config without the device info for us locally on folder %v", deviceID.Short(), folder.Description())
+			slog.Warn("Device sent cluster-config without the device info for us locally", folder.LogAttr(), deviceID.LogAttr())
 			return errMissingLocalInClusterConfig
 		}
 		ccDeviceInfos[folder.ID] = info
@@ -1255,7 +1252,7 @@ func (m *model) ClusterConfig(conn protocol.Connection, cm *protocol.ClusterConf
 
 	for _, info := range ccDeviceInfos {
 		if deviceCfg.Introducer && info.local.Introducer {
-			l.Warnf("Remote %v is an introducer to us, and we are to them - only one should be introducer to the other, see https://docs.syncthing.net/users/introducer.html", deviceCfg.Description())
+			slog.Error("Remote is an introducer to us, and we are to them - only one should be introducer to the other, see https://docs.syncthing.net/users/introducer.html", deviceCfg.DeviceID.LogAttr())
 		}
 		break
 	}
@@ -1359,7 +1356,7 @@ func (m *model) ensureIndexHandler(conn protocol.Connection) *indexHandlerRegist
 		// the other side has decided to start using a new primary
 		// connection but we haven't seen it close yet. Ideally it will
 		// close shortly by itself...
-		l.Infof("Abandoning old index handler for %s (%s) in favour of %s", deviceID.Short(), indexHandlerRegistry.conn.ConnectionID(), connID)
+		slog.Warn("Abandoning old index handler in favour of new connection", deviceID.LogAttr(), slog.String("old", indexHandlerRegistry.conn.ConnectionID()), slog.String("new", connID))
 		m.indexHandlers.RemoveAndWait(deviceID, 0)
 	}
 
@@ -1399,7 +1396,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	deviceID := deviceCfg.DeviceID
 	expiredPending, err := m.observed.PendingFoldersForDevice(deviceID)
 	if err != nil {
-		l.Infof("Could not get pending folders for cleanup: %v", err)
+		slog.Warn("Failed to list pending folders for cleanup", slogutil.Error(err))
 	}
 	of := db.ObservedFolder{Time: time.Now().Truncate(time.Second)}
 	for _, folder := range folders {
@@ -1412,7 +1409,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 		if !ok {
 			indexHandlers.Remove(folder.ID)
 			if deviceCfg.IgnoredFolder(folder.ID) {
-				l.Infof("Ignoring folder %s from device %s since it is in the list of ignored folders", folder.Description(), deviceID)
+				slog.Info("Ignoring announced folder", folder.LogAttr(), deviceID.LogAttr())
 				continue
 			}
 			delete(expiredPending, folder.ID)
@@ -1420,7 +1417,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			of.ReceiveEncrypted = len(ccDeviceInfos[folder.ID].local.EncryptionPasswordToken) > 0
 			of.RemoteEncrypted = len(ccDeviceInfos[folder.ID].remote.EncryptionPasswordToken) > 0
 			if err := m.observed.AddOrUpdatePendingFolder(folder.ID, of, deviceID); err != nil {
-				l.Warnf("Failed to persist pending folder entry to database: %v", err)
+				slog.Warn("Failed to persist pending folder entry to database", slogutil.Error(err))
 			}
 			if folder.IsRunning() {
 				indexHandlers.AddIndexInfo(folder.ID, ccDeviceInfos[folder.ID])
@@ -1438,7 +1435,7 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 				"folderLabel": folder.Label,
 				"device":      deviceID.String(),
 			})
-			l.Infof("Unexpected folder %s sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.Description(), deviceID)
+			slog.Warn(`Unexpected folder ID in ClusterConfig; ensure that the folder exists and that this device is selected under "Share With" in the folder configuration.`, folder.LogAttr(), deviceID.LogAttr())
 			continue
 		}
 
@@ -1463,16 +1460,16 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 			}
 			m.folderEncryptionFailures[folder.ID][deviceID] = err
 			m.mut.Unlock()
-			msg := fmt.Sprintf("Failure checking encryption consistency with device %v for folder %v: %v", deviceID, cfg.Description(), err)
+			const msg = "Failed to verify encryption consistency"
 			if sameError {
-				l.Debugln(msg)
+				slog.Debug(msg, cfg.LogAttr(), deviceID.LogAttr(), slogutil.Error(err))
 			} else {
 				var rerr *redactedError
 				if errors.As(err, &rerr) {
 					err = rerr.redacted
 				}
 				m.evLogger.Log(events.Failure, err.Error())
-				l.Warnln(msg)
+				slog.Error(msg, cfg.LogAttr(), deviceID.LogAttr(), slogutil.Error(err))
 			}
 			return tempIndexFolders, seenFolders, err
 		}
@@ -1507,8 +1504,8 @@ func (m *model) ccHandleFolders(folders []protocol.Folder, deviceCfg config.Devi
 	expiredPendingList := make([]map[string]string, 0, len(expiredPending))
 	for folder := range expiredPending {
 		if err = m.observed.RemovePendingFolderForDevice(folder, deviceID); err != nil {
-			msg := "Failed to remove pending folder-device entry"
-			l.Warnf("%v (%v, %v): %v", msg, folder, deviceID, err)
+			const msg = "Failed to remove pending folder-device entry"
+			slog.Warn(msg, slog.String("folder", folder), deviceID.LogAttr(), slogutil.Error(err))
 			m.evLogger.Log(events.Failure, msg)
 			continue
 		}
@@ -1543,7 +1540,7 @@ func (m *model) ccCheckEncryption(fcfg config.FolderConfiguration, folderDevice 
 	}
 
 	if isEncryptedRemote && isEncryptedLocal {
-		// Should never happen, but config racyness and be safe.
+		// Should never happen, but config raciness and be safe.
 		return errEncryptionInvConfigLocal
 	}
 
@@ -1689,13 +1686,13 @@ func (m *model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 			}
 
 			if fcfg.Type != config.FolderTypeReceiveEncrypted && device.EncryptionPasswordToken != nil {
-				l.Infof("Cannot share folder %s with %v because the introducer %v encrypts data, which requires a password", folder.Description(), device.ID, introducerCfg.DeviceID)
+				slog.Warn("Cannot share folder in untrusted mode with introduced device because it requires a password", folder.LogAttr(), slog.Any("device", device.ID), slog.Any("introducer", introducerCfg.DeviceID))
 				continue
 			}
 
 			// We don't yet share this folder with this device. Add the device
 			// to sharing list of the folder.
-			l.Infof("Sharing folder %s with %v (vouched for by introducer %v)", folder.Description(), device.ID, introducerCfg.DeviceID)
+			slog.Info("Sharing folder vouched for by introducer", folder.LogAttr(), slog.Any("device", device.ID), slog.Any("introducer", introducerCfg.DeviceID))
 			fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{
 				DeviceID:     device.ID,
 				IntroducedBy: introducerCfg.DeviceID,
@@ -1732,7 +1729,7 @@ func (*model) handleDeintroductions(introducerCfg config.DeviceConfiguration, fo
 				// We could not find that folder shared on the
 				// introducer with the device that was introduced to us.
 				// We should follow and unshare as well.
-				l.Infof("Unsharing folder %s with %v as introducer %v no longer shares the folder with that device", folderCfg.Description(), folderCfg.Devices[k].DeviceID, folderCfg.Devices[k].IntroducedBy)
+				slog.Info("Unsharing folder as introducer no longer shares the folder with that device", folderCfg.LogAttr(), slog.Any("device", folderCfg.Devices[k].DeviceID), slog.Any("introducer", folderCfg.Devices[k].IntroducedBy))
 				folderCfg.Devices = append(folderCfg.Devices[:k], folderCfg.Devices[k+1:]...)
 				folders[folderID] = folderCfg
 				k--
@@ -1750,12 +1747,11 @@ func (*model) handleDeintroductions(introducerCfg config.DeviceConfiguration, fo
 				if _, ok := devicesNotIntroduced[deviceID]; !ok {
 					// The introducer no longer shares any folder with the
 					// device, remove the device.
-					l.Infof("Removing device %v as introducer %v no longer shares any folders with that device", deviceID, device.IntroducedBy)
+					slog.Info("Removing device as introducer no longer shares any folders with that device", "device", deviceID, "introducer", device.IntroducedBy)
 					changed = true
 					delete(devices, deviceID)
 					continue
 				}
-				l.Infof("Would have removed %v as %v no longer shares any folders, yet there are other folders that are shared with this device that haven't been introduced by this introducer.", deviceID, device.IntroducedBy)
 			}
 		}
 	}
@@ -1776,7 +1772,7 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 			pathAlternatives = append(pathAlternatives, alt)
 		}
 		if len(pathAlternatives) == 0 {
-			l.Infof("Failed to auto-accept folder %s from %s due to lack of path alternatives", folder.Description(), deviceID)
+			slog.Error("Failed to auto-accept folder due to lack of path alternatives", folder.LogAttr(), deviceID.LogAttr())
 			return config.FolderConfiguration{}, false
 		}
 		for _, path := range pathAlternatives {
@@ -1788,7 +1784,7 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 			// Attempt to create it to make sure it does, now.
 			fullPath := filepath.Join(defaultFolderCfg.Path, path)
 			if err := defaultPathFs.MkdirAll(path, 0o700); err != nil {
-				l.Warnf("Failed to create path for auto-accepted folder %s at path %s: %v", folder.Description(), fullPath, err)
+				slog.Error("Failed to create path for auto-accepted folder", folder.LogAttr(), slogutil.FilePath(fullPath), slogutil.Error(err))
 				continue
 			}
 
@@ -1812,14 +1808,14 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 			} else {
 				ignores := m.cfg.DefaultIgnores()
 				if err := m.setIgnores(fcfg, ignores.Lines); err != nil {
-					l.Warnf("Failed to apply default ignores to auto-accepted folder %s at path %s: %v", folder.Description(), fcfg.Path, err)
+					slog.Error("Failed to apply default ignores to auto-accepted folder", folder.LogAttr(), slogutil.FilePath(fullPath), slogutil.Error(err))
 				}
 			}
 
-			l.Infof("Auto-accepted %s folder %s at path %s", deviceID, folder.Description(), fcfg.Path)
+			slog.Info("Auto-accepted folder", fcfg.LogAttr(), slogutil.FilePath(fcfg.Path))
 			return fcfg, true
 		}
-		l.Infof("Failed to auto-accept folder %s from %s due to path conflict", folder.Description(), deviceID)
+		slog.Error("Failed to auto-accept folder due to path conflict", folder.LogAttr(), deviceID.LogAttr())
 		return config.FolderConfiguration{}, false
 	} else {
 		if slices.Contains(cfg.DeviceIDs(), deviceID) {
@@ -1828,19 +1824,19 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 		}
 		if cfg.Type == config.FolderTypeReceiveEncrypted {
 			if len(ccDeviceInfos.remote.EncryptionPasswordToken) == 0 && len(ccDeviceInfos.local.EncryptionPasswordToken) == 0 {
-				l.Infof("Failed to auto-accept device %s on existing folder %s as the remote wants to send us unencrypted data, but the folder type is receive-encrypted", folder.Description(), deviceID)
+				slog.Info("Failed to auto-accept device on existing folder as the remote wants to send us unencrypted data, but the folder type is receive-encrypted", folder.LogAttr(), deviceID.LogAttr())
 				return config.FolderConfiguration{}, false
 			}
 		} else {
 			if len(ccDeviceInfos.remote.EncryptionPasswordToken) > 0 || len(ccDeviceInfos.local.EncryptionPasswordToken) > 0 {
-				l.Infof("Failed to auto-accept device %s on existing folder %s as the remote wants to send us encrypted data, but the folder type is not receive-encrypted", folder.Description(), deviceID)
+				slog.Info("Failed to auto-accept device on existing folder as the remote wants to send us encrypted data, but the folder type is not receive-encrypted", folder.LogAttr(), deviceID.LogAttr())
 				return config.FolderConfiguration{}, false
 			}
 		}
 		cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{
 			DeviceID: deviceID,
 		})
-		l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceID)
+		slog.Info("Shared folder due to auto-accept", folder.LogAttr(), deviceID.LogAttr())
 		return cfg, true
 	}
 }
@@ -1853,7 +1849,7 @@ func (m *model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 		}
 	}
 
-	l.Infof("Adding device %v to config (vouched for by introducer %v)", device.ID, introducerCfg.DeviceID)
+	slog.Info("Adding device to config (vouched for by introducer)", device.ID.LogAttr(), slog.Any("introducer", introducerCfg.DeviceID.Short()))
 	newDeviceCfg := m.cfg.DefaultDevice()
 	newDeviceCfg.DeviceID = device.ID
 	newDeviceCfg.Name = device.Name
@@ -1864,7 +1860,7 @@ func (m *model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 
 	// The introducers' introducers are also our introducers.
 	if device.Introducer {
-		l.Infof("Device %v is now also an introducer", device.ID)
+		slog.Info("Device is now also an introducer", device.ID.LogAttr())
 		newDeviceCfg.Introducer = true
 		newDeviceCfg.SkipIntroductionRemovals = device.SkipIntroductionRemovals
 	}
@@ -1921,10 +1917,10 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 	m.mut.RUnlock()
 
 	k := map[bool]string{false: "secondary", true: "primary"}[removedIsPrimary]
-	l.Infof("Lost %s connection to %s at %s: %v (%d remain)", k, deviceID.Short(), conn, err, len(remainingConns))
+	slog.Info("Lost device connection", slog.String("kind", k), deviceID.LogAttr(), slog.Any("connection", conn), slogutil.Error(err), slog.Int("remaining", len(remainingConns)))
 
 	if len(remainingConns) == 0 {
-		l.Infof("Connection to %s at %s closed: %v", deviceID.Short(), conn, err)
+		slog.Info("Connection closed", deviceID.LogAttr(), slog.Any("connection", conn), slogutil.Error(err))
 		m.evLogger.Log(events.DeviceDisconnected, map[string]string{
 			"id":    deviceID.String(),
 			"error": err.Error(),
@@ -1937,7 +1933,7 @@ func (m *model) Closed(conn protocol.Connection, err error) {
 type requestResponse struct {
 	data   []byte
 	closed chan struct{}
-	once   stdsync.Once
+	once   sync.Once
 }
 
 func newRequestResponse(size int) *requestResponse {
@@ -1983,7 +1979,7 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 	}
 
 	if !folderCfg.SharedWith(deviceID) {
-		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID.Short(), req.Name, req.Folder)
+		slog.Warn("Request for file in unshared folder", slog.String("folder", req.Folder), deviceID.LogAttr(), slogutil.FilePath(req.Name))
 		return nil, protocol.ErrGeneric
 	}
 	if folderCfg.Paused {
@@ -2248,7 +2244,7 @@ func (m *model) setIgnores(cfg config.FolderConfiguration, content []string) err
 	}
 
 	if err := ignore.WriteIgnores(cfg.Filesystem(), ".stignore", content); err != nil {
-		l.Warnln("Saving .stignore:", err)
+		slog.Error("Failed to save .stignore", slogutil.Error(err))
 		return err
 	}
 
@@ -2267,7 +2263,7 @@ func (m *model) setIgnores(cfg config.FolderConfiguration, content []string) err
 func (m *model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protocol.Hello) error {
 	if _, ok := m.cfg.Device(remoteID); !ok {
 		if err := m.observed.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String()); err != nil {
-			l.Warnf("Failed to persist pending device entry to database: %v", err)
+			slog.Warn("Failed to persist pending device entry to database", slogutil.Error(err))
 		}
 		m.evLogger.Log(events.PendingDevicesChanged, map[string][]interface{}{
 			"added": {map[string]string{
@@ -2294,7 +2290,7 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	deviceID := conn.DeviceID()
 	deviceCfg, ok := m.cfg.Device(deviceID)
 	if !ok {
-		l.Infoln("Trying to add connection to unknown device")
+		slog.Info("Trying to add connection to unknown device")
 		return
 	}
 
@@ -2327,9 +2323,9 @@ func (m *model) AddConnection(conn protocol.Connection, hello protocol.Hello) {
 	m.evLogger.Log(events.DeviceConnected, event)
 
 	if len(m.deviceConnIDs[deviceID]) == 1 {
-		l.Infof(`Device %s client is "%s %s" named "%s" at %s`, deviceID.Short(), hello.ClientName, hello.ClientVersion, hello.DeviceName, conn)
+		slog.Info("New device connection", deviceID.LogAttr(), slogutil.Address(conn.RemoteAddr()), slog.Group("remote", slog.String("name", hello.DeviceName), slog.String("client", hello.ClientName), slog.String("version", hello.ClientVersion)))
 	} else {
-		l.Infof(`Additional connection (+%d) for device %s at %s`, len(m.deviceConnIDs[deviceID])-1, deviceID.Short(), conn)
+		slog.Info("Additional device connection", deviceID.LogAttr(), slogutil.Address(conn.RemoteAddr()), slog.Int("count", len(m.deviceConnIDs[deviceID])-1))
 	}
 
 	m.mut.Unlock()
@@ -2500,9 +2496,9 @@ func (m *model) ScanFolders() map[string]error {
 	m.mut.RUnlock()
 
 	errors := make(map[string]error, len(m.folderCfgs))
-	errorsMut := sync.NewMutex()
+	var errorsMut sync.Mutex
 
-	wg := sync.NewWaitGroup()
+	var wg sync.WaitGroup
 	wg.Add(len(folders))
 	for _, folder := range folders {
 		go func() {
@@ -2552,6 +2548,12 @@ func (m *model) numHashers(folder string) int {
 	m.mut.RLock()
 	folderCfg := m.folderCfgs[folder]
 	numFolders := max(1, len(m.folderCfgs))
+	// MaxFolderConcurrency already limits the number of scanned folders, so
+	// prefer it over the overall number of folders to avoid limiting performance
+	// further for no reason.
+	if concurrency := m.cfg.Options().MaxFolderConcurrency(); concurrency > 0 {
+		numFolders = min(numFolders, concurrency)
+	}
 	m.mut.RUnlock()
 
 	if folderCfg.Hashers > 0 {
@@ -2559,16 +2561,17 @@ func (m *model) numHashers(folder string) int {
 		return folderCfg.Hashers
 	}
 
+	numCpus := runtime.GOMAXPROCS(-1)
 	if build.IsWindows || build.IsDarwin || build.IsIOS || build.IsAndroid {
 		// Interactive operating systems; don't load the system too heavily by
 		// default.
-		return 1
+		numCpus = max(1, numCpus/4)
 	}
 
 	// For other operating systems and architectures, lets try to get some
 	// work done... Divide the available CPU cores among the configured
 	// folders.
-	if perFolder := runtime.GOMAXPROCS(-1) / numFolders; perFolder > 0 {
+	if perFolder := numCpus / numFolders; perFolder > 0 {
 		return perFolder
 	}
 
@@ -2922,7 +2925,7 @@ func (m *model) ResetFolder(folder string) error {
 	if ok {
 		return errors.New("folder must be paused when resetting")
 	}
-	l.Infof("Cleaning metadata for reset folder %q", folder)
+	slog.Info("Cleaning metadata for reset folder", "folder", folder)
 	return m.sdb.DropFolder(folder)
 }
 
@@ -2969,9 +2972,9 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
 			if cfg.Paused {
-				l.Infoln("Paused folder", cfg.Description())
+				slog.Info("Paused folder", cfg.LogAttr())
 			} else {
-				l.Infoln("Adding folder", cfg.Description())
+				slog.Info("Adding folder", cfg.LogAttr())
 				if err := m.newFolder(cfg, to.Options.CacheIgnoredFiles); err != nil {
 					m.fatal(err)
 					return true
@@ -3049,7 +3052,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 
 		if toCfg.Paused {
-			l.Infoln("Pausing", deviceID)
+			slog.Info("Pausing device", deviceID.LogAttr())
 			closeDevices = append(closeDevices, deviceID)
 			m.evLogger.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
 		} else {
@@ -3058,7 +3061,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				closeDevices = append(closeDevices, deviceID)
 			}
 
-			l.Infoln("Resuming", deviceID)
+			slog.Info("Resuming device", deviceID.LogAttr())
 			m.evLogger.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 
@@ -3108,7 +3111,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 	// Some options don't require restart as those components handle it fine
 	// by themselves. Compare the options structs containing only the
-	// attributes that require restart and act apprioriately.
+	// attributes that require restart and act appropriately.
 	if !reflect.DeepEqual(from.Options.RequiresRestartOnly(), to.Options.RequiresRestartOnly()) {
 		l.Debugln(m, "requires restart, options differ")
 		return false
@@ -3132,8 +3135,8 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 	var removedPendingFolders []map[string]string
 	pendingFolders, err := m.observed.PendingFolders()
 	if err != nil {
-		msg := "Could not iterate through pending folder entries for cleanup"
-		l.Warnf("%v: %v", msg, err)
+		const msg = "Could not iterate through pending folder entries for cleanup"
+		slog.Warn(msg, slogutil.Error(err))
 		m.evLogger.Log(events.Failure, msg)
 		// Continue with pending devices below, loop is skipped.
 	}
@@ -3144,8 +3147,8 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 			// at all (but might become pending again).
 			l.Debugf("Discarding pending removed folder %v from all devices", folderID)
 			if err := m.observed.RemovePendingFolder(folderID); err != nil {
-				msg := "Failed to remove pending folder entry"
-				l.Warnf("%v (%v): %v", msg, folderID, err)
+				const msg = "Failed to remove pending folder entry"
+				slog.Warn(msg, slog.String("folder", folderID), slogutil.Error(err))
 				m.evLogger.Log(events.Failure, msg)
 			} else {
 				removedPendingFolders = append(removedPendingFolders, map[string]string{
@@ -3171,8 +3174,8 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 			continue
 		removeFolderForDevice:
 			if err := m.observed.RemovePendingFolderForDevice(folderID, deviceID); err != nil {
-				msg := "Failed to remove pending folder-device entry"
-				l.Warnf("%v (%v, %v): %v", msg, folderID, deviceID, err)
+				const msg = "Failed to remove pending folder-device entry"
+				slog.Warn(msg, slog.String("folder", folderID), deviceID.LogAttr(), slogutil.Error(err))
 				m.evLogger.Log(events.Failure, msg)
 				continue
 			}
@@ -3191,8 +3194,8 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 	var removedPendingDevices []map[string]string
 	pendingDevices, err := m.observed.PendingDevices()
 	if err != nil {
-		msg := "Could not iterate through pending device entries for cleanup"
-		l.Warnf("%v: %v", msg, err)
+		const msg = "Could not iterate through pending device entries for cleanup"
+		slog.Warn(msg, slogutil.Error(err))
 		m.evLogger.Log(events.Failure, msg)
 		return
 	}
@@ -3208,8 +3211,8 @@ func (m *model) cleanPending(existingDevices map[protocol.DeviceID]config.Device
 		continue
 	removeDevice:
 		if err := m.observed.RemovePendingDevice(deviceID); err != nil {
-			msg := "Failed to remove pending device entry"
-			l.Warnf("%v: %v", msg, err)
+			const msg = "Failed to remove pending device entry"
+			slog.Warn(msg, slogutil.Error(err))
 			m.evLogger.Log(events.Failure, msg)
 			continue
 		}
@@ -3379,12 +3382,12 @@ func (s folderDeviceSet) hasDevice(dev protocol.DeviceID) bool {
 
 // syncMutexMap is a type safe wrapper for a sync.Map that holds mutexes
 type syncMutexMap struct {
-	inner stdsync.Map
+	inner sync.Map
 }
 
-func (m *syncMutexMap) Get(key string) sync.Mutex {
-	v, _ := m.inner.LoadOrStore(key, sync.NewMutex())
-	return v.(sync.Mutex)
+func (m *syncMutexMap) Get(key string) *sync.Mutex {
+	v, _ := m.inner.LoadOrStore(key, new(sync.Mutex))
+	return v.(*sync.Mutex)
 }
 
 type deviceIDSet map[protocol.DeviceID]struct{}

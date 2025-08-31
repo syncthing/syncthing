@@ -11,6 +11,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"time"
@@ -211,6 +212,30 @@ func (f *FileInfo) WinsConflict(other FileInfo) bool {
 	// The modification times were equal. Use the device ID in the version
 	// vector as tie breaker.
 	return f.FileVersion().Compare(other.FileVersion()) == ConcurrentGreater
+}
+
+func (f *FileInfo) LogAttr() slog.Attr {
+	attrs := []any{slog.String("name", f.Name)}
+	var kind string
+	switch f.Type {
+	case FileInfoTypeFile:
+		kind = "file"
+		if !f.Deleted {
+			attrs = append(attrs,
+				slog.Any("modified", f.ModTime()),
+				slog.String("permissions", fmt.Sprintf("0%03o", f.Permissions)),
+				slog.Int64("size", f.Size),
+				slog.Int("blocksize", f.BlockSize()),
+			)
+		}
+	case FileInfoTypeDirectory:
+		kind = "dir"
+		attrs = append(attrs, slog.String("permissions", fmt.Sprintf("0%03o", f.Permissions)))
+	case FileInfoTypeSymlink:
+		kind = "symlink"
+		attrs = append(attrs, slog.String("target", string(f.SymlinkTarget)))
+	}
+	return slog.Group(kind, attrs...)
 }
 
 func FileInfoFromWire(w *bep.FileInfo) FileInfo {

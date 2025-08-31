@@ -8,9 +8,11 @@ package beacon
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/netutil"
 )
 
@@ -109,7 +111,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 		}
 
 		if success == 0 {
-			l.Debugln("couldn't send any broadcasts")
+			slog.DebugContext(ctx, "Couldn't send any broadcasts", slogutil.Error(err))
 			return err
 		}
 	}
@@ -146,7 +148,7 @@ func readBroadcasts(ctx context.Context, outbox chan<- recv, port int) error {
 		case <-doneCtx.Done():
 			return doneCtx.Err()
 		default:
-			l.Debugln("dropping message")
+			slog.DebugContext(ctx, "Dropping message")
 		}
 	}
 }

@@ -21,7 +21,7 @@ func init() {
 }
 
 type sendOnlyFolder struct {
-	folder
+	*folder
 }
 
 func newSendOnlyFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfiguration, _ versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
@@ -93,7 +93,7 @@ func (f *sendOnlyFolder) Override() {
 }
 
 func (f *sendOnlyFolder) override() error {
-	l.Infoln("Overriding global state on folder", f.Description())
+	f.sl.Info("Overriding global state ")
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)

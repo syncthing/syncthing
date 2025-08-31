@@ -376,6 +376,8 @@ func (fs *fakeFS) Lstat(name string) (FileInfo, error) {
 	}
 
 	info := &fakeFileInfo{*entry}
+	info.content = nil
+	info.children = nil
 	if fs.insens {
 		info.name = filepath.Base(name)
 	}
@@ -655,7 +657,7 @@ func (*fakeFS) SetXattr(_ string, _ []protocol.Xattr, _ XattrFilter) error {
 	return nil
 }
 
-// A basic glob-impelementation that should be able to handle
+// A basic glob-implementation that should be able to handle
 // simple test cases.
 func (fs *fakeFS) Glob(pattern string) ([]string, error) {
 	dir := filepath.Dir(pattern)

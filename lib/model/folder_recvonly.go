@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/internal/itererr"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -69,7 +70,7 @@ func (f *receiveOnlyFolder) Revert() {
 }
 
 func (f *receiveOnlyFolder) revert() error {
-	l.Infof("Reverting folder %v", f.Description())
+	f.sl.Info("Reverting folder")
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)
@@ -154,7 +155,7 @@ func (f *receiveOnlyFolder) revert() error {
 	// Handle any queued directories
 	deleted, err := delQueue.flush()
 	if err != nil {
-		l.Infoln("Revert:", err)
+		f.sl.Warn("Failed to revert directories", slogutil.Error(err))
 	}
 	now := time.Now()
 	for _, dir := range deleted {

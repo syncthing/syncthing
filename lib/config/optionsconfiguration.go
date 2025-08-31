@@ -134,11 +134,9 @@ func (opts *OptionsConfiguration) prepare(guiPWIsSet bool) {
 	}
 
 	if opts.ConnectionPriorityQUICWAN <= opts.ConnectionPriorityQUICLAN {
-		l.Warnln("Connection priority number for QUIC over WAN must be worse (higher) than QUIC over LAN. Correcting.")
 		opts.ConnectionPriorityQUICWAN = opts.ConnectionPriorityQUICLAN + 1
 	}
 	if opts.ConnectionPriorityTCPWAN <= opts.ConnectionPriorityTCPLAN {
-		l.Warnln("Connection priority number for TCP over WAN must be worse (higher) than TCP over LAN. Correcting.")
 		opts.ConnectionPriorityTCPWAN = opts.ConnectionPriorityTCPLAN + 1
 	}
 
@@ -186,7 +184,7 @@ func (opts OptionsConfiguration) StunServers() []string {
 		case "default":
 			_, records, err := net.LookupSRV("stun", "udp", "syncthing.net")
 			if err != nil {
-				l.Debugf("Unable to resolve primary STUN servers via DNS:", err)
+				l.Debugln("Unable to resolve primary STUN servers via DNS:", err)
 			}
 
 			for _, record := range records {
@@ -237,7 +235,7 @@ func (opts OptionsConfiguration) MaxFolderConcurrency() int {
 		return 0
 	}
 	// Otherwise default to the number of CPU cores in the system as a rough
-	// approximation of system powerfullness.
+	// approximation of system powerfulness.
 	if n := runtime.GOMAXPROCS(-1); n > 0 {
 		return n
 	}

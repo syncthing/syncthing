@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING" "1" "Jul 21, 2025" "v1.29.7" "Syncthing"
+.TH "SYNCTHING" "1" "Aug 21, 2025" "v2.0.0" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .SH SYNOPSIS
@@ -36,33 +36,60 @@ syncthing \- Syncthing
 .sp
 .EX
 syncthing [serve]
-          [\-\-audit] [\-\-auditfile=<file|\-|\-\->] [\-\-browser\-only] [\-\-device\-id]
-          [\-\-generate=<dir>] [\-\-gui\-address=<address>] [\-\-gui\-apikey=<key>]
           [\-\-home=<dir> | \-\-config=<dir> \-\-data=<dir>]
-          [\-\-logfile=<filename>] [\-\-logflags=<flags>]
+          [\-\-allow\-newer\-config] [\-\-audit] [\-\-auditfile=<file|\-|\-\->]
+          [\-\-db\-maintenance\-interval=<interval>]
+          [\-\-db\-delete\-retention\-interval=<interval>]
+          [\-\-gui\-address=<address>] [\-\-gui\-apikey=<key>]
+          [\-\-log\-level=<level>] [\-\-log\-file=<filename>]
           [\-\-log\-max\-old\-files=<num>] [\-\-log\-max\-size=<num>]
-          [\-\-no\-browser] [\-\-no\-console] [\-\-no\-restart] [\-\-paths] [\-\-paused]
-          [\-\-no\-default\-folder] [\-\-skip\-port\-probing]
-          [\-\-reset\-database] [\-\-reset\-deltas] [\-\-unpaused] [\-\-allow\-newer\-config]
-          [\-\-upgrade] [\-\-no\-upgrade] [\-\-upgrade\-check] [\-\-upgrade\-to=<url>]
+          [\-\-no\-browser] [\-\-no\-console]
+          [\-\-no\-port\-probing] [\-\-no\-restart] [\-\-no\-upgrade]
+          [\-\-paused] [\-\-unpaused]
           [\-\-verbose] [\-\-version] [\-\-help] [\-\-debug\-*]
-
-syncthing generate
-          [\-\-home=<dir> | \-\-config=<dir>]
-          [\-\-gui\-user=<username>] [\-\-gui\-password=<password|\->]
-          [\-\-no\-default\-folder] [\-\-skip\-port\-probing] [\-\-no\-console]
-          [\-\-help]
-
-syncthing decrypt (\-\-to=<dir> | \-\-verify\-only)
-          [\-\-password=<pw>] [\-\-folder\-id=<id>] [\-\-token\-path=<file>]
-          [\-\-continue] [\-\-verbose] [\-\-version] [\-\-help]
-          <path>
 
 syncthing cli
           [\-\-home=<dir> | \-\-config=<dir> \-\-data=<dir>]
           [\-\-gui\-address=<address>] [\-\-gui\-apikey=<key>]
           [\-\-help]
           <command> [command options...] [arguments...]
+
+syncthing browser
+          [\-\-home=<dir> | \-\-config=<dir> \-\-data=<dir>]
+          [\-\-help]
+
+syncthing decrypt (\-\-to=<dir> | \-\-verify\-only)
+          [\-\-home=<dir> | \-\-config=<dir> \-\-data=<dir>]
+          [\-\-password=<pw>] [\-\-folder\-id=<id>] [\-\-token\-path=<file>]
+          [\-\-continue] [\-\-verbose] [\-\-help]
+          <path>
+
+syncthing device\-id
+          [\-\-home=<dir> | \-\-config=<dir> \-\-data=<dir>]
+          [\-\-help]
+
+syncthing generate
+          [\-\-home=<dir> | \-\-config=<dir> \-\-data=<dir>]
+          [\-\-gui\-user=<username>] [\-\-gui\-password=<password|\->]
+          [\-\-no\-port\-probing]
+          [\-\-help]
+
+syncthing paths
+          [\-\-home=<dir> | \-\-config=<dir> \-\-data=<dir>]
+          [\-\-help]
+
+syncthing upgrade
+          [\-\-home=<dir> | \-\-config=<dir> \-\-data=<dir>]
+          [\-\-check\-only] [\-\-from=<url>]
+          [\-\-help]
+
+syncthing version
+          [\-\-home=<dir> | \-\-config=<dir> \-\-data=<dir>]
+          [\-\-help]
+
+syncthing debug <command>
+          [\-\-home=<dir> | \-\-config=<dir> \-\-data=<dir>]
+          [\-\-help]
 .EE
 .UNINDENT
 .UNINDENT
@@ -82,7 +109,35 @@ frontend communicates with the core application through some HTTP APIs, which
 other apps like graphical system integration helpers can use as well, for
 greatest flexibility. A link to reach the GUI and API is printed among the first
 few log messages.
-.SH OPTIONS
+.SH COMMON OPTIONS
+.INDENT 0.0
+.TP
+.B \-\-home=<dir>, \-H <dir>
+Set common configuration and data directory. The default configuration
+directory is \fB$XDG_STATE_HOME/syncthing\fP or
+\fB$HOME/.local/state/syncthing\fP (Unix\-like),
+\fB$HOME/Library/Application Support/Syncthing\fP (Mac) and
+\fB%LOCALAPPDATA%\eSyncthing\fP (Windows).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-config=<dir>, \-C <dir>
+Set configuration directory. Alternative to \fB\-\-home\fP and must be used
+together with \fB\-\-data\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-data=<dir>, \-D <dir>
+Set data (e.g. database) directory. Alternative to \fB\-\-home\fP and must be used
+together with \fB\-\-config\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-help, \-h
+Show help text about command line usage.  Context\-sensitive depending on the
+given subcommand.
+.UNINDENT
+.SH SERVE OPTIONS
 .INDENT 0.0
 .TP
 .B \-\-allow\-newer\-config
@@ -102,18 +157,15 @@ audit events, rather than the timestamped default file name.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-browser\-only
-Open the web UI in a browser for an already running Syncthing instance.
+.B \-\-db\-maintenance\-interval=<interval>
+Database maintenance interval – internal database maintenance routines
+run this often.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-device\-id
-Print device ID to command line.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-\-generate=<dir>
-Generate key and config in specified dir, then exit.
+.B \-\-db\-delete\-retention\-interval=<interval>
+Database deleted item retention interval – deleted items are forgotten
+from the database after this interval.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -132,72 +184,15 @@ Override the API key needed to access the GUI / REST API.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-gui\-password=<password|\->
-Specify new GUI authentication password, to update the config file.  Read
-from the standard input stream if only a single dash (\fB\-\fP) is given.  A
-plaintext password is hashed before writing to the config file, but an
-already bcrypt\-hashed input is stored verbatim.  As a special case, giving
-the existing password hash as password will leave it untouched.
+.B \-\-log\-level=<level>
+Set the log level for all packages. Valid levels are DEBUG, INFO, WARN,
+and ERROR.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-gui\-user=<username>
-Specify new GUI authentication user name, to update the config file.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-\-help, \-h
-Show help text about command line usage.  Context\-sensitive depending on the
-given subcommand.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-\-home=<dir>
-Set common configuration and data directory. The default configuration
-directory is \fB$XDG_STATE_HOME/syncthing\fP or
-\fB$HOME/.local/state/syncthing\fP (Unix\-like),
-\fB$HOME/Library/Application Support/Syncthing\fP (Mac) and
-\fB%LOCALAPPDATA%\eSyncthing\fP (Windows).
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-\-config=<dir>
-Set configuration directory. Alternative to \fB\-\-home\fP and must be used
-together with \fB\-\-data\fP\&.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-\-data=<dir>
-Set data (e.g. database) directory. Alternative to \fB\-\-home\fP and must be used
-together with \fB\-\-config\fP\&.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-\-logfile=<filename>
+.B \-\-log\-file=<filename>
 Set destination filename for logging (use \fB\(dq\-\(dq\fP for stdout, which is the
 default option).
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-\-logflags=<flags>
-Select information in log line prefix. The \fB\-\-logflags\fP value is a sum of
-the following:
-.INDENT 7.0
-.IP \(bu 2
-1: Date
-.IP \(bu 2
-2: Time
-.IP \(bu 2
-4: Microsecond time
-.IP \(bu 2
-8: Long filename
-.IP \(bu 2
-16: Short filename
-.UNINDENT
-.sp
-To prefix each log line with date and time, set \fB\-\-logflags=3\fP (1 + 2 from
-above). The value 0 is used to disable all of the above. The default is to
-show time only (2).
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -222,9 +217,9 @@ Hide the console window. (On Windows only)
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-no\-default\-folder
-Don’t create a default folder when generating an initial configuration /
-starting for the first time.
+.B \-\-no\-port\-probing
+Don’t try to find unused random ports for the GUI and listen address when
+generating an initial configuration / starting for the first time.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -240,34 +235,8 @@ variable, see below.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-paths
-Print the paths used for configuration, keys, database, GUI overrides,
-default sync folder and the log file.
-.UNINDENT
-.INDENT 0.0
-.TP
 .B \-\-paused
 Start with all devices and folders paused.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-\-reset\-database
-Reset the database, forcing a full rescan and resync. Create \fI\&.stfolder\fP
-folders in each sync folder if they do not already exist. \fBCaution\fP:
-Ensure that all sync folders which are mountpoints are already mounted.
-Inconsistent versions may result if the mountpoint is later mounted and
-contains older versions.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-\-reset\-deltas
-Reset delta index IDs, forcing a full index exchange.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-\-skip\-port\-probing
-Don’t try to find unused random ports for the GUI and listen address when
-generating an initial configuration / starting for the first time.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -281,24 +250,10 @@ Perform upgrade.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-upgrade\-check
-Check for available upgrade.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-\-upgrade\-to=<url>
-Force upgrade directly from specified URL.
-.UNINDENT
-.INDENT 0.0
-.TP
 .B \-\-verbose
 Print verbose log output.
 .UNINDENT
-.INDENT 0.0
-.TP
-.B \-\-version
-Show version.
-.UNINDENT
+.SH DECRYPT OPTIONS
 .INDENT 0.0
 .TP
 .B \-\-to=<dir>
@@ -330,6 +285,33 @@ Path to the token file within the folder (used to determine folder ID).
 .TP
 .B \-\-continue
 Continue processing next file in case of error, instead of aborting.
+.UNINDENT
+.SH GENERATE OPTIONS
+.INDENT 0.0
+.TP
+.B \-\-gui\-password=<password|\->
+Specify new GUI authentication password, to update the config file.  Read
+from the standard input stream if only a single dash (\fB\-\fP) is given.  A
+plaintext password is hashed before writing to the config file, but an
+already bcrypt\-hashed input is stored verbatim.  As a special case, giving
+the existing password hash as password will leave it untouched.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-gui\-user=<username>
+Specify new GUI authentication user name, to update the config file.
+.UNINDENT
+.SH UPGRADE OPTIONS
+.INDENT 0.0
+.TP
+.B \-\-check\-only
+Do not upgrade, only indicate whether an upgrade is available.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-from=<url>
+Upgrade to the Syncthing version available from loading the package at
+the given URL.
 .UNINDENT
 .SH EXIT CODES
 .INDENT 0.0
@@ -435,160 +417,54 @@ path expansion may not be supported.
 .INDENT 0.0
 .TP
 .B STTRACE
-Used to increase the debugging verbosity in specific or all facilities,
-generally mapping to a Go package. Enabling any of these also enables
-microsecond timestamps, file names plus line numbers. Enter a
-comma\-separated string of facilities to trace. \fBsyncthing \-\-help\fP always
-outputs an up\-to\-date list. The valid facility strings are:
+Used to increase the debugging verbosity in specific facilities,
+generally mapping to a Go package. Enter a comma\-separated string of
+facilities to trace: \fBapi,beacon\fP\&. Optionally, a log level can be
+given per facility to specify something other than DEBUG:
+\fBapi:WARN,beacon:ERR\fP, potentially overriding a global \fB\-\-log\-level\fP
+adjustment.
 .INDENT 7.0
-.TP
-.B Main and operational facilities:
-.INDENT 7.0
-.TP
-.B config
-Configuration loading and saving.
-.TP
-.B db
-The database layer.
-.TP
-.B main
-Main package.
-.TP
-.B model
-The root hub; the largest chunk of the system. File pulling, index
-transmission and requests for chunks.
-.TP
-.B scanner
-File change detection and hashing.
-.TP
-.B versioner
-File versioning.
-.UNINDENT
-.TP
-.B Networking facilities:
-.INDENT 7.0
-.TP
-.B beacon
-Multicast and broadcast UDP discovery packets: Selected interfaces
-and addresses.
-.TP
-.B connections
-Connection handling.
-.TP
-.B dialer
-Dialing connections.
-.TP
-.B discover
-Remote device discovery requests, replies and registration of
-devices.
-.TP
-.B nat
-NAT discovery and port mapping.
-.TP
-.B pmp
-NAT\-PMP discovery and port mapping.
-.TP
-.B protocol
-The BEP protocol.
-.TP
-.B relay
-Relay interaction (\fBstrelaysrv\fP).
-.TP
-.B upnp
-UPnP discovery and port mapping.
-.UNINDENT
-.TP
-.B Other facilities:
-.INDENT 7.0
-.TP
-.B fs
-Filesystem access.
-.TP
-.B events
-Event generation and logging.
-.TP
-.B http
-REST API.
-.TP
-.B sha256
-SHA256 hashing package (this facility currently unused).
-.TP
-.B stats
-Persistent device and folder statistics.
-.TP
-.B sync
-Mutexes. Used for debugging race conditions and deadlocks.
-.TP
-.B upgrade
-Binary upgrades.
-.TP
-.B walkfs
-Filesystem access while walking.
-.TP
-.B all
-All of the above.
+.INDENT 3.5
+The valid facility strings are listed below; additionally, \fBsyncthing
+serve \-\-help\fP always outputs the most up\-to\-date list.
+.INDENT 0.0
+.INDENT 3.5
+api             \- REST API
+beacon          \- Multicast and broadcast discovery
+config          \- Configuration loading and saving
+connections     \- Connection handling
+db/sqlite       \- SQLite database
+dialer          \- Dialing connections
+discover        \- Remote device discovery
+events          \- Event generation and logging
+fs              \- Filesystem access
+main            \- Main package
+model           \- The root hub
+nat             \- NAT discovery and port mapping
+pmp             \- NAT\-PMP discovery and port mapping
+protocol        \- The BEP protocol
+relay/client    \- Relay client
+scanner         \- File change detection and hashing
+stun            \- STUN functionality
+syncthing       \- Main run facility
+upgrade         \- Binary upgrades
+upnp            \- UPnP discovery and port mapping
+ur              \- Usage reporting
+versioner       \- File versioning
+watchaggregator \- Filesystem event watcher
 .UNINDENT
 .UNINDENT
-.TP
-.B STBLOCKPROFILE
-Write block profiles to \fBblock\-$pid\-$timestamp.pprof\fP every 20 seconds.
-.TP
-.B STCPUPROFILE
-Write a CPU profile to \fBcpu\-$pid.pprof\fP on exit.
-.TP
-.B STDEADLOCKTIMEOUT
-Used for debugging internal deadlocks; sets debug sensitivity. Use only
-under direction of a developer.
+.UNINDENT
+.UNINDENT
 .TP
 .B STLOCKTHRESHOLD
 Used for debugging internal deadlocks; sets debug sensitivity. Use only
 under direction of a developer.
 .TP
-.B STGUIADDRESS
-Override GUI listen address.  Equivalent to passing \fI\%\-\-gui\-address\fP\&.
-.TP
-.B STGUIAPIKEY
-Override the API key needed to access the GUI / REST API.  Equivalent to
-passing \fI\%\-\-gui\-apikey\fP\&.
-.TP
-.B STGUIASSETS
-Directory to load GUI assets from. Overrides compiled in assets. Useful for
-developing webgui, commonly use \fBSTGUIASSETS=gui bin/syncthing\fP\&.
-.TP
-.B STHEAPPROFILE
-Write heap profiles to \fBheap\-$pid\-$timestamp.pprof\fP each time heap usage
-increases.
-.TP
-.B STNODEFAULTFOLDER
-Don’t create a default folder when starting for the first time. This
-variable will be ignored anytime after the first run.  Equivalent to the
-\fI\%\-\-no\-default\-folder\fP flag.
-.TP
-.B STNORESTART
-Equivalent to the \fI\%\-\-no\-restart\fP flag.
-.TP
-.B STNOUPGRADE
-Disable automatic upgrades.  Equivalent to the \fI\%\-\-no\-upgrade\fP flag.
-.TP
-.B STPROFILER
-Set to a listen address such as “127.0.0.1:9090” to start the profiler with
-HTTP access, which then can be reached at
-\X'tty: link http://localhost:9090/debug/pprof'\fI\%http://localhost:9090/debug/pprof\fP\X'tty: link'\&. See \fBgo tool pprof\fP for more
-information.
-.TP
-.B STPERFSTATS
-Write running performance statistics to \fBperf\-$pid.csv\fP\&. Not supported on
-Windows.
-.TP
-.B STRECHECKDBEVERY
-Time before folder statistics (file, dir, … counts) are recalculated from
-scratch. The given duration must be parseable by Go’s \fBtime.ParseDuration\fP\&. If
-missing or not parseable, the default value of 1 month is used. To force
-recalculation on every startup, set it to \fB1s\fP\&.
-.TP
-.B STGCINDIRECTEVERY
-Sets the time interval in between database garbage collection runs.  The
-given duration must be parseable by Go’s \fBtime.ParseDuration\fP\&.
+.B STVERSIONEXTRA
+Add extra information to the version string in logs and the version line
+in the GUI. Can be set to the name of a wrapper or tool controlling
+syncthing to communicate this to the end user.
 .TP
 .B GOMAXPROCS
 Set the maximum number of CPU cores to use. Defaults to all available CPU
@@ -612,6 +488,6 @@ Set to any nonempty value to use it.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT
-2014-2019, The Syncthing Authors
+2014-2025, The Syncthing Authors
 .\" Generated by docutils manpage writer.
 .

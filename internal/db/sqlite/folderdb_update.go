@@ -10,11 +10,13 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"log/slog"
 	"slices"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/internal/itererr"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sliceutil"
@@ -112,11 +114,9 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 			if err != nil {
 				return wrap(err, "marshal blocklist")
 			}
-			if _, err := insertBlockListStmt.Exec(f.BlocksHash, bs); err != nil {
+			if res, err := insertBlockListStmt.Exec(f.BlocksHash, bs); err != nil {
 				return wrap(err, "insert blocklist")
-			}
-
-			if device == protocol.LocalDeviceID {
+			} else if aff, _ := res.RowsAffected(); aff != 0 && device == protocol.LocalDeviceID {
 				// Insert all blocks
 				if err := s.insertBlocksLocked(txp, f.BlocksHash, f.Blocks); err != nil {
 					return wrap(err, "insert blocks")
@@ -486,12 +486,12 @@ func (s *folderDB) periodicCheckpointLocked(fs []protocol.FileInfo) {
 	if s.updatePoints > updatePointsThreshold {
 		conn, err := s.sql.Conn(context.Background())
 		if err != nil {
-			l.Debugln(s.baseName, "conn:", err)
+			slog.Debug("Connection error", slog.String("db", s.baseName), slogutil.Error(err))
 			return
 		}
 		defer conn.Close()
 		if _, err := conn.ExecContext(context.Background(), `PRAGMA journal_size_limit = 8388608`); err != nil {
-			l.Debugln(s.baseName, "PRAGMA journal_size_limit:", err)
+			slog.Debug("PRAGMA journal_size_limit error", slog.String("db", s.baseName), slogutil.Error(err))
 		}
 
 		// Every 50th checkpoint becomes a truncate, in an effort to bring
@@ -505,11 +505,11 @@ func (s *folderDB) periodicCheckpointLocked(fs []protocol.FileInfo) {
 
 		var res, modified, moved int
 		if row.Err() != nil {
-			l.Debugln(s.baseName, cmd+":", err)
+			slog.Debug("Command error", slog.String("db", s.baseName), slog.String("cmd", cmd), slogutil.Error(err))
 		} else if err := row.Scan(&res, &modified, &moved); err != nil {
-			l.Debugln(s.baseName, cmd+" (scan):", err)
+			slog.Debug("Command scan error", slog.String("db", s.baseName), slog.String("cmd", cmd), slogutil.Error(err))
 		} else {
-			l.Debugln(s.baseName, cmd, s.checkpointsCount, "at", s.updatePoints, "returned", res, modified, moved)
+			slog.Debug("Checkpoint result", "db", s.baseName, "checkpointscount", s.checkpointsCount, "updatepoints", s.updatePoints, "res", res, "modified", modified, "moved", moved)
 		}
 
 		// Reset the truncate counter when a truncate succeeded. If it

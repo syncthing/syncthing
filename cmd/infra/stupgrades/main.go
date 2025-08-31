@@ -24,6 +24,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/httpcache"
 	"github.com/syncthing/syncthing/lib/upgrade"
@@ -58,10 +59,10 @@ func server(params *cli) error {
 		if err != nil {
 			return fmt.Errorf("metrics: %w", err)
 		}
-		slog.Info("Metrics listener started", "addr", params.MetricsListen)
+		slog.Info("Metrics listener started", slogutil.Address(params.MetricsListen))
 		go func() {
 			if err := http.Serve(metricsListen, mux); err != nil {
-				slog.Warn("Metrics server returned", "error", err)
+				slog.Warn("Metrics server returned", slogutil.Error(err))
 			}
 		}()
 	}
@@ -75,9 +76,9 @@ func server(params *cli) error {
 
 	go func() {
 		for range time.NewTicker(params.CacheTime).C {
-			slog.Info("Refreshing cached releases", "url", params.URL)
+			slog.Info("Refreshing cached releases", slogutil.URI(params.URL))
 			if err := cache.Update(context.Background()); err != nil {
-				slog.Error("Failed to refresh cached releases", "url", params.URL, "error", err)
+				slog.Error("Failed to refresh cached releases", slogutil.URI(params.URL), slogutil.Error(err))
 			}
 		}
 	}()
@@ -109,7 +110,7 @@ func server(params *cli) error {
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
 	}
-	slog.Info("Main listener started", "addr", params.Listen)
+	slog.Info("Main listener started", slogutil.Address(params.Listen))
 
 	return srv.Serve(srvListener)
 }
@@ -137,7 +138,7 @@ func (p *githubReleases) serveReleases(w http.ResponseWriter, req *http.Request)
 	osv := req.Header.Get("Syncthing-Os-Version")
 	if ua != "" && osv != "" {
 		// We should determine the compatibility of the releases.
-		rels = filterForCompabitility(rels, ua, osv)
+		rels = filterForCompatibility(rels, ua, osv)
 	} else {
 		metricFilterCalls.WithLabelValues("no-ua-or-osversion").Inc()
 	}
@@ -223,7 +224,7 @@ func filterForLatest(rels []upgrade.Release) []upgrade.Release {
 
 var userAgentOSArchExp = regexp.MustCompile(`^syncthing.*\(.+ (\w+)-(\w+)\)$`)
 
-func filterForCompabitility(rels []upgrade.Release, ua, osv string) []upgrade.Release {
+func filterForCompatibility(rels []upgrade.Release, ua, osv string) []upgrade.Release {
 	osArch := userAgentOSArchExp.FindStringSubmatch(ua)
 	if len(osArch) != 3 {
 		metricFilterCalls.WithLabelValues("bad-os-arch").Inc()

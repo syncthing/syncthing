@@ -18,7 +18,7 @@ import (
 )
 
 func TestDeviceStat(t *testing.T) {
-	sdb, err := sqlite.OpenTemp()
+	sdb, err := sqlite.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Jul 21, 2025" "v1.29.7" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Aug 21, 2025" "v2.0.0" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH SYNOPSIS
@@ -89,9 +89,9 @@ corresponding environment variables (\fB$STDATADIR\fP or \fBSTHOMEDIR\fP).
 The database directory contains the following files, among others:
 .INDENT 0.0
 .TP
-.B \fBindex\-\fP\fI*\fP\fB\&.db\fP
-A directory holding the database with metadata and hashes of the files
-currently on disk and available from peers.
+.B \fBindex\-\fP\fI*\fP
+The database with metadata and hashes of the files currently on disk and
+available from peers.
 .TP
 .B \fBsyncthing.log\fP
 Log output, on some systems.
@@ -139,9 +139,7 @@ may no longer correspond to the defaults.
         <pullerPauseS>0</pullerPauseS>
         <maxConflicts>\-1</maxConflicts>
         <disableSparseFiles>false</disableSparseFiles>
-        <disableTempIndexes>false</disableTempIndexes>
         <paused>false</paused>
-        <weakHashThresholdPct>25</weakHashThresholdPct>
         <markerName>.stfolder</markerName>
         <copyOwnershipFromParent>false</copyOwnershipFromParent>
         <modTimeWindowS>0</modTimeWindowS>
@@ -167,7 +165,7 @@ may no longer correspond to the defaults.
         <untrusted>false</untrusted>
         <remoteGUIPort>0</remoteGUIPort>
     </device>
-    <gui enabled=\(dqtrue\(dq tls=\(dqfalse\(dq debugging=\(dqfalse\(dq>
+    <gui enabled=\(dqtrue\(dq tls=\(dqfalse\(dq>
         <address>127.0.0.1:8384</address>
         <apikey>k1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1</apikey>
         <theme>default</theme>
@@ -215,7 +213,6 @@ may no longer correspond to the defaults.
         <stunKeepaliveStartS>180</stunKeepaliveStartS>
         <stunKeepaliveMinS>20</stunKeepaliveMinS>
         <stunServer>default</stunServer>
-        <databaseTuning>auto</databaseTuning>
         <maxConcurrentIncomingRequestKiB>0</maxConcurrentIncomingRequestKiB>
         <announceLANAddresses>true</announceLANAddresses>
         <sendFullIndexOnUpgrade>false</sendFullIndexOnUpgrade>
@@ -244,9 +241,7 @@ may no longer correspond to the defaults.
             <pullerPauseS>0</pullerPauseS>
             <maxConflicts>10</maxConflicts>
             <disableSparseFiles>false</disableSparseFiles>
-            <disableTempIndexes>false</disableTempIndexes>
             <paused>false</paused>
-            <weakHashThresholdPct>25</weakHashThresholdPct>
             <markerName>.stfolder</markerName>
             <copyOwnershipFromParent>false</copyOwnershipFromParent>
             <modTimeWindowS>0</modTimeWindowS>
@@ -336,9 +331,7 @@ GUI.
     <pullerPauseS>0</pullerPauseS>
     <maxConflicts>\-1</maxConflicts>
     <disableSparseFiles>false</disableSparseFiles>
-    <disableTempIndexes>false</disableTempIndexes>
     <paused>false</paused>
-    <weakHashThresholdPct>25</weakHashThresholdPct>
     <markerName>.stfolder</markerName>
     <copyOwnershipFromParent>false</copyOwnershipFromParent>
     <modTimeWindowS>0</modTimeWindowS>
@@ -555,7 +548,8 @@ delete files from other devices.  The mechanism is described in a
 .TP
 .B scanProgressIntervalS
 The interval in seconds with which scan progress information is sent to the GUI. Setting to \fB0\fP
-will cause Syncthing to use the default value of two.
+will cause Syncthing to use the default value of two. If you don’t
+need to see scan progress, set this to \fB\-1\fP to disable it.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -579,23 +573,8 @@ sparse files will not be created.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B disableTempIndexes
-By default, devices exchange information about blocks available in
-transfers that are still in progress, which allows other devices to
-download parts of files that are not yet fully downloaded on your own
-device, essentially making transfers more torrent like. When set to
-\fBtrue\fP, such information is not exchanged for this folder.
-.UNINDENT
-.INDENT 0.0
-.TP
 .B paused
 True if this folder is (temporarily) suspended.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B weakHashThresholdPct
-Use weak hash if more than the given percentage of the file has changed. Set
-to \fB\-1\fP to always use weak hash. Default is \fB25\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -944,7 +923,7 @@ The number of connections to this device. See
 .INDENT 3.5
 .sp
 .EX
-<gui enabled=\(dqtrue\(dq tls=\(dqfalse\(dq debugging=\(dqfalse\(dq>
+<gui enabled=\(dqtrue\(dq tls=\(dqfalse\(dq>
     <address>127.0.0.1:8384</address>
     <apikey>k1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1</apikey>
     <theme>default</theme>
@@ -967,12 +946,6 @@ If not \fBtrue\fP, the GUI and API will not be started.
 If set to \fBtrue\fP, TLS (HTTPS) will be enforced. Non\-HTTPS requests will
 be redirected to HTTPS. When set to \fBfalse\fP, TLS connections are
 still possible but not required.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B debugging
-This enables \fI\%Profiling\fP and additional endpoints in the REST
-API, see \fI\%Debug Endpoints\fP\&.
 .UNINDENT
 .sp
 The following child elements may be present:
@@ -1195,7 +1168,6 @@ Search filter for user searches.
     <stunKeepaliveStartS>180</stunKeepaliveStartS>
     <stunKeepaliveMinS>20</stunKeepaliveMinS>
     <stunServer>default</stunServer>
-    <databaseTuning>auto</databaseTuning>
     <maxConcurrentIncomingRequestKiB>0</maxConcurrentIncomingRequestKiB>
     <announceLANAddresses>true</announceLANAddresses>
     <sendFullIndexOnUpgrade>false</sendFullIndexOnUpgrade>
@@ -1487,13 +1459,6 @@ troubles.  Defaults to \fBtrue\fP, to help the developers troubleshoot.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B databaseTuning
-Controls how Syncthing uses the backend key\-value database that stores the
-index data and other persistent data it needs.  The available options and
-implications are explained in a \fI\%separate chapter\fP\&.
-.UNINDENT
-.INDENT 0.0
-.TP
 .B maxConcurrentIncomingRequestKiB
 This limits how many bytes we have “in the air” in the form of response data
 being read and processed.
@@ -1508,7 +1473,7 @@ addresses to global discovery.
 .TP
 .B sendFullIndexOnUpgrade
 Controls whether all index data is resent when an upgrade has happened,
-equivalent to starting Syncthing with \fI\%\-\-reset\-deltas\fP\&.  This used
+equivalent to starting Syncthing with \fB\-\-reset\-deltas\fP\&.  This used
 to be the default behavior in older versions, but is mainly useful as a
 troubleshooting step and causes high database churn. The default is now
 \fBfalse\fP\&.
@@ -1581,9 +1546,7 @@ are set, \fI\%\-\-auditfile\fP takes priority.
         <pullerPauseS>0</pullerPauseS>
         <maxConflicts>10</maxConflicts>
         <disableSparseFiles>false</disableSparseFiles>
-        <disableTempIndexes>false</disableTempIndexes>
         <paused>false</paused>
-        <weakHashThresholdPct>25</weakHashThresholdPct>
         <markerName>.stfolder</markerName>
         <copyOwnershipFromParent>false</copyOwnershipFromParent>
         <modTimeWindowS>0</modTimeWindowS>
@@ -1731,6 +1694,6 @@ send only mode for just the configuration folder.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT
-2014-2019, The Syncthing Authors
+2014-2025, The Syncthing Authors
 .\" Generated by docutils manpage writer.
 .

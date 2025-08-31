@@ -13,13 +13,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/itererr"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -29,13 +32,12 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/semaphore"
-	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
 var (
 	blockStats    = make(map[string]int)
-	blockStatsMut = sync.NewMutex()
+	blockStatsMut sync.Mutex
 )
 
 func init() {
@@ -120,7 +122,7 @@ type dbUpdateJob struct {
 }
 
 type sendReceiveFolder struct {
-	folder
+	*folder
 
 	queue              *jobQueue
 	blockPullReorderer blockPullReorderer
@@ -210,7 +212,7 @@ func (f *sendReceiveFolder) pull() (bool, error) {
 	if pullErrNum > 0 {
 		f.pullErrors = make([]FileError, 0, len(f.tempPullErrors))
 		for path, err := range f.tempPullErrors {
-			l.Infof("Puller (folder %s, item %q): %v", f.Description(), path, err)
+			f.sl.Warn("Failed to sync", slogutil.FilePath(path), slogutil.Error(err))
 			f.pullErrors = append(f.pullErrors, FileError{
 				Err:  err,
 				Path: path,
@@ -221,7 +223,6 @@ func (f *sendReceiveFolder) pull() (bool, error) {
 	f.errorsMut.Unlock()
 
 	if pullErrNum > 0 {
-		l.Infof("%v: Failed to sync %v items", f.Description(), pullErrNum)
 		f.evLogger.Log(events.FolderErrors, map[string]interface{}{
 			"folder": f.folderID,
 			"errors": f.Errors(),
@@ -245,10 +246,10 @@ func (f *sendReceiveFolder) pullerIteration(scanChan chan<- string) (int, error)
 	finisherChan := make(chan *sharedPullerState)
 	dbUpdateChan := make(chan dbUpdateJob)
 
-	pullWg := sync.NewWaitGroup()
-	copyWg := sync.NewWaitGroup()
-	doneWg := sync.NewWaitGroup()
-	updateWg := sync.NewWaitGroup()
+	var pullWg sync.WaitGroup
+	var copyWg sync.WaitGroup
+	var doneWg sync.WaitGroup
+	var updateWg sync.WaitGroup
 
 	l.Debugln(f, "copiers:", f.Copiers, "pullerPendingKiB:", f.PullerMaxPendingKiB)
 
@@ -422,7 +423,6 @@ loop:
 			}
 
 		default:
-			l.Warnln(file)
 			panic("unhandleable item type, can't happen")
 		}
 	}
@@ -554,6 +554,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	})
 
 	defer func() {
+		slog.Info("Created or updated directory", f.LogAttr(), file.LogAttr())
 		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
 			"item":   file.Name,
@@ -568,11 +569,10 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 		mode = 0o777
 	}
 
-	if shouldDebug() {
+	f.sl.Debug("Need dir", "file", file, "cur", slogutil.Expensive(func() any {
 		curFile, _, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
-		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
-	}
-
+		return curFile
+	}))
 	info, err := f.mtimefs.Lstat(file.Name)
 	switch {
 	// There is already something under that name, we need to handle that.
@@ -723,6 +723,11 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 	})
 
 	defer func() {
+		if err != nil {
+			slog.Warn("Failed to handle symlink", f.LogAttr(), file.LogAttr(), slogutil.Error(err))
+		} else {
+			slog.Info("Created or updated symlink", f.LogAttr(), file.LogAttr())
+		}
 		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
 			"item":   file.Name,
@@ -732,10 +737,10 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 		})
 	}()
 
-	if shouldDebug() {
-		curFile, ok, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
-		l.Debugf("need symlink\n\t%v\n\t%v", file, curFile, ok)
-	}
+	f.sl.Debug("Need symlink", slogutil.FilePath(file.Name), slog.Any("cur", slogutil.Expensive(func() any {
+		curFile, _, _ := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
+		return curFile
+	})))
 
 	if len(file.SymlinkTarget) == 0 {
 		// Index entry from a Syncthing predating the support for including
@@ -814,6 +819,9 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, dbUpdateChan chan<
 	defer func() {
 		if err != nil {
 			f.newPullError(file.Name, fmt.Errorf("delete dir: %w", err))
+			slog.Info("Failed to delete directory", f.LogAttr(), file.LogAttr(), slogutil.Error(err))
+		} else {
+			slog.Info("Deleted directory", f.LogAttr(), file.LogAttr())
 		}
 		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
@@ -859,7 +867,7 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 	// care not declare another err.
 	var err error
 
-	l.Debugln(f, "Deleting file", file.Name)
+	l.Debugln(f, "Deleting file or symlink", file.Name)
 
 	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
@@ -869,8 +877,15 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 	})
 
 	defer func() {
+		kind := "file"
+		if file.IsSymlink() {
+			kind = "symlink"
+		}
 		if err != nil {
 			f.newPullError(file.Name, fmt.Errorf("delete file: %w", err))
+			slog.Info("Failed to delete "+kind, f.LogAttr(), file.LogAttr(), slogutil.Error(err))
+		} else {
+			slog.Info("Deleted "+kind, f.LogAttr(), file.LogAttr())
 		}
 		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
@@ -927,6 +942,8 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 		err = nil
 		dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
 	}
+
+	slog.Info("Deleted file", f.LogAttr(), file.LogAttr())
 }
 
 // renameFile attempts to rename an existing file to a destination
@@ -950,6 +967,11 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 	})
 
 	defer func() {
+		if err != nil {
+			slog.Info("Failed to rename file", f.LogAttr(), target.LogAttr(), slog.String("from", source.Name), slogutil.Error(err))
+		} else {
+			slog.Info("Renamed file", f.LogAttr(), target.LogAttr(), slog.String("from", source.Name))
+		}
 		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
 			"item":   source.Name,
@@ -1237,13 +1259,20 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 	})
 
 	var err error
-	defer f.evLogger.Log(events.ItemFinished, map[string]interface{}{
-		"folder": f.folderID,
-		"item":   file.Name,
-		"error":  events.Error(err),
-		"type":   "file",
-		"action": "metadata",
-	})
+	defer func() {
+		if err != nil {
+			slog.Info("Failed to update file metadata", f.LogAttr(), file.LogAttr(), slogutil.Error(err))
+		} else {
+			slog.Info("Updated file metadata", f.LogAttr(), file.LogAttr())
+		}
+		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
+			"folder": f.folderID,
+			"item":   file.Name,
+			"error":  events.Error(err),
+			"type":   "file",
+			"action": "metadata",
+		})
+	}()
 
 	f.queue.Done(file.Name)
 
@@ -1308,6 +1337,8 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		if f.Type != config.FolderTypeReceiveEncrypted {
 			f.model.progressEmitter.Register(state.sharedPullerState)
 		}
+
+		f.setState(FolderSyncing) // Does nothing if already FolderSyncing
 
 	blocks:
 		for _, block := range state.blocks {
@@ -1393,7 +1424,7 @@ func (f *sendReceiveFolder) copyBlockFromFolder(folderID string, block protocol.
 			// We just ignore this and continue pulling instead (though
 			// there's a good chance that will fail too, if the DB is
 			// unhealthy).
-			l.Debugf("Failed to get information from DB about block %v in copier (folderID %v, file %v): %v", block.Hash, f.folderID, state.file.Name)
+			l.Debugf("Failed to get information from DB about block %v in copier (folderID %v, file %v): %v", block.Hash, f.folderID, state.file.Name, err)
 			return false
 		}
 
@@ -1478,7 +1509,7 @@ func (*sendReceiveFolder) verifyBuffer(buf []byte, block protocol.BlockInfo) err
 
 func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
 	requestLimiter := semaphore.New(f.PullerMaxPendingKiB * 1024)
-	wg := sync.NewWaitGroup()
+	var wg sync.WaitGroup
 
 	for state := range in {
 		if state.failed() != nil {
@@ -1664,6 +1695,8 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 			if err != nil {
 				f.newPullError(state.file.Name, fmt.Errorf("finishing: %w", err))
 			} else {
+				slog.Info("Synced file", f.LogAttr(), state.file.LogAttr(), slog.Group("blocks", slog.Int("local", state.reused+state.copyTotal), slog.Int("download", state.pullTotal)))
+
 				minBlocksPerBlock := state.file.BlockSize() / protocol.MinBlockSize
 				blockStatsMut.Lock()
 				blockStats["total"] += (state.reused + state.copyTotal + state.pullTotal) * minBlocksPerBlock
@@ -1671,8 +1704,7 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 				blockStats["pulled"] += state.pullTotal * minBlocksPerBlock
 				// copyOriginShifted is counted towards copyOrigin due to progress bar reasons
 				// for reporting reasons we want to separate these.
-				blockStats["copyOrigin"] += (state.copyOrigin - state.copyOriginShifted) * minBlocksPerBlock
-				blockStats["copyOriginShifted"] += state.copyOriginShifted * minBlocksPerBlock
+				blockStats["copyOrigin"] += state.copyOrigin * minBlocksPerBlock
 				blockStats["copyElsewhere"] += (state.copyTotal - state.copyOrigin) * minBlocksPerBlock
 				blockStatsMut.Unlock()
 			}
@@ -1775,7 +1807,7 @@ loop:
 					// (resp. whatever caused the error) will cause this file to
 					// change. Log at info level to leave a trace if a user
 					// notices, but no need to warn
-					l.Infof("Error updating metadata for %v at database commit: %v", job.file.Name, err)
+					f.sl.Warn("Failed to update metadata at database commit", slogutil.FilePath(job.file.Name), slogutil.Error(err))
 				}
 			}
 			job.file.Sequence = 0
@@ -1829,7 +1861,7 @@ func (f *sendReceiveFolder) inConflict(current, replacement protocol.Vector) boo
 
 func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan chan<- string) error {
 	if isConflict(name) {
-		l.Infoln("Conflict for", name, "which is already a conflict copy; not copying again.")
+		f.sl.Info("Conflict on existing conflict copy; not copying again", slogutil.FilePath(name))
 		if err := f.mtimefs.Remove(name); err != nil && !fs.IsNotExist(err) {
 			return fmt.Errorf("%s: %w", contextRemovingOldItem, err)
 		}

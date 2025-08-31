@@ -12,7 +12,7 @@
 -- version of each file is considered the "global" version - the latest one,
 -- that all other devices strive to replicate. This instance gets the Global
 -- flag bit set. There may be other identical instances of this file
--- announced by other devices, but only one onstance gets the Global flag;
+-- announced by other devices, but only one instance gets the Global flag;
 -- this simplifies accounting. If the current device has the Global version,
 -- the LocalDeviceID instance of the file is the one that has the Global
 -- bit.

@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"strings"
 	"time"
@@ -55,7 +56,7 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 			return nil
 		}
 		if strings.Contains(err.Error(), "Timed out") {
-			l.Debugln("Timeout trying to get external address, assume no NAT-PMP available")
+			slog.Debug("Timeout trying to get external address, assume no NAT-PMP available")
 			return nil
 		}
 	}
