@@ -64,6 +64,12 @@ linters:
       # relax the slog rules for debug lines, for now
       - linters: [sloglint]
         source: Debug
+      # contexts are irrelevant for SQLite
+      - linters: [noctx]
+        text: database/sql
+      # Rollback errors can be ignored
+      - linters: [errcheck]
+        source: Rollback
   settings:
     sloglint:
       context: "scope"

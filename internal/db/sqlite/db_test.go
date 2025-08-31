@@ -81,7 +81,12 @@ func TestBasics(t *testing.T) {
 	)
 
 	t.Run("SchemaVersion", func(t *testing.T) {
-		ver, err := sdb.getAppliedSchemaVersion()
+		tx, err := sdb.sql.Beginx()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback()
+		ver, err := sdb.getAppliedSchemaVersion(tx)
 		if err != nil {
 			t.Fatal(err)
 		}
