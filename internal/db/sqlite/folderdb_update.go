@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/gen/dbproto"
@@ -46,14 +47,16 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 	defer tx.Rollback() //nolint:errcheck
 	txp := &txPreparedStmts{Tx: tx}
 
+	// Modified: Prepare both INSERT statements to handle databases with and without invalid column
+	// This approach ensures backward compatibility with older database schemas
 	//nolint:sqlclosecheck
-	insertFileStmt, err := txp.Preparex(`
+	insertFileStmtWithoutInvalid, err := txp.Preparex(`
 		INSERT OR REPLACE INTO files (device_idx, remote_sequence, name, type, modified, size, version, deleted, local_flags, blocklist_hash)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING sequence
 	`)
 	if err != nil {
-		return wrap(err, "prepare insert file")
+		return wrap(err, "prepare insert file without invalid")
 	}
 
 	//nolint:sqlclosecheck
@@ -103,8 +106,35 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 			remoteSeq = &f.Sequence
 		}
 		var localSeq int64
-		if err := insertFileStmt.Get(&localSeq, deviceIdx, remoteSeq, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.LocalFlags, blockshash); err != nil {
-			return wrap(err, "insert file")
+		// Modified: Try to insert without the invalid column first (newer schema)
+		// If this fails with a missing column error, we'll try with the invalid column (older schema)
+		err := insertFileStmtWithoutInvalid.Get(&localSeq, deviceIdx, remoteSeq, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.LocalFlags, blockshash)
+		if err != nil {
+			// Modified: If we get a "no such column" error, try with the invalid column for older schemas
+			if strings.Contains(err.Error(), "no such column") || strings.Contains(err.Error(), "has no column named") {
+				slog.Debug("Database has invalid column, using older schema", "db", s.baseName)
+				// Prepare the statement with invalid column only when needed
+				insertFileStmtWithInvalid, prepareErr := txp.Preparex(`
+					INSERT OR REPLACE INTO files (device_idx, remote_sequence, name, type, modified, size, version, deleted, invalid, local_flags, blocklist_hash)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					RETURNING sequence
+				`)
+				if prepareErr != nil {
+					return wrap(prepareErr, "prepare insert file with invalid")
+				}
+				// Try to insert with the invalid column
+				invalidValue := 0
+				if f.LocalFlags.IsInvalid() {
+					invalidValue = 1
+				}
+				// Modified: 11 parameters for 11 placeholders: device_idx, remote_sequence, name, type, modified, size, version, deleted, invalid, local_flags, blocklist_hash
+				if err := insertFileStmtWithInvalid.Get(&localSeq, deviceIdx, remoteSeq, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), invalidValue, f.LocalFlags, blockshash); err != nil {
+					return wrap(err, "insert file with invalid")
+				}
+			} else {
+				// Modified: For other errors, return the error
+				return wrap(err, "insert file without invalid")
+			}
 		}
 
 		if len(f.Blocks) > 0 {
