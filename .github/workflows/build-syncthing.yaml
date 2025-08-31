@@ -159,6 +159,7 @@ jobs:
     needs:
       - build-test
       - package-linux
+      - package-illumos
       - package-cross
       - package-source
       - package-debian
@@ -337,6 +338,39 @@ jobs:
             *.tar.gz
             compat.json
 
+  package-illumos:
+    runs-on: ubuntu-latest
+    name: Package for illumos
+    needs:
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      GO_VERSION: ${{ needs.facts.outputs.go-version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build syncthing in OmniOS VM
+        uses: vmactions/omnios-vm@v1
+        with:
+          envs: "VERSION GO_VERSION CGO_ENABLED"
+          usesh: true
+          prepare: |
+            pkg install developer/gcc14 web/curl archiver/gnu-tar
+          run: |
+            curl -L "https://go.dev/dl/go$GO_VERSION.illumos-amd64.tar.gz" | gtar xzf -
+            export PATH="$GITHUB_WORKSPACE/go/bin:$PATH"
+            go version
+            for tgt in syncthing stdiscosrv strelaysrv ; do
+              go run build.go -tags "${{env.TAGS}}" tar "$tgt"
+            done
+        env:
+          CGO_ENABLED: "1"
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-illumos
+          path: "*.tar.gz"
   #
   # macOS. The entire build runs in the release environment because code
   # signing is part of the build process, so it is limited to release
@@ -588,6 +622,7 @@ jobs:
     needs:
       - codesign-windows
       - package-linux
+      - package-illumos
       - package-macos
       - package-cross
       - package-source
