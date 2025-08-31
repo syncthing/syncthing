@@ -602,7 +602,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 		}
 
 		// Remove it to replace with the dir.
-		if !curFile.IsSymlink() && f.inConflict(curFile.Version, file.Version) {
+		if !curFile.IsSymlink() && file.InConflictWith(curFile) {
 			// The new file has been changed in conflict with the existing one. We
 			// should file it away as a conflict instead of just removing or
 			// archiving.
@@ -800,7 +800,7 @@ func (f *sendReceiveFolder) handleSymlinkCheckExisting(file protocol.FileInfo, s
 	}
 	// Remove it to replace with the symlink. This also handles the
 	// "change symlink type" path.
-	if !curFile.IsDirectory() && !curFile.IsSymlink() && f.inConflict(curFile.Version, file.Version) {
+	if !curFile.IsDirectory() && !curFile.IsSymlink() && file.InConflictWith(curFile) {
 		// The new file has been changed in conflict with the existing one. We
 		// should file it away as a conflict instead of just removing or
 		// archiving.
@@ -923,7 +923,7 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 	}
 
 	switch {
-	case f.inConflict(cur.Version, file.Version) && !cur.IsSymlink():
+	case file.InConflictWith(cur) && !cur.IsSymlink():
 		// If the delete constitutes winning a conflict, we move the file to
 		// a conflict copy instead of doing the delete
 		err = f.inWritableDir(func(name string) error {
@@ -1652,7 +1652,7 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 			return fmt.Errorf("checking existing file: %w", err)
 		}
 
-		if !curFile.IsDirectory() && !curFile.IsSymlink() && f.inConflict(curFile.Version, file.Version) {
+		if !curFile.IsDirectory() && !curFile.IsSymlink() && file.InConflictWith(curFile) {
 			// The new file has been changed in conflict with the existing one. We
 			// should file it away as a conflict instead of just removing or
 			// archiving.
@@ -1845,22 +1845,6 @@ func (f *sendReceiveFolder) pullScannerRoutine(scanChan <-chan string) {
 		}
 		f.Scan(scanList)
 	}
-}
-
-func (f *sendReceiveFolder) inConflict(current, replacement protocol.Vector) bool {
-	if current.Concurrent(replacement) {
-		// Obvious case
-		return true
-	}
-	if replacement.Counter(f.shortID) > current.Counter(f.shortID) {
-		// The replacement file contains a higher version for ourselves than
-		// what we have. This isn't supposed to be possible, since it's only
-		// we who can increment that counter. We take it as a sign that
-		// something is wrong (our index may have been corrupted or removed)
-		// and flag it as a conflict.
-		return true
-	}
-	return false
 }
 
 func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan chan<- string) error {

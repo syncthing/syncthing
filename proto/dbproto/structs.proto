@@ -17,6 +17,7 @@ message FileInfoTruncated {
   reserved 16; // blocks
   bytes symlink_target = 17;
   bytes blocks_hash = 18;
+  bytes previous_blocks_hash = 20;
   bytes encrypted = 19;
   bep.FileInfoType type = 2;
   uint32 permissions = 4;

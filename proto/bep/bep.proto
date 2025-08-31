@@ -113,6 +113,7 @@ message FileInfo {
   repeated BlockInfo blocks = 16;
   bytes symlink_target = 17;
   bytes blocks_hash = 18;
+  bytes previous_blocks_hash = 20;
   bytes encrypted = 19;
   FileInfoType type = 2;
   uint32 permissions = 4;
@@ -127,7 +128,7 @@ message FileInfo {
   uint32 local_flags = 1000;
 
   // The version_hash is an implementation detail and not part of the wire
-  // format.
+  // format. It is used in the old database format.
   bytes version_hash = 1001;
 
   // The time when the inode was last changed (i.e., permissions, xattrs
