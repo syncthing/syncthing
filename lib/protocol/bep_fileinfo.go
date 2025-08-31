@@ -190,6 +190,26 @@ func (f *FileInfo) ToWire(withInternalFields bool) *bep.FileInfo {
 	return w
 }
 
+func (f *FileInfo) InConflictWith(other FileInfo) bool {
+	if f.Version.GreaterEqual(other.Version) {
+		// If the new file is strictly greater in the ordering than the
+		// existing file, it is not a conflict. If any counter has moved
+		// backwards, or different counters have increased independently,
+		// then the file is not greater but concurrent and we don't take
+		// this branch.
+		return false
+	}
+
+	if len(f.PreviousBlocksHash) == 0 || len(f.BlocksHash) == 0 {
+		// Don't have data to make a content determination, or the type has
+		// changed (file to directory, etc). Consider it a conflict.
+		return true
+	}
+	// If the new file is based on the old contents we have, it's not really
+	// a conflict.
+	return !bytes.Equal(f.PreviousBlocksHash, other.BlocksHash)
+}
+
 // WinsConflict returns true if "f" is the one to choose when it is in
 // conflict with "other".
 func (f *FileInfo) WinsConflict(other FileInfo) bool {
