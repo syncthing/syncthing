@@ -9,6 +9,10 @@ resolved by this pull request, ensure that the commit subject is on the form
 Describe what testing has been done, and how the reviewer can test the change
 if new tests are not included.
 
+### AI usage
+
+If you used AI for your pull request, please specify the extent to which you did so. The Syncthing project will reject pull requests that are fully AI-generated.
+
 ### Screenshots
 
 If this is a GUI change, include screenshots of the change. If not, please
