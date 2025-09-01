@@ -442,8 +442,8 @@ func (c *serveCmd) syncthingMain() {
 		os.Exit(1)
 	}
 
-	ctx, cancelMigratingAPI := context.WithCancel(context.Background())
-	defer cancelMigratingAPI()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// earlyService is a supervisor that runs the services needed for or
 	// before app startup; the event logger, and the config service.
@@ -479,7 +479,7 @@ func (c *serveCmd) syncthingMain() {
 		})
 	}
 
-	migratingAPICtx, cancelMigratingAPI := context.WithCancel(ctx)
+	migratingAPICtx, migratingAPICancel := context.WithCancel(ctx)
 	if cfgWrapper.GUI().Enabled {
 		// Start a temporary API server during the migration. It will wait
 		// startDelay until actually starting, so that if we quickly pass
@@ -503,7 +503,7 @@ func (c *serveCmd) syncthingMain() {
 		os.Exit(1)
 	}
 
-	cancelMigratingAPI() // we're done with the temporary API server
+	migratingAPICancel() // we're done with the temporary API server
 
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial
 	// upgrade immediately. The auto-upgrade routine can only be started
