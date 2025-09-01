@@ -324,6 +324,15 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 		return false, nil
 	}
 
+	if s.writer == nil {
+		// If we didn't even create a temp file up to this point, now is the
+		// time to do so. This also truncates the file to the correct size
+		// if we're using sparse file.
+		if err := s.addWriterLocked(); err != nil {
+			return false, err
+		}
+	}
+
 	if len(s.file.Encrypted) > 0 {
 		if err := s.finalizeEncrypted(); err != nil && s.err == nil {
 			// This is our error as we weren't errored before.
@@ -355,11 +364,6 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 // folder from encrypted data we can extract this FileInfo from the end of
 // the file and regain the original metadata.
 func (s *sharedPullerState) finalizeEncrypted() error {
-	if s.writer == nil {
-		if err := s.addWriterLocked(); err != nil {
-			return err
-		}
-	}
 	trailerSize, err := writeEncryptionTrailer(s.file, s.writer)
 	if err != nil {
 		return err
