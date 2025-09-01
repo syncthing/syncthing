@@ -82,6 +82,7 @@
     "Custom Range": "Выбрать диапазон",
     "Danger!": "Опасно!",
     "Database Location": "Расположение базы данных",
+    "Debug": "Дебаг (отладка)",
     "Debugging Facilities": "Средства отладки",
     "Default": "По умолчанию",
     "Default Configuration": "Настройки по умолчанию",
@@ -210,6 +211,7 @@
     "Incoming Rate Limit (KiB/s)": "Ограничение входящей скорости (КиБ/с)",
     "Incorrect configuration may damage your folder contents and render Syncthing inoperable.": "Неправильные настройки могут повредить содержимое папок и сделать Syncthing неработоспособным.",
     "Incorrect user name or password.": "Неверное имя пользователя или пароль.",
+    "Info": "Информация",
     "Internally used paths:": "Внутренние используемые пути:",
     "Introduced By": "Рекомендовано",
     "Introducer": "Рекомендатель",
@@ -255,7 +257,7 @@
     "Metadata Only": "Только метаданные",
     "Minimum Free Disk Space": "Минимальное свободное место на диске",
     "Mod. Device": "Изм. устройство",
-    "Mod. Time": "Посл. изм.",
+    "Mod. Time": "Время изменения",
     "More than a month ago": "Больше месяца назад",
     "More than a week ago": "Больше недели назад",
     "More than a year ago": "Больше года назад",
@@ -542,7 +544,7 @@
     "items": "объекты",
     "modified": "изменено",
     "permit": "разрешить",
-    "seconds": "сек.",
+    "seconds": "секунд",
     "theme": {
         "name": {
             "black": "Чёрная",
