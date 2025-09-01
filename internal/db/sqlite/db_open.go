@@ -86,6 +86,10 @@ func Open(path string, opts ...Option) (*DB, error) {
 		slog.Warn("Failed to clean dropped folders", slogutil.Error(err))
 	}
 
+	if err := db.startFolderDatabases(); err != nil {
+		return nil, wrap(err)
+	}
+
 	return db, nil
 }
 

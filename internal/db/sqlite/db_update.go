@@ -7,6 +7,7 @@
 package sqlite
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -72,6 +73,22 @@ func (s *DB) cleanDroppedFolders() error {
 			} else {
 				slog.Info("Cleaned out database file for old, dropped folder", slogutil.FilePath(base))
 			}
+		}
+	}
+	return nil
+}
+
+// startFolderDatabases loads all existing folder databases, thus causing
+// migrations to apply.
+func (s *DB) startFolderDatabases() error {
+	ids, err := s.ListFolders()
+	if err != nil {
+		return wrap(err)
+	}
+	for _, id := range ids {
+		_, err := s.getFolderDB(id, false)
+		if err != nil && !errors.Is(err, errNoSuchFolder) {
+			return wrap(err)
 		}
 	}
 	return nil
