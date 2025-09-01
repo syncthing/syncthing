@@ -205,6 +205,9 @@ func defaultVars() kong.Vars {
 }
 
 func main() {
+	// Initialize console for Windows GUI builds
+	InitConsole()
+
 	// Create a parser with an overridden help function to print our extra
 	// help info.
 	var entrypoint CLI
@@ -233,6 +236,9 @@ func main() {
 
 	err = ctx.Run()
 	parser.FatalIfErrorf(err)
+
+	// Ensure console cleanup on exit
+	defer FreeConsole()
 }
 
 func helpHandler(options kong.HelpOptions, ctx *kong.Context) error {

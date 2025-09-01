@@ -88,6 +88,33 @@ func (c *serveCmd) monitorMain() {
 		slog.Error("Failed to start the main Syncthing process", slogutil.Error(err))
 		panic("Error starting the main Syncthing process")
 	}
+
+	// Check if --no-console was passed or if we have no args (double-clicked)
+	noConsole := len(args) <= 1 // No args means launched from GUI
+	for _, arg := range args[1:] {
+		if arg == "--no-console" {
+			noConsole = true
+			break
+		}
+	}
+
+	// Prepare child arguments - add --no-console if needed
+	childArgs := args[1:] // Start with original args (excluding binary name)
+	if noConsole {
+		// Check if --no-console is already in the args
+		hasNoConsole := false
+		for _, arg := range childArgs {
+			if arg == "--no-console" {
+				hasNoConsole = true
+				break
+			}
+		}
+		// Add --no-console if not already present
+		if !hasNoConsole {
+			childArgs = append(childArgs, "--no-console")
+		}
+	}
+
 	var restarts [restartCounts]time.Time
 
 	stopSign := make(chan os.Signal, 1)
@@ -109,7 +136,8 @@ func (c *serveCmd) monitorMain() {
 		copy(restarts[0:], restarts[1:])
 		restarts[len(restarts)-1] = time.Now()
 
-		cmd := exec.Command(binary, args[1:]...)
+		// Use the filtered child arguments that preserve --no-console
+		cmd := exec.Command(binary, childArgs...)
 		cmd.Env = childEnv
 
 		stderr, err := cmd.StderrPipe()
