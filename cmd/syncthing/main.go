@@ -442,8 +442,8 @@ func (c *serveCmd) syncthingMain() {
 		os.Exit(1)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx, cancelMigratingAPI := context.WithCancel(context.Background())
+	defer cancelMigratingAPI()
 
 	// earlyService is a supervisor that runs the services needed for or
 	// before app startup; the event logger, and the config service.
@@ -479,11 +479,20 @@ func (c *serveCmd) syncthingMain() {
 		})
 	}
 
-	var tempApiAddress string
+	migratingAPICtx, cancelMigratingAPI := context.WithCancel(ctx)
 	if cfgWrapper.GUI().Enabled {
-		tempApiAddress = cfgWrapper.GUI().Address()
+		// Start a temporary API server during the migration. It will wait
+		// startDelay until actually starting, so that if we quickly pass
+		// through the migration steps (e.g., there was nothing to migrate)
+		// and cancel the context, it will never even start.
+		api := migratingAPI{
+			addr:       cfgWrapper.GUI().Address(),
+			startDelay: 5 * time.Second,
+		}
+		go api.Serve(migratingAPICtx)
 	}
-	if err := syncthing.TryMigrateDatabase(ctx, c.DBDeleteRetentionInterval, tempApiAddress); err != nil {
+
+	if err := syncthing.TryMigrateDatabase(ctx, c.DBDeleteRetentionInterval); err != nil {
 		slog.Error("Failed to migrate old-style database", slogutil.Error(err))
 		os.Exit(1)
 	}
@@ -493,6 +502,8 @@ func (c *serveCmd) syncthingMain() {
 		slog.Error("Error opening database", slogutil.Error(err))
 		os.Exit(1)
 	}
+
+	cancelMigratingAPI() // we're done with the temporary API server
 
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial
 	// upgrade immediately. The auto-upgrade routine can only be started
@@ -1014,4 +1025,33 @@ func setConfigDataLocationsFromFlags(homeDir, confDir, dataDir string) error {
 		return locations.SetBaseDir(locations.DataBaseDir, dataDir)
 	}
 	return nil
+}
+
+type migratingAPI struct {
+	addr       string
+	startDelay time.Duration
+}
+
+func (m migratingAPI) Serve(ctx context.Context) error {
+	srv := &http.Server{
+		Addr: m.addr,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/plain")
+			w.Write([]byte("*** Database migration in progress ***\n\n"))
+			for _, line := range slogutil.GlobalRecorder.Since(time.Time{}) {
+				line.WriteTo(w)
+			}
+		}),
+	}
+	go func() {
+		select {
+		case <-time.After(m.startDelay):
+			slog.InfoContext(ctx, "Starting temporary GUI/API during migration", slogutil.Address(m.addr))
+			err := srv.ListenAndServe()
+			slog.InfoContext(ctx, "Temporary GUI/API closed", slogutil.Address(m.addr), slogutil.Error(err))
+		case <-ctx.Done():
+		}
+	}()
+	<-ctx.Done()
+	return srv.Close()
 }
