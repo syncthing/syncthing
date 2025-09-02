@@ -11,8 +11,10 @@ package main
 
 import (
 	"os"
+	"slices"
 	"syscall"
-	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 var (
@@ -49,10 +51,8 @@ func InitConsole() error {
 	}
 
 	// Check if --no-console flag is present
-	for _, arg := range os.Args[1:] {
-		if arg == "--no-console" {
+	if slices.Contains(os.Args[1:], "--no-console") {
 			return nil // User explicitly disabled console
-		}
 	}
 
 	// Check if we already have a console window
