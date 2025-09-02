@@ -23,21 +23,11 @@ var (
 	procAttachConsole    = kernel32.NewProc("AttachConsole")
 	procFreeConsole      = kernel32.NewProc("FreeConsole")
 	procGetConsoleWindow = kernel32.NewProc("GetConsoleWindow")
-	procSetStdHandle     = kernel32.NewProc("SetStdHandle")
-	procCreateFileW      = kernel32.NewProc("CreateFileW")
 )
 
 const (
+	// Windows API constants
 	ATTACH_PARENT_PROCESS = 0xFFFFFFFF
-	STD_OUTPUT_HANDLE     = ^uintptr(10) // -11 as uintptr
-	STD_ERROR_HANDLE      = ^uintptr(11) // -12 as uintptr
-	STD_INPUT_HANDLE      = ^uintptr(9)  // -10 as uintptr
-
-	GENERIC_READ     = 0x80000000
-	GENERIC_WRITE    = 0x40000000
-	FILE_SHARE_READ  = 0x00000001
-	FILE_SHARE_WRITE = 0x00000002
-	OPEN_EXISTING    = 3
 )
 
 var consoleAllocated = false
@@ -77,21 +67,21 @@ func InitConsole() error {
 
 func redirectStdHandles() error {
 	// Create file handles for console
-	conout := createConsoleFile("CONOUT$", GENERIC_WRITE|GENERIC_READ)
+	conout := createConsoleFile("CONOUT$", windows.GENERIC_WRITE|windows.GENERIC_READ)
 	if conout != syscall.InvalidHandle {
-		procSetStdHandle.Call(STD_OUTPUT_HANDLE, uintptr(conout))
+		windows.SetStdHandle(windows.STD_OUTPUT_HANDLE, windows.Handle(conout))
 		os.Stdout = os.NewFile(uintptr(conout), "CONOUT$")
 	}
 
-	conerr := createConsoleFile("CONOUT$", GENERIC_WRITE|GENERIC_READ)
+	conerr := createConsoleFile("CONOUT$", windows.GENERIC_WRITE|windows.GENERIC_READ)
 	if conerr != syscall.InvalidHandle {
-		procSetStdHandle.Call(STD_ERROR_HANDLE, uintptr(conerr))
+		windows.SetStdHandle(windows.STD_ERROR_HANDLE, windows.Handle(conerr))
 		os.Stderr = os.NewFile(uintptr(conerr), "CONOUT$")
 	}
 
-	conin := createConsoleFile("CONIN$", GENERIC_READ)
+	conin := createConsoleFile("CONIN$", windows.GENERIC_READ)
 	if conin != syscall.InvalidHandle {
-		procSetStdHandle.Call(STD_INPUT_HANDLE, uintptr(conin))
+		windows.SetStdHandle(windows.STD_INPUT_HANDLE, windows.Handle(conin))
 		os.Stdin = os.NewFile(uintptr(conin), "CONIN$")
 	}
 
@@ -100,12 +90,12 @@ func redirectStdHandles() error {
 
 func createConsoleFile(name string, access uint32) syscall.Handle {
 	namePtr, _ := syscall.UTF16PtrFromString(name)
-	handle, _, _ := procCreateFileW.Call(
-		uintptr(unsafe.Pointer(namePtr)),
-		uintptr(access),
-		FILE_SHARE_READ|FILE_SHARE_WRITE,
-		0, // no security attributes
-		OPEN_EXISTING,
+	handle, err := windows.CreateFile(
+		namePtr,
+		access,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE,
+		nil, // no security attributes
+		windows.OPEN_EXISTING,
 		0, // no flags
 		0, // no template
 	)
