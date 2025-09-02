@@ -23,14 +23,14 @@ var (
 	procAttachConsole    = kernel32.NewProc("AttachConsole")
 	procFreeConsole      = kernel32.NewProc("FreeConsole")
 	procGetConsoleWindow = kernel32.NewProc("GetConsoleWindow")
+
+	consoleAllocated = false
 )
 
 const (
 	// Windows API constants
 	ATTACH_PARENT_PROCESS = 0xFFFFFFFF
 )
-
-var consoleAllocated = false
 
 // InitConsole initializes console for Windows GUI applications
 func InitConsole() error {
@@ -52,37 +52,54 @@ func InitConsole() error {
 	}
 
 	// Try to attach to parent console first (for command line usage)
-	if ret, _, _ := procAttachConsole.Call(uintptr(ATTACH_PARENT_PROCESS)); ret != 0 {
+	if ret, _, err := procAttachConsole.Call(uintptr(ATTACH_PARENT_PROCESS)); ret != 0 {
 		return redirectStdHandles()
+	} else if err != syscall.Errno(0) {
+		// Log the error but continue trying to allocate console
+		// ERROR_ACCESS_DENIED (5) is expected when no parent console exists
+		if errno, ok := err.(syscall.Errno); ok && errno != 5 {
+			// Only log unexpected errors
+			return nil // Don't fail completely, just skip console allocation
+		}
 	}
 
 	// If no parent console, allocate a new one
-	if ret, _, _ := procAllocConsole.Call(); ret != 0 {
+	if ret, _, err := procAllocConsole.Call(); ret != 0 {
 		consoleAllocated = true
 		return redirectStdHandles()
+	} else if err != syscall.Errno(0) {
+		// ERROR_ACCESS_DENIED typically means console already exists
+		if errno, ok := err.(syscall.Errno); ok && errno == 5 {
+			return redirectStdHandles() // Try to redirect existing console
+		}
 	}
 
 	return nil
 }
 
 func redirectStdHandles() error {
-	// Create file handles for console
+	// Create file handles for console output
 	conout := createConsoleFile("CONOUT$", windows.GENERIC_WRITE|windows.GENERIC_READ)
 	if conout != syscall.InvalidHandle {
-		windows.SetStdHandle(windows.STD_OUTPUT_HANDLE, windows.Handle(conout))
-		os.Stdout = os.NewFile(uintptr(conout), "CONOUT$")
+		if err := windows.SetStdHandle(windows.STD_OUTPUT_HANDLE, windows.Handle(conout)); err == nil {
+			os.Stdout = os.NewFile(uintptr(conout), "CONOUT$")
+		}
 	}
 
+	// Create separate handle for stderr
 	conerr := createConsoleFile("CONOUT$", windows.GENERIC_WRITE|windows.GENERIC_READ)
 	if conerr != syscall.InvalidHandle {
-		windows.SetStdHandle(windows.STD_ERROR_HANDLE, windows.Handle(conerr))
-		os.Stderr = os.NewFile(uintptr(conerr), "CONOUT$")
+		if err := windows.SetStdHandle(windows.STD_ERROR_HANDLE, windows.Handle(conerr)); err == nil {
+			os.Stderr = os.NewFile(uintptr(conerr), "CONOUT$")
+		}
 	}
 
+	// Create handle for console input
 	conin := createConsoleFile("CONIN$", windows.GENERIC_READ)
 	if conin != syscall.InvalidHandle {
-		windows.SetStdHandle(windows.STD_INPUT_HANDLE, windows.Handle(conin))
-		os.Stdin = os.NewFile(uintptr(conin), "CONIN$")
+		if err := windows.SetStdHandle(windows.STD_INPUT_HANDLE, windows.Handle(conin)); err == nil {
+			os.Stdin = os.NewFile(uintptr(conin), "CONIN$")
+		}
 	}
 
 	return nil
