@@ -45,6 +45,11 @@ func InitConsole() error {
 		return nil // User explicitly disabled console
 	}
 
+	// Skip console allocation in SSH sessions
+	if os.Getenv("SSH_CLIENT") != "" || os.Getenv("SSH_TTY") != "" {
+		return nil
+	}
+
 	// Check if we already have a console window
 	if hasConsole, _, _ := procGetConsoleWindow.Call(); hasConsole != 0 {
 		// We have a console, but make sure handles are properly set
