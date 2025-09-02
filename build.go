@@ -901,7 +901,7 @@ func ldflags(tags []string) string {
 	b := new(strings.Builder)
 	b.WriteString("-w")
 	if goos == "windows" {
-		b.WriteString(" -H windowsgui")
+		b.WriteString(" -H=windowsgui")
 	}
 	b.WriteString(" -buildid=")
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Version=%s", version)
