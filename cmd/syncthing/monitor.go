@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -90,30 +91,14 @@ func (c *serveCmd) monitorMain() {
 	}
 
 	// Check if --no-console was passed or if we have no args (double-clicked)
-	noConsole := len(args) <= 1 // No args means launched from GUI
-	for _, arg := range args[1:] {
-		if arg == "--no-console" {
-			noConsole = true
-			break
-		}
-	}
+	noConsole := len(args) <= 1 || slices.Contains(args[1:], "--no-console")
 
 	// Prepare child arguments - add --no-console if needed
 	childArgs := args[1:] // Start with original args (excluding binary name)
-	if noConsole {
-		// Check if --no-console is already in the args
-		hasNoConsole := false
-		for _, arg := range childArgs {
-			if arg == "--no-console" {
-				hasNoConsole = true
-				break
-			}
-		}
+	if noConsole && !slices.Contains(childArgs, "--no-console") {
 		// Add --no-console if not already present
-		if !hasNoConsole {
 			childArgs = append(childArgs, "--no-console")
 		}
-	}
 
 	var restarts [restartCounts]time.Time
 
