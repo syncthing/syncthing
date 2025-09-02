@@ -158,9 +158,9 @@ author, and be the same as what you want in the AUTHORS file as per above.
 
 - Commits that resolve an existing issue must include the issue number
   as `(fixes #123)` at the end of the commit message subject. A correctly
-  formatted commit message looks like this:
+  formatted commit message subject looks like this:
 
-    feat(dialer): add env var to disable proxy fallback (fixes #3006)
+      feat(dialer): add env var to disable proxy fallback (fixes #3006)
 
 - If the commit message subject doesn't say it all, one or more paragraphs of
   describing text should be added to the commit message. This should explain
