@@ -8,6 +8,7 @@ package serve
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"reflect"
 	"slices"
@@ -335,12 +336,12 @@ func (q *metricSummary) Collect(c chan<- prometheus.Metric) {
 		}
 
 		slices.Sort(vs)
-		c <- prometheus.MustNewConstMetric(q.qDesc, prometheus.GaugeValue, vs[0], append(labelVals, "0")...)
-		c <- prometheus.MustNewConstMetric(q.qDesc, prometheus.GaugeValue, vs[len(vs)*5/100], append(labelVals, "0.05")...)
-		c <- prometheus.MustNewConstMetric(q.qDesc, prometheus.GaugeValue, vs[len(vs)/2], append(labelVals, "0.5")...)
-		c <- prometheus.MustNewConstMetric(q.qDesc, prometheus.GaugeValue, vs[len(vs)*9/10], append(labelVals, "0.9")...)
-		c <- prometheus.MustNewConstMetric(q.qDesc, prometheus.GaugeValue, vs[len(vs)*95/100], append(labelVals, "0.95")...)
-		c <- prometheus.MustNewConstMetric(q.qDesc, prometheus.GaugeValue, vs[len(vs)-1], append(labelVals, "1")...)
+
+		pctiles := []float64{0, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.975, 0.99, 1}
+		for _, pct := range pctiles {
+			idx := int(float64(len(vs)-1) * pct)
+			c <- prometheus.MustNewConstMetric(q.qDesc, prometheus.GaugeValue, vs[idx], append(labelVals, fmt.Sprint(pct))...)
+		}
 	}
 }
 
