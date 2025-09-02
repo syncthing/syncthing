@@ -42,7 +42,7 @@ func InitConsole() error {
 
 	// Check if --no-console flag is present
 	if slices.Contains(os.Args[1:], "--no-console") {
-			return nil // User explicitly disabled console
+		return nil // User explicitly disabled console
 	}
 
 	// Check if we already have a console window
@@ -99,6 +99,9 @@ func createConsoleFile(name string, access uint32) syscall.Handle {
 		0, // no flags
 		0, // no template
 	)
+	if err != nil {
+		return syscall.InvalidHandle
+	}
 	return syscall.Handle(handle)
 }
 
