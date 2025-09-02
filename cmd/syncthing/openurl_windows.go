@@ -9,8 +9,13 @@
 
 package main
 
-import "os/exec"
+import (
+	"os/exec"
+	"syscall"
+)
 
 func openURL(url string) error {
-	return exec.Command("cmd.exe", "/C", "start "+url).Run()
+	cmd := exec.Command("cmd.exe", "/C", "start", url)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	return cmd.Run()
 }
