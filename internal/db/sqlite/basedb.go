@@ -110,6 +110,7 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 			}
 			if int(n) > ver.SchemaVersion {
 				slog.Info("Applying database migration", slogutil.FilePath(db.baseName), slog.String("script", scr))
+				shouldVacuum = true
 				return true
 			}
 			return false
@@ -118,7 +119,6 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 			if err := db.runScripts(tx, script, filter); err != nil {
 				return nil, wrap(err)
 			}
-			shouldVacuum = true
 		}
 	}
 
