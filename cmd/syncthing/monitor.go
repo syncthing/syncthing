@@ -97,8 +97,8 @@ func (c *serveCmd) monitorMain() {
 	childArgs := args[1:] // Start with original args (excluding binary name)
 	if noConsole && !slices.Contains(childArgs, "--no-console") {
 		// Add --no-console if not already present
-			childArgs = append(childArgs, "--no-console")
-		}
+		childArgs = append(childArgs, "--no-console")
+	}
 
 	var restarts [restartCounts]time.Time
 
