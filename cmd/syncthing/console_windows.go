@@ -34,15 +34,27 @@ const (
 
 // InitConsole initializes console for Windows GUI applications
 func InitConsole() error {
+	// If this is an inner process (started by monitor), don't allocate console
+	// as the monitor handles all I/O through pipes
+	if os.Getenv("STMONITORED") == "yes" {
+		return nil
+	}
+
+	// This is the monitor process - use standard logic
 	// Only allocate console when we have actual command line arguments
 	// os.Args[0] is always the program name, so we need more than 1 element
 	if len(os.Args) <= 1 {
 		return nil // No command line arguments, don't allocate console
 	}
 
-	// Check if --no-console flag is present or internal flag is set
-	if slices.Contains(os.Args[1:], "--no-console") || os.Getenv("STNOCONSOLE") == "yes" {
-		return nil // User explicitly disabled console or internal flag set
+	// Check if --no-console flag is present
+	if slices.Contains(os.Args[1:], "--no-console") {
+		return nil // User explicitly disabled console
+	}
+
+	// Skip console allocation in SSH sessions
+	if os.Getenv("SSH_CLIENT") != "" || os.Getenv("SSH_TTY") != "" {
+		return nil
 	}
 
 	// Check if we already have a console window
@@ -61,11 +73,6 @@ func InitConsole() error {
 			// Only log unexpected errors
 			return nil // Don't fail completely, just skip console allocation
 		}
-	}
-
-	// Skip console allocation in SSH sessions
-	if os.Getenv("SSH_CLIENT") != "" || os.Getenv("SSH_TTY") != "" {
-		return nil
 	}
 
 	// If no parent console, allocate a new one
