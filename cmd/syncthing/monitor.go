@@ -88,7 +88,6 @@ func (c *serveCmd) monitorMain() {
 		slog.Error("Failed to start the main Syncthing process", slogutil.Error(err))
 		panic("Error starting the main Syncthing process")
 	}
-
 	var restarts [restartCounts]time.Time
 
 	stopSign := make(chan os.Signal, 1)
