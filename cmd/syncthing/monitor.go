@@ -16,7 +16,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -90,16 +89,6 @@ func (c *serveCmd) monitorMain() {
 		panic("Error starting the main Syncthing process")
 	}
 
-	// Check if console should be disabled (Windows-specific logic)
-	var noConsole bool
-	if build.IsWindows {
-		// Don't allocate console if no command line arguments
-		noConsoleNoArgs := len(args) <= 1
-		// Check if --no-console flag is present or internal flag is set
-		noConsoleFlag := slices.Contains(args[1:], "--no-console") || os.Getenv("STNOCONSOLE") == "yes"
-		noConsole = noConsoleNoArgs || noConsoleFlag
-	}
-
 	var restarts [restartCounts]time.Time
 
 	stopSign := make(chan os.Signal, 1)
@@ -108,7 +97,7 @@ func (c *serveCmd) monitorMain() {
 	sigHup := syscall.Signal(1)
 	signal.Notify(restartSign, sigHup)
 
-	childEnv := childEnv(noConsole)
+	childEnv := childEnv()
 	first := true
 	for {
 		maybeReportPanics()
@@ -197,7 +186,7 @@ func (c *serveCmd) monitorMain() {
 				// Restart the monitor process to release the .old
 				// binary as part of the upgrade process.
 				slog.Info("Restarting monitor...")
-				if err = restartMonitor(binary, args, noConsole); err != nil {
+				if err = restartMonitor(binary, args); err != nil {
 					slog.Error("Failed to restart monitor", slogutil.Error(err))
 				}
 				os.Exit(exitCode)
@@ -305,34 +294,30 @@ func copyStdout(stdout io.Reader, dst io.Writer) {
 	}
 }
 
-func restartMonitor(binary string, args []string, noConsole bool) error {
-	// Use the same environment building logic as for child processes
-	env := childEnv(noConsole)
+func restartMonitor(binary string, args []string) error {
 	// Set the STRESTART environment variable to indicate to the next
 	// process that this is a restart and not initial start. This prevents
 	// opening the browser on startup.
-	env = append(env, "STRESTART=yes")
+	os.Setenv("STRESTART", "yes")
 
 	if !build.IsWindows {
 		// syscall.Exec is the cleanest way to restart on Unixes as it
 		// replaces the current process with the new one, keeping the pid and
 		// controlling terminal and so on
-		return restartMonitorUnix(binary, args, env)
+		return restartMonitorUnix(binary, args)
 	}
 
 	// but it isn't supported on Windows, so there we start a normal
 	// exec.Command and return.
-	return restartMonitorWindows(binary, args, env)
+	return restartMonitorWindows(binary, args)
 }
 
-func restartMonitorUnix(binary string, args []string, env []string) error {
-	return syscall.Exec(binary, args, env)
+func restartMonitorUnix(binary string, args []string) error {
+	return syscall.Exec(binary, args, os.Environ())
 }
 
-func restartMonitorWindows(binary string, args []string, env []string) error {
+func restartMonitorWindows(binary string, args []string) error {
 	cmd := exec.Command(binary, args[1:]...)
-	// Explicitly set the environment
-	cmd.Env = env
 	// Retain the standard streams
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
@@ -531,7 +516,7 @@ func (f *autoclosedFile) closerLoop() {
 }
 
 // Returns the desired child environment, properly filtered and added to.
-func childEnv(noConsole bool) []string {
+func childEnv() []string {
 	var env []string
 	for _, str := range os.Environ() {
 		if strings.HasPrefix(str, "STNORESTART=") {
@@ -540,15 +525,9 @@ func childEnv(noConsole bool) []string {
 		if strings.HasPrefix(str, "STMONITORED=") {
 			continue
 		}
-		if strings.HasPrefix(str, "STNOCONSOLE=") {
-			continue
-		}
 		env = append(env, str)
 	}
 	env = append(env, "STMONITORED=yes")
-	if noConsole {
-		env = append(env, "STNOCONSOLE=yes")
-	}
 	return env
 }
 

@@ -186,7 +186,6 @@ type serveCmd struct {
 	// Internal options, not shown to users
 	InternalRestarting   bool `env:"STRESTART" hidden:"1"`
 	InternalInnerProcess bool `env:"STMONITORED" hidden:"1"`
-	InternalNoConsole    bool `env:"STNOCONSOLE" hidden:"1"`
 }
 
 func defaultVars() kong.Vars {
