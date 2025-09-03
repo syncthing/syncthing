@@ -40,14 +40,9 @@ func InitConsole() error {
 		return nil // No command line arguments, don't allocate console
 	}
 
-	// Check if --no-console flag is present
-	if slices.Contains(os.Args[1:], "--no-console") {
-		return nil // User explicitly disabled console
-	}
-
-	// Skip console allocation in SSH sessions
-	if os.Getenv("SSH_CLIENT") != "" || os.Getenv("SSH_TTY") != "" {
-		return nil
+	// Check if --no-console flag is present or internal flag is set
+	if slices.Contains(os.Args[1:], "--no-console") || os.Getenv("STNOCONSOLE") == "yes" {
+		return nil // User explicitly disabled console or internal flag set
 	}
 
 	// Check if we already have a console window
@@ -66,6 +61,11 @@ func InitConsole() error {
 			// Only log unexpected errors
 			return nil // Don't fail completely, just skip console allocation
 		}
+	}
+
+	// Skip console allocation in SSH sessions
+	if os.Getenv("SSH_CLIENT") != "" || os.Getenv("SSH_TTY") != "" {
+		return nil
 	}
 
 	// If no parent console, allocate a new one
