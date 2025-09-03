@@ -100,9 +100,6 @@ func (c *serveCmd) monitorMain() {
 		noConsole = noConsoleNoArgs || noConsoleFlag
 	}
 
-	// Prepare child arguments (use original args without modification)
-	childArgs := args[1:] // Start with original args (excluding binary name)
-
 	var restarts [restartCounts]time.Time
 
 	stopSign := make(chan os.Signal, 1)
@@ -124,8 +121,7 @@ func (c *serveCmd) monitorMain() {
 		copy(restarts[0:], restarts[1:])
 		restarts[len(restarts)-1] = time.Now()
 
-		// Use the filtered child arguments that preserve --no-console
-		cmd := exec.Command(binary, childArgs...)
+		cmd := exec.Command(binary, args[1:]...)
 		cmd.Env = childEnv
 
 		stderr, err := cmd.StderrPipe()
