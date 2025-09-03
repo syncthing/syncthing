@@ -34,48 +34,44 @@ const (
 
 // InitConsole initializes console for Windows GUI applications
 func InitConsole() error {
-	// If this is an inner process (started by monitor), don't allocate console
+	// If this is an inner process (started by monitor) -> don't allocate console
 	// as the monitor handles all I/O through pipes
 	if os.Getenv("STMONITORED") == "yes" {
 		return nil
 	}
 
-	// This is the monitor process - use standard logic
-	// Only allocate console when we have actual command line arguments
-	// os.Args[0] is always the program name, so we need more than 1 element
+	// No command line arguments means binary was probably double-clicked -> don't allocate console
 	if len(os.Args) <= 1 {
-		return nil // No command line arguments, don't allocate console
+		return nil
 	}
 
-	// Check if --no-console flag is present
+	// User explicitly disabled console  -> don't allocate console
 	if slices.Contains(os.Args[1:], "--no-console") {
-		return nil // User explicitly disabled console
+		return nil
 	}
 
-	// Skip console allocation in SSH sessions
+	// SSH sessions -> don't allocate console
 	if os.Getenv("SSH_CLIENT") != "" || os.Getenv("SSH_TTY") != "" {
 		return nil
 	}
 
-	// Check if we already have a console window
+	// Console window already exists -> just redirect handles
 	if hasConsole, _, _ := procGetConsoleWindow.Call(); hasConsole != 0 {
-		// We have a console, but make sure handles are properly set
 		return redirectStdHandles()
 	}
 
-	// Try to attach to parent console first (for command line usage)
+	// Try to attach to parent consol
 	if ret, _, err := procAttachConsole.Call(uintptr(ATTACH_PARENT_PROCESS)); ret != 0 {
 		return redirectStdHandles()
 	} else if err != syscall.Errno(0) {
 		// Log the error but continue trying to allocate console
 		// ERROR_ACCESS_DENIED (5) is expected when no parent console exists
 		if errno, ok := err.(syscall.Errno); ok && errno != 5 {
-			// Only log unexpected errors
 			return nil // Don't fail completely, just skip console allocation
 		}
 	}
 
-	// If no parent console, allocate a new one
+	// no parent console -> allocate a new one
 	if ret, _, err := procAllocConsole.Call(); ret != 0 {
 		consoleAllocated = true
 		return redirectStdHandles()
