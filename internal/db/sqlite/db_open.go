@@ -52,8 +52,6 @@ func Open(path string, opts ...Option) (*DB, error) {
 		"journal_mode = WAL",
 		"optimize = 0x10002",
 		"auto_vacuum = INCREMENTAL",
-		"default_temp_store = MEMORY",
-		"temp_store = MEMORY",
 	}
 	schemas := []string{
 		"sql/schema/common/*",
@@ -99,8 +97,6 @@ func Open(path string, opts ...Option) (*DB, error) {
 func OpenForMigration(path string) (*DB, error) {
 	pragmas := []string{
 		"journal_mode = OFF",
-		"default_temp_store = MEMORY",
-		"temp_store = MEMORY",
 		"foreign_keys = 0",
 		"synchronous = 0",
 		"locking_mode = EXCLUSIVE",
