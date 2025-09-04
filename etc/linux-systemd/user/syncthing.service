@@ -5,7 +5,10 @@ StartLimitIntervalSec=60
 StartLimitBurst=4
 
 [Service]
-ExecStart=/usr/bin/syncthing serve --no-browser --no-restart --logflags=0
+Environment="STLOGFORMATTIMESTAMP="
+Environment="STLOGFORMATLEVELSTRING=false"
+Environment="STLOGFORMATLEVELSYSLOG=true"
+ExecStart=/usr/bin/syncthing serve --no-browser --no-restart
 Restart=on-failure
 RestartSec=1
 SuccessExitStatus=3 4

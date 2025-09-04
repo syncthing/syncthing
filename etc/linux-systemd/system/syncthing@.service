@@ -7,6 +7,9 @@ StartLimitBurst=4
 
 [Service]
 User=%i
+Environment="STLOGFORMATTIMESTAMP="
+Environment="STLOGFORMATLEVELSTRING=false"
+Environment="STLOGFORMATLEVELSYSLOG=true"
 ExecStart=/usr/bin/syncthing serve --no-browser --no-restart
 Restart=on-failure
 RestartSec=1

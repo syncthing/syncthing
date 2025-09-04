@@ -9,6 +9,7 @@ package slogutil
 import (
 	"log/slog"
 	"maps"
+	"strings"
 	"sync"
 )
 
@@ -37,6 +38,24 @@ func SetPackageLevel(pkg string, level slog.Level) {
 
 func SetDefaultLevel(level slog.Level) {
 	globalLevels.SetDefault(level)
+}
+
+func SetLevelOverrides(sttrace string) {
+	pkgs := strings.Split(sttrace, ",")
+	for _, pkg := range pkgs {
+		pkg = strings.TrimSpace(pkg)
+		if pkg == "" {
+			continue
+		}
+		level := slog.LevelDebug
+		if cutPkg, levelStr, ok := strings.Cut(pkg, ":"); ok {
+			pkg = cutPkg
+			if err := level.UnmarshalText([]byte(levelStr)); err != nil {
+				slog.Warn("Bad log level requested in STTRACE", slog.String("pkg", pkg), slog.String("level", levelStr), Error(err))
+			}
+		}
+		globalLevels.Set(pkg, level)
+	}
 }
 
 type levelTracker struct {
