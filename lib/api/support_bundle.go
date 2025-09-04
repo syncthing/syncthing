@@ -26,7 +26,7 @@ func getRedactedConfig(s *service) config.Configuration {
 
 	for folderIdx, folderCfg := range rawConf.Folders {
 		for deviceIdx, deviceCfg := range folderCfg.Devices {
-			if len(deviceCfg.EncryptionPassword) > 0 {
+			if deviceCfg.EncryptionPassword != "" {
 				rawConf.Folders[folderIdx].Devices[deviceIdx].EncryptionPassword = "REDACTED"
 			}
 		}
