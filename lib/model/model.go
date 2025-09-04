@@ -2870,12 +2870,6 @@ func (m *model) blockAvailabilityRLocked(cfg config.FolderConfiguration, file pr
 	return candidates
 }
 
-func (m *model) fileAvailability(cfg config.FolderConfiguration, file protocol.FileInfo) []Availability {
-	m.mut.RLock()
-	defer m.mut.RUnlock()
-	return m.fileAvailabilityRLocked(cfg, file)
-}
-
 func (m *model) fileAvailabilityRLocked(cfg config.FolderConfiguration, file protocol.FileInfo) []Availability {
 	var availabilities []Availability
 	devs, err := m.sdb.GetGlobalAvailability(cfg.ID, file.Name)

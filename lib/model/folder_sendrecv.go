@@ -491,15 +491,6 @@ nextFile:
 			continue nextFile
 		}
 
-		// Verify there is some availability for the file before we start
-		// processing it
-		devices := f.model.fileAvailability(f.FolderConfiguration, fi)
-		if len(devices) == 0 {
-			f.newPullError(fileName, errNotAvailable)
-			f.queue.Done(fileName)
-			continue
-		}
-
 		// Verify we have space to handle the file before we start
 		// creating temp files etc.
 		if err := f.CheckAvailableSpace(uint64(fi.Size)); err != nil { //nolint:gosec
