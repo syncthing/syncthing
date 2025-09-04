@@ -40,11 +40,6 @@ func InitConsole() error {
 		return nil
 	}
 
-	// No command line arguments means binary was probably double-clicked -> don't allocate console
-	if len(os.Args) <= 1 {
-		return nil
-	}
-
 	// User explicitly disabled console  -> don't allocate console
 	if slices.Contains(os.Args[1:], "--no-console") {
 		return nil
@@ -69,6 +64,11 @@ func InitConsole() error {
 		if errno, ok := err.(syscall.Errno); ok && errno != 5 {
 			return nil // Don't fail completely, just skip console allocation
 		}
+	}
+
+	// No command line arguments without parent means binary was probably double-clicked -> don't allocate console
+	if len(os.Args) <= 1 {
+		return nil
 	}
 
 	// no parent console -> allocate a new one
