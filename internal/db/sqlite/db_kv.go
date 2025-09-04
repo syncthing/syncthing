@@ -52,7 +52,7 @@ func (s *baseDB) PrefixKV(prefix string) (iter.Seq[db.KeyValue], func() error) {
 		end := prefixEnd(prefix)
 		rows, err = s.stmt(`
 			SELECT key, value FROM kv
-			WHERE key >= ? AND key < ?
+			WHERE key >= ? COLLATE BINARY AND key < ? COLLATE BINARY
 		`).Queryx(prefix, end)
 	}
 	if err != nil {

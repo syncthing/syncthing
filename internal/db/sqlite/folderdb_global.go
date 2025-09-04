@@ -51,7 +51,7 @@ func (s *folderDB) GetGlobalAvailability(file string) ([]protocol.DeviceID, erro
 		INNER JOIN devices d ON d.idx = f.device_idx
 		INNER JOIN files g ON g.version = f.version AND g.name = f.name
 		WHERE g.name = ? AND g.local_flags & {{.FlagLocalGlobal}} != 0 AND f.device_idx != {{.LocalDeviceIdx}}
-		ORDER BY d.device_id
+		ORDER BY d.device_id COLLATE BINARY
 	`).Select(&devStrs, file)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
