@@ -910,9 +910,14 @@ func TestPullCtxCancel(t *testing.T) {
 	go f.pullerRoutine(pullChan, finisherChan)
 	defer close(pullChan)
 
+	s, err := newSharedPullerState(protocol.FileInfo{}, f.mtimefs, f.folderID, "", nil, nil, false, false, protocol.FileInfo{}, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	emptyState := func() pullBlockState {
 		return pullBlockState{
-			sharedPullerState: newSharedPullerState(protocol.FileInfo{}, nil, f.folderID, "", nil, nil, false, false, protocol.FileInfo{}, false, false),
+			sharedPullerState: s,
 			block:             protocol.BlockInfo{},
 		}
 	}
@@ -1106,13 +1111,16 @@ func TestPullTempFileCaseConflict(t *testing.T) {
 		fd.Close()
 	}
 
-	f.handleFile(file, copyChan)
+	err := f.handleFile(file, copyChan)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	cs := <-copyChan
-	if _, err := cs.tempFile(); err != nil {
+	if err := cs.failed(); err != nil {
 		t.Error(err)
-	} else {
-		cs.finalClose()
+	} else if _, err := cs.finalClose(); err != nil {
+		t.Error(err)
 	}
 }
 

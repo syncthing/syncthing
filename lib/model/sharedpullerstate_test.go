@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
@@ -18,16 +19,11 @@ func TestReadOnlyDir(t *testing.T) {
 	ffs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32))
 	ffs.Mkdir("testdir", 0o555)
 
-	s := sharedPullerState{
-		fs:       ffs,
-		tempName: "testdir/.temp_name",
-	}
-
-	fd, err := s.tempFile()
+	s, err := newSharedPullerState(protocol.FileInfo{}, ffs, "testFolderID", "testdir/.temp_name", nil, nil, false, false, protocol.FileInfo{}, false, true)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fd == nil {
+	if s.writer == nil {
 		t.Fatal("Unexpected nil fd")
 	}
 

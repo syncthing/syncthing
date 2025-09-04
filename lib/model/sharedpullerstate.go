@@ -53,8 +53,8 @@ type sharedPullerState struct {
 	mut              sync.RWMutex    // Protects the above
 }
 
-func newSharedPullerState(file protocol.FileInfo, fs fs.Filesystem, folderID, tempName string, blocks []protocol.BlockInfo, reused []int, ignorePerms, hasCurFile bool, curFile protocol.FileInfo, sparse bool, fsync bool) *sharedPullerState {
-	return &sharedPullerState{
+func newSharedPullerState(file protocol.FileInfo, fs fs.Filesystem, folderID, tempName string, blocks []protocol.BlockInfo, reused []int, ignorePerms, hasCurFile bool, curFile protocol.FileInfo, sparse bool, fsync bool) (*sharedPullerState, error) {
+	s := &sharedPullerState{
 		file:             file,
 		fs:               fs,
 		folder:           folderID,
@@ -73,6 +73,11 @@ func newSharedPullerState(file protocol.FileInfo, fs fs.Filesystem, folderID, te
 		fsync:            fsync,
 		created:          time.Now(),
 	}
+
+	if err := inWritableDir(s.tempFileInWritableDir, s.fs, s.tempName, s.ignorePerms); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 // A momentary state representing the progress of the puller
@@ -116,34 +121,6 @@ func (w *lockedWriterAt) SyncClose(fsync bool) error {
 		}
 	}
 	return w.fd.Close()
-}
-
-// tempFile returns the fd for the temporary file, reusing an open fd
-// or creating the file as necessary.
-func (s *sharedPullerState) tempFile() (*lockedWriterAt, error) {
-	s.mut.Lock()
-	defer s.mut.Unlock()
-
-	// If we've already hit an error, return early
-	if s.err != nil {
-		return nil, s.err
-	}
-
-	// If the temp file is already open, return the file descriptor
-	if s.writer != nil {
-		return s.writer, nil
-	}
-
-	if err := s.addWriterLocked(); err != nil {
-		s.failLocked(err)
-		return nil, err
-	}
-
-	return s.writer, nil
-}
-
-func (s *sharedPullerState) addWriterLocked() error {
-	return inWritableDir(s.tempFileInWritableDir, s.fs, s.tempName, s.ignorePerms)
 }
 
 // tempFileInWritableDir should only be called from tempFile.
@@ -322,15 +299,6 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 	if s.pullNeeded+s.copyNeeded != 0 && s.err == nil {
 		// Not done yet, and not errored
 		return false, nil
-	}
-
-	if s.writer == nil {
-		// If we didn't even create a temp file up to this point, now is the
-		// time to do so. This also truncates the file to the correct size
-		// if we're using sparse file.
-		if err := s.addWriterLocked(); err != nil {
-			return false, err
-		}
 	}
 
 	if len(s.file.Encrypted) > 0 {

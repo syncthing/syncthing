@@ -500,14 +500,6 @@ nextFile:
 			continue
 		}
 
-		// Verify we have space to handle the file before we start
-		// creating temp files etc.
-		if err := f.CheckAvailableSpace(uint64(fi.Size)); err != nil { //nolint:gosec
-			f.newPullError(fileName, err)
-			f.queue.Done(fileName)
-			continue
-		}
-
 		if err := f.handleFile(fi, copyChan); err != nil {
 			f.newPullError(fileName, err)
 		}
@@ -1159,14 +1151,23 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 	// Reorder blocks
 	blocks = f.blockPullReorderer.Reorder(blocks)
 
+	// Verify we have space to handle the file before we create the temp file in
+	// the shared puller state.
+	if err := f.CheckAvailableSpace(uint64(file.Size)); err != nil { //nolint:gosec
+		return err
+	}
+
+	s, err := newSharedPullerState(file, f.mtimefs, f.folderID, tempName, blocks, reused, f.IgnorePerms || file.NoPermissions, hasCurFile, curFile, !f.DisableSparseFiles, !f.DisableFsync)
+	if err != nil {
+		return err
+	}
+
 	f.evLogger.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
 		"item":   file.Name,
 		"type":   "file",
 		"action": "update",
 	})
-
-	s := newSharedPullerState(file, f.mtimefs, f.folderID, tempName, blocks, reused, f.IgnorePerms || file.NoPermissions, hasCurFile, curFile, !f.DisableSparseFiles, !f.DisableFsync)
 
 	l.Debugf("%v need file %s; copy %d, reused %v", f, file.Name, len(blocks), len(reused))
 
@@ -1382,13 +1383,6 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			}
 			pullChan <- ps
 		}
-		// If there are no blocks to pull/copy, we still need the temporary file in place.
-		if len(state.blocks) == 0 {
-			_, err := state.tempFile()
-			if err != nil {
-				state.fail(err)
-			}
-		}
 
 		out <- state.sharedPullerState
 	}
@@ -1476,12 +1470,7 @@ func (f *sendReceiveFolder) copyBlockFromFile(srcName string, srcOffset int64, s
 		}
 	}
 
-	dstFd, err := state.tempFile()
-	if err != nil {
-		// State is already marked as failed when an error is returned here.
-		return false
-	}
-
+	dstFd := state.writer
 	if f.CopyRangeMethod != config.CopyRangeMethodStandard {
 		err = f.withLimiter(func() error {
 			dstFd.mut.Lock()
@@ -1548,15 +1537,6 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 }
 
 func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPullerState) {
-	// Get an fd to the temporary file. Technically we don't need it until
-	// after fetching the block, but if we run into an error here there is
-	// no point in issuing the request to the network.
-	fd, err := state.tempFile()
-	if err != nil {
-		out <- state.sharedPullerState
-		return
-	}
-
 	if !f.DisableSparseFiles && state.reused == 0 && state.block.IsEmpty() {
 		// There is no need to request a block of all zeroes. Pretend we
 		// requested it and handled it correctly.
@@ -1620,7 +1600,7 @@ loop:
 		}
 
 		// Save the block data we got from the cluster
-		err = f.limitedWriteAt(fd, buf, state.block.Offset)
+		err := f.limitedWriteAt(state.writer, buf, state.block.Offset)
 		if err != nil {
 			state.fail(fmt.Errorf("save: %w", err))
 		} else {
