@@ -25,7 +25,11 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const currentSchemaVersion = 4
+const (
+	currentSchemaVersion = 4
+	applicationIDMain    = 0x53546d6e // "STmn", Syncthing main database
+	applicationIDFolder  = 0x53546664 // "STfd", Syncthing folder database
+)
 
 //go:embed sql/**
 var embedded embed.FS

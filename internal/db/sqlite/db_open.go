@@ -7,6 +7,7 @@
 package sqlite
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -52,6 +53,7 @@ func Open(path string, opts ...Option) (*DB, error) {
 		"journal_mode = WAL",
 		"optimize = 0x10002",
 		"auto_vacuum = INCREMENTAL",
+		fmt.Sprintf("application_id = %d", applicationIDMain),
 	}
 	schemas := []string{
 		"sql/schema/common/*",
@@ -100,6 +102,7 @@ func OpenForMigration(path string) (*DB, error) {
 		"foreign_keys = 0",
 		"synchronous = 0",
 		"locking_mode = EXCLUSIVE",
+		fmt.Sprintf("application_id = %d", applicationIDMain),
 	}
 	schemas := []string{
 		"sql/schema/common/*",

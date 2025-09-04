@@ -7,6 +7,7 @@
 package sqlite
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -25,6 +26,7 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 		"journal_mode = WAL",
 		"optimize = 0x10002",
 		"auto_vacuum = INCREMENTAL",
+		fmt.Sprintf("application_id = %d", applicationIDFolder),
 	}
 	schemas := []string{
 		"sql/schema/common/*",
@@ -65,6 +67,7 @@ func openFolderDBForMigration(folder, path string, deleteRetention time.Duration
 		"foreign_keys = 0",
 		"synchronous = 0",
 		"locking_mode = EXCLUSIVE",
+		fmt.Sprintf("application_id = %d", applicationIDFolder),
 	}
 	schemas := []string{
 		"sql/schema/common/*",
