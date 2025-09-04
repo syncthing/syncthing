@@ -491,15 +491,26 @@ nextFile:
 			continue nextFile
 		}
 
+		// Verify there is some availability for the file before we start
+		// processing it
 		devices := f.model.fileAvailability(f.FolderConfiguration, fi)
-		if len(devices) > 0 {
-			if err := f.handleFile(fi, copyChan); err != nil {
-				f.newPullError(fileName, err)
-			}
+		if len(devices) == 0 {
+			f.newPullError(fileName, errNotAvailable)
+			f.queue.Done(fileName)
 			continue
 		}
-		f.newPullError(fileName, errNotAvailable)
-		f.queue.Done(fileName)
+
+		// Verify we have space to handle the file before we start
+		// creating temp files etc.
+		if err := f.CheckAvailableSpace(uint64(fi.Size)); err != nil { //nolint:gosec
+			f.newPullError(fileName, err)
+			f.queue.Done(fileName)
+			continue
+		}
+
+		if err := f.handleFile(fi, copyChan); err != nil {
+			f.newPullError(fileName, err)
+		}
 	}
 
 	return changed, fileDeletions, dirDeletions, nil
@@ -1327,13 +1338,6 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 	}
 
 	for state := range in {
-		if err := f.CheckAvailableSpace(uint64(state.file.Size)); err != nil { //nolint:gosec
-			state.fail(err)
-			// Nothing more to do for this failed file, since it would use to much disk space
-			out <- state.sharedPullerState
-			continue
-		}
-
 		if f.Type != config.FolderTypeReceiveEncrypted {
 			f.model.progressEmitter.Register(state.sharedPullerState)
 		}
