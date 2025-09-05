@@ -6,9 +6,8 @@
 
 --- Backing for the MtimeFS
 CREATE TABLE IF NOT EXISTS mtimes (
-    name TEXT NOT NULL,
+    name TEXT NOT NULL PRIMARY KEY,
     ondisk INTEGER NOT NULL, -- unix nanos
-    virtual INTEGER NOT NULL, -- unix nanos
-    PRIMARY KEY(name)
+    virtual INTEGER NOT NULL -- unix nanos
 ) STRICT, WITHOUT ROWID
 ;
