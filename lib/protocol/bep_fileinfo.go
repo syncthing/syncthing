@@ -113,17 +113,18 @@ const (
 )
 
 type FileInfo struct {
-	Name          string
-	Size          int64
-	ModifiedS     int64
-	ModifiedBy    ShortID
-	Version       Vector
-	Sequence      int64
-	Blocks        []BlockInfo
-	SymlinkTarget []byte
-	BlocksHash    []byte
-	Encrypted     []byte
-	Platform      PlatformData
+	Name               string
+	Size               int64
+	ModifiedS          int64
+	ModifiedBy         ShortID
+	Version            Vector
+	Sequence           int64
+	Blocks             []BlockInfo
+	SymlinkTarget      []byte
+	BlocksHash         []byte
+	PreviousBlocksHash []byte
+	Encrypted          []byte
+	Platform           PlatformData
 
 	Type         FileInfoType
 	Permissions  uint32
@@ -137,10 +138,6 @@ type FileInfo struct {
 	// It does carry the info to decide if the file is invalid, which is part of
 	// the protocol.
 	LocalFlags FlagLocal
-
-	// The version_hash is an implementation detail and not part of the wire
-	// format.
-	VersionHash []byte
 
 	// The time when the inode was last changed (i.e., permissions, xattrs
 	// etc changed). This is host-local, not sent over the wire.
@@ -165,32 +162,52 @@ func (f *FileInfo) ToWire(withInternalFields bool) *bep.FileInfo {
 		blocks[j] = b.ToWire()
 	}
 	w := &bep.FileInfo{
-		Name:          f.Name,
-		Size:          f.Size,
-		ModifiedS:     f.ModifiedS,
-		ModifiedBy:    uint64(f.ModifiedBy),
-		Version:       f.Version.ToWire(),
-		Sequence:      f.Sequence,
-		Blocks:        blocks,
-		SymlinkTarget: f.SymlinkTarget,
-		BlocksHash:    f.BlocksHash,
-		Encrypted:     f.Encrypted,
-		Type:          f.Type,
-		Permissions:   f.Permissions,
-		ModifiedNs:    f.ModifiedNs,
-		BlockSize:     f.RawBlockSize,
-		Platform:      f.Platform.toWire(),
-		Deleted:       f.Deleted,
-		Invalid:       f.IsInvalid(),
-		NoPermissions: f.NoPermissions,
+		Name:               f.Name,
+		Size:               f.Size,
+		ModifiedS:          f.ModifiedS,
+		ModifiedBy:         uint64(f.ModifiedBy),
+		Version:            f.Version.ToWire(),
+		Sequence:           f.Sequence,
+		Blocks:             blocks,
+		SymlinkTarget:      f.SymlinkTarget,
+		BlocksHash:         f.BlocksHash,
+		PreviousBlocksHash: f.PreviousBlocksHash,
+		Encrypted:          f.Encrypted,
+		Type:               f.Type,
+		Permissions:        f.Permissions,
+		ModifiedNs:         f.ModifiedNs,
+		BlockSize:          f.RawBlockSize,
+		Platform:           f.Platform.toWire(),
+		Deleted:            f.Deleted,
+		Invalid:            f.IsInvalid(),
+		NoPermissions:      f.NoPermissions,
 	}
 	if withInternalFields {
 		w.LocalFlags = uint32(f.LocalFlags)
-		w.VersionHash = f.VersionHash
 		w.InodeChangeNs = f.InodeChangeNs
 		w.EncryptionTrailerSize = int32(f.EncryptionTrailerSize)
 	}
 	return w
+}
+
+func (f *FileInfo) InConflictWith(other FileInfo) bool {
+	if f.Version.GreaterEqual(other.Version) {
+		// If the new file is strictly greater in the ordering than the
+		// existing file, it is not a conflict. If any counter has moved
+		// backwards, or different counters have increased independently,
+		// then the file is not greater but concurrent and we don't take
+		// this branch.
+		return false
+	}
+
+	if len(f.PreviousBlocksHash) == 0 || len(f.BlocksHash) == 0 {
+		// Don't have data to make a content determination, or the type has
+		// changed (file to directory, etc). Consider it a conflict.
+		return true
+	}
+	// If the new file is based on the old contents we have, it's not really
+	// a conflict.
+	return !bytes.Equal(f.PreviousBlocksHash, other.BlocksHash)
 }
 
 // WinsConflict returns true if "f" is the one to choose when it is in
@@ -259,6 +276,7 @@ type FileInfoWithoutBlocks interface {
 	// GetBlocks() []*bep.BlockInfo // not included
 	GetSymlinkTarget() []byte
 	GetBlocksHash() []byte
+	GetPreviousBlocksHash() []byte
 	GetEncrypted() []byte
 	GetType() FileInfoType
 	GetPermissions() uint32
@@ -266,7 +284,6 @@ type FileInfoWithoutBlocks interface {
 	GetBlockSize() int32
 	GetPlatform() *bep.PlatformData
 	GetLocalFlags() uint32
-	GetVersionHash() []byte
 	GetInodeChangeNs() int64
 	GetEncryptionTrailerSize() int32
 	GetDeleted() bool
@@ -280,31 +297,31 @@ func fileInfoFromWireWithBlocks(w FileInfoWithoutBlocks, blocks []BlockInfo) Fil
 		localFlags = FlagLocalRemoteInvalid
 	}
 	return FileInfo{
-		Name:          w.GetName(),
-		Size:          w.GetSize(),
-		ModifiedS:     w.GetModifiedS(),
-		ModifiedBy:    ShortID(w.GetModifiedBy()),
-		Version:       VectorFromWire(w.GetVersion()),
-		Sequence:      w.GetSequence(),
-		Blocks:        blocks,
-		SymlinkTarget: w.GetSymlinkTarget(),
-		BlocksHash:    w.GetBlocksHash(),
-		Encrypted:     w.GetEncrypted(),
-		Type:          w.GetType(),
-		Permissions:   w.GetPermissions(),
-		ModifiedNs:    w.GetModifiedNs(),
-		RawBlockSize:  w.GetBlockSize(),
-		Platform:      platformDataFromWire(w.GetPlatform()),
-		Deleted:       w.GetDeleted(),
-		LocalFlags:    localFlags,
-		NoPermissions: w.GetNoPermissions(),
+		Name:               w.GetName(),
+		Size:               w.GetSize(),
+		ModifiedS:          w.GetModifiedS(),
+		ModifiedBy:         ShortID(w.GetModifiedBy()),
+		Version:            VectorFromWire(w.GetVersion()),
+		Sequence:           w.GetSequence(),
+		Blocks:             blocks,
+		SymlinkTarget:      w.GetSymlinkTarget(),
+		BlocksHash:         w.GetBlocksHash(),
+		PreviousBlocksHash: w.GetPreviousBlocksHash(),
+		Encrypted:          w.GetEncrypted(),
+		Type:               w.GetType(),
+		Permissions:        w.GetPermissions(),
+		ModifiedNs:         w.GetModifiedNs(),
+		RawBlockSize:       w.GetBlockSize(),
+		Platform:           platformDataFromWire(w.GetPlatform()),
+		Deleted:            w.GetDeleted(),
+		LocalFlags:         localFlags,
+		NoPermissions:      w.GetNoPermissions(),
 	}
 }
 
 func FileInfoFromDB(w *bep.FileInfo) FileInfo {
 	f := FileInfoFromWire(w)
 	f.LocalFlags = FlagLocal(w.LocalFlags)
-	f.VersionHash = w.VersionHash
 	f.InodeChangeNs = w.InodeChangeNs
 	f.EncryptionTrailerSize = int(w.EncryptionTrailerSize)
 	return f
@@ -313,7 +330,6 @@ func FileInfoFromDB(w *bep.FileInfo) FileInfo {
 func FileInfoFromDBTruncated(w FileInfoWithoutBlocks) FileInfo {
 	f := fileInfoFromWireWithBlocks(w, nil)
 	f.LocalFlags = FlagLocal(w.GetLocalFlags())
-	f.VersionHash = w.GetVersionHash()
 	f.InodeChangeNs = w.GetInodeChangeNs()
 	f.EncryptionTrailerSize = int(w.GetEncryptionTrailerSize())
 	f.truncated = true
@@ -323,14 +339,14 @@ func FileInfoFromDBTruncated(w FileInfoWithoutBlocks) FileInfo {
 func (f FileInfo) String() string {
 	switch f.Type {
 	case FileInfoTypeDirectory:
-		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, Platform:%v, InodeChangeTime:%v}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Deleted, f.IsInvalid(), f.LocalFlags, f.NoPermissions, f.Platform, f.InodeChangeTime())
+		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, Platform:%v, InodeChangeTime:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Deleted, f.IsInvalid(), f.LocalFlags, f.NoPermissions, f.Platform, f.InodeChangeTime())
 	case FileInfoTypeFile:
-		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, VersionHash:%x, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d, NumBlocks:%d, BlocksHash:%x, Platform:%v, InodeChangeTime:%v}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.VersionHash, f.Size, f.Deleted, f.IsInvalid(), f.LocalFlags, f.NoPermissions, f.RawBlockSize, len(f.Blocks), f.BlocksHash, f.Platform, f.InodeChangeTime())
+		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d, NumBlocks:%d, BlocksHash:%x, Platform:%v, InodeChangeTime:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Size, f.Deleted, f.IsInvalid(), f.LocalFlags, f.NoPermissions, f.RawBlockSize, len(f.Blocks), f.BlocksHash, f.Platform, f.InodeChangeTime())
 	case FileInfoTypeSymlink, FileInfoTypeSymlinkDirectory, FileInfoTypeSymlinkFile:
-		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, VersionHash:%x, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q, Platform:%v, InodeChangeTime:%v}",
-			f.Name, f.Type, f.Sequence, f.Version, f.VersionHash, f.Deleted, f.IsInvalid(), f.LocalFlags, f.NoPermissions, f.SymlinkTarget, f.Platform, f.InodeChangeTime())
+		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q, Platform:%v, InodeChangeTime:%v}",
+			f.Name, f.Type, f.Sequence, f.Version, f.Deleted, f.IsInvalid(), f.LocalFlags, f.NoPermissions, f.SymlinkTarget, f.Platform, f.InodeChangeTime())
 	default:
 		panic("mystery file type detected")
 	}
