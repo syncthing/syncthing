@@ -164,6 +164,9 @@ type serveCmd struct {
 	LogLevel                  slog.Level    `help:"Log level for all packages (DEBUG,INFO,WARN,ERROR)" env:"STLOGLEVEL" default:"INFO"`
 	LogMaxFiles               int           `name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)" default:"${logMaxFiles}" placeholder:"N" env:"STLOGMAXOLDFILES"`
 	LogMaxSize                int           `help:"Maximum size of any file (zero to disable log rotation)" default:"${logMaxSize}" placeholder:"BYTES" env:"STLOGMAXSIZE"`
+	LogFormatTimestamp        string        `name:"log-format-timestamp" help:"Format for timestamp, set to empty to disable timestamps" env:"STLOGFORMATTIMESTAMP" default:"${timestampFormat}"`
+	LogFormatLevelString      bool          `name:"log-format-level-string" help:"Whether to include level string in log line" env:"STLOGFORMATLEVELSTRING" default:"${levelString}" negatable:""`
+	LogFormatLevelSyslog      bool          `name:"log-format-level-syslog" help:"Whether to include level as syslog prefix in log line" env:"STLOGFORMATLEVELSYSLOG" default:"${levelSyslog}" negatable:""`
 	NoBrowser                 bool          `help:"Do not start browser" env:"STNOBROWSER"`
 	NoPortProbing             bool          `help:"Don't try to find free ports for GUI and listen addresses on first startup" env:"STNOPORTPROBING"`
 	NoRestart                 bool          `help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash" env:"STNORESTART"`
@@ -186,10 +189,13 @@ type serveCmd struct {
 }
 
 func defaultVars() kong.Vars {
-	vars := kong.Vars{}
-
-	vars["logMaxSize"] = strconv.Itoa(10 << 20) // 10 MiB
-	vars["logMaxFiles"] = "3"                   // plus the current one
+	vars := kong.Vars{
+		"logMaxSize":      strconv.Itoa(10 << 20), // 10 MiB
+		"logMaxFiles":     "3",                    // plus the current one
+		"levelString":     strconv.FormatBool(slogutil.DefaultLineFormat.LevelString),
+		"levelSyslog":     strconv.FormatBool(slogutil.DefaultLineFormat.LevelSyslog),
+		"timestampFormat": slogutil.DefaultLineFormat.TimestampFormat,
+	}
 
 	// On non-Windows, we explicitly default to "-" which means stdout. On
 	// Windows, the "default" options.logFile will later be replaced with the
@@ -262,8 +268,14 @@ func (c *serveCmd) Run() error {
 		osutil.HideConsole()
 	}
 
-	// The default log level for all packages
+	// Customize the logging early
+	slogutil.SetLineFormat(slogutil.LineFormat{
+		TimestampFormat: c.LogFormatTimestamp,
+		LevelString:     c.LogFormatLevelString,
+		LevelSyslog:     c.LogFormatLevelSyslog,
+	})
 	slogutil.SetDefaultLevel(c.LogLevel)
+	slogutil.SetLevelOverrides(os.Getenv("STTRACE"))
 
 	// Treat an explicitly empty log file name as no log file
 	if c.LogFile == "" {
@@ -1039,7 +1051,7 @@ func (m migratingAPI) Serve(ctx context.Context) error {
 			w.Header().Set("Content-Type", "text/plain")
 			w.Write([]byte("*** Database migration in progress ***\n\n"))
 			for _, line := range slogutil.GlobalRecorder.Since(time.Time{}) {
-				line.WriteTo(w)
+				_, _ = line.WriteTo(w, slogutil.DefaultLineFormat)
 			}
 		}),
 	}

@@ -18,12 +18,28 @@ import (
 	"time"
 )
 
-type formattingHandler struct {
-	attrs        []slog.Attr
-	groups       []string
+type LineFormat struct {
+	TimestampFormat string
+	LevelString     bool
+	LevelSyslog     bool
+}
+
+type formattingOptions struct {
+	LineFormat
+
 	out          io.Writer
 	recs         []*lineRecorder
 	timeOverride time.Time
+}
+
+type formattingHandler struct {
+	attrs  []slog.Attr
+	groups []string
+	opts   *formattingOptions
+}
+
+func SetLineFormat(f LineFormat) {
+	globalFormatter.LineFormat = f
 }
 
 var _ slog.Handler = (*formattingHandler)(nil)
@@ -83,19 +99,19 @@ func (h *formattingHandler) Handle(_ context.Context, rec slog.Record) error {
 	}
 
 	line := Line{
-		When:    cmp.Or(h.timeOverride, rec.Time),
+		When:    cmp.Or(h.opts.timeOverride, rec.Time),
 		Message: sb.String(),
 		Level:   rec.Level,
 	}
 
 	// If there is a recorder, record the line.
-	for _, rec := range h.recs {
+	for _, rec := range h.opts.recs {
 		rec.record(line)
 	}
 
 	// If there's an output, print the line.
-	if h.out != nil {
-		_, _ = line.WriteTo(h.out)
+	if h.opts.out != nil {
+		_, _ = line.WriteTo(h.opts.out, h.opts.LineFormat)
 	}
 	return nil
 }
@@ -143,11 +159,9 @@ func (h *formattingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 		}
 	}
 	return &formattingHandler{
-		attrs:        append(h.attrs, attrs...),
-		groups:       h.groups,
-		recs:         h.recs,
-		out:          h.out,
-		timeOverride: h.timeOverride,
+		attrs:  append(h.attrs, attrs...),
+		groups: h.groups,
+		opts:   h.opts,
 	}
 }
 
@@ -156,11 +170,9 @@ func (h *formattingHandler) WithGroup(name string) slog.Handler {
 		return h
 	}
 	return &formattingHandler{
-		attrs:        h.attrs,
-		groups:       append([]string{name}, h.groups...),
-		recs:         h.recs,
-		out:          h.out,
-		timeOverride: h.timeOverride,
+		attrs:  h.attrs,
+		groups: append([]string{name}, h.groups...),
+		opts:   h.opts,
 	}
 }
 
