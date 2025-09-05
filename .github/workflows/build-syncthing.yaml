@@ -537,6 +537,7 @@ jobs:
             | grep -v aix/ppc64 \
             | grep -v android/ \
             | grep -v darwin/ \
+            | grep -v illumos/ \
             | grep -v ios/ \
             | grep -v js/ \
             | grep -v linux/ \
