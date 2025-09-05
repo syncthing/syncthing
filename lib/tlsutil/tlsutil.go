@@ -83,6 +83,8 @@ func SecureDefaultWithTLS12() *tls.Config {
 		// We've put some thought into this choice and would like it to
 		// matter.
 		PreferServerCipherSuites: true,
+		// We support HTTP/2 and HTTP/1.1
+		NextProtos: []string{"h2", "http/1.1"},
 
 		ClientSessionCache: tls.NewLRUClientSessionCache(0),
 	}
