@@ -896,6 +896,96 @@ func TestDeleteBehindSymlink(t *testing.T) {
 	}
 }
 
+// TestSRConflictOnDivergentContent ensures a conflict copy is created when both
+// sides independently modify the same file contents (concurrent versions).
+func TestSRConflictOnDivergentContent(t *testing.T) {
+	_, f, wcfgCancel := setupSendReceiveFolder(t)
+	defer wcfgCancel()
+	ffs := f.Filesystem()
+
+	name := "both.txt"
+
+	// Start with a local file indexed at v1 (ours)
+	base := createEmptyFileInfo(t, name, ffs)
+	must(t, fs.WriteFile(ffs, name, []byte("local-base"), 0o644))
+	base.Version = protocol.Vector{}.Update(myID.Short())
+	f.updateLocalsFromScanning([]protocol.FileInfo{base})
+
+	// First, make a local divergent change to ensure concurrency
+	must(t, fs.WriteFile(ffs, name, []byte("local-change"), 0o644))
+	// Rescan to bump our local version
+	fi := createEmptyFileInfo(t, name, ffs)
+	fi.Version = base.Version.Update(myID.Short())
+	f.updateLocalsFromScanning([]protocol.FileInfo{fi})
+
+	// Simulate a remote delete with concurrent version – delete path calls moveForConflict synchronously
+	del := fi
+	del.Deleted = true
+	// Make the replacement version concurrent: only device1 has advanced
+	del.Version = protocol.Vector{}.Update(device1.Short())
+	del.ModifiedBy = device1.Short()
+	dbUpdateChan := make(chan dbUpdateJob, 1)
+	scanChan := make(chan string, 1)
+	f.deleteFileWithCurrent(del, fi, true, dbUpdateChan, scanChan)
+
+	confls := existingConflicts(name, ffs)
+	if len(confls) == 0 {
+		t.Fatal("expected a conflict file, got none")
+	}
+}
+
+// TestMetadataOnlyRescanPreservesVersion ensures that rescanning a file where only
+// metadata changed (content unchanged) preserves the previous version vector to avoid
+// false conflicts on next pull.
+func TestMetadataOnlyRescanPreservesVersion(t *testing.T) {
+	_, f, wcfgCancel := setupSendReceiveFolder(t)
+	defer wcfgCancel()
+	ffs := f.Filesystem()
+
+	name := "file.txt"
+
+	// Create local file and index it
+	fi := createEmptyFileInfo(t, name, ffs)
+	// Simulate initial local version
+	baseVersion := protocol.Vector{}.Update(myID.Short())
+	fi.Version = baseVersion
+	must(t, fs.WriteFile(ffs, name, []byte("hello"), 0o644))
+	f.updateLocalsFromScanning([]protocol.FileInfo{fi})
+
+	// Capture the version as stored in DB (avoid relying on baseVersion exact value)
+	prev, ok, err := f.db.GetDeviceFile(f.folderID, protocol.LocalDeviceID, name)
+	if err != nil || !ok {
+		t.Fatalf("missing file after initial index: %v %v", ok, err)
+	}
+	prevVersion := prev.Version
+
+	// Build fi2 from a fresh scan so blocks/hash match, then tweak metadata only
+	stat, err := ffs.Stat(name)
+	must(t, err)
+	fi2, err := scanner.CreateFileInfo(stat, name, ffs, f.SyncOwnership, f.SyncXattrs, f.XattrFilter)
+	must(t, err)
+	fi2.Permissions = 0o600 // different metadata; content unchanged
+	// Simulate scanner bump; our preserve hook should keep prevVersion
+	fi2.Version = prevVersion.Update(myID.Short())
+
+	if err := f.updateLocalsFromScanning([]protocol.FileInfo{fi2}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, ok, err := f.db.GetDeviceFile(f.folderID, protocol.LocalDeviceID, name)
+	if err != nil || !ok {
+		t.Fatalf("missing file after rescan: %v %v", ok, err)
+	}
+	if !got.Version.Equal(prevVersion) {
+		t.Fatalf("expected version preserved %v, got %v", prevVersion, got.Version)
+	}
+
+	// Ensure no conflict file was created as this was metadata-only.
+	if confs := existingConflicts(name, ffs); len(confs) != 0 {
+		t.Fatalf("unexpected conflict files: %v", confs)
+	}
+}
+
 // Reproduces https://github.com/syncthing/syncthing/issues/6559
 func TestPullCtxCancel(t *testing.T) {
 	_, f, wcfgCancel := setupSendReceiveFolder(t)

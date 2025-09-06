@@ -1248,6 +1248,9 @@ func (f *folder) ScheduleForceRescan(path string) {
 }
 
 func (f *folder) updateLocalsFromScanning(fs []protocol.FileInfo) error {
+	// Preserve previous version when only metadata differs to avoid false conflicts
+	// on filesystems that don't retain metadata.
+	fs = f.preserveVersionOnMetadataOnly(fs)
 	if err := f.updateLocals(fs); err != nil {
 		return err
 	}
@@ -1408,4 +1411,33 @@ func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
 		return protocol.FileInfo{}, false
 	}
 	return fi, true
+}
+
+// preserveVersionOnMetadataOnly keeps the existing version vector when the
+// scanned change is metadata-only and content blocks are identical.
+func (f *folder) preserveVersionOnMetadataOnly(in []protocol.FileInfo) []protocol.FileInfo {
+	if len(in) == 0 {
+		return in
+	}
+	out := make([]protocol.FileInfo, len(in))
+	copy(out, in)
+	for i := range out {
+		fi := &out[i]
+		prev, ok, err := f.db.GetDeviceFile(f.folderID, protocol.LocalDeviceID, fi.Name)
+		if err != nil || !ok {
+			continue
+		}
+		// If content is equivalent (blocks/hash) and only metadata differs, preserve version.
+		if fi.IsEquivalentOptional(prev, protocol.FileInfoComparison{
+			ModTimeWindow:   f.modTimeWindow,
+			IgnorePerms:     true,
+			IgnoreBlocks:    false,
+			IgnoreFlags:     protocol.LocalAllFlags,
+			IgnoreOwnership: true,
+			IgnoreXattrs:    true,
+		}) {
+			fi.Version = prev.Version
+		}
+	}
+	return out
 }
