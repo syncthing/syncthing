@@ -31,6 +31,8 @@ var bufPool = sync.Pool{
 	},
 }
 
+const hashLength = sha256.Size
+
 var hashPool = sync.Pool{
 	New: func() any {
 		return sha256.New()
@@ -42,9 +44,6 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 	if counter == nil {
 		counter = &noopCounter{}
 	}
-
-	hf := hashPool.Get().(hash.Hash) //nolint:forcetypeassert
-	const hashLength = sha256.Size
 
 	var blocks []protocol.BlockInfo
 	var hashes, thisHash []byte
@@ -62,8 +61,14 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 		hashes = make([]byte, 0, hashLength*numBlocks)
 	}
 
+	hf := hashPool.Get().(hash.Hash) //nolint:forcetypeassert
 	// A 32k buffer is used for copying into the hash function.
 	buf := bufPool.Get().(*[bufSize]byte)[:] //nolint:forcetypeassert
+	defer func() {
+		bufPool.Put((*[bufSize]byte)(buf))
+		hf.Reset()
+		hashPool.Put(hf)
+	}()
 
 	var offset int64
 	lr := io.LimitReader(r, int64(blocksize)).(*io.LimitedReader)
@@ -102,9 +107,6 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 
 		hf.Reset()
 	}
-	bufPool.Put((*[bufSize]byte)(buf))
-	hf.Reset()
-	hashPool.Put(hf)
 
 	if len(blocks) == 0 {
 		// Empty file
