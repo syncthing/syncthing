@@ -250,9 +250,9 @@ func (r blobRange) SQL(name string) string {
 
 // blobRanges returns n blobRanges in random order
 func blobRanges(n int) []blobRange {
-	// We use four byte (32 bit) prefixes to get fairly granular ranges and easy bit
+	// We use three byte (24 bit) prefixes to get fairly granular ranges and easy bit
 	// conversions.
-	rangeSize := (1 << 32) / n
+	rangeSize := (1 << 24) / n
 	ranges := make([]blobRange, 0, n)
 	var prev []byte
 	for i := range n {
@@ -271,5 +271,6 @@ func blobRanges(n int) []blobRange {
 func intToBlob(n int) []byte {
 	var pref [4]byte
 	binary.BigEndian.PutUint32(pref[:], uint32(n)) //nolint:gosec
-	return pref[:]
+	// first byte is always zero and not part of the range
+	return pref[1:]
 }
