@@ -8,8 +8,11 @@ package sqlite
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"log/slog"
+	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -21,6 +24,9 @@ import (
 const (
 	internalMetaPrefix = "dbsvc"
 	lastMaintKey       = "lastMaint"
+
+	blocksGCChunkSize  = 100_000         // approximate number of blocks to process in a single gc query
+	blocksGCMaxRuntime = 5 * time.Minute // max time to spend on blocks gc per run
 )
 
 func (s *DB) Service(maintenanceInterval time.Duration) suture.Service {
@@ -187,21 +193,83 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 		}))
 	}
 
-	if res, err := tx.ExecContext(ctx, `
+	// Count the number of blocks
+	var blocks int64
+	if err := tx.GetContext(ctx, &blocks, `SELECT count(*) FROM blocks`); err != nil {
+		return wrap(err)
+	}
+
+	// Process blocks in chunks up to a given time limit. We always use at
+	// least 16 chunks, then increase the number as the number of blocks
+	// exceeds 16*blocksGCChunkSize.
+	chunks := max(16, blocks/blocksGCChunkSize)
+	t0 := time.Now()
+	for i, br := range blobRanges(int(chunks)) {
+		if d := time.Since(t0); d > blocksGCMaxRuntime {
+			slog.InfoContext(ctx, "Blocks GC was interrupted due to exceeding time limit", "folder", fdb.folderID, "fdb", fdb.baseName, "runtime", d, "processed", i, "chunks", chunks)
+			break
+		}
+		if res, err := tx.ExecContext(ctx, fmt.Sprintf(`
 		DELETE FROM blocks
-		WHERE NOT EXISTS (
+		WHERE %s NOT EXISTS (
 			SELECT 1 FROM blocklists WHERE blocklists.blocklist_hash = blocks.blocklist_hash
-		)`); err != nil {
-		return wrap(err, "delete blocks")
-	} else {
-		slog.DebugContext(ctx, "Blocks GC", "fdb", fdb.baseName, "result", slogutil.Expensive(func() any {
-			rows, err := res.RowsAffected()
-			if err != nil {
-				return slogutil.Error(err)
-			}
-			return slog.Int64("rows", rows)
-		}))
+		)`, br.SQL("blocks.hash"))); err != nil {
+			return wrap(err, "delete blocks")
+		} else {
+			slog.DebugContext(ctx, "Blocks GC", "folder", fdb.folderID, "fdb", fdb.baseName, "runtime", time.Since(t0), "processed", i, "chunks", chunks, "result", slogutil.Expensive(func() any {
+				rows, err := res.RowsAffected()
+				if err != nil {
+					return slogutil.Error(err)
+				}
+				return slog.Int64("rows", rows)
+			}))
+		}
 	}
 
 	return wrap(tx.Commit())
+}
+
+// blobRange defines a range for blob searching. A range is open ended if
+// start or end is nil.
+type blobRange struct {
+	start, end []byte
+}
+
+// SQL returns the SQL where clause for the given range, ending with "and", e.g.
+// `column >= x'49249248' AND column < x'6db6db6c' AND `
+func (r blobRange) SQL(name string) string {
+	var sb strings.Builder
+	if r.start != nil {
+		fmt.Fprintf(&sb, "%s >= x'%x' AND ", name, r.start)
+	}
+	if r.end != nil {
+		fmt.Fprintf(&sb, "%s < x'%x' AND ", name, r.end)
+	}
+	return sb.String()
+}
+
+// blobRanges returns n blobRanges in random order
+func blobRanges(n int) []blobRange {
+	// We use four byte (32 bit) prefixes to get fairly granular ranges and easy bit
+	// conversions.
+	rangeSize := (1 << 32) / n
+	ranges := make([]blobRange, 0, n)
+	var prev []byte
+	for i := range n {
+		var pref []byte
+		if i < n-1 {
+			end := (i + 1) * rangeSize
+			pref = intToBlob(end)
+		}
+		ranges = append(ranges, blobRange{prev, pref})
+		prev = pref
+	}
+	rand.Shuffle(len(ranges), func(i, j int) { ranges[i], ranges[j] = ranges[j], ranges[i] })
+	return ranges
+}
+
+func intToBlob(n int) []byte {
+	var pref [4]byte
+	binary.BigEndian.PutUint32(pref[:], uint32(n)) //nolint:gosec
+	return pref[:]
 }
