@@ -25,8 +25,9 @@ const (
 	internalMetaPrefix = "dbsvc"
 	lastMaintKey       = "lastMaint"
 
-	blocksGCChunkSize  = 100_000         // approximate number of blocks to process in a single gc query
-	blocksGCMaxRuntime = 5 * time.Minute // max time to spend on blocks gc per run
+	gcMinChunks  = 5
+	gcChunkSize  = 100_000         // approximate number of rows to process in a single gc query
+	gcMaxRuntime = 5 * time.Minute // max time to spend on gc, per table, per run
 )
 
 func (s *DB) Service(maintenanceInterval time.Duration) suture.Service {
@@ -177,52 +178,43 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	if res, err := tx.ExecContext(ctx, `
-		DELETE FROM blocklists
-		WHERE NOT EXISTS (
-			SELECT 1 FROM files WHERE files.blocklist_hash = blocklists.blocklist_hash
-		)`); err != nil {
-		return wrap(err, "delete blocklists")
-	} else {
-		slog.DebugContext(ctx, "Blocklist GC", "fdb", fdb.baseName, "result", slogutil.Expensive(func() any {
-			rows, err := res.RowsAffected()
-			if err != nil {
-				return slogutil.Error(err)
-			}
-			return slog.Int64("rows", rows)
-		}))
-	}
-
-	// Count the number of blocks
-	var blocks int64
-	if err := tx.GetContext(ctx, &blocks, `SELECT count(*) FROM blocks`); err != nil {
-		return wrap(err)
-	}
-
-	// Process blocks in chunks up to a given time limit. We always use at
-	// least 16 chunks, then increase the number as the number of blocks
-	// exceeds 16*blocksGCChunkSize.
-	chunks := max(16, blocks/blocksGCChunkSize)
-	t0 := time.Now()
-	for i, br := range randomBlobRanges(int(chunks)) {
-		if d := time.Since(t0); d > blocksGCMaxRuntime {
-			slog.InfoContext(ctx, "Blocks GC was interrupted due to exceeding time limit", "folder", fdb.folderID, "fdb", fdb.baseName, "runtime", d, "processed", i, "chunks", chunks)
-			break
+	// Both blocklists and blocks refer to blocklists_hash from the files table.
+	for _, table := range []string{"blocklists", "blocks"} {
+		// Count the number of rows
+		var rows int64
+		if err := tx.GetContext(ctx, &rows, fmt.Sprintf(`SELECT count(*) FROM %s`, table)); err != nil {
+			return wrap(err)
 		}
-		if res, err := tx.ExecContext(ctx, fmt.Sprintf(`
-		DELETE FROM blocks
-		WHERE %s AND NOT EXISTS (
-			SELECT 1 FROM blocklists WHERE blocklists.blocklist_hash = blocks.blocklist_hash
-		)`, br.SQL("blocks.hash"))); err != nil {
-			return wrap(err, "delete blocks")
-		} else {
-			slog.DebugContext(ctx, "Blocks GC", "folder", fdb.folderID, "fdb", fdb.baseName, "runtime", time.Since(t0), "processed", i, "chunks", chunks, "result", slogutil.Expensive(func() any {
-				rows, err := res.RowsAffected()
-				if err != nil {
-					return slogutil.Error(err)
-				}
-				return slog.Int64("rows", rows)
-			}))
+
+		chunks := max(gcMinChunks, rows/gcChunkSize)
+		dl := slog.With("folder", fdb.folderID, "fdb", fdb.baseName, "table", table, "rows", rows, "chunks", chunks)
+
+		// Process rows in chunks up to a given time limit. We always use at
+		// least gcMinChunks chunks, then increase the number as the number of rows
+		// exceeds gcMinChunks*gcChunkSize.
+		t0 := time.Now()
+		for i, br := range randomBlobRanges(int(chunks)) {
+			if d := time.Since(t0); d > gcMaxRuntime {
+				dl.InfoContext(ctx, "GC was interrupted due to exceeding time limit", "processed", i, "runtime", time.Since(t0))
+				break
+			}
+
+			q := fmt.Sprintf(`
+				DELETE FROM %s
+				WHERE %s AND NOT EXISTS (
+					SELECT 1 FROM files WHERE files.blocklist_hash = %s.blocklist_hash
+				)`, table, br.SQL(table+".blocklist_hash"), table)
+			if res, err := tx.ExecContext(ctx, q); err != nil {
+				return wrap(err, "delete from "+table)
+			} else {
+				dl.DebugContext(ctx, "GC query result", "processed", i, "runtime", time.Since(t0), "result", slogutil.Expensive(func() any {
+					rows, err := res.RowsAffected()
+					if err != nil {
+						return slogutil.Error(err)
+					}
+					return slog.Int64("rows", rows)
+				}))
+			}
 		}
 	}
 
