@@ -258,7 +258,7 @@ func randomBlobRanges(n int) []blobRange {
 	return ranges
 }
 
-// blobRanges returns n blobRanges in random order
+// blobRanges returns n blobRanges
 func blobRanges(n int) []blobRange {
 	// We use three byte (24 bit) prefixes to get fairly granular ranges and easy bit
 	// conversions.
