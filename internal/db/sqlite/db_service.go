@@ -199,11 +199,19 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 				break
 			}
 
+			// The limit column must be an indexed column with a mostly random distribution of blobs.
+			// That's the blocklist_hash column for blocklists, and the hash column for blocks.
+			limitColumn := table + ".blocklist_hash"
+			if table == "blocks" {
+				limitColumn = "blocks.hash"
+			}
+
 			q := fmt.Sprintf(`
 				DELETE FROM %s
 				WHERE %s AND NOT EXISTS (
 					SELECT 1 FROM files WHERE files.blocklist_hash = %s.blocklist_hash
-				)`, table, br.SQL(table+".blocklist_hash"), table)
+				)`, table, br.SQL(limitColumn), table)
+
 			if res, err := tx.ExecContext(ctx, q); err != nil {
 				return wrap(err, "delete from "+table)
 			} else {
