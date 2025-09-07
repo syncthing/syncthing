@@ -204,14 +204,14 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 	// exceeds 16*blocksGCChunkSize.
 	chunks := max(16, blocks/blocksGCChunkSize)
 	t0 := time.Now()
-	for i, br := range blobRanges(int(chunks)) {
+	for i, br := range randomBlobRanges(int(chunks)) {
 		if d := time.Since(t0); d > blocksGCMaxRuntime {
 			slog.InfoContext(ctx, "Blocks GC was interrupted due to exceeding time limit", "folder", fdb.folderID, "fdb", fdb.baseName, "runtime", d, "processed", i, "chunks", chunks)
 			break
 		}
 		if res, err := tx.ExecContext(ctx, fmt.Sprintf(`
 		DELETE FROM blocks
-		WHERE %s NOT EXISTS (
+		WHERE %s AND NOT EXISTS (
 			SELECT 1 FROM blocklists WHERE blocklists.blocklist_hash = blocks.blocklist_hash
 		)`, br.SQL("blocks.hash"))); err != nil {
 			return wrap(err, "delete blocks")
@@ -235,17 +235,27 @@ type blobRange struct {
 	start, end []byte
 }
 
-// SQL returns the SQL where clause for the given range, ending with "and", e.g.
-// `column >= x'49249248' AND column < x'6db6db6c' AND `
+// SQL returns the SQL where clause for the given range, e.g.
+// `column >= x'49249248' AND column < x'6db6db6c'`
 func (r blobRange) SQL(name string) string {
 	var sb strings.Builder
 	if r.start != nil {
-		fmt.Fprintf(&sb, "%s >= x'%x' AND ", name, r.start)
+		fmt.Fprintf(&sb, "%s >= x'%x'", name, r.start)
+	}
+	if r.start != nil && r.end != nil {
+		sb.WriteString(" AND ")
 	}
 	if r.end != nil {
-		fmt.Fprintf(&sb, "%s < x'%x' AND ", name, r.end)
+		fmt.Fprintf(&sb, "%s < x'%x'", name, r.end)
 	}
 	return sb.String()
+}
+
+// randomBlobRanges returns n blobRanges in random order
+func randomBlobRanges(n int) []blobRange {
+	ranges := blobRanges(n)
+	rand.Shuffle(len(ranges), func(i, j int) { ranges[i], ranges[j] = ranges[j], ranges[i] })
+	return ranges
 }
 
 // blobRanges returns n blobRanges in random order
@@ -264,7 +274,6 @@ func blobRanges(n int) []blobRange {
 		ranges = append(ranges, blobRange{prev, pref})
 		prev = pref
 	}
-	rand.Shuffle(len(ranges), func(i, j int) { ranges[i], ranges[j] = ranges[j], ranges[i] })
 	return ranges
 }
 
