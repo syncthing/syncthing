@@ -907,17 +907,17 @@
                           <span ng-if="deviceCfg.compression == 'never'" translate>Off</span>
                         </td>
                       </tr>
-                      <tr>
+                      <tr ng-if="deviceCfg.introducedBy">
+                        <th><span class="far fa-fw fa-handshake-o"></span>&nbsp;<span translate>Introduced By</span></th>
+                        <td class="text-right">{{ deviceName(devices[deviceCfg.introducedBy]) || deviceShortID(deviceCfg.introducedBy) }}</td>
+                      </tr>
+                      <tr ng-if="deviceCfg.introducer || deviceCfg.autoAcceptFolders || deviceCfg.untrusted">
                         <th><span class="far fa-fw fa-check-square"></span>&nbsp;<span translate>Features</span></th>
                         <td class="text-right">
                           <span ng-if="deviceCfg.introducer"><span class="far fa-fw fa-level-down"></span>&nbsp;<span translate>Auto Accept</span><span ng-if="deviceCfg.autoAcceptFolders">,</span></span>
                           <span ng-if="deviceCfg.autoAcceptFolders"><span class="far fa-fw fa-thumbs-up"></span>&nbsp;<span translate>Introducer</span></span>
                           <span ng-if="deviceCfg.untrusted"><span class="far fa-fw fa-user-secret"></span>&nbsp;<span translate>Untrusted</span></span>
                         </td>
-                      </tr>
-                      <tr ng-if="deviceCfg.introducedBy">
-                        <th><span class="far fa-fw fa-handshake-o"></span>&nbsp;<span translate>Introduced By</span></th>
-                        <td class="text-right">{{ deviceName(devices[deviceCfg.introducedBy]) || deviceShortID(deviceCfg.introducedBy) }}</td>
                       </tr>
                       <tr>
                         <th><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Identification</span></th>
