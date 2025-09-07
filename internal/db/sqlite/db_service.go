@@ -126,7 +126,7 @@ func tidy(ctx context.Context, db *sqlx.DB) error {
 }
 
 func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB) error {
-	l := slog.With("fdb", fdb.baseDB)
+	l := slog.With("folder", fdb.folderID, "fdb", fdb.baseName)
 	if fdb.deleteRetention <= 0 {
 		slog.DebugContext(ctx, "Delete retention is infinite, skipping cleanup")
 		return nil
@@ -187,7 +187,7 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 		}
 
 		chunks := max(gcMinChunks, rows/gcChunkSize)
-		dl := slog.With("folder", fdb.folderID, "fdb", fdb.baseName, "table", table, "rows", rows, "chunks", chunks)
+		l := slog.With("folder", fdb.folderID, "fdb", fdb.baseName, "table", table, "rows", rows, "chunks", chunks)
 
 		// Process rows in chunks up to a given time limit. We always use at
 		// least gcMinChunks chunks, then increase the number as the number of rows
@@ -195,7 +195,7 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 		t0 := time.Now()
 		for i, br := range randomBlobRanges(int(chunks)) {
 			if d := time.Since(t0); d > gcMaxRuntime {
-				dl.InfoContext(ctx, "GC was interrupted due to exceeding time limit", "processed", i, "runtime", time.Since(t0))
+				l.InfoContext(ctx, "GC was interrupted due to exceeding time limit", "processed", i, "runtime", time.Since(t0))
 				break
 			}
 
@@ -207,7 +207,7 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 			if res, err := tx.ExecContext(ctx, q); err != nil {
 				return wrap(err, "delete from "+table)
 			} else {
-				dl.DebugContext(ctx, "GC query result", "processed", i, "runtime", time.Since(t0), "result", slogutil.Expensive(func() any {
+				l.DebugContext(ctx, "GC query result", "processed", i, "runtime", time.Since(t0), "result", slogutil.Expensive(func() any {
 					rows, err := res.RowsAffected()
 					if err != nil {
 						return slogutil.Error(err)
