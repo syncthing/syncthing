@@ -182,7 +182,7 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 	for _, table := range []string{"blocklists", "blocks"} {
 		// Count the number of rows
 		var rows int64
-		if err := tx.GetContext(ctx, &rows, fmt.Sprintf(`SELECT count(*) FROM %s`, table)); err != nil {
+		if err := tx.GetContext(ctx, &rows, `SELECT count(*) FROM `+table); err != nil {
 			return wrap(err)
 		}
 
