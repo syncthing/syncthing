@@ -18,12 +18,14 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/slogutil"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/thejerf/suture/v4"
 )
 
 const (
-	internalMetaPrefix = "dbsvc"
-	lastMaintKey       = "lastMaint"
+	internalMetaPrefix     = "dbsvc"
+	lastMaintKey           = "lastMaint"
+	lastSuccessfulGCSeqKey = "lastSuccessfulGCSeq"
 
 	gcMinChunks  = 5
 	gcChunkSize  = 100_000         // approximate number of rows to process in a single gc query
@@ -98,16 +100,41 @@ func (s *Service) periodic(ctx context.Context) error {
 	}
 
 	return wrap(s.sdb.forEachFolder(func(fdb *folderDB) error {
-		fdb.updateLock.Lock()
-		defer fdb.updateLock.Unlock()
+		// Get the current device sequence, for comparison in the next step.
+		seq, err := fdb.GetDeviceSequence(protocol.LocalDeviceID)
+		if err != nil {
+			return wrap(err)
+		}
+		// Get the last successful GC sequence. If it's the same as the
+		// current sequence, nothing has changed and we can skip the GC
+		// entirely.
+		meta := db.NewTyped(fdb, internalMetaPrefix)
+		if prev, _, err := meta.Int64(lastSuccessfulGCSeqKey); err != nil {
+			return wrap(err)
+		} else if seq == prev {
+			slog.DebugContext(ctx, "Skipping unnecessary GC", "folder", fdb.folderID, "fdb", fdb.baseName)
+			return nil
+		}
 
-		if err := garbageCollectOldDeletedLocked(ctx, fdb); err != nil {
+		// Run the GC steps, in a function to be able to use a deferred
+		// unlock.
+		if err := func() error {
+			fdb.updateLock.Lock()
+			defer fdb.updateLock.Unlock()
+
+			if err := garbageCollectOldDeletedLocked(ctx, fdb); err != nil {
+				return wrap(err)
+			}
+			if err := garbageCollectBlocklistsAndBlocksLocked(ctx, fdb); err != nil {
+				return wrap(err)
+			}
+			return tidy(ctx, fdb.sql)
+		}(); err != nil {
 			return wrap(err)
 		}
-		if err := garbageCollectBlocklistsAndBlocksLocked(ctx, fdb); err != nil {
-			return wrap(err)
-		}
-		return tidy(ctx, fdb.sql)
+
+		// Update the successful GC sequence.
+		return wrap(meta.PutInt64(lastSuccessfulGCSeqKey, seq))
 	}))
 }
 
