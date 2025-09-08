@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Aug 29, 2025" "v2.0.0" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Sep 06, 2025" "v2.0.0" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -156,7 +156,7 @@ Returns the current configuration.
       \(dqmarkerName\(dq: \(dq.stfolder\(dq,
       \(dqcopyOwnershipFromParent\(dq: false,
       \(dqmodTimeWindowS\(dq: 0,
-      \(dqmaxConcurrentWrites\(dq: 2,
+      \(dqmaxConcurrentWrites\(dq: 16,
       \(dqdisableFsync\(dq: false,
       \(dqblockPullOrder\(dq: \(dqstandard\(dq,
       \(dqcopyRangeMethod\(dq: \(dqstandard\(dq,
@@ -328,7 +328,7 @@ Returns the current configuration.
       \(dqmarkerName\(dq: \(dq.stfolder\(dq,
       \(dqcopyOwnershipFromParent\(dq: false,
       \(dqmodTimeWindowS\(dq: 0,
-      \(dqmaxConcurrentWrites\(dq: 2,
+      \(dqmaxConcurrentWrites\(dq: 16,
       \(dqdisableFsync\(dq: false,
       \(dqblockPullOrder\(dq: \(dqstandard\(dq,
       \(dqcopyRangeMethod\(dq: \(dqstandard\(dq,
@@ -398,14 +398,14 @@ config, modify the needed parts and post it again.
 \fBNOTE:\fP
 .INDENT 0.0
 .INDENT 3.5
-Return format changed in versions 0.13.0, 1.19.0 and 1.23.0.
+Return format changed in versions 0.13.0, 0.14.14, 1.2.0, 1.19.0, 1.23.0 and 1.25.0.
 .UNINDENT
 .UNINDENT
 .sp
 Returns the list of configured devices and some metadata associated
-with them. The list also contains the local device itself as not connected.
+with them.
 .sp
-The connection types are \fBTCP (Client)\fP, \fBTCP (Server)\fP, \fBRelay (Client)\fP and \fBRelay (Server)\fP\&.
+The connection types are \fBtcp\-client\fP, \fBtcp\-server\fP, \fBrelay\-client\fP, \fBrelay\-server\fP, \fBquic\-client\fP and \fBquic\-server\fP\&.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -446,7 +446,7 @@ The connection types are \fBTCP (Client)\fP, \fBTCP (Server)\fP, \fBRelay (Clien
       \(dqoutBytesTotal\(dq: 550,
       \(dqpaused\(dq: false,
       \(dqstartedAt\(dq: \(dq2015\-11\-07T00:09:47Z\(dq,
-      \(dqtype\(dq: \(dqTCP (Client)\(dq
+      \(dqtype\(dq: \(dqtcp\-client\(dq
     }
   },
   \(dqtotal\(dq: {
