@@ -79,7 +79,8 @@ var (
 		{regexp.MustCompile(`\svagrant@bullseye`), "F-Droid"},
 		{regexp.MustCompile(`\svagrant@bookworm`), "F-Droid"},
 
-		{regexp.MustCompile(`Anwender@NET2017`), "Syncthing-Fork (3rd party)"},
+		{regexp.MustCompile(`\sreproducible-build@Catfriend1-syncthing-android`), "Syncthing-Fork Catfriend1 (3rd party)"},
+		{regexp.MustCompile(`\sreproducible-build@nel0x-syncthing-android-gplay`), "Syncthing-Fork nel0x (3rd party)"},
 
 		{regexp.MustCompile(`\sbuilduser@(archlinux|svetlemodry)`), "Arch (3rd party)"},
 		{regexp.MustCompile(`\ssyncthing@archlinux`), "Arch (3rd party)"},
