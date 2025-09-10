@@ -66,8 +66,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS files_device_name ON files (device_idx, name_i
 -- We want to be able to look up & iterate files based on blocks hash
 CREATE INDEX IF NOT EXISTS files_blocklist_hash_only ON files (blocklist_hash, device_idx) WHERE blocklist_hash IS NOT NULL
 ;
--- We need to look by name_idx or version_idx for garbage collection
+-- We need to look by name_idx or version_idx for garbage collection.
+-- This will fail pre-migration for v4 schemas, which is fine.
+-- syncthing:ignore-failure
 CREATE INDEX IF NOT EXISTS files_name_idx_only ON files (name_idx)
 ;
+-- This will fail pre-migration for v4 schemas, which is fine.
+-- syncthing:ignore-failure
 CREATE INDEX IF NOT EXISTS files_version_idx_only ON files (version_idx)
 ;

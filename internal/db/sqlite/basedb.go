@@ -282,7 +282,12 @@ nextScript:
 		// also statement-internal semicolons in the triggers.
 		for _, stmt := range strings.Split(string(bs), "\n;") {
 			if _, err := tx.Exec(s.expandTemplateVars(stmt)); err != nil {
-				return wrap(err, stmt)
+				if strings.Contains(stmt, "syncthing:ignore-failure") {
+					// We're ok with this failing. Just note it.
+					slog.Debug("Script failed, but with ignore-failure annotation", slog.String("script", scr), slogutil.Error(wrap(err, stmt)))
+				} else {
+					return wrap(err, stmt)
+				}
 			}
 		}
 	}
