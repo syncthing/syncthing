@@ -47,9 +47,27 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 	txp := &txPreparedStmts{Tx: tx}
 
 	//nolint:sqlclosecheck
+	insertNameStmt, err := txp.Preparex(`
+		INSERT OR IGNORE INTO file_names (name)
+		VALUES (?)
+	`)
+	if err != nil {
+		return wrap(err, "prepare insert name")
+	}
+
+	//nolint:sqlclosecheck
+	insertVersionStmt, err := txp.Preparex(`
+		INSERT OR IGNORE INTO file_versions (version)
+		VALUES (?)
+	`)
+	if err != nil {
+		return wrap(err, "prepare insert version")
+	}
+
+	//nolint:sqlclosecheck
 	insertFileStmt, err := txp.Preparex(`
-		INSERT OR REPLACE INTO files (device_idx, remote_sequence, name, type, modified, size, version, deleted, local_flags, blocklist_hash)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT OR REPLACE INTO files (device_idx, remote_sequence, type, modified, size, deleted, local_flags, blocklist_hash, name_idx, version_idx)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, (SELECT idx FROM file_names WHERE name = ?), (SELECT idx FROM file_versions WHERE version = ?))
 		RETURNING sequence
 	`)
 	if err != nil {
@@ -102,8 +120,18 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 			prevRemoteSeq = f.Sequence
 			remoteSeq = &f.Sequence
 		}
+
+		if _, err := insertNameStmt.Exec(f.Name); err != nil {
+			return wrap(err, "insert name")
+		}
+
+		versionString := f.Version.String()
+		if _, err := insertVersionStmt.Exec(versionString); err != nil {
+			return wrap(err, "insert version")
+		}
+
 		var localSeq int64
-		if err := insertFileStmt.Get(&localSeq, deviceIdx, remoteSeq, f.Name, f.Type, f.ModTime().UnixNano(), f.Size, f.Version.String(), f.IsDeleted(), f.LocalFlags, blockshash); err != nil {
+		if err := insertFileStmt.Get(&localSeq, deviceIdx, remoteSeq, f.Type, f.ModTime().UnixNano(), f.Size, f.IsDeleted(), f.LocalFlags, blockshash, f.Name, versionString); err != nil {
 			return wrap(err, "insert file")
 		}
 
@@ -246,7 +274,9 @@ func (s *folderDB) DropFilesNamed(device protocol.DeviceID, names []string) erro
 
 	query, args, err := sqlx.In(`
 		DELETE FROM files
-		WHERE device_idx = ? AND name IN (?)
+		WHERE device_idx = ? AND name_idx IN (
+			SELECT idx FROM file_names WHERE name IN (?)
+		)
 	`, deviceIdx, names)
 	if err != nil {
 		return wrap(err)
@@ -299,12 +329,13 @@ func (s *folderDB) recalcGlobalForFolder(txp *txPreparedStmts) error {
 	// recalculate.
 	//nolint:sqlclosecheck
 	namesStmt, err := txp.Preparex(`
-		SELECT f.name FROM files f
+		SELECT n.name FROM files f
+		INNER JOIN file_names n ON n.idx = f.name_idx
 		WHERE NOT EXISTS (
 			SELECT 1 FROM files g
-			WHERE g.name = f.name AND g.local_flags & ? != 0
+			WHERE g.name_idx = f.name_idx AND g.local_flags & ? != 0
 		)
-		GROUP BY name
+		GROUP BY n.name
 	`)
 	if err != nil {
 		return wrap(err)
@@ -329,11 +360,13 @@ func (s *folderDB) recalcGlobalForFolder(txp *txPreparedStmts) error {
 func (s *folderDB) recalcGlobalForFile(txp *txPreparedStmts, file string) error {
 	//nolint:sqlclosecheck
 	selStmt, err := txp.Preparex(`
-		SELECT name, device_idx, sequence, modified, version, deleted, local_flags FROM files
-		WHERE name = ?
+		SELECT n.name, f.device_idx, f.sequence, f.modified, v.version, f.deleted, f.local_flags FROM files f
+		INNER JOIN file_versions v ON v.idx = f.version_idx
+		INNER JOIN file_names n ON n.idx = f.name_idx
+		WHERE n.name = ?
 	`)
 	if err != nil {
-		return wrap(err)
+		return wrap(err, "prepare select")
 	}
 	es, err := itererr.Collect(iterStructs[fileRow](selStmt.Queryx(file)))
 	if err != nil {
@@ -389,10 +422,10 @@ func (s *folderDB) recalcGlobalForFile(txp *txPreparedStmts, file string) error 
 	//nolint:sqlclosecheck
 	upStmt, err = txp.Preparex(`
 		UPDATE files SET local_flags = local_flags & ?
-		WHERE name = ? AND sequence != ? AND local_flags & ? != 0
+		WHERE name_idx = (SELECT idx FROM file_names WHERE name = ?) AND sequence != ? AND local_flags & ? != 0
 	`)
 	if err != nil {
-		return wrap(err)
+		return wrap(err, "prepare update")
 	}
 	if _, err := upStmt.Exec(^(protocol.FlagLocalNeeded | protocol.FlagLocalGlobal), global.Name, global.Sequence, protocol.FlagLocalNeeded|protocol.FlagLocalGlobal); err != nil {
 		return wrap(err)

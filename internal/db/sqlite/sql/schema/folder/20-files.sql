@@ -25,15 +25,27 @@ CREATE TABLE IF NOT EXISTS files (
     device_idx INTEGER NOT NULL, -- actual device ID or LocalDeviceID
     sequence INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, -- our local database sequence, for each and every entry
     remote_sequence INTEGER, -- remote device's sequence number, null for local or synthetic entries
-    name TEXT NOT NULL COLLATE BINARY,
+    name_idx INTEGER NOT NULL,
     type INTEGER NOT NULL, -- protocol.FileInfoType
     modified INTEGER NOT NULL, -- Unix nanos
     size INTEGER NOT NULL,
-    version TEXT NOT NULL COLLATE BINARY,
+    version_idx INTEGER NOT NULL,
     deleted INTEGER NOT NULL, -- boolean
     local_flags INTEGER NOT NULL,
     blocklist_hash BLOB, -- null when there are no blocks
-    FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE
+    FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE,
+    FOREIGN KEY(name_idx) REFERENCES file_names(idx),
+    FOREIGN KEY(version_idx) REFERENCES file_versions(idx)
+) STRICT
+;
+CREATE TABLE IF NOT EXISTS file_names (
+    idx INTEGER NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE COLLATE BINARY
+) STRICT
+;
+CREATE TABLE IF NOT EXISTS file_versions (
+    idx INTEGER NOT NULL PRIMARY KEY,
+    version TEXT NOT NULL UNIQUE COLLATE BINARY
 ) STRICT
 ;
 -- FileInfos store the actual protobuf object. We do this separately to keep
@@ -49,11 +61,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS files_remote_sequence ON files (device_idx, re
     WHERE remote_sequence IS NOT NULL
 ;
 -- There can be only one file per folder, device, and name
-CREATE UNIQUE INDEX IF NOT EXISTS files_device_name ON files (device_idx, name)
-;
--- We want to be able to look up & iterate files based on just folder and name
-CREATE INDEX IF NOT EXISTS files_name_only ON files (name)
+CREATE UNIQUE INDEX IF NOT EXISTS files_device_name ON files (device_idx, name_idx)
 ;
 -- We want to be able to look up & iterate files based on blocks hash
 CREATE INDEX IF NOT EXISTS files_blocklist_hash_only ON files (blocklist_hash, device_idx) WHERE blocklist_hash IS NOT NULL
+;
+-- We need to look by name_idx or version_idx for garbage collection
+CREATE INDEX IF NOT EXISTS files_name_idx_only ON files (name_idx)
+;
+CREATE INDEX IF NOT EXISTS files_version_idx_only ON files (version_idx)
 ;

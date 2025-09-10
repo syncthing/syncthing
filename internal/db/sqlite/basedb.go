@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	currentSchemaVersion = 4
+	currentSchemaVersion = 5
 	applicationIDMain    = 0x53546d6e // "STmn", Syncthing main database
 	applicationIDFolder  = 0x53546664 // "STfd", Syncthing folder database
 )
@@ -121,6 +121,17 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 		}
 		for _, script := range migrationScripts {
 			if err := db.runScripts(tx, script, filter); err != nil {
+				return nil, wrap(err)
+			}
+		}
+
+		// Run the initial schema scripts once more. This is generally a
+		// no-op. However, dropping a table removes associated triggers etc,
+		// and that's a thing we sometimes do in migrations. To avoid having
+		// to repeat the setup of associated triggers and indexes in the
+		// migration, we re-run the initial schema scripts.
+		for _, script := range schemaScripts {
+			if err := db.runScripts(tx, script); err != nil {
 				return nil, wrap(err)
 			}
 		}
