@@ -101,8 +101,8 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 		return nil, wrap(err)
 	}
 	defer func() {
-		conn.ExecContext(ctx, "PRAGMA foreign_keys = ON")
-		conn.ExecContext(ctx, "PRAGMA legacy_alter_table = OFF")
+		_, _ = conn.ExecContext(ctx, "PRAGMA foreign_keys = ON")
+		_, _ = conn.ExecContext(ctx, "PRAGMA legacy_alter_table = OFF")
 		conn.Close()
 	}()
 	if _, err := conn.ExecContext(ctx, "PRAGMA foreign_keys = OFF"); err != nil {
