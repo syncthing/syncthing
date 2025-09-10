@@ -51,3 +51,7 @@ DROP TABLE files
 
 ALTER TABLE files_v5 RENAME TO files
 ;
+
+-- Verify all things are in order
+PRAGMA foreign_key_check
+;
