@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/exp/constraints"
@@ -48,11 +49,16 @@ func savePerfStats(file string) {
 		in, out := protocol.TotalInOut()
 		timeDiff := t.Sub(prevTime)
 
+		rss := curRus.Maxrss
+		if build.IsDarwin {
+			rss /= 1024
+		}
+
 		fmt.Fprintf(fd, "%.03f\t%f\t%d\t%d\t%.0f\t%.0f\t%d\n",
 			t.Sub(t0).Seconds(),
 			rate(cpusec(&prevRus), cpusec(&curRus), timeDiff, 1),
 			(curMem.Sys-curMem.HeapReleased)/1024,
-			curRus.Maxrss/1024,
+			rss,
 			rate(prevIn, in, timeDiff, 1e3),
 			rate(prevOut, out, timeDiff, 1e3),
 			dirsize(locations.Get(locations.Database))/1024,

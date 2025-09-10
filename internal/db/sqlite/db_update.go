@@ -7,10 +7,16 @@
 package sqlite
 
 import (
+	"errors"
 	"fmt"
+	"log/slog"
 	"os"
+	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
+
+	"github.com/syncthing/syncthing/internal/slogutil"
 )
 
 func (s *DB) DropFolder(folder string) error {
@@ -39,6 +45,53 @@ func (s *DB) ListFolders() ([]string, error) {
 		ORDER BY folder_id
 	`).Select(&res)
 	return res, wrap(err)
+}
+
+// cleanDroppedFolders removes old database files for folders that no longer
+// exist in the main database.
+func (s *DB) cleanDroppedFolders() error {
+	// All expected folder databeses.
+	var names []string
+	err := s.stmt(`SELECT database_name FROM folders`).Select(&names)
+	if err != nil {
+		return wrap(err)
+	}
+
+	// All folder database files on disk.
+	files, err := filepath.Glob(filepath.Join(s.pathBase, "folder.*"))
+	if err != nil {
+		return wrap(err)
+	}
+
+	// Any files that don't match a name in the database are removed.
+	for _, file := range files {
+		base := filepath.Base(file)
+		inDB := slices.ContainsFunc(names, func(name string) bool { return strings.HasPrefix(base, name) })
+		if !inDB {
+			if err := os.Remove(file); err != nil {
+				slog.Warn("Failed to remove database file for old, dropped folder", slogutil.FilePath(base))
+			} else {
+				slog.Info("Cleaned out database file for old, dropped folder", slogutil.FilePath(base))
+			}
+		}
+	}
+	return nil
+}
+
+// startFolderDatabases loads all existing folder databases, thus causing
+// migrations to apply.
+func (s *DB) startFolderDatabases() error {
+	ids, err := s.ListFolders()
+	if err != nil {
+		return wrap(err)
+	}
+	for _, id := range ids {
+		_, err := s.getFolderDB(id, false)
+		if err != nil && !errors.Is(err, errNoSuchFolder) {
+			return wrap(err)
+		}
+	}
+	return nil
 }
 
 // wrap returns the error wrapped with the calling function name and

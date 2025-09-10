@@ -9,8 +9,11 @@ package beacon
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/netutil"
 
 	"golang.org/x/net/ipv6"
 )
@@ -59,7 +62,7 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 			return doneCtx.Err()
 		}
 
-		intfs, err := net.Interfaces()
+		intfs, err := netutil.Interfaces()
 		if err != nil {
 			l.Debugln(err)
 			return err
@@ -117,7 +120,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 		conn.Close()
 	}()
 
-	intfs, err := net.Interfaces()
+	intfs, err := netutil.Interfaces()
 	if err != nil {
 		l.Debugln(err)
 		return err
@@ -136,7 +139,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 	}
 
 	if joined == 0 {
-		l.Debugln("no multicast interfaces available")
+		slog.DebugContext(ctx, "No multicast interfaces available")
 		return errors.New("no multicast interfaces available")
 	}
 
@@ -159,7 +162,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 		select {
 		case outbox <- recv{c, addr}:
 		default:
-			l.Debugln("dropping message")
+			slog.DebugContext(ctx, "Dropping message")
 		}
 	}
 }

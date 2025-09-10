@@ -120,7 +120,7 @@ func TestDefaultValues(t *testing.T) {
 				},
 				MaxConflicts:        10,
 				MarkerName:          ".stfolder",
-				MaxConcurrentWrites: 2,
+				MaxConcurrentWrites: maxConcurrentWritesDefault,
 				XattrFilter: XattrFilter{
 					Entries:            []XattrFilterEntry{},
 					MaxSingleEntrySize: 1024,
@@ -1465,11 +1465,10 @@ func TestReceiveEncryptedFolderFixed(t *testing.T) {
 	cfg := Configuration{
 		Folders: []FolderConfiguration{
 			{
-				ID:                 "foo",
-				Path:               "testdata",
-				Type:               FolderTypeReceiveEncrypted,
-				DisableTempIndexes: false,
-				IgnorePerms:        false,
+				ID:          "foo",
+				Path:        "testdata",
+				Type:        FolderTypeReceiveEncrypted,
+				IgnorePerms: false,
 			},
 		},
 	}
@@ -1480,9 +1479,6 @@ func TestReceiveEncryptedFolderFixed(t *testing.T) {
 		t.Fatal("Expected one folder")
 	}
 	f := cfg.Folders[0]
-	if !f.DisableTempIndexes {
-		t.Error("DisableTempIndexes should be true")
-	}
 	if !f.IgnorePerms {
 		t.Error("IgnorePerms should be true")
 	}

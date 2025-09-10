@@ -6,11 +6,9 @@
 
 package api
 
-import (
-	"github.com/syncthing/syncthing/lib/logger"
-)
+import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = logger.DefaultLogger.NewFacility("api", "REST API")
+var l = slogutil.NewAdapter("REST API")
 
 func shouldDebugHTTP() bool {
 	return l.ShouldDebug("api")

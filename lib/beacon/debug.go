@@ -6,8 +6,6 @@
 
 package beacon
 
-import (
-	"github.com/syncthing/syncthing/lib/logger"
-)
+import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = logger.DefaultLogger.NewFacility("beacon", "Multicast and broadcast discovery")
+var l = slogutil.NewAdapter("Multicast and broadcast discovery")

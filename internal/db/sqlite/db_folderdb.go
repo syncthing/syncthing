@@ -10,7 +10,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
 	"iter"
+	"log/slog"
 	"path/filepath"
 	"strings"
 	"time"
@@ -77,7 +79,7 @@ func (s *DB) getFolderDB(folder string, create bool) (*folderDB, error) {
 		}
 	}
 
-	l.Debugf("Folder %s in database %s", folder, dbName)
+	slog.Debug("Folder database opened", "folder", folder, "db", dbName)
 	path := dbName
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(s.pathBase, dbName)
@@ -374,6 +376,22 @@ func (s *DB) DropDevice(device protocol.DeviceID) error {
 	return s.forEachFolder(func(fdb *folderDB) error {
 		return fdb.DropDevice(device)
 	})
+}
+
+func (s *DB) DebugCounts(out io.Writer, folder string) error {
+	fdb, err := s.getFolderDB(folder, false)
+	if err != nil {
+		return err
+	}
+	return fdb.DebugCounts(out)
+}
+
+func (s *DB) DebugFilePattern(out io.Writer, folder, name string) error {
+	fdb, err := s.getFolderDB(folder, false)
+	if err != nil {
+		return err
+	}
+	return fdb.DebugFilePattern(out, name)
 }
 
 // forEachFolder runs the function for each currently open folderDB,

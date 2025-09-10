@@ -10,6 +10,7 @@
 package dialer
 
 import (
+	"log/slog"
 	"syscall"
 
 	"golang.org/x/sys/unix"
@@ -28,11 +29,11 @@ func init() {
 	err = unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
 	switch {
 	case err == unix.ENOPROTOOPT || err == unix.EINVAL:
-		l.Debugln("SO_REUSEPORT not supported")
+		slog.Debug("SO_REUSEPORT not supported")
 	case err != nil:
 		l.Debugln("Unknown error when determining SO_REUSEPORT support", err)
 	default:
-		l.Debugln("SO_REUSEPORT supported")
+		slog.Debug("SO_REUSEPORT supported")
 		SupportsReusePort = true
 	}
 }

@@ -10,6 +10,8 @@ import (
 	"database/sql"
 	"embed"
 	"io/fs"
+	"log/slog"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -18,11 +20,16 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const currentSchemaVersion = 2
+const (
+	currentSchemaVersion = 4
+	applicationIDMain    = 0x53546d6e // "STmn", Syncthing main database
+	applicationIDFolder  = 0x53546664 // "STfd", Syncthing folder database
+)
 
 //go:embed sql/**
 var embedded embed.FS
@@ -44,7 +51,12 @@ type baseDB struct {
 func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScripts []string) (*baseDB, error) {
 	// Open the database with options to enable foreign keys and recursive
 	// triggers (needed for the delete+insert triggers on row replace).
-	sqlDB, err := sqlx.Open(dbDriver, "file:"+path+"?"+commonOptions)
+	pathURL := url.URL{
+		Scheme:   "file",
+		Path:     fileToUriPath(path),
+		RawQuery: commonOptions,
+	}
+	sqlDB, err := sqlx.Open(dbDriver, pathURL.String())
 	if err != nil {
 		return nil, wrap(err)
 	}
@@ -75,13 +87,20 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 		},
 	}
 
+	tx, err := db.sql.Beginx()
+	if err != nil {
+		return nil, wrap(err)
+	}
+	defer tx.Rollback()
+
 	for _, script := range schemaScripts {
-		if err := db.runScripts(script); err != nil {
+		if err := db.runScripts(tx, script); err != nil {
 			return nil, wrap(err)
 		}
 	}
 
-	ver, _ := db.getAppliedSchemaVersion()
+	ver, _ := db.getAppliedSchemaVersion(tx)
+	shouldVacuum := false
 	if ver.SchemaVersion > 0 {
 		filter := func(scr string) bool {
 			scr = filepath.Base(scr)
@@ -93,21 +112,48 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 			if err != nil {
 				return false
 			}
-			return int(n) > ver.SchemaVersion
+			if int(n) > ver.SchemaVersion {
+				slog.Info("Applying database migration", slogutil.FilePath(db.baseName), slog.String("script", scr))
+				shouldVacuum = true
+				return true
+			}
+			return false
 		}
 		for _, script := range migrationScripts {
-			if err := db.runScripts(script, filter); err != nil {
+			if err := db.runScripts(tx, script, filter); err != nil {
 				return nil, wrap(err)
 			}
 		}
 	}
 
 	// Set the current schema version, if not already set
-	if err := db.setAppliedSchemaVersion(currentSchemaVersion); err != nil {
+	if err := db.setAppliedSchemaVersion(tx, currentSchemaVersion); err != nil {
 		return nil, wrap(err)
 	}
 
+	if err := tx.Commit(); err != nil {
+		return nil, wrap(err)
+	}
+
+	if shouldVacuum {
+		// We applied migrations and should take the opportunity to vaccuum
+		// the database.
+		if err := db.vacuumAndOptimize(); err != nil {
+			return nil, wrap(err)
+		}
+	}
+
 	return db, nil
+}
+
+func fileToUriPath(path string) string {
+	path = filepath.ToSlash(path)
+	if (build.IsWindows && len(path) >= 2 && path[1] == ':') ||
+		(strings.HasPrefix(path, "//") && !strings.HasPrefix(path, "///")) {
+		// Add an extra leading slash for Windows drive letter or UNC path
+		path = "/" + path
+	}
+	return path
 }
 
 func (s *baseDB) Close() error {
@@ -172,6 +218,20 @@ func (s *baseDB) expandTemplateVars(tpl string) string {
 	return sb.String()
 }
 
+func (s *baseDB) vacuumAndOptimize() error {
+	stmts := []string{
+		"VACUUM;",
+		"PRAGMA optimize;",
+		"PRAGMA wal_checkpoint(truncate);",
+	}
+	for _, stmt := range stmts {
+		if _, err := s.sql.Exec(stmt); err != nil {
+			return wrap(err, stmt)
+		}
+	}
+	return nil
+}
+
 type stmt interface {
 	Exec(args ...any) (sql.Result, error)
 	Get(dest any, args ...any) error
@@ -188,17 +248,11 @@ func (f failedStmt) Get(_ any, _ ...any) error           { return f.err }
 func (f failedStmt) Queryx(_ ...any) (*sqlx.Rows, error) { return nil, f.err }
 func (f failedStmt) Select(_ any, _ ...any) error        { return f.err }
 
-func (s *baseDB) runScripts(glob string, filter ...func(s string) bool) error {
+func (s *baseDB) runScripts(tx *sqlx.Tx, glob string, filter ...func(s string) bool) error {
 	scripts, err := fs.Glob(embedded, glob)
 	if err != nil {
 		return wrap(err)
 	}
-
-	tx, err := s.sql.Begin()
-	if err != nil {
-		return wrap(err)
-	}
-	defer tx.Rollback() //nolint:errcheck
 
 nextScript:
 	for _, scr := range scripts {
@@ -222,7 +276,7 @@ nextScript:
 		}
 	}
 
-	return wrap(tx.Commit())
+	return nil
 }
 
 type schemaVersion struct {
@@ -235,20 +289,20 @@ func (s *schemaVersion) AppliedTime() time.Time {
 	return time.Unix(0, s.AppliedAt)
 }
 
-func (s *baseDB) setAppliedSchemaVersion(ver int) error {
-	_, err := s.stmt(`
+func (s *baseDB) setAppliedSchemaVersion(tx *sqlx.Tx, ver int) error {
+	_, err := tx.Exec(`
 		INSERT OR IGNORE INTO schemamigrations (schema_version, applied_at, syncthing_version)
 		VALUES (?, ?, ?)
-	`).Exec(ver, time.Now().UnixNano(), build.LongVersion)
+	`, ver, time.Now().UnixNano(), build.LongVersion)
 	return wrap(err)
 }
 
-func (s *baseDB) getAppliedSchemaVersion() (schemaVersion, error) {
+func (s *baseDB) getAppliedSchemaVersion(tx *sqlx.Tx) (schemaVersion, error) {
 	var v schemaVersion
-	err := s.stmt(`
+	err := tx.Get(&v, `
 		SELECT schema_version as schemaversion, applied_at as appliedat, syncthing_version as syncthingversion FROM schemamigrations
 		ORDER BY schema_version DESC
 		LIMIT 1
-	`).Get(&v)
+	`)
 	return v, wrap(err)
 }

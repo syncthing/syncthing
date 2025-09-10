@@ -14,7 +14,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
+	"maps"
 	"net/http"
 	_ "net/http/pprof" // Need to import this to support STPROFILER.
 	"net/url"
@@ -40,6 +41,7 @@ import (
 	"github.com/syncthing/syncthing/cmd/syncthing/generate"
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
@@ -47,7 +49,6 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/locations"
-	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
@@ -61,20 +62,8 @@ const (
 
 const (
 	extraUsage = `
-The --logflags value is a sum of the following:
-
-   1  Date
-   2  Time
-   4  Microsecond time
-   8  Long filename
-  16  Short filename
-
-I.e. to prefix each log line with time and filename, set --logflags=18 (2 + 16
-from above). The value 0 is used to disable all of the above. The default is
-to show date and time (3).
-
 Logging always happens to the command line (stdout) and optionally to the
-file at the path specified by --logfile=path. In addition to an path, the special
+file at the path specified by --log-file=path. In addition to an path, the special
 values "default" and "-" may be used. The former logs to DATADIR/syncthing.log
 (see --data), which is the default on Windows, and the latter only to stdout,
 no file, which is the default anywhere else.
@@ -87,11 +76,10 @@ The following environment variables modify Syncthing's behavior in ways that
 are mostly useful for developers. Use with care. See also the --debug-* options
 above.
 
- STTRACE           A comma separated string of facilities to trace. The valid
-                   facility strings are listed below.
-
- STLOCKTHRESHOLD   Used for debugging internal deadlocks; sets debug
-                   sensitivity.  Use only under direction of a developer.
+ STTRACE           A comma separated string of packages to trace or change log
+                   level for. The valid package strings are listed below. A log
+                   level (DEBUG, INFO, WARN or ERROR) can be added after each
+                   package, separated by a colon. Ex: "model:WARN,nat:DEBUG".
 
  STVERSIONEXTRA    Add extra information to the version string in logs and the
                    version line in the GUI. Can be set to the name of a wrapper
@@ -106,8 +94,8 @@ above.
                    of CPU usage (i.e. performance).
 
 
-Debugging Facilities
---------------------
+Logging Facilities
+------------------
 
 The following are valid values for the STTRACE variable:
 
@@ -134,9 +122,10 @@ type CLI struct {
 	// subcommands. Their settings take effect on the `locations` package by
 	// way of the command line parser, so anything using `locations.Get` etc
 	// will be doing the right thing.
-	ConfDir string `name:"config" short:"C" placeholder:"PATH" env:"STCONFDIR" help:"Set configuration directory (config and keys)"`
-	DataDir string `name:"data" short:"D" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
-	HomeDir string `name:"home" short:"H" placeholder:"PATH" env:"STHOMEDIR" help:"Set configuration and data directory"`
+	ConfDir     string `name:"config" short:"C" placeholder:"PATH" env:"STCONFDIR" help:"Set configuration directory (config and keys)"`
+	DataDir     string `name:"data" short:"D" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
+	HomeDir     string `name:"home" short:"H" placeholder:"PATH" env:"STHOMEDIR" help:"Set configuration and data directory"`
+	VersionFlag bool   `name:"version" help:"Show current version, then exit"`
 
 	Serve serveCmd `cmd:"" help:"Run Syncthing (default)" default:"withargs"`
 	CLI   cli.CLI  `cmd:"" help:"Command line interface for Syncthing"`
@@ -167,20 +156,23 @@ type serveCmd struct {
 	Audit                     bool          `help:"Write events to audit file" env:"STAUDIT"`
 	AuditFile                 string        `name:"auditfile" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)" placeholder:"PATH" env:"STAUDITFILE"`
 	DBMaintenanceInterval     time.Duration `help:"Database maintenance interval" default:"8h" env:"STDBMAINTENANCEINTERVAL"`
-	DBDeleteRetentionInterval time.Duration `help:"Database deleted item retention interval" default:"4320h" env:"STDBDELETERETENTIONINTERVAL"`
+	DBDeleteRetentionInterval time.Duration `help:"Database deleted item retention interval" default:"10920h" env:"STDBDELETERETENTIONINTERVAL"`
 	GUIAddress                string        `name:"gui-address" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")" placeholder:"URL" env:"STGUIADDRESS"`
 	GUIAPIKey                 string        `name:"gui-apikey" help:"Override GUI API key" placeholder:"API-KEY" env:"STGUIAPIKEY"`
-	LogFile                   string        `name:"logfile" help:"Log file name (see below)" default:"${logFile}" placeholder:"PATH" env:"STLOGFILE"`
-	LogFlags                  int           `name:"logflags" help:"Select information in log line prefix (see below)" default:"${logFlags}" placeholder:"BITS" env:"STLOGFLAGS"`
+	LogFile                   string        `name:"log-file" aliases:"logfile" help:"Log file name (see below)" default:"${logFile}" placeholder:"PATH" env:"STLOGFILE"`
+	LogFlags                  int           `name:"logflags" help:"Deprecated option that does nothing, kept for compatibility" hidden:""`
+	LogLevel                  slog.Level    `help:"Log level for all packages (DEBUG,INFO,WARN,ERROR)" env:"STLOGLEVEL" default:"INFO"`
 	LogMaxFiles               int           `name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)" default:"${logMaxFiles}" placeholder:"N" env:"STLOGMAXOLDFILES"`
 	LogMaxSize                int           `help:"Maximum size of any file (zero to disable log rotation)" default:"${logMaxSize}" placeholder:"BYTES" env:"STLOGMAXSIZE"`
+	LogFormatTimestamp        string        `name:"log-format-timestamp" help:"Format for timestamp, set to empty to disable timestamps" env:"STLOGFORMATTIMESTAMP" default:"${timestampFormat}"`
+	LogFormatLevelString      bool          `name:"log-format-level-string" help:"Whether to include level string in log line" env:"STLOGFORMATLEVELSTRING" default:"${levelString}" negatable:""`
+	LogFormatLevelSyslog      bool          `name:"log-format-level-syslog" help:"Whether to include level as syslog prefix in log line" env:"STLOGFORMATLEVELSYSLOG" default:"${levelSyslog}" negatable:""`
 	NoBrowser                 bool          `help:"Do not start browser" env:"STNOBROWSER"`
 	NoPortProbing             bool          `help:"Don't try to find free ports for GUI and listen addresses on first startup" env:"STNOPORTPROBING"`
 	NoRestart                 bool          `help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash" env:"STNORESTART"`
 	NoUpgrade                 bool          `help:"Disable automatic upgrades" env:"STNOUPGRADE"`
 	Paused                    bool          `help:"Start with all devices and folders paused" env:"STPAUSED"`
 	Unpaused                  bool          `help:"Start with all devices and folders unpaused" env:"STUNPAUSED"`
-	Verbose                   bool          `help:"Print verbose log output" env:"STVERBOSE"`
 
 	// Debug options below
 	DebugGUIAssetsDir   string `help:"Directory to load GUI assets from" placeholder:"PATH" env:"STGUIASSETS"`
@@ -197,14 +189,12 @@ type serveCmd struct {
 }
 
 func defaultVars() kong.Vars {
-	vars := kong.Vars{}
-
-	vars["logFlags"] = strconv.Itoa(logger.DefaultFlags)
-	vars["logMaxSize"] = strconv.Itoa(10 << 20) // 10 MiB
-	vars["logMaxFiles"] = "3"                   // plus the current one
-
-	if os.Getenv("STTRACE") != "" {
-		vars["logFlags"] = strconv.Itoa(logger.DebugFlags)
+	vars := kong.Vars{
+		"logMaxSize":      strconv.Itoa(10 << 20), // 10 MiB
+		"logMaxFiles":     "3",                    // plus the current one
+		"levelString":     strconv.FormatBool(slogutil.DefaultLineFormat.LevelString),
+		"levelSyslog":     strconv.FormatBool(slogutil.DefaultLineFormat.LevelSyslog),
+		"timestampFormat": slogutil.DefaultLineFormat.TimestampFormat,
 	}
 
 	// On non-Windows, we explicitly default to "-" which means stdout. On
@@ -234,13 +224,19 @@ func main() {
 		defaultVars(),
 	)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Parsing startup", slogutil.Error(err))
+		os.Exit(svcutil.ExitError.AsInt())
 	}
 
 	kongplete.Complete(parser)
 	ctx, err := parser.Parse(os.Args[1:])
 	parser.FatalIfErrorf(err)
-	ctx.BindTo(l, (*logger.Logger)(nil)) // main logger available to subcommands
+
+	if entrypoint.VersionFlag {
+		_ = versionCmd{}.Run()
+		return
+	}
+
 	err = ctx.Run()
 	parser.FatalIfErrorf(err)
 }
@@ -252,15 +248,13 @@ func helpHandler(options kong.HelpOptions, ctx *kong.Context) error {
 	if ctx.Command() == "serve" {
 		// Help was requested for `syncthing serve`, so we add our extra
 		// usage info afte the normal options output.
-		fmt.Printf(extraUsage, debugFacilities())
+		fmt.Printf(extraUsage, logPackages())
 	}
 	return nil
 }
 
 // serveCmd.Run() is the entrypoint for `syncthing serve`
 func (c *serveCmd) Run() error {
-	l.SetFlags(c.LogFlags)
-
 	if c.GUIAddress != "" {
 		// The config picks this up from the environment.
 		os.Setenv("STGUIADDRESS", c.GUIAddress)
@@ -274,6 +268,15 @@ func (c *serveCmd) Run() error {
 		osutil.HideConsole()
 	}
 
+	// Customize the logging early
+	slogutil.SetLineFormat(slogutil.LineFormat{
+		TimestampFormat: c.LogFormatTimestamp,
+		LevelString:     c.LogFormatLevelString,
+		LevelSyslog:     c.LogFormatLevelSyslog,
+	})
+	slogutil.SetDefaultLevel(c.LogLevel)
+	slogutil.SetLevelOverrides(os.Getenv("STTRACE"))
+
 	// Treat an explicitly empty log file name as no log file
 	if c.LogFile == "" {
 		c.LogFile = "-"
@@ -281,7 +284,7 @@ func (c *serveCmd) Run() error {
 	if c.LogFile != "default" {
 		// We must set this *after* expandLocations above.
 		if err := locations.Set(locations.LogFile, c.LogFile); err != nil {
-			l.Warnln("Setting log file path:", err)
+			slog.Error("Failed to set log file path", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 	}
@@ -290,7 +293,7 @@ func (c *serveCmd) Run() error {
 		// The asset dir is blank if STGUIASSETS wasn't set, in which case we
 		// should look for extra assets in the default place.
 		if err := locations.Set(locations.GUIAssets, c.DebugGUIAssetsDir); err != nil {
-			l.Warnln("Setting GUI assets path:", err)
+			slog.Error("Failed to set GUI assets path", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 	}
@@ -298,7 +301,7 @@ func (c *serveCmd) Run() error {
 	// Ensure that our config and data directories exist.
 	for _, loc := range []locations.BaseDirEnum{locations.ConfigBaseDir, locations.DataBaseDir} {
 		if err := syncthing.EnsureDir(locations.GetBaseDir(loc), 0o700); err != nil {
-			l.Warnln("Failed to ensure directory exists:", err)
+			slog.Error("Failed to ensure directory exists", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 	}
@@ -321,29 +324,27 @@ func openGUI() error {
 			return err
 		}
 	} else {
-		l.Warnln("Browser: GUI is currently disabled")
+		slog.Error("Browser: GUI is currently disabled")
 	}
 	return nil
 }
 
-func debugFacilities() string {
-	facilities := l.Facilities()
+func logPackages() string {
+	packages := slogutil.PackageDescrs()
 
 	// Get a sorted list of names
-	var names []string
+	names := slices.Sorted(maps.Keys(packages))
 	maxLen := 0
-	for name := range facilities {
-		names = append(names, name)
+	for _, name := range names {
 		if len(name) > maxLen {
 			maxLen = len(name)
 		}
 	}
-	slices.Sort(names)
 
 	// Format the choices
 	b := new(bytes.Buffer)
 	for _, name := range names {
-		fmt.Fprintf(b, " %-*s - %s\n", maxLen, name, facilities[name])
+		fmt.Fprintf(b, " %-*s - %s\n", maxLen, name, packages[name])
 	}
 	return b.String()
 }
@@ -371,7 +372,7 @@ func checkUpgrade() (upgrade.Release, error) {
 		return upgrade.Release{}, &errNoUpgrade{build.Version, release.Tag}
 	}
 
-	l.Infof("Upgrade available (current %q < latest %q)", build.Version, release.Tag)
+	slog.Info("Upgrade available", "current", build.Version, "latest", release.Tag)
 	return release, nil
 }
 
@@ -428,13 +429,9 @@ func (c *serveCmd) syncthingMain() {
 		startPerfStats()
 	}
 
-	// Set a log prefix similar to the ID we will have later on, or early log
-	// lines look ugly.
-	l.SetPrefix("[start] ")
-
 	// Print our version information up front, so any crash that happens
 	// early etc. will have it available.
-	l.Infoln(build.LongVersion)
+	slog.Info(build.LongVersion) //nolint:sloglint
 
 	// Ensure that we have a certificate and key.
 	cert, err := syncthing.LoadOrGenerateCertificate(
@@ -442,7 +439,7 @@ func (c *serveCmd) syncthingMain() {
 		locations.Get(locations.KeyFile),
 	)
 	if err != nil {
-		l.Warnln("Failed to load/generate certificate:", err)
+		slog.Error("Failed to load/generate certificate", slogutil.Error(err))
 		os.Exit(1)
 	}
 
@@ -450,10 +447,10 @@ func (c *serveCmd) syncthingMain() {
 	lf := flock.New(locations.Get(locations.LockFile))
 	locked, err := lf.TryLock()
 	if err != nil {
-		l.Warnln("Failed to acquire lock:", err)
+		slog.Error("Failed to acquire lock", slogutil.Error(err))
 		os.Exit(1)
 	} else if !locked {
-		l.Warnln("Failed to acquire lock: is another Syncthing instance already running?")
+		slog.Error("Failed to acquire lock: is another Syncthing instance already running?")
 		os.Exit(1)
 	}
 
@@ -462,7 +459,7 @@ func (c *serveCmd) syncthingMain() {
 
 	// earlyService is a supervisor that runs the services needed for or
 	// before app startup; the event logger, and the config service.
-	spec := svcutil.SpecWithDebugLogger(l)
+	spec := svcutil.SpecWithDebugLogger()
 	earlyService := suture.New("early", spec)
 	earlyService.ServeBackground(ctx)
 
@@ -471,7 +468,7 @@ func (c *serveCmd) syncthingMain() {
 
 	cfgWrapper, err := syncthing.LoadConfigAtStartup(locations.Get(locations.ConfigFile), cert, evLogger, c.AllowNewerConfig, c.NoPortProbing)
 	if err != nil {
-		l.Warnln("Failed to initialize config:", err)
+		slog.Error("Failed to initialize config", slogutil.Error(err))
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 	earlyService.Add(cfgWrapper)
@@ -483,7 +480,7 @@ func (c *serveCmd) syncthingMain() {
 
 	if build.IsCandidate && !upgrade.DisabledByCompilation && !c.NoUpgrade {
 		cfgWrapper.Modify(func(cfg *config.Configuration) {
-			l.Infoln("Automatic upgrade is always enabled for candidate releases.")
+			slog.Info("Automatic upgrade is always enabled for candidate releases")
 			if cfg.Options.AutoUpgradeIntervalH == 0 || cfg.Options.AutoUpgradeIntervalH > 24 {
 				cfg.Options.AutoUpgradeIntervalH = 12
 				// Set the option into the config as well, as the auto upgrade
@@ -494,16 +491,31 @@ func (c *serveCmd) syncthingMain() {
 		})
 	}
 
-	if err := syncthing.TryMigrateDatabase(c.DBDeleteRetentionInterval); err != nil {
-		l.Warnln("Failed to migrate old-style database:", err)
+	migratingAPICtx, migratingAPICancel := context.WithCancel(ctx)
+	if cfgWrapper.GUI().Enabled {
+		// Start a temporary API server during the migration. It will wait
+		// startDelay until actually starting, so that if we quickly pass
+		// through the migration steps (e.g., there was nothing to migrate)
+		// and cancel the context, it will never even start.
+		api := migratingAPI{
+			addr:       cfgWrapper.GUI().Address(),
+			startDelay: 5 * time.Second,
+		}
+		go api.Serve(migratingAPICtx)
+	}
+
+	if err := syncthing.TryMigrateDatabase(ctx, c.DBDeleteRetentionInterval); err != nil {
+		slog.Error("Failed to migrate old-style database", slogutil.Error(err))
 		os.Exit(1)
 	}
 
 	sdb, err := syncthing.OpenDatabase(locations.Get(locations.Database), c.DBDeleteRetentionInterval)
 	if err != nil {
-		l.Warnln("Error opening database:", err)
+		slog.Error("Error opening database", slogutil.Error(err))
 		os.Exit(1)
 	}
+
+	migratingAPICancel() // we're done with the temporary API server
 
 	// Check if auto-upgrades is possible, and if yes, and it's enabled do an initial
 	// upgrade immediately. The auto-upgrade routine can only be started
@@ -518,12 +530,12 @@ func (c *serveCmd) syncthingMain() {
 		}
 		if err != nil {
 			if _, ok := err.(*errNoUpgrade); ok || err == errTooEarlyUpgradeCheck || err == errTooEarlyUpgrade {
-				l.Debugln("Initial automatic upgrade:", err)
+				slog.Debug("Initial automatic upgrade", slogutil.Error(err))
 			} else {
-				l.Infoln("Initial automatic upgrade:", err)
+				slog.Info("Initial automatic upgrade", slogutil.Error(err))
 			}
 		} else {
-			l.Infof("Upgraded to %q, should exit now.", release.Tag)
+			slog.Info("Upgraded, should exit now", "newVersion", release.Tag)
 			os.Exit(svcutil.ExitUpgrade.AsInt())
 		}
 	}
@@ -538,18 +550,17 @@ func (c *serveCmd) syncthingMain() {
 		NoUpgrade:             c.NoUpgrade,
 		ProfilerAddr:          c.DebugProfilerListen,
 		ResetDeltaIdxs:        c.DebugResetDeltaIdxs,
-		Verbose:               c.Verbose,
 		DBMaintenanceInterval: c.DBMaintenanceInterval,
 	}
 
 	if c.Audit || cfgWrapper.Options().AuditEnabled {
-		l.Infoln("Auditing is enabled.")
+		slog.Info("Auditing is enabled")
 
 		auditFile := cfgWrapper.Options().AuditFile
 
 		// Ignore config option if command-line option is set
 		if c.AuditFile != "" {
-			l.Debugln("Using the audit file from the command-line parameter.")
+			slog.Debug("Using the audit file from the command-line parameter", slogutil.FilePath(c.AuditFile))
 			auditFile = c.AuditFile
 		}
 
@@ -558,7 +569,7 @@ func (c *serveCmd) syncthingMain() {
 
 	app, err := syncthing.New(cfgWrapper, sdb, evLogger, cert, appOpts)
 	if err != nil {
-		l.Warnln("Failed to start Syncthing:", err)
+		slog.Error("Failed to start Syncthing", slogutil.Error(err))
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 
@@ -571,11 +582,11 @@ func (c *serveCmd) syncthingMain() {
 	if c.DebugProfileCPU {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
 		if err != nil {
-			l.Warnln("Creating profile:", err)
+			slog.Error("Failed to create profile", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 		if err := pprof.StartCPUProfile(f); err != nil {
-			l.Warnln("Starting profile:", err)
+			slog.Error("Failed to start profile", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 	}
@@ -595,7 +606,7 @@ func (c *serveCmd) syncthingMain() {
 	status := app.Wait()
 
 	if status == svcutil.ExitError {
-		l.Warnln("Syncthing stopped with error:", app.Error())
+		slog.Error("Syncthing stopped with error", slogutil.Error(app.Error()))
 	}
 
 	if c.DebugProfileCPU {
@@ -663,13 +674,13 @@ func auditWriter(auditFile string) io.Writer {
 		}
 		fd, err = os.OpenFile(auditFile, auditFlags, 0o600)
 		if err != nil {
-			l.Warnln("Audit:", err)
+			slog.Error("Failed to open audit file", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
 		auditDest = auditFile
 	}
 
-	l.Infoln("Audit log in", auditDest)
+	slog.Info("Writing audit log", slogutil.FilePath(auditDest))
 
 	return fd
 }
@@ -679,7 +690,7 @@ func (c *serveCmd) autoUpgradePossible() bool {
 		return false
 	}
 	if c.NoUpgrade {
-		l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
+		slog.Info("No automatic upgrades; STNOUPGRADE environment variable defined")
 		return false
 	}
 	return true
@@ -696,7 +707,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 				continue
 			}
 			if cfg.Options().AutoUpgradeEnabled() {
-				l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], build.Version, data["clientVersion"])
+				slog.Info("Connected to device with a newer version; checking for upgrades", slog.String("device", data["id"]), slog.String("ourVersion", build.Version), slog.String("theirVersion", data["clientVersion"]))
 			}
 		case <-timer.C:
 		}
@@ -716,7 +727,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 		if err != nil {
 			// Don't complain too loudly here; we might simply not have
 			// internet connectivity, or the upgrade server might be down.
-			l.Infoln("Automatic upgrade:", err)
+			slog.Info("Automatic upgrade", slogutil.Error(err))
 			timer.Reset(checkInterval)
 			continue
 		}
@@ -727,15 +738,15 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 			continue
 		}
 
-		l.Infof("Automatic upgrade (current %q < latest %q)", build.Version, rel.Tag)
+		slog.Info("Automatic upgrade", "current", build.Version, "latest", rel.Tag)
 		err = upgrade.To(rel)
 		if err != nil {
-			l.Warnln("Automatic upgrade:", err)
+			slog.Error("Automatic upgrade failed", slogutil.Error(err))
 			timer.Reset(checkInterval)
 			continue
 		}
 		sub.Unsubscribe()
-		l.Warnf("Automatically upgraded to version %q. Restarting in 1 minute.", rel.Tag)
+		slog.Error("Automatically upgraded, restarting in 1 minute", slog.String("newVersion", rel.Tag))
 		time.Sleep(time.Minute)
 		app.Stop(svcutil.ExitUpgrade)
 		return
@@ -770,40 +781,39 @@ func initialAutoUpgradeCheck(misc *db.Typed) (upgrade.Release, error) {
 // suitable time after they have gone out of fashion.
 func cleanConfigDirectory() {
 	patterns := map[string]time.Duration{
-		"panic-*.log":        7 * 24 * time.Hour,  // keep panic logs for a week
-		"audit-*.log":        7 * 24 * time.Hour,  // keep audit logs for a week
-		"index":              14 * 24 * time.Hour, // keep old index format for two weeks
-		"index-v0.11.0.db":   14 * 24 * time.Hour, // keep old index format for two weeks
-		"index-v0.13.0.db":   14 * 24 * time.Hour, // keep old index format for two weeks
-		"index*.converted":   14 * 24 * time.Hour, // keep old converted indexes for two weeks
-		"config.xml.v*":      30 * 24 * time.Hour, // old config versions for a month
-		"*.idx.gz":           30 * 24 * time.Hour, // these should for sure no longer exist
-		"backup-of-v0.8":     30 * 24 * time.Hour, // these neither
-		"tmp-index-sorter.*": time.Minute,         // these should never exist on startup
-		"support-bundle-*":   30 * 24 * time.Hour, // keep old support bundle zip or folder for a month
-		"csrftokens.txt":     0,                   // deprecated, remove immediately
+		"panic-*.log":               7 * 24 * time.Hour,  // keep panic logs for a week
+		"audit-*.log":               7 * 24 * time.Hour,  // keep audit logs for a week
+		"index-v0.14.0.db-migrated": 14 * 24 * time.Hour, // keep old index format for two weeks
+		"config.xml.v*":             30 * 24 * time.Hour, // old config versions for a month
+		"support-bundle-*":          30 * 24 * time.Hour, // keep old support bundle zip or folder for a month
 	}
 
-	for pat, dur := range patterns {
-		fs := fs.NewFilesystem(fs.FilesystemTypeBasic, locations.GetBaseDir(locations.ConfigBaseDir))
-		files, err := fs.Glob(pat)
-		if err != nil {
-			l.Infoln("Cleaning:", err)
-			continue
-		}
-
-		for _, file := range files {
-			info, err := fs.Lstat(file)
+	locations := slices.Compact([]string{
+		locations.GetBaseDir(locations.ConfigBaseDir),
+		locations.GetBaseDir(locations.DataBaseDir),
+	})
+	for _, loc := range locations {
+		fs := fs.NewFilesystem(fs.FilesystemTypeBasic, loc)
+		for pat, dur := range patterns {
+			entries, err := fs.Glob(pat)
 			if err != nil {
-				l.Infoln("Cleaning:", err)
+				slog.Warn("Failed to clean config directory", slogutil.Error(err))
 				continue
 			}
 
-			if time.Since(info.ModTime()) > dur {
-				if err = fs.RemoveAll(file); err != nil {
-					l.Infoln("Cleaning:", err)
-				} else {
-					l.Infoln("Cleaned away old file", filepath.Base(file))
+			for _, entry := range entries {
+				info, err := fs.Lstat(entry)
+				if err != nil {
+					slog.Warn("Failed to clean config directory", slogutil.Error(err))
+					continue
+				}
+
+				if time.Since(info.ModTime()) > dur {
+					if err = fs.RemoveAll(entry); err != nil {
+						slog.Warn("Failed to clean config directory", slogutil.Error(err))
+					} else {
+						slog.Warn("Cleaned away old file", slogutil.FilePath(filepath.Base(entry)))
+					}
 				}
 			}
 		}
@@ -820,7 +830,7 @@ func setPauseState(cfgWrapper config.Wrapper, paused bool) {
 		}
 	})
 	if err != nil {
-		l.Warnln("Cannot adjust paused state:", err)
+		slog.Error("Cannot adjust paused state", slogutil.Error(err))
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 }
@@ -847,7 +857,7 @@ func (deviceIDCmd) Run() error {
 		locations.Get(locations.KeyFile),
 	)
 	if err != nil {
-		l.Warnln("Error reading device ID:", err)
+		slog.Error("Failed to read device ID", slogutil.Error(err))
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 
@@ -870,7 +880,7 @@ type upgradeCmd struct {
 func (u upgradeCmd) Run() error {
 	if u.CheckOnly {
 		if _, err := checkUpgrade(); err != nil {
-			l.Warnln("Checking for upgrade:", err)
+			slog.Error("Failed to check for upgrade", slogutil.Error(err))
 			os.Exit(exitCodeForUpgrade(err))
 		}
 		return nil
@@ -879,10 +889,10 @@ func (u upgradeCmd) Run() error {
 	if u.From != "" {
 		err := upgrade.ToURL(u.From)
 		if err != nil {
-			l.Warnln("Error while Upgrading:", err)
+			slog.Error("Failed to upgrade", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
 		}
-		l.Infoln("Upgraded from", u.From)
+		slog.Info("Upgraded", "from", u.From)
 		return nil
 	}
 
@@ -891,20 +901,24 @@ func (u upgradeCmd) Run() error {
 		lf := flock.New(locations.Get(locations.LockFile))
 		var locked bool
 		locked, err = lf.TryLock()
-		if err != nil {
-			l.Warnln("Upgrade:", err)
+		// ErrNotExist is a valid error if this is a new/blank installation
+		// without a config dir, in which case we can proceed with a normal
+		// non-API upgrade.
+		switch {
+		case err != nil && !os.IsNotExist(err):
+			slog.Error("Failed to lock for upgrade", slogutil.Error(err))
 			os.Exit(1)
-		} else if locked {
+		case locked:
 			err = upgradeViaRest()
-		} else {
+		default:
 			err = upgrade.To(release)
 		}
 	}
 	if err != nil {
-		l.Warnln("Upgrade:", err)
+		slog.Error("Failed to check for upgrade", slogutil.Error(err))
 		os.Exit(exitCodeForUpgrade(err))
 	}
-	l.Infof("Upgraded to %q", release.Tag)
+	slog.Info("Upgraded", "to", release.Tag)
 	os.Exit(svcutil.ExitUpgrade.AsInt())
 	return nil
 }
@@ -913,26 +927,28 @@ type browserCmd struct{}
 
 func (browserCmd) Run() error {
 	if err := openGUI(); err != nil {
-		l.Warnln("Failed to open web UI:", err)
+		slog.Error("Failed to open web UI", slogutil.Error(err))
 		os.Exit(svcutil.ExitError.AsInt())
 	}
 	return nil
 }
 
 type debugCmd struct {
-	ResetDatabase      resetDatabaseCmd `cmd:"" help:"Reset the database, forcing a full rescan and resync"`
-	DatabaseStatistics databaseStatsCmd `cmd:"" help:"Display database size statistics"`
+	ResetDatabase      resetDatabaseCmd  `cmd:"" help:"Reset the database, forcing a full rescan and resync"`
+	DatabaseStatistics databaseStatsCmd  `cmd:"" help:"Display database size statistics"`
+	DatabaseCounts     databaseCountsCmd `cmd:"" help:"Display database folder counts"`
+	DatabaseFile       databaseFileCmd   `cmd:"" help:"Display database file metadata"`
 }
 
 type resetDatabaseCmd struct{}
 
 func (resetDatabaseCmd) Run() error {
-	l.Infoln("Removing database in", locations.Get(locations.Database))
+	slog.Info("Removing database", slogutil.FilePath(locations.Get(locations.Database)))
 	if err := os.RemoveAll(locations.Get(locations.Database)); err != nil {
-		l.Warnln("Resetting database:", err)
+		slog.Error("Failed to reset database", slogutil.Error(err))
 		os.Exit(svcutil.ExitError.AsInt())
 	}
-	l.Infoln("Successfully reset database - it will be rebuilt after next start.")
+	slog.Info("Reset database - it will be rebuilt after next start")
 	return nil
 }
 
@@ -954,6 +970,33 @@ func (c databaseStatsCmd) Run() error {
 	fmt.Fprint(tw, regexp.MustCompile(`[A-Z]`).ReplaceAllString(hdr, "="))
 	c.printStat(tw, ds)
 	return tw.Flush()
+}
+
+type databaseCountsCmd struct {
+	Folder string `arg:"" required:""`
+}
+
+func (c databaseCountsCmd) Run() error {
+	db, err := sqlite.Open(locations.Get(locations.Database))
+	if err != nil {
+		return err
+	}
+
+	return db.DebugCounts(os.Stdout, c.Folder)
+}
+
+type databaseFileCmd struct {
+	Folder string `arg:"" required:""`
+	File   string `arg:"" required:""`
+}
+
+func (c databaseFileCmd) Run() error {
+	db, err := sqlite.Open(locations.Get(locations.Database))
+	if err != nil {
+		return err
+	}
+
+	return db.DebugFilePattern(os.Stdout, c.Folder, c.File)
 }
 
 func (c databaseStatsCmd) printStat(w io.Writer, s *sqlite.DatabaseStatistics) {
@@ -993,4 +1036,33 @@ func setConfigDataLocationsFromFlags(homeDir, confDir, dataDir string) error {
 		return locations.SetBaseDir(locations.DataBaseDir, dataDir)
 	}
 	return nil
+}
+
+type migratingAPI struct {
+	addr       string
+	startDelay time.Duration
+}
+
+func (m migratingAPI) Serve(ctx context.Context) error {
+	srv := &http.Server{
+		Addr: m.addr,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/plain")
+			w.Write([]byte("*** Database migration in progress ***\n\n"))
+			for _, line := range slogutil.GlobalRecorder.Since(time.Time{}) {
+				_, _ = line.WriteTo(w, slogutil.DefaultLineFormat)
+			}
+		}),
+	}
+	go func() {
+		select {
+		case <-time.After(m.startDelay):
+			slog.InfoContext(ctx, "Starting temporary GUI/API during migration", slogutil.Address(m.addr))
+			err := srv.ListenAndServe()
+			slog.InfoContext(ctx, "Temporary GUI/API closed", slogutil.Address(m.addr), slogutil.Error(err))
+		case <-ctx.Done():
+		}
+	}()
+	<-ctx.Done()
+	return srv.Close()
 }

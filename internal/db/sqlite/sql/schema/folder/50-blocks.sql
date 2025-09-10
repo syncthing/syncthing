@@ -14,21 +14,21 @@
 CREATE TABLE IF NOT EXISTS blocklists (
     blocklist_hash BLOB NOT NULL PRIMARY KEY,
     blprotobuf BLOB NOT NULL
-) STRICT
+) STRICT, WITHOUT ROWID
 ;
 
 -- Blocks
 --
 -- For all local files we store the blocks individually for quick lookup. A
 -- given block can exist in multiple blocklists and at multiple offsets in a
--- blocklist.
+-- blocklist. We eschew most indexes here as inserting millions of blocks is
+-- common and performance is critical.
 CREATE TABLE IF NOT EXISTS blocks (
     hash BLOB NOT NULL,
     blocklist_hash BLOB NOT NULL,
     idx INTEGER NOT NULL,
     offset INTEGER NOT NULL,
     size INTEGER NOT NULL,
-    PRIMARY KEY (hash, blocklist_hash, idx),
-    FOREIGN KEY(blocklist_hash) REFERENCES blocklists(blocklist_hash) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
-) STRICT
+    PRIMARY KEY(hash, blocklist_hash, idx)
+) STRICT, WITHOUT ROWID
 ;

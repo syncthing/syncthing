@@ -7,10 +7,12 @@
 package syncthing
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -19,6 +21,7 @@ import (
 	"github.com/syncthing/syncthing/internal/db/olddb"
 	"github.com/syncthing/syncthing/internal/db/olddb/backend"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -44,7 +47,7 @@ func EnsureDir(dir string, mode fs.FileMode) error {
 			err := fs.Chmod(".", mode)
 			// This can fail on crappy filesystems, nothing we can do about it.
 			if err != nil {
-				l.Warnln(err)
+				slog.Warn("Failed to correct directory permissions", slogutil.Error(err))
 			}
 		}
 	}
@@ -60,7 +63,7 @@ func LoadOrGenerateCertificate(certFile, keyFile string) (tls.Certificate, error
 }
 
 func GenerateCertificate(certFile, keyFile string) (tls.Certificate, error) {
-	l.Infof("Generating key and certificate for %s...", tlsDefaultCommonName)
+	slog.Info("Generating key and certificate", "cn", tlsDefaultCommonName)
 	return tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, deviceCertLifetimeDays, false)
 }
 
@@ -68,7 +71,7 @@ func DefaultConfig(path string, myID protocol.DeviceID, evLogger events.Logger, 
 	newCfg := config.New(myID)
 
 	if skipPortProbing {
-		l.Infoln("Using default network port numbers instead of probing for free ports")
+		slog.Info("Using default network port numbers instead of probing for free ports")
 		// Record address override initially
 		newCfg.GUI.RawAddress = newCfg.GUI.Address()
 	} else if err := newCfg.ProbeFreePorts(); err != nil {
@@ -94,19 +97,16 @@ func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logg
 		if err != nil {
 			return nil, fmt.Errorf("failed to save default config: %w", err)
 		}
-		l.Infof("Default config saved. Edit %s to taste (with Syncthing stopped) or use the GUI", cfg.ConfigPath())
-	} else if err == io.EOF {
+		slog.Info("Default config saved; edit to taste (with Syncthing stopped) or use the GUI", slogutil.FilePath(cfg.ConfigPath()))
+	} else if errors.Is(err, io.EOF) {
 		return nil, errors.New("failed to load config: unexpected end of file. Truncated or empty configuration?")
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
 	if originalVersion != config.CurrentVersion {
-		if originalVersion == config.CurrentVersion+1101 {
-			l.Infof("Now, THAT's what we call a config from the future! Don't worry. As long as you hit that wire with the connecting hook at precisely eighty-eight miles per hour the instant the lightning strikes the tower... everything will be fine.")
-		}
 		if originalVersion > config.CurrentVersion && !allowNewerConfig {
-			return nil, fmt.Errorf("config file version (%d) is newer than supported version (%d). If this is expected, use --allow-newer-config to override.", originalVersion, config.CurrentVersion)
+			return nil, fmt.Errorf("config file version (%d) is newer than supported version (%d); if this is expected, use --allow-newer-config to override", originalVersion, config.CurrentVersion)
 		}
 		err = archiveAndSaveConfig(cfg, originalVersion)
 		if err != nil {
@@ -120,7 +120,7 @@ func LoadConfigAtStartup(path string, cert tls.Certificate, evLogger events.Logg
 func archiveAndSaveConfig(cfg config.Wrapper, originalVersion int) error {
 	// Copy the existing config to an archive copy
 	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", originalVersion)
-	l.Infoln("Archiving a copy of old config file format at:", archivePath)
+	slog.Info("Archiving a copy of old config file format", slogutil.FilePath(archivePath))
 	if err := copyFile(cfg.ConfigPath(), archivePath); err != nil {
 		return err
 	}
@@ -157,7 +157,8 @@ func OpenDatabase(path string, deleteRetention time.Duration) (db.DB, error) {
 }
 
 // Attempts migration of the old (LevelDB-based) database type to the new (SQLite-based) type
-func TryMigrateDatabase(deleteRetention time.Duration) error {
+// This will attempt to provide a temporary API server during the migration, if `apiAddr` is not empty.
+func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration) error {
 	oldDBDir := locations.Get(locations.LegacyDatabase)
 	if _, err := os.Lstat(oldDBDir); err != nil {
 		// No old database
@@ -179,11 +180,11 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 
 	miscDB := db.NewMiscDB(sdb)
 	if when, ok, err := miscDB.Time("migrated-from-leveldb-at"); err == nil && ok {
-		l.Warnf("Old-style database present but already migrated at %v; please manually move or remove %s.", when, oldDBDir)
+		slog.Error("Old-style database present but already migrated; please manually move or remove.", slog.Any("migratedAt", when), slogutil.FilePath(oldDBDir))
 		return nil
 	}
 
-	l.Infoln("Migrating old-style database to SQLite; this may take a while...")
+	slog.Info("Migrating old-style database to SQLite; this may take a while...")
 	t0 := time.Now()
 
 	ll, err := olddb.NewLowlevel(be)
@@ -198,12 +199,20 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 		var writeErr error
 		var wg sync.WaitGroup
 		wg.Add(1)
+		writerDone := make(chan struct{})
 		go func() {
 			defer wg.Done()
+			defer close(writerDone)
 			var batch []protocol.FileInfo
 			files, blocks := 0, 0
 			t0 := time.Now()
 			t1 := time.Now()
+
+			if writeErr = sdb.DropFolder(folder); writeErr != nil {
+				slog.Error("Failed database drop", slogutil.Error(writeErr))
+				return
+			}
+
 			for fi := range fis {
 				batch = append(batch, fi)
 				files++
@@ -211,13 +220,14 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 				if len(batch) == 1000 {
 					writeErr = sdb.Update(folder, protocol.LocalDeviceID, batch)
 					if writeErr != nil {
+						slog.Error("Failed database write", slogutil.Error(writeErr))
 						return
 					}
 					batch = batch[:0]
 					if time.Since(t1) > 10*time.Second {
 						d := time.Since(t0) + 1
 						t1 = time.Now()
-						l.Infof("Migrating folder %s... (%d files and %dk blocks in %v, %.01f files/s)", folder, files, blocks/1000, d.Truncate(time.Second), float64(files)/d.Seconds())
+						slog.Info("Still migrating folder", "folder", folder, "files", files, "blocks", blocks, "duration", d.Truncate(time.Second), "blocksrate", float64(blocks)/d.Seconds(), "filesrate", float64(files)/d.Seconds())
 					}
 				}
 			}
@@ -225,7 +235,7 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 				writeErr = sdb.Update(folder, protocol.LocalDeviceID, batch)
 			}
 			d := time.Since(t0) + 1
-			l.Infof("Migrated folder %s; %d files and %dk blocks in %v, %.01f files/s", folder, files, blocks/1000, d.Truncate(time.Second), float64(files)/d.Seconds())
+			slog.Info("Migrated folder", "folder", folder, "files", files, "blocks", blocks, "duration", d.Truncate(time.Second), "filesrate", float64(files)/d.Seconds())
 			totFiles += files
 			totBlocks += blocks
 		}()
@@ -245,8 +255,12 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 				// criteria in the database
 				return true
 			}
-			fis <- fi
-			return true
+			select {
+			case fis <- fi:
+				return true
+			case <-writerDone:
+				return false
+			}
 		})
 		close(fis)
 		snap.Release()
@@ -258,9 +272,9 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 		}
 	}
 
-	l.Infoln("Migrating virtual mtimes...")
+	slog.Info("Migrating virtual mtimes...")
 	if err := ll.IterateMtimes(sdb.PutMtime); err != nil {
-		l.Warnln("Failed to migrate mtimes:", err)
+		slog.Warn("Failed to migrate mtimes", slogutil.Error(err))
 	}
 
 	_ = miscDB.PutTime("migrated-from-leveldb-at", time.Now())
@@ -269,6 +283,6 @@ func TryMigrateDatabase(deleteRetention time.Duration) error {
 	_ = be.Close()
 	_ = os.Rename(oldDBDir, oldDBDir+"-migrated")
 
-	l.Infof("Migration complete, %d files and %dk blocks in %s", totFiles, totBlocks/1000, time.Since(t0).Truncate(time.Second))
+	slog.Info("Migration complete", "files", totFiles, "blocks", totBlocks/1000, "duration", time.Since(t0).Truncate(time.Second))
 	return nil
 }

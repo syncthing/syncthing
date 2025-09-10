@@ -131,15 +131,6 @@ func prettyPrintResponse(response *http.Response) error {
 	return prettyPrintJSON(data)
 }
 
-func nulString(bs []byte) string {
-	for i := range bs {
-		if bs[i] == 0 {
-			return string(bs[:i])
-		}
-	}
-	return string(bs)
-}
-
 func normalizePath(path string) string {
 	return filepath.ToSlash(filepath.Clean(path))
 }

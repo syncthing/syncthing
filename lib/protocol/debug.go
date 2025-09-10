@@ -6,8 +6,6 @@
 
 package protocol
 
-import (
-	"github.com/syncthing/syncthing/lib/logger"
-)
+import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = logger.DefaultLogger.NewFacility("protocol", "The BEP protocol")
+var l = slogutil.NewAdapter("The BEP protocol")

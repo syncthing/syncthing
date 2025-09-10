@@ -10,14 +10,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -30,7 +33,6 @@ import (
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/stringutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
@@ -54,6 +56,7 @@ type folder struct {
 	modTimeWindow time.Duration
 	ctx           context.Context //nolint:containedctx // used internally, only accessible on serve lifetime
 	done          chan struct{}   // used externally, accessible regardless of serve
+	sl            *slog.Logger
 
 	scanInterval           time.Duration
 	scanTimer              *time.Timer
@@ -98,7 +101,7 @@ type puller interface {
 	pull() (bool, error) // true when successful and should not be retried
 }
 
-func newFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *semaphore.Semaphore, ver versioner.Versioner) folder {
+func newFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfiguration, evLogger events.Logger, ioLimiter *semaphore.Semaphore, ver versioner.Versioner) *folder {
 	f := folder{
 		stateTracker:              newStateTracker(cfg.ID, evLogger),
 		FolderConfiguration:       cfg,
@@ -112,6 +115,7 @@ func newFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfigura
 		mtimefs:       cfg.Filesystem(fs.NewMtimeOption(model.sdb, cfg.ID)),
 		modTimeWindow: cfg.ModTimeWindow(),
 		done:          make(chan struct{}),
+		sl:            slog.Default().With(cfg.LogAttr()),
 
 		scanInterval:           time.Duration(cfg.RescanIntervalS) * time.Second,
 		scanTimer:              time.NewTimer(0), // The first scan should be done immediately.
@@ -123,17 +127,13 @@ func newFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfigura
 
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
 
-		errorsMut: sync.NewMutex(),
-
 		doInSyncChan: make(chan syncRequest),
 
 		forcedRescanRequested: make(chan struct{}, 1),
 		forcedRescanPaths:     make(map[string]struct{}),
-		forcedRescanPathsMut:  sync.NewMutex(),
 
 		watchCancel:      func() {},
 		restartWatchChan: make(chan struct{}, 1),
-		watchMut:         sync.NewMutex(),
 
 		versioner: ver,
 	}
@@ -143,7 +143,7 @@ func newFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfigura
 
 	registerFolderMetrics(f.ID)
 
-	return f
+	return &f
 }
 
 func (f *folder) Serve(ctx context.Context) error {
@@ -188,8 +188,12 @@ func (f *folder) Serve(ctx context.Context) error {
 		case <-f.pullScheduled:
 			if f.PullerDelayS > 0 {
 				// Wait for incoming updates to settle before doing the
-				// actual pull
-				f.setState(FolderSyncWaiting)
+				// actual pull. Only set the state to SyncWaiting if we have
+				// reason to believe there is something to sync, to avoid
+				// unnecessary flashing in the GUI.
+				if needCount, err := f.db.CountNeed(f.folderID, protocol.LocalDeviceID); err == nil && needCount.TotalItems() > 0 {
+					f.setState(FolderSyncWaiting)
+				}
 				pullTimer.Reset(time.Duration(float64(time.Second) * f.PullerDelayS))
 			} else {
 				_, err = f.pull()
@@ -436,7 +440,7 @@ func (f *folder) pull() (success bool, err error) {
 
 	// Pulling failed, try again later.
 	delay := f.pullPause + time.Since(startTime)
-	l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), stringutil.NiceDurationString(delay))
+	f.sl.Info("Folder failed to sync, will be retried", slog.String("wait", stringutil.NiceDurationString(delay)))
 	f.pullFailTimer.Reset(delay)
 
 	return false, err
@@ -944,11 +948,11 @@ func (f *folder) scanTimerFired() error {
 	select {
 	case <-f.initialScanFinished:
 	default:
-		status := "Completed"
 		if err != nil {
-			status = "Failed"
+			f.sl.Error("Failed initial scan", slogutil.Error(err))
+		} else {
+			f.sl.Info("Completed initial scan")
 		}
-		l.Infoln(status, "initial scan of", f.Type.String(), "folder", f.Description())
 		close(f.initialScanFinished)
 	}
 
@@ -969,7 +973,7 @@ func (f *folder) versionCleanupTimerFired() {
 	f.setState(FolderCleaning)
 
 	if err := f.versioner.Clean(f.ctx); err != nil {
-		l.Infoln("Failed to clean versions in %s: %v", f.Description(), err)
+		f.sl.Warn("Failed to clean versions", slogutil.Error(err))
 	}
 
 	f.versionCleanupTimer.Reset(f.versionCleanupInterval)
@@ -1080,7 +1084,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 			var errOutside *fs.WatchEventOutsideRootError
 			if errors.As(err, &errOutside) {
 				if !warnedOutside {
-					l.Warnln(err)
+					slog.WarnContext(ctx, err.Error()) //nolint:sloglint
 					warnedOutside = true
 				}
 				f.evLogger.Log(events.Failure, "watching for changes encountered an event outside of the filesystem root")
@@ -1095,7 +1099,7 @@ func (f *folder) monitorWatch(ctx context.Context) {
 				f.warnedKqueue = true
 				summarySub.Unsubscribe()
 				summaryChan = nil
-				l.Warnf("Filesystem watching (kqueue) is enabled on %v with a lot of files/directories, and that requires a lot of resources and might slow down your system significantly", f.Description())
+				slog.WarnContext(ctx, "Filesystem watching (kqueue) is enabled with a lot of files/directories, which requires a lot of resources and might slow down your system significantly", f.LogAttr())
 			}
 		case <-ctx.Done():
 			aggrCancel() // for good measure and keeping the linters happy
@@ -1126,12 +1130,11 @@ func (f *folder) setWatchError(err error, nextTryIn time.Duration) {
 	if err == nil {
 		return
 	}
-	msg := fmt.Sprintf("Error while trying to start filesystem watcher for folder %s, trying again in %v: %v", f.Description(), nextTryIn, err)
 	if prevErr != err { //nolint:errorlint
-		l.Infof(msg)
-		return
+		f.sl.Warn("Failed to start filesystem watcher", slog.String("wait", nextTryIn.String()), slogutil.Error(err))
+	} else {
+		f.sl.Debug("Failed to start filesystem watcher", slog.String("wait", nextTryIn.String()), slogutil.Error(err))
 	}
-	l.Debugf(msg)
 }
 
 // scanOnWatchErr schedules a full scan immediately if an error occurred while watching.
@@ -1158,12 +1161,12 @@ func (f *folder) setError(err error) {
 
 	if err != nil {
 		if oldErr == nil {
-			l.Warnf("Error on folder %s: %v", f.Description(), err)
+			f.sl.Warn("Error on folder", slogutil.Error(err))
 		} else {
-			l.Infof("Error on folder %s changed: %q -> %q", f.Description(), oldErr, err)
+			f.sl.Info("Folder error changed", slogutil.Error(err), slog.Any("previously", oldErr))
 		}
 	} else {
-		l.Infoln("Cleared error on folder", f.Description())
+		f.sl.Info("Folder error cleared")
 		f.SchedulePull()
 	}
 
@@ -1191,7 +1194,7 @@ func (f *folder) String() string {
 
 func (f *folder) newScanError(path string, err error) {
 	f.errorsMut.Lock()
-	l.Infof("Scanner (folder %s, item %q): %v", f.Description(), path, err)
+	f.sl.Warn("Failed to scan", slogutil.FilePath(path), slogutil.Error(err))
 	f.scanErrors = append(f.scanErrors, FileError{
 		Err:  err.Error(),
 		Path: path,

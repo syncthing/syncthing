@@ -10,7 +10,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"hash"
 	"io"
+	"sync"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -21,14 +23,27 @@ type Counter interface {
 	Update(bytes int64)
 }
 
+const bufSize = 32 << 10 // 32k
+
+var bufPool = sync.Pool{
+	New: func() any {
+		return new([bufSize]byte) // 32k buffer
+	},
+}
+
+const hashLength = sha256.Size
+
+var hashPool = sync.Pool{
+	New: func() any {
+		return sha256.New()
+	},
+}
+
 // Blocks returns the blockwise hash of the reader.
 func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, counter Counter) ([]protocol.BlockInfo, error) {
 	if counter == nil {
 		counter = &noopCounter{}
 	}
-
-	hf := sha256.New()
-	const hashLength = sha256.Size
 
 	var blocks []protocol.BlockInfo
 	var hashes, thisHash []byte
@@ -46,8 +61,14 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 		hashes = make([]byte, 0, hashLength*numBlocks)
 	}
 
+	hf := hashPool.Get().(hash.Hash) //nolint:forcetypeassert
 	// A 32k buffer is used for copying into the hash function.
-	buf := make([]byte, 32<<10)
+	buf := bufPool.Get().(*[bufSize]byte)[:] //nolint:forcetypeassert
+	defer func() {
+		bufPool.Put((*[bufSize]byte)(buf))
+		hf.Reset()
+		hashPool.Put(hf)
+	}()
 
 	var offset int64
 	lr := io.LimitReader(r, int64(blocksize)).(*io.LimitedReader)

@@ -870,7 +870,6 @@ func testmocks() {
 		"github.com/syncthing/syncthing/lib/connections",
 		"github.com/syncthing/syncthing/lib/discover",
 		"github.com/syncthing/syncthing/lib/events",
-		"github.com/syncthing/syncthing/lib/logger",
 		"github.com/syncthing/syncthing/lib/model",
 		"github.com/syncthing/syncthing/lib/protocol",
 	}
@@ -901,6 +900,7 @@ func weblate() {
 func ldflags(tags []string) string {
 	b := new(strings.Builder)
 	b.WriteString("-w")
+	b.WriteString(" -buildid=")
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Version=%s", version)
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Stamp=%d", buildStamp())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.User=%s", buildUser())

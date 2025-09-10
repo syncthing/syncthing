@@ -4,8 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:generate -command counterfeiter go run github.com/maxbrunsfeld/counterfeiter/v6
-//go:generate counterfeiter -o mocks/buffered_subscription.go --fake-name BufferedSubscription . BufferedSubscription
+//go:generate go tool counterfeiter -o mocks/buffered_subscription.go --fake-name BufferedSubscription . BufferedSubscription
 
 // Package events provides event subscription and polling functionality.
 package events
@@ -16,11 +15,11 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/syncutil"
 	"github.com/thejerf/suture/v4"
-
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type EventType int64
@@ -474,7 +473,7 @@ type bufferedSubscription struct {
 	next int
 	cur  int // Current SubscriptionID
 	mut  sync.Mutex
-	cond *sync.TimeoutCond
+	cond *syncutil.TimeoutCond
 }
 
 type BufferedSubscription interface {
@@ -486,9 +485,8 @@ func NewBufferedSubscription(s Subscription, size int) BufferedSubscription {
 	bs := &bufferedSubscription{
 		sub: s,
 		buf: make([]Event, size),
-		mut: sync.NewMutex(),
 	}
-	bs.cond = sync.NewTimeoutCond(bs.mut)
+	bs.cond = syncutil.NewTimeoutCond(&bs.mut)
 	go bs.pollingLoop()
 	return bs
 }

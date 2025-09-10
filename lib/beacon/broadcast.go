@@ -8,8 +8,12 @@ package beacon
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/slogutil"
+	"github.com/syncthing/syncthing/lib/netutil"
 )
 
 func NewBroadcast(port int) Interface {
@@ -44,7 +48,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 			return doneCtx.Err()
 		}
 
-		intfs, err := net.Interfaces()
+		intfs, err := netutil.Interfaces()
 		if err != nil {
 			l.Debugln("Failed to list interfaces:", err)
 			// net.Interfaces() is broken on Android. see https://github.com/golang/go/issues/40569
@@ -52,12 +56,14 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 		}
 
 		var dsts []net.IP
-		for _, intf := range intfs {
+		for i := range intfs {
+			intf := intfs[i]
+
 			if intf.Flags&net.FlagRunning == 0 || intf.Flags&net.FlagBroadcast == 0 {
 				continue
 			}
 
-			addrs, err := intf.Addrs()
+			addrs, err := netutil.InterfaceAddrsByInterface(&intf)
 			if err != nil {
 				l.Debugln("Failed to list interface addresses:", err)
 				// Interface discovery might work while retrieving the addresses doesn't. So log the error and carry on.
@@ -105,7 +111,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 		}
 
 		if success == 0 {
-			l.Debugln("couldn't send any broadcasts")
+			slog.DebugContext(ctx, "Couldn't send any broadcasts", slogutil.Error(err))
 			return err
 		}
 	}
@@ -142,7 +148,7 @@ func readBroadcasts(ctx context.Context, outbox chan<- recv, port int) error {
 		case <-doneCtx.Done():
 			return doneCtx.Err()
 		default:
-			l.Debugln("dropping message")
+			slog.DebugContext(ctx, "Dropping message")
 		}
 	}
 }

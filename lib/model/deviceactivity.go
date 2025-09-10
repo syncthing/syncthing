@@ -7,8 +7,9 @@
 package model
 
 import (
+	"sync"
+
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // deviceActivity tracks the number of outstanding requests per device and can
@@ -22,7 +23,6 @@ type deviceActivity struct {
 func newDeviceActivity() *deviceActivity {
 	return &deviceActivity{
 		act: make(map[protocol.DeviceID]int),
-		mut: sync.NewMutex(),
 	}
 }
 

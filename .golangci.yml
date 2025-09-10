@@ -27,6 +27,7 @@ linters:
     - musttag
     - nestif
     - nlreturn
+    - noinlineerr
     - nonamedreturns
     - paralleltest
     - prealloc
@@ -42,6 +43,7 @@ linters:
     - whitespace
     - wrapcheck
     - wsl
+    - wsl_v5
   exclusions:
     generated: lax
     presets:
@@ -58,6 +60,22 @@ linters:
       - builtin$
       - examples$
       - _test\.go$
+    rules:
+      # relax the slog rules for debug lines, for now
+      - linters: [sloglint]
+        source: Debug
+      # contexts are irrelevant for SQLite
+      - linters: [noctx]
+        text: database/sql
+      # Rollback errors can be ignored
+      - linters: [errcheck]
+        source: Rollback
+  settings:
+    sloglint:
+      context: "scope"
+      static-msg: true
+      msg-style: capitalized
+      key-naming-case: camel
 formatters:
   enable:
     - gofumpt

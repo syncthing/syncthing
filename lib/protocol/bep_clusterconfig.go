@@ -8,16 +8,33 @@ package protocol
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/syncthing/syncthing/internal/gen/bep"
 )
 
-type Compression = bep.Compression
+type Compression bep.Compression
 
 const (
-	CompressionMetadata = bep.Compression_COMPRESSION_METADATA
-	CompressionNever    = bep.Compression_COMPRESSION_NEVER
-	CompressionAlways   = bep.Compression_COMPRESSION_ALWAYS
+	CompressionMetadata = Compression(bep.Compression_COMPRESSION_METADATA)
+	CompressionNever    = Compression(bep.Compression_COMPRESSION_NEVER)
+	CompressionAlways   = Compression(bep.Compression_COMPRESSION_ALWAYS)
+)
+
+type FolderType bep.FolderType
+
+const (
+	FolderTypeSendReceive      = FolderType(bep.FolderType_FOLDER_TYPE_SEND_RECEIVE)
+	FolderTypeSendOnly         = FolderType(bep.FolderType_FOLDER_TYPE_SEND_ONLY)
+	FolderTypeReceiveOnly      = FolderType(bep.FolderType_FOLDER_TYPE_RECEIVE_ONLY)
+	FolderTypeReceiveEncrypted = FolderType(bep.FolderType_FOLDER_TYPE_RECEIVE_ENCRYPTED)
+)
+
+type FolderStopReason bep.FolderStopReason
+
+const (
+	FolderStopReasonRunning = FolderStopReason(bep.FolderStopReason_FOLDER_STOP_REASON_RUNNING)
+	FolderStopReasonPaused  = FolderStopReason(bep.FolderStopReason_FOLDER_STOP_REASON_PAUSED)
 )
 
 type ClusterConfig struct {
@@ -51,14 +68,11 @@ func clusterConfigFromWire(w *bep.ClusterConfig) *ClusterConfig {
 }
 
 type Folder struct {
-	ID                 string
-	Label              string
-	ReadOnly           bool
-	IgnorePermissions  bool
-	IgnoreDelete       bool
-	DisableTempIndexes bool
-	Paused             bool
-	Devices            []Device
+	ID         string
+	Label      string
+	Type       FolderType
+	StopReason FolderStopReason
+	Devices    []Device
 }
 
 func (f *Folder) toWire() *bep.Folder {
@@ -67,14 +81,11 @@ func (f *Folder) toWire() *bep.Folder {
 		devices[i] = d.toWire()
 	}
 	return &bep.Folder{
-		Id:                 f.ID,
-		Label:              f.Label,
-		ReadOnly:           f.ReadOnly,
-		IgnorePermissions:  f.IgnorePermissions,
-		IgnoreDelete:       f.IgnoreDelete,
-		DisableTempIndexes: f.DisableTempIndexes,
-		Paused:             f.Paused,
-		Devices:            devices,
+		Id:         f.ID,
+		Label:      f.Label,
+		Type:       bep.FolderType(f.Type),
+		StopReason: bep.FolderStopReason(f.StopReason),
+		Devices:    devices,
 	}
 }
 
@@ -84,14 +95,11 @@ func folderFromWire(w *bep.Folder) Folder {
 		devices[i] = deviceFromWire(d)
 	}
 	return Folder{
-		ID:                 w.Id,
-		Label:              w.Label,
-		ReadOnly:           w.ReadOnly,
-		IgnorePermissions:  w.IgnorePermissions,
-		IgnoreDelete:       w.IgnoreDelete,
-		DisableTempIndexes: w.DisableTempIndexes,
-		Paused:             w.Paused,
-		Devices:            devices,
+		ID:         w.Id,
+		Label:      w.Label,
+		Type:       FolderType(w.Type),
+		StopReason: FolderStopReason(w.StopReason),
+		Devices:    devices,
 	}
 }
 
@@ -101,6 +109,22 @@ func (f Folder) Description() string {
 		return f.ID
 	}
 	return fmt.Sprintf("%q (%s)", f.Label, f.ID)
+}
+
+func (f Folder) LogAttr() slog.Attr {
+	if f.Label == "" || f.Label == f.ID {
+		return slog.Group("folder", slog.String("id", f.ID))
+	}
+	return slog.Group("folder", slog.String("label", f.Label), slog.String("id", f.ID))
+}
+
+func (f Folder) IsRunning() bool {
+	switch f.StopReason {
+	case FolderStopReasonPaused:
+		return false
+	default:
+		return true
+	}
 }
 
 type Device struct {
@@ -121,7 +145,7 @@ func (d *Device) toWire() *bep.Device {
 		Id:                       d.ID[:],
 		Name:                     d.Name,
 		Addresses:                d.Addresses,
-		Compression:              d.Compression,
+		Compression:              bep.Compression(d.Compression),
 		CertName:                 d.CertName,
 		MaxSequence:              d.MaxSequence,
 		Introducer:               d.Introducer,
@@ -136,7 +160,7 @@ func deviceFromWire(w *bep.Device) Device {
 		ID:                       DeviceID(w.Id),
 		Name:                     w.Name,
 		Addresses:                w.Addresses,
-		Compression:              w.Compression,
+		Compression:              Compression(w.Compression),
 		CertName:                 w.CertName,
 		MaxSequence:              w.MaxSequence,
 		Introducer:               w.Introducer,

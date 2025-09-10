@@ -8,6 +8,7 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"slices"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -65,11 +66,11 @@ func (cfg *DeviceConfiguration) prepare(sharedFolders []string) {
 	// auto accept folders.
 	if cfg.Untrusted {
 		if cfg.Introducer {
-			l.Warnf("Device %s (%s) is both untrusted and an introducer, removing introducer flag", cfg.DeviceID.Short(), cfg.Name)
+			slog.Warn("Device is both untrusted and an introducer, removing introducer flag", cfg.DeviceID.LogAttr())
 			cfg.Introducer = false
 		}
 		if cfg.AutoAcceptFolders {
-			l.Warnf("Device %s (%s) is both untrusted and auto-accepting folders, removing auto-accept flag", cfg.DeviceID.Short(), cfg.Name)
+			slog.Warn("Device is both untrusted and auto-accepting folders, removing auto-accept flag", cfg.DeviceID.LogAttr())
 			cfg.AutoAcceptFolders = false
 		}
 	}

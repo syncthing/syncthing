@@ -8,6 +8,7 @@ on:
 jobs:
 
   trigger-nightly:
+    if: github.repository_owner == 'syncthing'
     runs-on: ubuntu-latest
     name: Push to release-nightly to trigger build
     steps:

@@ -7,9 +7,8 @@
 package model
 
 import (
+	"sync"
 	"time"
-
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type jobQueue struct {
@@ -25,9 +24,7 @@ type jobQueueEntry struct {
 }
 
 func newJobQueue() *jobQueue {
-	return &jobQueue{
-		mut: sync.NewMutex(),
-	}
+	return &jobQueue{}
 }
 
 func (q *jobQueue) Push(file string, size int64, modified time.Time) {

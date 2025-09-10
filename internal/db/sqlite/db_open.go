@@ -7,21 +7,28 @@
 package sqlite
 
 import (
+	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/slogutil"
+	"github.com/syncthing/syncthing/lib/build"
 )
 
-const maxDBConns = 16
+const (
+	maxDBConns         = 16
+	minDeleteRetention = 24 * time.Hour
+)
 
 type DB struct {
+	*baseDB
+
 	pathBase        string
 	deleteRetention time.Duration
-
-	*baseDB
 
 	folderDBsMut   sync.RWMutex
 	folderDBs      map[string]*folderDB
@@ -34,7 +41,11 @@ type Option func(*DB)
 
 func WithDeleteRetention(d time.Duration) Option {
 	return func(s *DB) {
-		s.deleteRetention = d
+		if d <= 0 {
+			s.deleteRetention = 0
+		} else {
+			s.deleteRetention = max(d, minDeleteRetention)
+		}
 	}
 }
 
@@ -43,8 +54,7 @@ func Open(path string, opts ...Option) (*DB, error) {
 		"journal_mode = WAL",
 		"optimize = 0x10002",
 		"auto_vacuum = INCREMENTAL",
-		"default_temp_store = MEMORY",
-		"temp_store = MEMORY",
+		fmt.Sprintf("application_id = %d", applicationIDMain),
 	}
 	schemas := []string{
 		"sql/schema/common/*",
@@ -56,6 +66,8 @@ func Open(path string, opts ...Option) (*DB, error) {
 	}
 
 	_ = os.MkdirAll(path, 0o700)
+	initTmpDir(path)
+
 	mainPath := filepath.Join(path, "main.db")
 	mainBase, err := openBase(mainPath, maxDBConns, pragmas, schemas, migrations)
 	if err != nil {
@@ -73,6 +85,14 @@ func Open(path string, opts ...Option) (*DB, error) {
 		opt(db)
 	}
 
+	if err := db.cleanDroppedFolders(); err != nil {
+		slog.Warn("Failed to clean dropped folders", slogutil.Error(err))
+	}
+
+	if err := db.startFolderDatabases(); err != nil {
+		return nil, wrap(err)
+	}
+
 	return db, nil
 }
 
@@ -82,11 +102,10 @@ func Open(path string, opts ...Option) (*DB, error) {
 func OpenForMigration(path string) (*DB, error) {
 	pragmas := []string{
 		"journal_mode = OFF",
-		"default_temp_store = MEMORY",
-		"temp_store = MEMORY",
 		"foreign_keys = 0",
 		"synchronous = 0",
 		"locking_mode = EXCLUSIVE",
+		fmt.Sprintf("application_id = %d", applicationIDMain),
 	}
 	schemas := []string{
 		"sql/schema/common/*",
@@ -98,6 +117,8 @@ func OpenForMigration(path string) (*DB, error) {
 	}
 
 	_ = os.MkdirAll(path, 0o700)
+	initTmpDir(path)
+
 	mainPath := filepath.Join(path, "main.db")
 	mainBase, err := openBase(mainPath, 1, pragmas, schemas, migrations)
 	if err != nil {
@@ -111,25 +132,11 @@ func OpenForMigration(path string) (*DB, error) {
 		folderDBOpener: openFolderDBForMigration,
 	}
 
-	// // Touch device IDs that should always exist and have a low index
-	// // numbers, and will never change
-	// db.localDeviceIdx, _ = db.deviceIdxLocked(protocol.LocalDeviceID)
-	// db.tplInput["LocalDeviceIdx"] = db.localDeviceIdx
+	if err := db.cleanDroppedFolders(); err != nil {
+		slog.Warn("Failed to clean dropped folders", slogutil.Error(err))
+	}
 
 	return db, nil
-}
-
-func OpenTemp() (*DB, error) {
-	// SQLite has a memory mode, but it works differently with concurrency
-	// compared to what we need with the WAL mode. So, no memory databases
-	// for now.
-	dir, err := os.MkdirTemp("", "syncthing-db")
-	if err != nil {
-		return nil, wrap(err)
-	}
-	path := filepath.Join(dir, "db")
-	l.Debugln("Test DB in", path)
-	return Open(path)
 }
 
 func (s *DB) Close() error {
@@ -140,4 +147,25 @@ func (s *DB) Close() error {
 		delete(s.folderDBs, folder)
 	}
 	return wrap(s.baseDB.Close())
+}
+
+func initTmpDir(path string) {
+	if build.IsWindows || build.IsDarwin || os.Getenv("SQLITE_TMPDIR") != "" {
+		// Doesn't use SQLITE_TMPDIR, isn't likely to have a tiny
+		// ram-backed temp directory, or already set to something.
+		return
+	}
+
+	// Attempt to override the SQLite temporary directory by setting the
+	// env var prior to the (first) database being opened and hence
+	// SQLite becoming initialized. We set the temp dir to the same
+	// place we store the database, in the hope that there will be
+	// enough space there for the operations it needs to perform, as
+	// opposed to /tmp and similar, on some systems.
+	dbTmpDir := filepath.Join(path, ".tmp")
+	if err := os.MkdirAll(dbTmpDir, 0o700); err == nil {
+		os.Setenv("SQLITE_TMPDIR", dbTmpDir)
+	} else {
+		slog.Warn("Failed to create temp directory for SQLite", slogutil.FilePath(dbTmpDir), slogutil.Error(err))
+	}
 }

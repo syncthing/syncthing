@@ -8,19 +8,28 @@ package sqlite
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
+	"log/slog"
+	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/slogutil"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/thejerf/suture/v4"
 )
 
 const (
 	internalMetaPrefix     = "dbsvc"
 	lastMaintKey           = "lastMaint"
-	defaultDeleteRetention = 180 * 24 * time.Hour
-	minDeleteRetention     = 24 * time.Hour
+	lastSuccessfulGCSeqKey = "lastSuccessfulGCSeq"
+
+	gcMinChunks  = 5
+	gcChunkSize  = 100_000         // approximate number of rows to process in a single gc query
+	gcMaxRuntime = 5 * time.Minute // max time to spend on gc, per table, per run
 )
 
 func (s *DB) Service(maintenanceInterval time.Duration) suture.Service {
@@ -56,7 +65,7 @@ func (s *Service) Serve(ctx context.Context) error {
 	if wait < 0 {
 		wait = time.Minute
 	}
-	l.Debugln("Next periodic run in", wait)
+	slog.DebugContext(ctx, "Next periodic run due", "after", wait)
 
 	timer := time.NewTimer(wait)
 	for {
@@ -71,17 +80,17 @@ func (s *Service) Serve(ctx context.Context) error {
 		}
 
 		timer.Reset(s.maintenanceInterval)
-		l.Debugln("Next periodic run in", s.maintenanceInterval)
+		slog.DebugContext(ctx, "Next periodic run due", "after", s.maintenanceInterval)
 		_ = s.internalMeta.PutTime(lastMaintKey, time.Now())
 	}
 }
 
 func (s *Service) periodic(ctx context.Context) error {
 	t0 := time.Now()
-	l.Debugln("Periodic start")
+	slog.DebugContext(ctx, "Periodic start")
 
 	t1 := time.Now()
-	defer func() { l.Debugln("Periodic done in", time.Since(t1), "+", t1.Sub(t0)) }()
+	defer func() { slog.DebugContext(ctx, "Periodic done in", "t1", time.Since(t1), "t0t1", t1.Sub(t0)) }()
 
 	s.sdb.updateLock.Lock()
 	err := tidy(ctx, s.sdb.sql)
@@ -91,16 +100,41 @@ func (s *Service) periodic(ctx context.Context) error {
 	}
 
 	return wrap(s.sdb.forEachFolder(func(fdb *folderDB) error {
-		fdb.updateLock.Lock()
-		defer fdb.updateLock.Unlock()
+		// Get the current device sequence, for comparison in the next step.
+		seq, err := fdb.GetDeviceSequence(protocol.LocalDeviceID)
+		if err != nil {
+			return wrap(err)
+		}
+		// Get the last successful GC sequence. If it's the same as the
+		// current sequence, nothing has changed and we can skip the GC
+		// entirely.
+		meta := db.NewTyped(fdb, internalMetaPrefix)
+		if prev, _, err := meta.Int64(lastSuccessfulGCSeqKey); err != nil {
+			return wrap(err)
+		} else if seq == prev {
+			slog.DebugContext(ctx, "Skipping unnecessary GC", "folder", fdb.folderID, "fdb", fdb.baseName)
+			return nil
+		}
 
-		if err := garbageCollectOldDeletedLocked(fdb); err != nil {
+		// Run the GC steps, in a function to be able to use a deferred
+		// unlock.
+		if err := func() error {
+			fdb.updateLock.Lock()
+			defer fdb.updateLock.Unlock()
+
+			if err := garbageCollectOldDeletedLocked(ctx, fdb); err != nil {
+				return wrap(err)
+			}
+			if err := garbageCollectBlocklistsAndBlocksLocked(ctx, fdb); err != nil {
+				return wrap(err)
+			}
+			return tidy(ctx, fdb.sql)
+		}(); err != nil {
 			return wrap(err)
 		}
-		if err := garbageCollectBlocklistsAndBlocksLocked(ctx, fdb); err != nil {
-			return wrap(err)
-		}
-		return tidy(ctx, fdb.sql)
+
+		// Update the successful GC sequence.
+		return wrap(meta.PutInt64(lastSuccessfulGCSeqKey, seq))
 	}))
 }
 
@@ -118,15 +152,16 @@ func tidy(ctx context.Context, db *sqlx.DB) error {
 	return nil
 }
 
-func garbageCollectOldDeletedLocked(fdb *folderDB) error {
+func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB) error {
+	l := slog.With("folder", fdb.folderID, "fdb", fdb.baseName)
 	if fdb.deleteRetention <= 0 {
-		l.Debugln(fdb.baseName, "delete retention is infinite, skipping cleanup")
+		slog.DebugContext(ctx, "Delete retention is infinite, skipping cleanup")
 		return nil
 	}
 
 	// Remove deleted files that are marked as not needed (we have processed
 	// them) and they were deleted more than MaxDeletedFileAge ago.
-	l.Debugln(fdb.baseName, "forgetting deleted files older than", fdb.deleteRetention)
+	l.DebugContext(ctx, "Forgetting deleted files", "retention", fdb.deleteRetention)
 	res, err := fdb.stmt(`
 		DELETE FROM files
 		WHERE deleted AND modified < ? AND local_flags & {{.FlagLocalNeeded}} == 0
@@ -135,7 +170,7 @@ func garbageCollectOldDeletedLocked(fdb *folderDB) error {
 		return wrap(err)
 	}
 	if aff, err := res.RowsAffected(); err == nil {
-		l.Debugln(fdb.baseName, "removed old deleted file records:", aff)
+		l.DebugContext(ctx, "Removed old deleted file records", "affected", aff)
 	}
 	return nil
 }
@@ -170,27 +205,108 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 	}
 	defer tx.Rollback() //nolint:errcheck
 
-	if res, err := tx.ExecContext(ctx, `
-		DELETE FROM blocklists
-		WHERE NOT EXISTS (
-			SELECT 1 FROM files WHERE files.blocklist_hash = blocklists.blocklist_hash
-		)`); err != nil {
-		return wrap(err, "delete blocklists")
-	} else if shouldDebug() {
-		rows, err := res.RowsAffected()
-		l.Debugln(fdb.baseName, "blocklist GC:", rows, err)
-	}
+	// Both blocklists and blocks refer to blocklists_hash from the files table.
+	for _, table := range []string{"blocklists", "blocks"} {
+		// Count the number of rows
+		var rows int64
+		if err := tx.GetContext(ctx, &rows, `SELECT count(*) FROM `+table); err != nil {
+			return wrap(err)
+		}
 
-	if res, err := tx.ExecContext(ctx, `
-		DELETE FROM blocks
-		WHERE NOT EXISTS (
-			SELECT 1 FROM blocklists WHERE blocklists.blocklist_hash = blocks.blocklist_hash
-		)`); err != nil {
-		return wrap(err, "delete blocks")
-	} else if shouldDebug() {
-		rows, err := res.RowsAffected()
-		l.Debugln(fdb.baseName, "blocks GC:", rows, err)
+		chunks := max(gcMinChunks, rows/gcChunkSize)
+		l := slog.With("folder", fdb.folderID, "fdb", fdb.baseName, "table", table, "rows", rows, "chunks", chunks)
+
+		// Process rows in chunks up to a given time limit. We always use at
+		// least gcMinChunks chunks, then increase the number as the number of rows
+		// exceeds gcMinChunks*gcChunkSize.
+		t0 := time.Now()
+		for i, br := range randomBlobRanges(int(chunks)) {
+			if d := time.Since(t0); d > gcMaxRuntime {
+				l.InfoContext(ctx, "GC was interrupted due to exceeding time limit", "processed", i, "runtime", time.Since(t0))
+				break
+			}
+
+			// The limit column must be an indexed column with a mostly random distribution of blobs.
+			// That's the blocklist_hash column for blocklists, and the hash column for blocks.
+			limitColumn := table + ".blocklist_hash"
+			if table == "blocks" {
+				limitColumn = "blocks.hash"
+			}
+
+			q := fmt.Sprintf(`
+				DELETE FROM %s
+				WHERE %s AND NOT EXISTS (
+					SELECT 1 FROM files WHERE files.blocklist_hash = %s.blocklist_hash
+				)`, table, br.SQL(limitColumn), table)
+
+			if res, err := tx.ExecContext(ctx, q); err != nil {
+				return wrap(err, "delete from "+table)
+			} else {
+				l.DebugContext(ctx, "GC query result", "processed", i, "runtime", time.Since(t0), "result", slogutil.Expensive(func() any {
+					rows, err := res.RowsAffected()
+					if err != nil {
+						return slogutil.Error(err)
+					}
+					return slog.Int64("rows", rows)
+				}))
+			}
+		}
 	}
 
 	return wrap(tx.Commit())
+}
+
+// blobRange defines a range for blob searching. A range is open ended if
+// start or end is nil.
+type blobRange struct {
+	start, end []byte
+}
+
+// SQL returns the SQL where clause for the given range, e.g.
+// `column >= x'49249248' AND column < x'6db6db6c'`
+func (r blobRange) SQL(name string) string {
+	var sb strings.Builder
+	if r.start != nil {
+		fmt.Fprintf(&sb, "%s >= x'%x'", name, r.start)
+	}
+	if r.start != nil && r.end != nil {
+		sb.WriteString(" AND ")
+	}
+	if r.end != nil {
+		fmt.Fprintf(&sb, "%s < x'%x'", name, r.end)
+	}
+	return sb.String()
+}
+
+// randomBlobRanges returns n blobRanges in random order
+func randomBlobRanges(n int) []blobRange {
+	ranges := blobRanges(n)
+	rand.Shuffle(len(ranges), func(i, j int) { ranges[i], ranges[j] = ranges[j], ranges[i] })
+	return ranges
+}
+
+// blobRanges returns n blobRanges
+func blobRanges(n int) []blobRange {
+	// We use three byte (24 bit) prefixes to get fairly granular ranges and easy bit
+	// conversions.
+	rangeSize := (1 << 24) / n
+	ranges := make([]blobRange, 0, n)
+	var prev []byte
+	for i := range n {
+		var pref []byte
+		if i < n-1 {
+			end := (i + 1) * rangeSize
+			pref = intToBlob(end)
+		}
+		ranges = append(ranges, blobRange{prev, pref})
+		prev = pref
+	}
+	return ranges
+}
+
+func intToBlob(n int) []byte {
+	var pref [4]byte
+	binary.BigEndian.PutUint32(pref[:], uint32(n)) //nolint:gosec
+	// first byte is always zero and not part of the range
+	return pref[1:]
 }

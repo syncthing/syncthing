@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 var (
@@ -104,7 +104,7 @@ func refreshStats() {
 	mut.RUnlock()
 
 	now := time.Now()
-	wg := sync.NewWaitGroup()
+	var wg sync.WaitGroup
 
 	results := make(chan statsFetchResult, len(relays))
 	for _, rel := range relays {

@@ -368,7 +368,7 @@
     "Show diff with previous version": "Εμφάνιση διαφορών με προηγούμενη έκδοση",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Θα φαίνεται αντί για την ταυτότητα της συσκευής στην προβολή της κατάστασης ολόκληρης της συστάδας. Θα γνωστοποιείται σαν το προαιρετικό όνομα της συσκευής.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Θα φαίνεται αντί για την ταυτότητα της συσκευής στην προβολή της κατάστασης ολόκληρης της συστάδας. Θα ενημερώνεται αυτόματα αν αλλάξει το όνομα της συσκευής.",
-    "Shutdown": "Απενεργοποίηση",
+    "Shut Down": "Απενεργοποίηση",
     "Shutdown Complete": "Πλήρης απενεργοποίηση",
     "Simple": "Απλό",
     "Simple File Versioning": "Απλή τήρηση εκδόσεων",

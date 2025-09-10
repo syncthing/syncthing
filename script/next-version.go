@@ -4,8 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:build ignore
-// +build ignore
+//go:build tools
+// +build tools
 
 package main
 
@@ -82,9 +82,14 @@ func main() {
 		}
 
 		// We want the next prerelease. We are already on a prerelease. If
-		// it's the correct prerelease compared to the logs we just got, we
-		// should just bump the prerelease counter.
-		if next.LessThan(*latest) {
+		// it's the correct prerelease compared to the logs we just got, or
+		// newer, we should just bump the prerelease counter. We compare
+		// against the latest without the prerelease part, as otherwise it
+		// would compare less than next if they represent the same version
+		// -- pre being less than stable.
+		latestNoPre := *latest
+		latestNoPre.PreRelease = ""
+		if !latestNoPre.LessThan(next) {
 			parts := latest.PreRelease.Slice()
 			for i, p := range parts {
 				if v, err := strconv.Atoi(p); err == nil {

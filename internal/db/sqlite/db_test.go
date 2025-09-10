@@ -12,6 +12,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"iter"
+	"os"
+	"path"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -20,6 +22,7 @@ import (
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/internal/timeutil"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -33,7 +36,7 @@ const (
 func TestBasics(t *testing.T) {
 	t.Parallel()
 
-	sdb, err := OpenTemp()
+	sdb, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +81,12 @@ func TestBasics(t *testing.T) {
 	)
 
 	t.Run("SchemaVersion", func(t *testing.T) {
-		ver, err := sdb.getAppliedSchemaVersion()
+		tx, err := sdb.sql.Beginx()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback()
+		ver, err := sdb.getAppliedSchemaVersion(tx)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -424,7 +432,7 @@ func TestBasics(t *testing.T) {
 func TestPrefixGlobbing(t *testing.T) {
 	t.Parallel()
 
-	sdb, err := OpenTemp()
+	sdb, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -493,7 +501,7 @@ func TestPrefixGlobbing(t *testing.T) {
 func TestPrefixGlobbingStar(t *testing.T) {
 	t.Parallel()
 
-	sdb, err := OpenTemp()
+	sdb, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -526,7 +534,7 @@ func TestPrefixGlobbingStar(t *testing.T) {
 }
 
 func TestAvailability(t *testing.T) {
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -593,7 +601,7 @@ func TestAvailability(t *testing.T) {
 }
 
 func TestDropFilesNamed(t *testing.T) {
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -637,7 +645,7 @@ func TestDropFilesNamed(t *testing.T) {
 }
 
 func TestDropFolder(t *testing.T) {
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -697,7 +705,7 @@ func TestDropFolder(t *testing.T) {
 }
 
 func TestDropDevice(t *testing.T) {
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -761,7 +769,7 @@ func TestDropDevice(t *testing.T) {
 }
 
 func TestDropAllFiles(t *testing.T) {
-	db, err := OpenTemp()
+	db, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -923,7 +931,7 @@ func TestConcurrentUpdateSelect(t *testing.T) {
 func TestAllForBlocksHash(t *testing.T) {
 	t.Parallel()
 
-	sdb, err := OpenTemp()
+	sdb, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -985,7 +993,7 @@ func TestAllForBlocksHash(t *testing.T) {
 func TestBlocklistGarbageCollection(t *testing.T) {
 	t.Parallel()
 
-	sdb, err := OpenTemp()
+	sdb, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1064,7 +1072,7 @@ func TestBlocklistGarbageCollection(t *testing.T) {
 func TestInsertLargeFile(t *testing.T) {
 	t.Parallel()
 
-	sdb, err := OpenTemp()
+	sdb, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1116,7 +1124,7 @@ func TestStrangeDeletedGlobalBug(t *testing.T) {
 
 	t.Parallel()
 
-	sdb, err := OpenTemp()
+	sdb, err := Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1155,6 +1163,47 @@ func TestStrangeDeletedGlobalBug(t *testing.T) {
 		t.Log(g)
 		t.Fatal("should be deleted")
 	}
+}
+
+func TestOpenSpecialName(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create a "base" dir that is in the way if the path becomes
+	// incorrectly truncated in the next steps.
+	base := path.Join(dir, "test")
+	if err := os.Mkdir(base, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should be able to open a path with a hash sign in it.
+	p1 := base + "#foo"
+	db, err := Open(p1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(db.path)
+	db.Close()
+
+	if !build.IsWindows {
+		// Should be able to open a path with something that looks like
+		// query params.
+		p2 := base + "?foo=bar"
+		db, err = Open(p2)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Log(db.path)
+		db.Close()
+	}
+
+	// Better not a have problem with a single ampersand either.
+	p2 := base + "&foo"
+	db, err = Open(p2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(db.path)
+	db.Close()
 }
 
 func mustCollect[T any](t *testing.T) func(it iter.Seq[T], errFn func() error) []T {

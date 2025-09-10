@@ -13,6 +13,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path"
 	"path/filepath"
 	"slices"
@@ -36,8 +37,8 @@ var (
 const (
 	DefaultMarkerName          = ".stfolder"
 	EncryptionTokenName        = "syncthing-encryption_password_token" //nolint: gosec
-	maxConcurrentWritesDefault = 2
-	maxConcurrentWritesLimit   = 64
+	maxConcurrentWritesDefault = 16
+	maxConcurrentWritesLimit   = 256
 )
 
 type FolderDeviceConfiguration struct {
@@ -71,12 +72,11 @@ type FolderConfiguration struct {
 	PullerDelayS            float64                     `json:"pullerDelayS" xml:"pullerDelayS" default:"1"`
 	MaxConflicts            int                         `json:"maxConflicts" xml:"maxConflicts" default:"10"`
 	DisableSparseFiles      bool                        `json:"disableSparseFiles" xml:"disableSparseFiles"`
-	DisableTempIndexes      bool                        `json:"disableTempIndexes" xml:"disableTempIndexes"`
 	Paused                  bool                        `json:"paused" xml:"paused"`
 	MarkerName              string                      `json:"markerName" xml:"markerName"`
 	CopyOwnershipFromParent bool                        `json:"copyOwnershipFromParent" xml:"copyOwnershipFromParent"`
 	RawModTimeWindowS       int                         `json:"modTimeWindowS" xml:"modTimeWindowS"`
-	MaxConcurrentWrites     int                         `json:"maxConcurrentWrites" xml:"maxConcurrentWrites" default:"2"`
+	MaxConcurrentWrites     int                         `json:"maxConcurrentWrites" xml:"maxConcurrentWrites" default:"0"`
 	DisableFsync            bool                        `json:"disableFsync" xml:"disableFsync"`
 	BlockPullOrder          BlockPullOrder              `json:"blockPullOrder" xml:"blockPullOrder"`
 	CopyRangeMethod         CopyRangeMethod             `json:"copyRangeMethod" xml:"copyRangeMethod" default:"standard"`
@@ -269,6 +269,13 @@ func (f FolderConfiguration) Description() string {
 	return fmt.Sprintf("%q (%s)", f.Label, f.ID)
 }
 
+func (f FolderConfiguration) LogAttr() slog.Attr {
+	if f.Label == "" || f.Label == f.ID {
+		return slog.Group("folder", slog.String("id", f.ID), slog.String("type", f.Type.String()))
+	}
+	return slog.Group("folder", slog.String("label", f.Label), slog.String("id", f.ID), slog.String("type", f.Type.String()))
+}
+
 func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
 	deviceIDs := make([]protocol.DeviceID, len(f.Devices))
 	for i, n := range f.Devices {
@@ -322,7 +329,6 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 	}
 
 	if f.Type == FolderTypeReceiveEncrypted {
-		f.DisableTempIndexes = true
 		f.IgnorePerms = true
 	}
 }

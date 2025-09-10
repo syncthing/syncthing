@@ -3498,6 +3498,7 @@ func TestScanDeletedROChangedOnSR(t *testing.T) {
 	}
 	// A remote must have the file, otherwise the deletion below is
 	// automatically resolved as not a ro-changed item.
+	file.LocalFlags = 0 // clear as we're skipping the code path where it would otherwise be cleared naturally
 	must(t, m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: fcfg.ID, Files: []protocol.FileInfo{file}}))
 
 	must(t, ffs.Remove(name))
@@ -3619,7 +3620,7 @@ func TestIssue6961(t *testing.T) {
 	if info, err := tfs.Lstat(name); err != nil {
 		t.Fatal(err)
 	} else {
-		l.Infoln("intest", info.Mode)
+		t.Log(info.Mode())
 	}
 	m.ScanFolders()
 
@@ -3870,7 +3871,7 @@ func TestCCFolderNotRunning(t *testing.T) {
 	if local.ID != myID {
 		local = folder.Devices[0]
 	}
-	if !folder.Paused && local.IndexID == 0 {
+	if folder.StopReason != protocol.FolderStopReasonPaused && local.IndexID == 0 {
 		t.Errorf("Folder isn't paused, but index-id is zero")
 	}
 }

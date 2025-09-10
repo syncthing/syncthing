@@ -49,7 +49,7 @@ func (v VersionParts) Environment() string {
 func ParseVersion(line string) (VersionParts, error) {
 	m := longVersionRE.FindStringSubmatch(line)
 	if len(m) == 0 {
-		return VersionParts{}, errors.New("unintelligeble version string")
+		return VersionParts{}, errors.New("unintelligible version string")
 	}
 
 	v := VersionParts{

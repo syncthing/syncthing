@@ -146,7 +146,7 @@
           <div class="form-group" ng-if="internalVersioningEnabled()" ng-class="{'has-error': folderEditor.cleanupIntervalS.$invalid && folderEditor.cleanupIntervalS.$dirty}">
             <label translate for="cleanupIntervalS">Cleanup Interval</label>
             <div class="input-group">
-              <input name="cleanupIntervalS" id="cleanupIntervalS" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.cleanupIntervalS" required="" min="0" max="31536000" aria-required="true" />
+              <input name="cleanupIntervalS" id="cleanupIntervalS" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.cleanupIntervalS" required="" min="0" max="31536000" step="3600" aria-required="true" />
               <div class="input-group-addon" translate>seconds</div>
             </div>
             <p class="help-block">

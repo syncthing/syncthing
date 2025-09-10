@@ -1617,16 +1617,8 @@ angular.module('syncthing.core')
         $scope.logging = {
             facilities: {},
             refreshFacilities: function () {
-                $http.get(urlbase + '/system/debug').success(function (data) {
-                    var facilities = {};
-                    data.enabled = data.enabled || [];
-                    $.each(data.facilities, function (key, value) {
-                        facilities[key] = {
-                            description: value,
-                            enabled: data.enabled.indexOf(key) > -1
-                        }
-                    })
-                    $scope.logging.facilities = facilities;
+                $http.get(urlbase + '/system/loglevels').success(function (data) {
+                    $scope.logging.facilities = data;
                 }).error($scope.emitHTTPError);
             },
             show: function () {
@@ -1646,13 +1638,10 @@ angular.module('syncthing.core')
                 });
                 showModal('#logViewer');
             },
-            onFacilityChange: function (facility) {
-                var enabled = $scope.logging.facilities[facility].enabled;
-                // Disable checkboxes while we're in flight.
-                $.each($scope.logging.facilities, function (key) {
-                    $scope.logging.facilities[key].enabled = null;
-                })
-                $http.post(urlbase + '/system/debug?' + (enabled ? 'enable=' : 'disable=') + facility)
+            onFacilityChange: function () {
+                // Disable editing while we're in flight.
+                $scope.logging.facilities.updating = true;
+                $http.post(urlbase + '/system/loglevels', $scope.logging.facilities.levels)
                     .success($scope.logging.refreshFacilities)
                     .error($scope.emitHTTPError);
             },
@@ -1675,7 +1664,7 @@ angular.module('syncthing.core')
             content: function () {
                 var content = "";
                 $.each($scope.logging.entries, function (idx, entry) {
-                    content += entry.when.split('.')[0].replace('T', ' ') + ' ' + entry.message + "\n";
+                    content += entry.when.split('.')[0].replace('T', ' ') + ' ' + entry.level + ' ' + entry.message + "\n";
                 });
                 return content;
             },

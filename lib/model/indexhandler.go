@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -78,7 +79,7 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 			// the IndexID, or something else weird has
 			// happened. We send a full index to reset the
 			// situation.
-			l.Infof("Device %v folder %s is delta index compatible, but seems out of sync with reality", conn.DeviceID().Short(), folder.Description())
+			slog.Warn("Peer is delta index compatible, but seems out of sync with reality", conn.DeviceID().LogAttr(), folder.LogAttr())
 			startSequence = 0
 		} else {
 			l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", conn.DeviceID().Short(), folder.Description(), startInfo.local.MaxSequence)
@@ -93,7 +94,7 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 		// not the right one. Either they are confused or we
 		// must have reset our database since last talking to
 		// them. We'll start with a full index transfer.
-		l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", conn.DeviceID().Short(), folder.Description(), startInfo.local.IndexID, myIndexID)
+		slog.Warn("Peer has mismatching index ID for us", conn.DeviceID().LogAttr(), folder.LogAttr(), slog.Group("indexid", slog.Any("ours", myIndexID), slog.Any("theirs", startInfo.local.IndexID)))
 		startSequence = 0
 	}
 
@@ -118,7 +119,7 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 		// will probably send us a full index. We drop any
 		// information we have and remember this new index ID
 		// instead.
-		l.Infof("Device %v folder %s has a new index ID (%v)", conn.DeviceID().Short(), folder.Description(), startInfo.remote.IndexID)
+		slog.Info("Peer has a new index ID", conn.DeviceID().LogAttr(), folder.LogAttr(), slog.Any("indexid", startInfo.remote.IndexID))
 		if err := sdb.DropAllFiles(folder.ID, conn.DeviceID()); err != nil {
 			return nil, err
 		}
@@ -361,7 +362,7 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 	s.cond.L.Unlock()
 
 	if paused {
-		l.Infof("%v for paused folder %q", op, s.folder)
+		slog.Warn("Unexpected operation on paused folder", "op", op, "folder", s.folder)
 		return fmt.Errorf("%v: %w", s.folder, ErrFolderPaused)
 	}
 
@@ -421,11 +422,6 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 				"precedingSeq": fs[i-1].Sequence,
 			})
 		}
-
-		// The local attributes should never be transmitted over the wire.
-		// Make sure they look like they weren't.
-		fs[i].LocalFlags = 0
-		fs[i].VersionHash = nil
 	}
 
 	// Verify the claimed last sequence number
@@ -667,7 +663,7 @@ func (r *indexHandlerRegistry) ReceiveIndex(folder string, fs []protocol.FileInf
 	defer r.mut.Unlock()
 	is, isOk := r.indexHandlers.Get(folder)
 	if !isOk {
-		l.Infof("%v for nonexistent or paused folder %q", op, folder)
+		slog.Warn("Unexpected operation on nonexistent or paused folder", "op", op, "folder", folder)
 		return fmt.Errorf("%s: %w", folder, ErrFolderMissing)
 	}
 	return is.receive(fs, update, op, prevSequence, lastSequence)

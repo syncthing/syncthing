@@ -110,7 +110,6 @@ type Report struct {
 		ConflictsUnlimited      int            `json:"conflictsUnlimited,omitempty" metric:"folder_feature{feature=ConflictsUnlimited},summary" since:"3"`
 		ConflictsOther          int            `json:"conflictsOther,omitempty" metric:"folder_feature{feature=ConflictsOther},summary" since:"3"`
 		DisableSparseFiles      int            `json:"disableSparseFiles,omitempty" metric:"folder_feature{feature=DisableSparseFiles},summary" since:"3"`
-		DisableTempIndexes      int            `json:"disableTempIndexes,omitempty" metric:"folder_feature{feature=DisableTempIndexes},summary" since:"3"`
 		FsWatcherEnabled        int            `json:"fsWatcherEnabled,omitempty" metric:"folder_feature{feature=FSWatcherEnabled},summary" since:"3"`
 		PullOrder               map[string]int `json:"pullOrder,omitempty" metric:"folder_pull_order,summaryVec:order" since:"3"`
 		FilesystemType          map[string]int `json:"filesystemType,omitempty" metric:"folder_file_system_type,summaryVec:type" since:"3"`
@@ -189,6 +188,13 @@ type Report struct {
 	DistDist string `json:"distDist" metric:"distribution,gaugeVec:distribution"`
 	DistOS   string `json:"distOS" metric:"distribution,gaugeVec:os"`
 	DistArch string `json:"distArch" metric:"distribution,gaugeVec:arch"`
+
+	// Database counts
+	Database struct {
+		ModernCSQLite bool `json:"modernCSQLite" metric:"database_engine{engine=modernc-sqlite},gauge"`
+		MattnSQLite   bool `json:"mattnSQLite" metric:"database_engine{engine=mattn-sqlite},gauge"`
+		LevelDB       bool `json:"levelDB" metric:"database_engine{engine=leveldb},gauge"`
+	} `json:"database"`
 }
 
 func New() *Report {

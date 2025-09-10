@@ -8,6 +8,7 @@ package config
 
 import (
 	"cmp"
+	"log/slog"
 	"net/url"
 	"os"
 	"path"
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/netutil"
@@ -99,7 +101,7 @@ func (m migration) apply(cfg *Configuration) {
 	cfg.Version = m.targetVersion
 }
 
-func migrateToConfigV51(cfg *Configuration) {
+func migrateToConfigV52(cfg *Configuration) {
 	// Renamed notification ID
 	for i := range cfg.Options.UnackedNotificationIDs {
 		if cfg.Options.UnackedNotificationIDs[i] == "authenticationUserAndPassword" {
@@ -115,6 +117,19 @@ func migrateToConfigV51(cfg *Configuration) {
 		if origins, err := cfg.GUI.defaultWebauthnOrigins(); err == nil {
 			cfg.GUI.WebauthnOrigins = origins
 		}
+	}
+}
+
+
+func migrateToConfigV51(cfg *Configuration) {
+	oldDefault := 2
+	for i, fcfg := range cfg.Folders {
+		if fcfg.MaxConcurrentWrites == oldDefault {
+			cfg.Folders[i].MaxConcurrentWrites = maxConcurrentWritesDefault
+		}
+	}
+	if cfg.Defaults.Folder.MaxConcurrentWrites == oldDefault {
+		cfg.Defaults.Folder.MaxConcurrentWrites = maxConcurrentWritesDefault
 	}
 }
 
@@ -246,7 +261,7 @@ func migrateToConfigV23(cfg *Configuration) {
 				fs.Hide(DefaultMarkerName) // ignore error
 			}
 			if err != nil {
-				l.Infoln("Failed to upgrade folder marker:", err)
+				slog.Warn("Failed to upgrade folder marker", slogutil.Error(err))
 			}
 		}
 	}

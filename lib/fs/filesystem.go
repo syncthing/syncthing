@@ -285,13 +285,14 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 	return fs
 }
 
+// fs cannot import config or versioner, so we hard code .stfolder
+// (config.DefaultMarkerName) and .stversions (versioner.DefaultPath)
+var internals = []string{".stfolder", ".stignore", ".stversions"}
+
 // IsInternal returns true if the file, as a path relative to the folder
 // root, represents an internal file that should always be ignored. The file
 // path must be clean (i.e., in canonical shortest form).
 func IsInternal(file string) bool {
-	// fs cannot import config or versioner, so we hard code .stfolder
-	// (config.DefaultMarkerName) and .stversions (versioner.DefaultPath)
-	internals := []string{".stfolder", ".stignore", ".stversions"}
 	for _, internal := range internals {
 		if file == internal {
 			return true
@@ -322,7 +323,7 @@ func Canonicalize(file string) (string, error) {
 	}
 
 	// The relative path should be clean from internal dotdots and similar
-	// funkyness.
+	// funkiness.
 	file = filepath.Clean(file)
 
 	// It is not acceptable to attempt to traverse upwards.
