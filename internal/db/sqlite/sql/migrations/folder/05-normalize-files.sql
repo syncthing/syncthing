@@ -40,7 +40,7 @@ CREATE TABLE files_v5 (
 -- Populate the new files table and move it in place
 
 INSERT INTO files_v5
-    SELECT f.device_idx, f.sequence, f.remote_sequence, n.idx, f.type, f.modified, f.size, v.idx, f.deleted, f.local_flags, f.blocklist_hash
+    SELECT f.device_idx, f.sequence, f.remote_sequence, n.idx as name_idx, f.type, f.modified, f.size, v.idx as version_idx, f.deleted, f.local_flags, f.blocklist_hash
     FROM files f
     INNER JOIN file_names n ON n.name = f.name
     INNER JOIN file_versions v ON v.version = f.version

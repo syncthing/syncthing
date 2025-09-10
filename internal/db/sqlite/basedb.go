@@ -7,6 +7,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"io/fs"
@@ -87,7 +88,31 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 		},
 	}
 
-	tx, err := db.sql.Beginx()
+	// Create a specific connection for the schema setup and migration to
+	// run in. We do this because we need to disable foreign keys for the
+	// duration, which is a thing that needs to happen outside of a
+	// transaction and affects the connection it's run on. So we need to a)
+	// make sure all our commands run on this specific connection (which the
+	// transaction accomplishes naturally) and b) make sure these pragmas
+	// don't leak to anyone else afterwards.
+	ctx := context.TODO()
+	conn, err := db.sql.Connx(ctx)
+	if err != nil {
+		return nil, wrap(err)
+	}
+	defer func() {
+		conn.ExecContext(ctx, "PRAGMA foreign_keys = ON")
+		conn.ExecContext(ctx, "PRAGMA legacy_alter_table = OFF")
+		conn.Close()
+	}()
+	if _, err := conn.ExecContext(ctx, "PRAGMA foreign_keys = OFF"); err != nil {
+		return nil, wrap(err)
+	}
+	if _, err := conn.ExecContext(ctx, "PRAGMA legacy_alter_table = ON"); err != nil {
+		return nil, wrap(err)
+	}
+
+	tx, err := conn.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, wrap(err)
 	}
