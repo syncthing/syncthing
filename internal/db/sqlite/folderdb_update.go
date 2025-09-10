@@ -48,8 +48,11 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 
 	//nolint:sqlclosecheck
 	insertNameStmt, err := txp.Preparex(`
-		INSERT OR IGNORE INTO file_names (name)
+		INSERT INTO file_names(name)
 		VALUES (?)
+		ON CONFLICT(name) DO UPDATE
+			SET name = excluded.name
+		RETURNING idx
 	`)
 	if err != nil {
 		return wrap(err, "prepare insert name")
@@ -57,8 +60,11 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 
 	//nolint:sqlclosecheck
 	insertVersionStmt, err := txp.Preparex(`
-		INSERT OR IGNORE INTO file_versions (version)
+		INSERT INTO file_versions (version)
 		VALUES (?)
+		ON CONFLICT(version) DO UPDATE
+			SET version = excluded.version
+		RETURNING idx
 	`)
 	if err != nil {
 		return wrap(err, "prepare insert version")
@@ -67,7 +73,7 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 	//nolint:sqlclosecheck
 	insertFileStmt, err := txp.Preparex(`
 		INSERT OR REPLACE INTO files (device_idx, remote_sequence, type, modified, size, deleted, local_flags, blocklist_hash, name_idx, version_idx)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, (SELECT idx FROM file_names WHERE name = ?), (SELECT idx FROM file_versions WHERE version = ?))
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		RETURNING sequence
 	`)
 	if err != nil {
@@ -121,17 +127,18 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 			remoteSeq = &f.Sequence
 		}
 
-		if _, err := insertNameStmt.Exec(f.Name); err != nil {
+		var nameIdx int64
+		if err := insertNameStmt.Get(&nameIdx, f.Name); err != nil {
 			return wrap(err, "insert name")
 		}
 
-		versionString := f.Version.String()
-		if _, err := insertVersionStmt.Exec(versionString); err != nil {
+		var versionIdx int64
+		if err := insertVersionStmt.Get(&versionIdx, f.Version.String()); err != nil {
 			return wrap(err, "insert version")
 		}
 
 		var localSeq int64
-		if err := insertFileStmt.Get(&localSeq, deviceIdx, remoteSeq, f.Type, f.ModTime().UnixNano(), f.Size, f.IsDeleted(), f.LocalFlags, blockshash, f.Name, versionString); err != nil {
+		if err := insertFileStmt.Get(&localSeq, deviceIdx, remoteSeq, f.Type, f.ModTime().UnixNano(), f.Size, f.IsDeleted(), f.LocalFlags, blockshash, nameIdx, versionIdx); err != nil {
 			return wrap(err, "insert file")
 		}
 

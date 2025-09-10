@@ -8,6 +8,7 @@ package sqlite
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -224,7 +225,7 @@ func BenchmarkUpdate(b *testing.B) {
 }
 
 func TestBenchmarkDropAllRemote(t *testing.T) {
-	if testing.Short() {
+	if testing.Short() || os.Getenv("LONG_TEST") == "" {
 		t.Skip("slow test")
 	}
 
@@ -273,7 +274,7 @@ func TestBenchmarkSizeManyFilesRemotes(t *testing.T) {
 	// devices each announcing every files, with fairly long file names and
 	// "worst case" version vectors.
 
-	if testing.Short() {
+	if testing.Short() || os.Getenv("LONG_TEST") == "" {
 		t.Skip("slow test")
 	}
 
