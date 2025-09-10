@@ -1084,14 +1084,6 @@ func startHTTPWithShutdownTimeout(t *testing.T, cfg config.Wrapper, shutdownTime
 	connections := new(connmocks.Service)
 	errorLog := slogutil.NewRecorder(0)
 	systemLog := slogutil.NewRecorder(0)
-	for _, l := range []*loggermocks.Recorder{errorLog, systemLog} {
-		l.SinceReturns([]logger.Line{
-			{
-				When:    time.Now(),
-				Message: "Test message",
-			},
-		})
-	}
 	startedChan := make(chan startedTestMsg)
 	mockedSummary := &modelmocks.FolderSummaryService{}
 	mockedSummary.SummaryReturns(new(model.FolderSummary), nil)

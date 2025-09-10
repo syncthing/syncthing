@@ -38,7 +38,7 @@ func TestMigrateCrashReporting(t *testing.T) {
 	}
 }
 
-func TestMigration51(t *testing.T) {
+func TestMigration52(t *testing.T) {
 	{
 		cfg := Configuration{
 			Options: OptionsConfiguration{
@@ -48,7 +48,7 @@ func TestMigration51(t *testing.T) {
 				RawUseTLS: false,
 			},
 		}
-		migrateToConfigV51(&cfg)
+		migrateToConfigV52(&cfg)
 		if !reflect.DeepEqual(cfg.Options.UnackedNotificationIDs, []string{"foo", "guiAuthentication", "bar"}) {
 			t.Error("Expected notification \"authenticationUserAndPassword\" to be renamed to \"guiAuthentication\"")
 		}
@@ -67,7 +67,7 @@ func TestMigration51(t *testing.T) {
 				RawUseTLS:  true,
 			},
 		}
-		migrateToConfigV51(&cfg)
+		migrateToConfigV52(&cfg)
 		if !reflect.DeepEqual(cfg.GUI.WebauthnOrigins, []string{"https://localhost:8888"}) {
 			t.Error("Expected GUI.WebauthnOrigins to be set to default value with port 8888")
 		}
@@ -80,7 +80,7 @@ func TestMigration51(t *testing.T) {
 				RawUseTLS:  true,
 			},
 		}
-		migrateToConfigV51(&cfg)
+		migrateToConfigV52(&cfg)
 		if !reflect.DeepEqual(cfg.GUI.WebauthnOrigins, []string{"https://localhost"}) {
 			t.Error("Expected GUI.WebauthnOrigins to be set to default value with implicit HTTPS port")
 		}
@@ -92,7 +92,7 @@ func TestMigration51(t *testing.T) {
 				RawAddress: "mymachine:8888",
 			},
 		}
-		migrateToConfigV51(&cfg)
+		migrateToConfigV52(&cfg)
 		if cfg.GUI.WebauthnRpId != "mymachine" {
 			t.Error("Expected GUI.WebauthnRpId to be set to \"mymachine\"")
 		}
@@ -108,7 +108,7 @@ func TestMigration51(t *testing.T) {
 				RawUseTLS:  true,
 			},
 		}
-		migrateToConfigV51(&cfg)
+		migrateToConfigV52(&cfg)
 		if !reflect.DeepEqual(cfg.GUI.WebauthnOrigins, []string{"https://mymachine"}) {
 			t.Error("Expected GUI.WebauthnOrigins to be set to match hostname of listen address")
 		}

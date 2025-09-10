@@ -30,6 +30,7 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
+		{52, migrateToConfigV52},
 		{51, migrateToConfigV51},
 		{50, migrateToConfigV50},
 		{37, migrateToConfigV37},
@@ -119,7 +120,6 @@ func migrateToConfigV52(cfg *Configuration) {
 		}
 	}
 }
-
 
 func migrateToConfigV51(cfg *Configuration) {
 	oldDefault := 2
