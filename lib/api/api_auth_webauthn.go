@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"slices"
 	"sync"
@@ -23,6 +24,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/gen/apiproto"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 )
@@ -142,13 +144,13 @@ func (u webauthnLibUser) WebAuthnCredentials() []webauthnLib.Credential {
 	for _, cred := range eligibleCredentials {
 		id, err := base64.RawURLEncoding.DecodeString(cred.ID)
 		if err != nil {
-			l.Warnf("Failed to base64url-decode ID of WebAuthn credential %q (%s): %v", cred.Nickname, cred.ID, err)
+			slog.Error("Failed to base64url-decode ID of WebAuthn credential", slog.String("cred.Nickname", cred.Nickname), slog.String("cred.ID", cred.ID), slogutil.Error(err))
 			continue
 		}
 
 		pubkey, err := base64.RawURLEncoding.DecodeString(cred.PublicKeyCose)
 		if err != nil {
-			l.Warnf("Failed to base64url-decode public key of WebAuthn credential %q (%s): %v", cred.Nickname, cred.ID, err)
+			slog.Error("Failed to base64url-decode public key of WebAuthn credential", slog.String("cred.Nickname", cred.Nickname), slog.String("cred.ID", cred.ID), slogutil.Error(err))
 			continue
 		}
 
@@ -178,7 +180,7 @@ func (s *webauthnService) startWebauthnRegistration(guiCfg config.GUIConfigurati
 	return func(w http.ResponseWriter, _ *http.Request) {
 		options, sessionData, err := s.engine.BeginRegistration(s.user(guiCfg))
 		if err != nil {
-			l.Warnf("Failed to initiate WebAuthn registration: %v", err)
+			slog.Error("Failed to initiate WebAuthn registration", slogutil.Error(err))
 			internalServerError(w)
 			return
 		}
@@ -195,14 +197,14 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 		requestID := r.URL.Query().Get("requestId")
 		var credResp webauthnProtocol.CredentialCreationResponse
 		if err := unmarshalTo(r.Body, &credResp); err != nil {
-			l.Infof("Failed to parse WebAuthn response: %v", err)
+			slog.Info("Failed to parse WebAuthn response", slogutil.Error(err))
 			http.Error(w, "Failed to parse WebAuthn response.", http.StatusBadRequest)
 			return
 		}
 
 		state, ok := s.registrationStates[requestID]
 		if !ok {
-			l.Debugf("Unknown request ID: %s", requestID)
+			slog.Debug("Unknown request ID", slog.String("requestID", requestID))
 			badRequest(w)
 			return
 		}
@@ -216,14 +218,14 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 
 		parsedResponse, err := credResp.Parse()
 		if err != nil {
-			l.Infof("Failed to parse WebAuthn registration response: %v", err)
+			slog.Info("Failed to parse WebAuthn registration response", slogutil.Error(err))
 			badRequest(w)
 			return
 		}
 
 		credential, err := s.engine.CreateCredential(s.user(guiCfg), state.sessionData, parsedResponse)
 		if err != nil {
-			l.Infof("Failed to register WebAuthn credential: %v", err)
+			slog.Info("Failed to register WebAuthn credential", slogutil.Error(err))
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -231,7 +233,7 @@ func (s *webauthnService) finishWebauthnRegistration(guiCfg config.GUIConfigurat
 		for _, existingCred := range slices.Concat(guiCfg.WebauthnCredentials, s.credentialsPendingRegistration) {
 			existId, err := base64.RawURLEncoding.DecodeString(existingCred.ID)
 			if err == nil && bytes.Equal(credential.ID, existId) {
-				l.Infof("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID)
+				slog.Info("Cannot register WebAuthn credential with duplicate credential ID", slog.String("ID", existingCred.ID))
 				http.Error(w, fmt.Sprintf("Cannot register WebAuthn credential with duplicate credential ID: %s", existingCred.ID), http.StatusBadRequest)
 				return
 			}
@@ -281,7 +283,7 @@ func (s *webauthnService) startWebauthnAuthentication(guiCfg config.GUIConfigura
 			if ok && badRequest.Type == "invalid_request" && badRequest.Details == "Found no credentials for user" {
 				sendJSON(w, make(map[string]string))
 			} else {
-				l.Warnf("Failed to initialize WebAuthn login: %v", err)
+				slog.Error("Failed to initialize WebAuthn login", slogutil.Error(err))
 			}
 			return
 		}
@@ -300,7 +302,7 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 
 		var credResp webauthnProtocol.CredentialAssertionResponse
 		if err := unmarshalTo(r.Body, &credResp); err != nil {
-			l.Infof("Failed to parse WebAuthn response: %v", err)
+			slog.Info("Failed to parse WebAuthn response", slogutil.Error(err))
 			http.Error(w, "Failed to parse WebAuthn response.", http.StatusBadRequest)
 			return
 		}
@@ -321,7 +323,7 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 
 		parsedResponse, err := credResp.Parse()
 		if err != nil {
-			l.Infof("Failed to parse WebAuthn authentication response: %v", err)
+			slog.Info("Failed to parse WebAuthn authentication response", slogutil.Error(err))
 			badRequest(w)
 			return
 		}
@@ -341,7 +343,7 @@ func (s *webauthnService) finishWebauthnAuthentication(tokenCookieManager *token
 
 		updatedCred, err := s.engine.ValidateLogin(s.user(guiCfg), state.sessionData, parsedResponse)
 		if err != nil {
-			l.Infof("WebAuthn authentication failed: %v", err)
+			slog.Info("WebAuthn authentication failed", slogutil.Error(err))
 
 			if state.sessionData.UserVerification == webauthnProtocol.VerificationRequired && !parsedResponse.Response.AuthenticatorData.Flags.UserVerified() {
 				antiBruteForceSleep()
@@ -393,7 +395,7 @@ func (s *webauthnService) loadVolatileState() *apiproto.WebauthnVolatileState {
 func (s *webauthnService) loadVolatileStateRLocked() *apiproto.WebauthnVolatileState {
 	stateBytes, ok, err := s.miscDB.Bytes(s.miscDBKey)
 	if err != nil {
-		l.Warnf("Failed to load WebAuthn dynamic state: %v", err)
+		slog.Warn("Failed to load WebAuthn dynamic state", slogutil.Error(err))
 		return newVolState()
 	}
 	if !ok {
@@ -403,7 +405,7 @@ func (s *webauthnService) loadVolatileStateRLocked() *apiproto.WebauthnVolatileS
 	state := newVolState()
 	err = proto.Unmarshal(stateBytes, state)
 	if err != nil {
-		l.Warnf("Failed to unmarshal WebAuthn dynamic state: %v", err)
+		slog.Warn("Failed to unmarshal WebAuthn dynamic state", slogutil.Error(err))
 		return newVolState()
 	}
 	if state.Credentials == nil {
@@ -439,11 +441,11 @@ func (s *webauthnService) updateCredentialVolatileState(credId string, updatedCr
 		volState.Credentials[credId] = dynCredState
 	})
 	if err != nil {
-		l.Warnf("Failed to update authenticated WebAuthn credential: %v", err)
+		slog.Error("Failed to update authenticated WebAuthn credential", slogutil.Error(err))
 	}
 
 	if updatedCred.Authenticator.CloneWarning && signCountBefore != 0 {
-		l.Warnf("Invalid WebAuthn signature count for credential %q: expected > %d, was: %d. The credential may have been cloned.", credId, signCountBefore, updatedCred.Authenticator.SignCount)
+		slog.Warn("Invalid WebAuthn signature count. The credential may have been cloned.", slog.String("credId", credId), slog.Uint64("signCountBefore", uint64(signCountBefore)), slog.Uint64("signCountAfter", uint64(updatedCred.Authenticator.SignCount)))
 	}
 }
 
