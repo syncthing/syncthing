@@ -160,6 +160,11 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 				return nil, wrap(err)
 			}
 		}
+
+		// Finally, ensure nothing we've done along the way has violated key integrity.
+		if _, err := conn.ExecContext(ctx, "PRAGMA foreign_key_check"); err != nil {
+			return nil, wrap(err)
+		}
 	}
 
 	// Set the current schema version, if not already set
