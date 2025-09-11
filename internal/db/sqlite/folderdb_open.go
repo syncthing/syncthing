@@ -97,7 +97,7 @@ func (s *folderDB) deviceIdxLocked(deviceID protocol.DeviceID) (int64, error) {
 	devStr := deviceID.String()
 	var idx int64
 	if err := s.stmt(`
-		INSERT OR IGNORE INTO devices(device_id)
+		INSERT INTO devices(device_id)
 		VALUES (?)
 		ON CONFLICT(device_id) DO UPDATE
 			SET device_id = excluded.device_id
