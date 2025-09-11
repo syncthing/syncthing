@@ -15,7 +15,7 @@ import (
 
 const (
 	dbDriver      = "sqlite"
-	commonOptions = "_pragma=foreign_keys(1)&_pragma=recursive_triggers(1)&_pragma=synchronous(1)"
+	commonOptions = "_pragma=foreign_keys(1)&_pragma=recursive_triggers(1)&_pragma=synchronous(1)&_txlock=immediate"
 )
 
 func init() {
