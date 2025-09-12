@@ -4,7 +4,7 @@
 -- License, v. 2.0. If a copy of the MPL was not distributed with this file,
 -- You can obtain one at https://mozilla.org/MPL/2.0/.
 
--- Grab all uniqe names into the names table
+-- Grab all unique names into the names table
 
 INSERT INTO file_names (idx, name) SELECT DISTINCT null, name FROM files
 ;
