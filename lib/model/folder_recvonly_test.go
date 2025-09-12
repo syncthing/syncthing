@@ -459,6 +459,7 @@ func TestRecvOnlyRevertOwnID(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
+		defer cancel()
 		for {
 			select {
 			case <-ctx.Done():
@@ -466,9 +467,9 @@ func TestRecvOnlyRevertOwnID(t *testing.T) {
 			case <-sub.C():
 				if file, _ := m.testCurrentFolderFile(f.ID, name); file.Deleted {
 					t.Error("local file was deleted")
-					cancel()
+					return
 				} else if file.IsEquivalent(fi, f.modTimeWindow) {
-					cancel() // That's what we are waiting for
+					return // That's what we are waiting for
 				}
 			}
 		}
