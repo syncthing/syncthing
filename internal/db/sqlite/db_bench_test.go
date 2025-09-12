@@ -8,11 +8,13 @@ package sqlite
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/timeutil"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 )
@@ -223,7 +225,7 @@ func BenchmarkUpdate(b *testing.B) {
 }
 
 func TestBenchmarkDropAllRemote(t *testing.T) {
-	if testing.Short() {
+	if testing.Short() || os.Getenv("LONG_TEST") == "" {
 		t.Skip("slow test")
 	}
 
@@ -265,4 +267,62 @@ func TestBenchmarkDropAllRemote(t *testing.T) {
 	}
 	d := time.Since(t0)
 	t.Log("drop all took", d)
+}
+
+func TestBenchmarkSizeManyFilesRemotes(t *testing.T) {
+	// Reports the database size for a setup with many files and many remote
+	// devices each announcing every files, with fairly long file names and
+	// "worst case" version vectors.
+
+	if testing.Short() || os.Getenv("LONG_TEST") == "" {
+		t.Skip("slow test")
+	}
+
+	dir := t.TempDir()
+	db, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// This is equivalent to about 800 GiB in 100k files (i.e., 8 MiB per
+	// file), shared between 31 devices where each have touched every file.
+	const numFiles = 1e5
+	const numRemotes = 30
+	const numBlocks = 64
+	const filenameLen = 64
+
+	fs := make([]protocol.FileInfo, 1000)
+	n := 0
+	seq := 0
+	for n < numFiles {
+		for i := range fs {
+			seq++
+			fs[i] = genFile(rand.String(filenameLen), numBlocks, seq)
+			for r := range numRemotes {
+				fs[i].Version = fs[i].Version.Update(42 + protocol.ShortID(r))
+			}
+		}
+		if err := db.Update(folderID, protocol.LocalDeviceID, fs); err != nil {
+			t.Fatal(err)
+		}
+		for r := range numRemotes {
+			if err := db.Update(folderID, protocol.DeviceID{byte(42 + r)}, fs); err != nil {
+				t.Fatal(err)
+			}
+		}
+		n += len(fs)
+		t.Log(n, (numRemotes+1)*n)
+	}
+
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	size := osutil.DirSize(dir)
+	t.Logf("Total size: %.02f MiB", float64(size)/1024/1024)
 }

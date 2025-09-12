@@ -125,6 +125,9 @@ func (s *Service) periodic(ctx context.Context) error {
 			if err := garbageCollectOldDeletedLocked(ctx, fdb); err != nil {
 				return wrap(err)
 			}
+			if err := garbageCollectNamesAndVersions(ctx, fdb); err != nil {
+				return wrap(err)
+			}
 			if err := garbageCollectBlocklistsAndBlocksLocked(ctx, fdb); err != nil {
 				return wrap(err)
 			}
@@ -149,6 +152,34 @@ func tidy(ctx context.Context, db *sqlx.DB) error {
 	_, _ = conn.ExecContext(ctx, `PRAGMA incremental_vacuum`)
 	_, _ = conn.ExecContext(ctx, `PRAGMA journal_size_limit = 8388608`)
 	_, _ = conn.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)
+	return nil
+}
+
+func garbageCollectNamesAndVersions(ctx context.Context, fdb *folderDB) error {
+	l := slog.With("folder", fdb.folderID, "fdb", fdb.baseName)
+
+	res, err := fdb.stmt(`
+		DELETE FROM file_names
+		WHERE NOT EXISTS (SELECT 1 FROM files f WHERE f.name_idx = idx)
+	`).Exec()
+	if err != nil {
+		return wrap(err, "delete names")
+	}
+	if aff, err := res.RowsAffected(); err == nil {
+		l.DebugContext(ctx, "Removed old file names", "affected", aff)
+	}
+
+	res, err = fdb.stmt(`
+		DELETE FROM file_versions
+		WHERE NOT EXISTS (SELECT 1 FROM files f WHERE f.version_idx = idx)
+	`).Exec()
+	if err != nil {
+		return wrap(err, "delete versions")
+	}
+	if aff, err := res.RowsAffected(); err == nil {
+		l.DebugContext(ctx, "Removed old file versions", "affected", aff)
+	}
+
 	return nil
 }
 
