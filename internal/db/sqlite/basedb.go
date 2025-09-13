@@ -7,6 +7,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"io/fs"
@@ -26,7 +27,7 @@ import (
 )
 
 const (
-	currentSchemaVersion = 4
+	currentSchemaVersion = 5
 	applicationIDMain    = 0x53546d6e // "STmn", Syncthing main database
 	applicationIDFolder  = 0x53546664 // "STfd", Syncthing folder database
 )
@@ -87,7 +88,31 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 		},
 	}
 
-	tx, err := db.sql.Beginx()
+	// Create a specific connection for the schema setup and migration to
+	// run in. We do this because we need to disable foreign keys for the
+	// duration, which is a thing that needs to happen outside of a
+	// transaction and affects the connection it's run on. So we need to a)
+	// make sure all our commands run on this specific connection (which the
+	// transaction accomplishes naturally) and b) make sure these pragmas
+	// don't leak to anyone else afterwards.
+	ctx := context.TODO()
+	conn, err := db.sql.Connx(ctx)
+	if err != nil {
+		return nil, wrap(err)
+	}
+	defer func() {
+		_, _ = conn.ExecContext(ctx, "PRAGMA foreign_keys = ON")
+		_, _ = conn.ExecContext(ctx, "PRAGMA legacy_alter_table = OFF")
+		conn.Close()
+	}()
+	if _, err := conn.ExecContext(ctx, "PRAGMA foreign_keys = OFF"); err != nil {
+		return nil, wrap(err)
+	}
+	if _, err := conn.ExecContext(ctx, "PRAGMA legacy_alter_table = ON"); err != nil {
+		return nil, wrap(err)
+	}
+
+	tx, err := conn.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, wrap(err)
 	}
@@ -123,6 +148,22 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 			if err := db.runScripts(tx, script, filter); err != nil {
 				return nil, wrap(err)
 			}
+		}
+
+		// Run the initial schema scripts once more. This is generally a
+		// no-op. However, dropping a table removes associated triggers etc,
+		// and that's a thing we sometimes do in migrations. To avoid having
+		// to repeat the setup of associated triggers and indexes in the
+		// migration, we re-run the initial schema scripts.
+		for _, script := range schemaScripts {
+			if err := db.runScripts(tx, script); err != nil {
+				return nil, wrap(err)
+			}
+		}
+
+		// Finally, ensure nothing we've done along the way has violated key integrity.
+		if _, err := conn.ExecContext(ctx, "PRAGMA foreign_key_check"); err != nil {
+			return nil, wrap(err)
 		}
 	}
 
@@ -271,7 +312,12 @@ nextScript:
 		// also statement-internal semicolons in the triggers.
 		for _, stmt := range strings.Split(string(bs), "\n;") {
 			if _, err := tx.Exec(s.expandTemplateVars(stmt)); err != nil {
-				return wrap(err, stmt)
+				if strings.Contains(stmt, "syncthing:ignore-failure") {
+					// We're ok with this failing. Just note it.
+					slog.Debug("Script failed, but with ignore-failure annotation", slog.String("script", scr), slogutil.Error(wrap(err, stmt)))
+				} else {
+					return wrap(err, stmt)
+				}
 			}
 		}
 	}

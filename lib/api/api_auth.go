@@ -25,9 +25,10 @@ import (
 )
 
 const (
-	maxSessionLifetime = 7 * 24 * time.Hour
-	maxActiveSessions  = 25
-	randomTokenLength  = 64
+	maxSessionLifetime  = 7 * 24 * time.Hour
+	maxActiveSessions   = 25
+	randomTokenLength   = 64
+	maxLoginRequestSize = 1 << 10 // one kibibyte for username+password
 )
 
 func emitLoginAttempt(success bool, username string, r *http.Request, evLogger events.Logger) {
@@ -182,7 +183,7 @@ func (m *basicAuthAndSessionMiddleware) passwordAuthHandler(w http.ResponseWrite
 		Password     string
 		StayLoggedIn bool
 	}
-	if err := unmarshalTo(r.Body, &req); err != nil {
+	if err := unmarshalTo(http.MaxBytesReader(w, r.Body, maxLoginRequestSize), &req); err != nil {
 		l.Debugln("Failed to parse username and password:", err)
 		http.Error(w, "Failed to parse username and password.", http.StatusBadRequest)
 		return

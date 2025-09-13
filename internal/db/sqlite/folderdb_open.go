@@ -95,16 +95,13 @@ func openFolderDBForMigration(folder, path string, deleteRetention time.Duration
 
 func (s *folderDB) deviceIdxLocked(deviceID protocol.DeviceID) (int64, error) {
 	devStr := deviceID.String()
-	if _, err := s.stmt(`
-		INSERT OR IGNORE INTO devices(device_id)
-		VALUES (?)
-	`).Exec(devStr); err != nil {
-		return 0, wrap(err)
-	}
 	var idx int64
 	if err := s.stmt(`
-		SELECT idx FROM devices
-		WHERE device_id = ?
+		INSERT INTO devices(device_id)
+		VALUES (?)
+		ON CONFLICT(device_id) DO UPDATE
+			SET device_id = excluded.device_id
+		RETURNING idx
 	`).Get(&idx, devStr); err != nil {
 		return 0, wrap(err)
 	}
