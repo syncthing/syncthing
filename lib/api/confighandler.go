@@ -22,8 +22,9 @@ import (
 
 type configMuxBuilder struct {
 	*httprouter.Router
-	id  protocol.DeviceID
-	cfg config.Wrapper
+	id              protocol.DeviceID
+	cfg             config.Wrapper
+	webauthnService *webauthnService
 }
 
 func (c *configMuxBuilder) registerConfig(path string) {
@@ -309,6 +310,11 @@ func (c *configMuxBuilder) registerGUI(path string) {
 	})
 }
 
+func (c *configMuxBuilder) registerWebauthnConfig(path string) {
+	c.HandlerFunc(http.MethodPost, path+"/register-start", c.webauthnService.startWebauthnRegistration(c.cfg.GUI()))
+	c.HandlerFunc(http.MethodPost, path+"/register-finish", c.webauthnService.finishWebauthnRegistration(c.cfg.GUI()))
+}
+
 func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) {
 	to, err := config.ReadJSON(r.Body, c.id)
 	r.Body.Close()
@@ -325,6 +331,7 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 			status = http.StatusInternalServerError
 			return
 		}
+
 		*cfg = to
 	})
 	if errMsg != "" {
@@ -421,6 +428,9 @@ func (c *configMuxBuilder) postAdjustGui(from *config.GUIConfiguration, to *conf
 			return err
 		}
 	}
+
+	config.SanitizeWebauthnStateChanges(from, to, c.webauthnService.credentialsPendingRegistration)
+
 	return nil
 }
 

@@ -94,6 +94,14 @@ func forbidden(w http.ResponseWriter) {
 	http.Error(w, "Forbidden", http.StatusForbidden)
 }
 
+func internalServerError(w http.ResponseWriter) {
+	http.Error(w, "Internal server error", http.StatusInternalServerError)
+}
+
+func badRequest(w http.ResponseWriter) {
+	http.Error(w, "Bad request", http.StatusBadRequest)
+}
+
 func isNoAuthPath(path string, metricsWithoutAuth bool) bool {
 	// Local variable instead of module var to prevent accidental mutation
 	noAuthPaths := []string{
@@ -229,11 +237,14 @@ func (m *basicAuthAndSessionMiddleware) handleLogout(w http.ResponseWriter, r *h
 }
 
 func auth(username string, password string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration) bool {
-	if guiCfg.AuthMode == config.AuthModeLDAP {
-		return authLDAP(username, password, ldapCfg)
-	} else {
-		return authStatic(username, password, guiCfg)
+	if guiCfg.IsPasswordAuthEnabled() {
+		if guiCfg.AuthMode == config.AuthModeLDAP {
+			return authLDAP(username, password, ldapCfg)
+		} else {
+			return authStatic(username, password, guiCfg)
+		}
 	}
+	return false
 }
 
 func authStatic(username string, password string, guiCfg config.GUIConfiguration) bool {

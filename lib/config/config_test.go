@@ -83,7 +83,7 @@ func TestDefaultValues(t *testing.T) {
 			AlwaysLocalNets:           []string{},
 			OverwriteRemoteDevNames:   false,
 			TempIndexMinBlocks:        10,
-			UnackedNotificationIDs:    []string{"authenticationUserAndPassword"},
+			UnackedNotificationIDs:    []string{"guiAuthentication"},
 			SetLowPriority:            true,
 			CRURL:                     "https://crash.syncthing.net/newcrash",
 			CREnabled:                 true,
@@ -815,6 +815,18 @@ func TestGUIPasswordHash(t *testing.T) {
 	c.SetPassword(string(hash))
 	if err := c.CompareHashedPassword("test"); err != nil {
 		t.Errorf("No match on hashed password: %v", err)
+	}
+
+	c.User = "foo"
+	// Setting the password to empty disables password auth
+	if !c.IsPasswordAuthEnabled() {
+		t.Errorf("Authentication not enabled despite password being set")
+	}
+	if err := c.SetPassword(""); err != nil {
+		t.Fatal(err)
+	}
+	if c.IsPasswordAuthEnabled() {
+		t.Errorf("Authentication still enabled after unsetting password")
 	}
 }
 
