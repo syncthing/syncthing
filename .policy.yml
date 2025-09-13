@@ -8,17 +8,20 @@
 policy:
   approval:
     - subject is conventional commit
-    - project metadata requires maintainer approval
+    - or:
+      - project metadata requires maintainer approval
+      - a maintainer claims responsibility
     - or:
       - is approved by a syncthing contributor
       - is a translation or dependency update by a contributor
       - is a trivial change by a contributor
+      - a maintainer claims responsibility
 
-  # Additionally, contributors can disapprove of a PR
+  # Additionally, maintainers can disapprove of a PR
   disapproval:
     requires:
       teams:
-        - syncthing/contributors
+        - syncthing/maintainers
 
 # The rules for the policy are described below.
 
@@ -96,3 +99,13 @@ approval_rules:
       has_author_in:
         teams:
           - syncthing/contributors
+
+  # A member of the maintainers group can take responsibility by adding the
+  # appropriate label.
+  - name: a maintainer claims responsibility
+    if:
+      has_labels:
+        - maintainer-responsibility
+      has_author_in:
+        teams:
+          - syncthing/maintainers
