@@ -211,6 +211,12 @@ func defaultVars() kong.Vars {
 }
 
 func main() {
+	// Initialize console for Windows GUI builds
+	if err := InitConsole(); err != nil {
+		slog.Error("Failed to initialize console", slogutil.Error(err))
+	}
+	defer FreeConsole()
+
 	// Create a parser with an overridden help function to print our extra
 	// help info.
 	var entrypoint CLI
