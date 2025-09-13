@@ -655,6 +655,7 @@ func (w *walker) updateFileInfo(dst, src protocol.FileInfo) protocol.FileInfo {
 	dst.Version = src.Version.Update(w.ShortID)
 	dst.ModifiedBy = w.ShortID
 	dst.LocalFlags = w.LocalFlags
+	dst.PreviousBlocksHash = src.BlocksHash
 
 	// Copy OS data from src to dst, unless it was already set on dst.
 	dst.Platform.MergeWith(&src.Platform)
