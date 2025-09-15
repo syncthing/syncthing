@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING" "1" "Sep 06, 2025" "v2.0.0" "Syncthing"
+.TH "SYNCTHING" "1" "Sep 14, 2025" "v2.0.0" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .SH SYNOPSIS
@@ -43,10 +43,12 @@ syncthing [serve]
           [\-\-gui\-address=<address>] [\-\-gui\-apikey=<key>]
           [\-\-log\-level=<level>] [\-\-log\-file=<filename>]
           [\-\-log\-max\-old\-files=<num>] [\-\-log\-max\-size=<num>]
+          [\-\-log\-format\-timestamp=<format>] [\-\-no\-log\-format\-level\-string]
+          [\-\-log\-format\-level\-syslog]
           [\-\-no\-browser] [\-\-no\-console]
           [\-\-no\-port\-probing] [\-\-no\-restart] [\-\-no\-upgrade]
           [\-\-paused] [\-\-unpaused]
-          [\-\-verbose] [\-\-version] [\-\-help] [\-\-debug\-*]
+          [\-\-version] [\-\-help] [\-\-debug\-*]
 
 syncthing cli
           [\-\-home=<dir> | \-\-config=<dir> \-\-data=<dir>]
@@ -112,7 +114,7 @@ few log messages.
 .SH COMMON OPTIONS
 .INDENT 0.0
 .TP
-.B \-\-home=<dir>, \-H <dir>
+.B \-\-home=<dir>, \-H <dir> ($STHOMEDIR)
 Set common configuration and data directory. The default configuration
 directory is \fB$XDG_STATE_HOME/syncthing\fP or
 \fB$HOME/.local/state/syncthing\fP (Unix\-like),
@@ -121,13 +123,13 @@ directory is \fB$XDG_STATE_HOME/syncthing\fP or
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-config=<dir>, \-C <dir>
+.B \-\-config=<dir>, \-C <dir> ($STCONFDIR)
 Set configuration directory. Alternative to \fB\-\-home\fP and must be used
 together with \fB\-\-data\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-data=<dir>, \-D <dir>
+.B \-\-data=<dir>, \-D <dir> ($STDATADIR)
 Set data (e.g. database) directory. Alternative to \fB\-\-home\fP and must be used
 together with \fB\-\-config\fP\&.
 .UNINDENT
@@ -140,36 +142,38 @@ given subcommand.
 .SH SERVE OPTIONS
 .INDENT 0.0
 .TP
-.B \-\-allow\-newer\-config
+.B \-\-allow\-newer\-config ($STALLOWNEWERCONFIG)
 Try loading a config file written by a newer program version, instead of
 failing immediately.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-audit
+.B \-\-audit ($STAUDIT)
 Write events to timestamped file \fBaudit\-YYYYMMDD\-HHMMSS.log\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-auditfile=<file|\-|\-\->
+.B \-\-auditfile=<file|\-|\-\-> ($STAUDITFILE)
 Use specified file or stream (\fB\(dq\-\(dq\fP for stdout, \fB\(dq\-\-\(dq\fP for stderr) for
 audit events, rather than the timestamped default file name.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-db\-maintenance\-interval=<interval>
+.B \-\-db\-maintenance\-interval=<interval> ($STDBMAINTENANCEINTERVAL)
 Database maintenance interval – internal database maintenance routines
-run this often.
+run this often. The format is that of a Go duration string (see
+\X'tty: link https://pkg.go.dev/time#ParseDuration'\fI\%https://pkg.go.dev/time#ParseDuration\fP\X'tty: link').
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-db\-delete\-retention\-interval=<interval>
+.B \-\-db\-delete\-retention\-interval=<interval> ($STDBDELETERETENTIONINTERVAL)
 Database deleted item retention interval – deleted items are forgotten
-from the database after this interval.
+from the database after this interval. The format is that of a Go duration
+string (see \X'tty: link https://pkg.go.dev/time#ParseDuration'\fI\%https://pkg.go.dev/time#ParseDuration\fP\X'tty: link').
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-gui\-address=<address>
+.B \-\-gui\-address=<address> ($STGUIADDRESS)
 Override GUI listen address. Set this to an address (\fB0.0.0.0:8384\fP)
 or a URL (\fBhttp://0.0.0.0:8384\fP). Supported schemes are \fBhttp\fP for
 plain HTTP, \fBhttps\fP for HTTP over TLS, \fBunix\fP for plain Unix sockets
@@ -179,79 +183,95 @@ as part of the URL structure, one to specify an absolute path).
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-gui\-apikey=<string>
+.B \-\-gui\-apikey=<string> ($STGUIAPIKEY)
 Override the API key needed to access the GUI / REST API.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-log\-level=<level>
-Set the log level for all packages. Valid levels are DEBUG, INFO, WARN,
-and ERROR.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-\-log\-file=<filename>
+.B \-\-log\-file=<filename> ($STLOGFILE)
 Set destination filename for logging (use \fB\(dq\-\(dq\fP for stdout, which is the
 default option).
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-log\-max\-old\-files=<num>
+.B \-\-log\-level=<level> ($STLOGLEVEL)
+Set the log level for all packages. Valid levels are DEBUG, INFO, WARN,
+and ERROR.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-log\-max\-old\-files=<num> ($STLOGMAXOLDFILES)
 Number of old files to keep (zero to keep only current).  Applies only when
 log rotation is enabled through \fB\-\-log\-max\-size\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-log\-max\-size=<num>
-Maximum size of any log file (zero to disable log rotation).
+.B \-\-log\-max\-size=<num> ($STLOGMAXSIZE)
+Maximum size in bytes of any log file (zero to disable log rotation).
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-no\-browser
+.B \-\-log\-format\-timestamp=<format> ($STLOGFORMATTIMESTAMP)
+Format for timestamp, set to empty to disable timestamps. The format is that
+of the Go time formatter (see \X'tty: link https://pkg.go.dev/time#Layout'\fI\%https://pkg.go.dev/time#Layout\fP\X'tty: link').
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-[no\-]log\-format\-level\-string ($STLOGFORMATLEVELSTRING)
+Whether to include level string (e.g. “INF”) in log line.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-[no\-]log\-format\-level\-syslog ($STLOGFORMATLEVELSYSLOG)
+Whether to include level as syslog prefix (e.g. “<6>”) in log line.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-no\-browser ($STNOBROWSER)
 Do not start a browser.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-no\-console
+.B \-\-no\-console ($STNOCONSOLE)
 Hide the console window. (On Windows only)
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-no\-port\-probing
+.B \-\-no\-port\-probing ($STNOPORTPROBING)
 Don’t try to find unused random ports for the GUI and listen address when
 generating an initial configuration / starting for the first time.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-no\-restart
+.B \-\-no\-restart ($STNORESTART)
 Do not restart Syncthing when it exits. The monitor process will still run
 to handle crashes and writing to logfiles (if configured to).
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-no\-upgrade
-Disable automatic upgrades.  Equivalent to the \fBSTNOUPGRADE\fP environment
-variable, see below.
+.B \-\-no\-upgrade ($STNOUPGRADE)
+Disable automatic upgrades.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-paused
+.B \-\-paused ($STPAUSED)
 Start with all devices and folders paused.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-unpaused
+.B \-\-unpaused ($STUNPAUSED)
 Start with all devices and folders unpaused.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-upgrade
-Perform upgrade.
+.B \-\-version
+Show the current version information, then exit.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-verbose
-Print verbose log output.
+.B \-\-debug\-*
+Several debug options exist. See \fBsyncthing serve \-\-help\fP for the flags
+that apply to your version.
 .UNINDENT
 .SH DECRYPT OPTIONS
 .INDENT 0.0
@@ -266,7 +286,7 @@ Don’t write decrypted files to disk (but verify plaintext hashes).
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-\-password=<pw>
+.B \-\-password=<pw> ($FOLDER_PASSWORD)
 Folder password for decryption / verification.  Can be passed through the
 \fBFOLDER_PASSWORD\fP environment variable instead to avoid recording in a
 shell’s history buffer or sniffing from the running processes list.
@@ -337,9 +357,9 @@ signal handler. Exit codes over 128+N on Unix usually represent the signal which
 caused the process to exit. For example, \fB128 + 9 (SIGKILL) = 137\fP\&.
 .SH SUBCOMMANDS
 .sp
-The command line syntax actually supports different modes of operation through
-several subcommands, specified as the first argument.  If omitted, the default
-\fBserve\fP is assumed.
+The command line syntax supports different modes of operation through
+several subcommands, specified as the first argument.  If omitted, the
+default \fBserve\fP is assumed.
 .sp
 The initial setup of a device ID and default configuration can be called
 explicitly with the \fBgenerate\fP subcommand.  It can also update the configured
@@ -423,38 +443,79 @@ facilities to trace: \fBapi,beacon\fP\&. Optionally, a log level can be
 given per facility to specify something other than DEBUG:
 \fBapi:WARN,beacon:ERR\fP, potentially overriding a global \fB\-\-log\-level\fP
 adjustment.
-.INDENT 7.0
-.INDENT 3.5
+.sp
 The valid facility strings are listed below; additionally, \fBsyncthing
 serve \-\-help\fP always outputs the most up\-to\-date list.
-.INDENT 0.0
-.INDENT 3.5
-api             \- REST API
-beacon          \- Multicast and broadcast discovery
-config          \- Configuration loading and saving
-connections     \- Connection handling
-db/sqlite       \- SQLite database
-dialer          \- Dialing connections
-discover        \- Remote device discovery
-events          \- Event generation and logging
-fs              \- Filesystem access
-main            \- Main package
-model           \- The root hub
-nat             \- NAT discovery and port mapping
-pmp             \- NAT\-PMP discovery and port mapping
-protocol        \- The BEP protocol
-relay/client    \- Relay client
-scanner         \- File change detection and hashing
-stun            \- STUN functionality
-syncthing       \- Main run facility
-upgrade         \- Binary upgrades
-upnp            \- UPnP discovery and port mapping
-ur              \- Usage reporting
-versioner       \- File versioning
-watchaggregator \- Filesystem event watcher
-.UNINDENT
-.UNINDENT
-.UNINDENT
+.INDENT 7.0
+.TP
+.B api
+REST API
+.TP
+.B beacon
+Multicast and broadcast discovery
+.TP
+.B config
+Configuration loading and saving
+.TP
+.B connections
+Connection handling
+.TP
+.B db/sqlite
+SQLite database
+.TP
+.B dialer
+Dialing connections
+.TP
+.B discover
+Remote device discovery
+.TP
+.B events
+Event generation and logging
+.TP
+.B fs
+Filesystem access
+.TP
+.B main
+Main package
+.TP
+.B model
+The root hub
+.TP
+.B nat
+NAT discovery and port mapping
+.TP
+.B pmp
+NAT\-PMP discovery and port mapping
+.TP
+.B protocol
+The BEP protocol
+.TP
+.B relay/client
+Relay client
+.TP
+.B scanner
+File change detection and hashing
+.TP
+.B stun
+STUN functionality
+.TP
+.B syncthing
+Main run facility
+.TP
+.B upgrade
+Binary upgrades
+.TP
+.B upnp
+UPnP discovery and port mapping
+.TP
+.B ur
+Usage reporting
+.TP
+.B versioner
+File versioning
+.TP
+.B watchaggregator
+Filesystem event watcher
 .UNINDENT
 .TP
 .B STLOCKTHRESHOLD

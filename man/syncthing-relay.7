@@ -28,7 +28,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-RELAY" "7" "Sep 06, 2025" "v2.0.0" "Syncthing"
+.TH "SYNCTHING-RELAY" "7" "Sep 14, 2025" "v2.0.0" "Syncthing"
 .SH NAME
 syncthing-relay \- Relay Protocol v1
 .SH WHAT IS A RELAY?
@@ -237,9 +237,10 @@ ResponseNotFound \- Session key is invalid
 ResponseAlreadyConnected \- Session is full (both sides already connected)
 .IP 3. 3
 ResponseSuccess \- You have successfully joined the session
+.IP 4. 3
+RelayFull \- Relay limits are too strict for you to be able to join the session.
 .UNINDENT
 .sp
-4. RelayFull \- Relay limits are too strict for you to be able to join the session.
 The relay immediately terminates the connection after sending this.
 .sp
 After the successful response, all the bytes written and received will be
