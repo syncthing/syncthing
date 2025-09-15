@@ -52,7 +52,7 @@ type Report struct {
 		ExternalVersioning  int `json:"externalVersioning,omitempty" metric:"folder_feature{feature=VersioningExternal},summary" since:"2"`
 		StaggeredVersioning int `json:"staggeredVersioning,omitempty" metric:"folder_feature{feature=VersioningStaggered},summary" since:"2"`
 		TrashcanVersioning  int `json:"trashcanVersioning,omitempty" metric:"folder_feature{feature=VersioningTrashcan},summary" since:"2"`
-	} `json:"folderUses,omitempty" since:"2"`
+	} `json:"folderUses,omitzero" since:"2"`
 
 	DeviceUses struct {
 		Introducer       int `json:"introducer,omitempty" metric:"device_feature{feature=Introducer},summary" since:"2"`
@@ -62,20 +62,20 @@ type Report struct {
 		CompressNever    int `json:"compressNever,omitempty" metric:"device_feature{feature=CompressNever},summary" since:"2"`
 		DynamicAddr      int `json:"dynamicAddr,omitempty" metric:"device_feature{feature=AddressDynamic},summary" since:"2"`
 		StaticAddr       int `json:"staticAddr,omitempty" metric:"device_feature{feature=AddressStatic},summary" since:"2"`
-	} `json:"deviceUses,omitempty" since:"2"`
+	} `json:"deviceUses,omitzero" since:"2"`
 
 	Announce struct {
 		GlobalEnabled     bool `json:"globalEnabled,omitempty" metric:"discovery_feature_count{feature=GlobalEnabled},gauge" since:"2"`
 		LocalEnabled      bool `json:"localEnabled,omitempty" metric:"discovery_feature_count{feature=LocalEnabled},gauge" since:"2"`
 		DefaultServersDNS int  `json:"defaultServersDNS,omitempty" metric:"discovery_default_servers,summary" since:"2"`
 		OtherServers      int  `json:"otherServers,omitempty" metric:"discovery_other_servers,summary" since:"2"`
-	} `json:"announce,omitempty" since:"2"`
+	} `json:"announce,omitzero" since:"2"`
 
 	Relays struct {
 		Enabled        bool `json:"enabled,omitempty" metric:"relay_feature_enabled,gauge" since:"2"`
 		DefaultServers int  `json:"defaultServers,omitempty" metric:"relay_feature_count{feature=DefaultServers},summary" since:"2"`
 		OtherServers   int  `json:"otherServers,omitempty" metric:"relay_feature_count{feature=OtherServers},summary" since:"2"`
-	} `json:"relays,omitempty" since:"2"`
+	} `json:"relays,omitzero" since:"2"`
 
 	UsesRateLimit        bool `json:"usesRateLimit,omitempty" metric:"feature_count{feature=RateLimitsEnabled},gauge" since:"2"`
 	UpgradeAllowedManual bool `json:"upgradeAllowedManual,omitempty" metric:"feature_count{feature=UpgradeAllowedManual},gauge" since:"2"`
@@ -127,13 +127,13 @@ type Report struct {
 		SyncXattrs              int            `json:"syncXattrs,omitempty" metric:"folder_feature{feature=SyncXattrs},summary" since:"3"`
 		SendOwnership           int            `json:"sendOwnership,omitempty" metric:"folder_feature{feature=SendOwnership},summary" since:"3"`
 		SyncOwnership           int            `json:"syncOwnership,omitempty" metric:"folder_feature{feature=SyncOwnership},summary" since:"3"`
-	} `json:"folderUsesV3,omitempty" since:"3"`
+	} `json:"folderUsesV3,omitzero" since:"3"`
 
 	DeviceUsesV3 struct {
 		Untrusted           int `json:"untrusted,omitempty" metric:"device_feature{feature=Untrusted},summary" since:"3"`
 		UsesRateLimit       int `json:"usesRateLimit,omitempty" metric:"device_feature{feature=RateLimitsEnabled},summary" since:"3"`
 		MultipleConnections int `json:"multipleConnections,omitempty" metric:"device_feature{feature=MultipleConnections},summary" since:"3"`
-	} `json:"deviceUsesV3,omitempty" since:"3"`
+	} `json:"deviceUsesV3,omitzero" since:"3"`
 
 	GUIStats struct {
 		Enabled                   int            `json:"enabled,omitempty" metric:"gui_feature_count{feature=Enabled},summary" since:"3"`
@@ -146,7 +146,7 @@ type Report struct {
 		ListenLocal               int            `json:"listenLocal,omitempty" metric:"gui_feature_count{feature=ListenLocal},summary" since:"3"`
 		ListenUnspecified         int            `json:"listenUnspecified,omitempty" metric:"gui_feature_count{feature=ListenUnspecified},summary" since:"3"`
 		Theme                     map[string]int `json:"theme,omitempty" metric:"gui_theme,summaryVec:theme" since:"3"`
-	} `json:"guiStats,omitempty" since:"3"`
+	} `json:"guiStats,omitzero" since:"3"`
 
 	BlockStats struct {
 		Total         int `json:"total,omitempty" metric:"blocks_processed_total,gauge" since:"3"`
@@ -155,7 +155,7 @@ type Report struct {
 		Pulled        int `json:"pulled,omitempty" metric:"blocks_processed{source=pulled},gauge" since:"3"`
 		CopyOrigin    int `json:"copyOrigin,omitempty" metric:"blocks_processed{source=copy_origin},gauge" since:"3"`
 		CopyElsewhere int `json:"copyElsewhere,omitempty" metric:"blocks_processed{source=copy_elsewhere},gauge" since:"3"`
-	} `json:"blockStats,omitempty" since:"3"`
+	} `json:"blockStats,omitzero" since:"3"`
 
 	TransportStats map[string]int `json:"transportStats,omitempty" since:"3"`
 
@@ -169,32 +169,32 @@ type Report struct {
 		EscapedIncludes int `json:"escapedIncludes,omitempty" metric:"folder_ignore_lines{kind=escapedIncludes},summary" since:"3"`
 		DoubleStars     int `json:"doubleStars,omitempty" metric:"folder_ignore_lines{kind=doubleStars},summary" since:"3"`
 		Stars           int `json:"stars,omitempty" metric:"folder_ignore_lines{kind=stars},summary" since:"3"`
-	} `json:"ignoreStats,omitempty" since:"3"`
+	} `json:"ignoreStats,omitzero" since:"3"`
 
 	// Added in post processing
-	Received     time.Time `json:"received,omitempty"`
+	Received     time.Time `json:"received,omitzero"`
 	Date         string    `json:"date,omitempty"`
 	Address      string    `json:"address,omitempty"`
-	OS           string    `json:"os" metric:"reports_total,gaugeVec:os"`
-	Arch         string    `json:"arch" metric:"reports_total,gaugeVec:arch"`
-	Compiler     string    `json:"compiler" metric:"builder,gaugeVec:compiler"`
-	Builder      string    `json:"builder" metric:"builder,gaugeVec:builder"`
-	Distribution string    `json:"distribution" metric:"builder,gaugeVec:distribution"`
-	Country      string    `json:"country" metric:"location,gaugeVec:country"`
-	CountryCode  string    `json:"countryCode" metric:"location,gaugeVec:countryCode"`
-	MajorVersion string    `json:"majorVersion" metric:"reports_by_major_total,gaugeVec:version"`
+	OS           string    `json:"os,omitempty" metric:"reports_total,gaugeVec:os"`
+	Arch         string    `json:"arch,omitempty" metric:"reports_total,gaugeVec:arch"`
+	Compiler     string    `json:"compiler,omitempty" metric:"builder,gaugeVec:compiler"`
+	Builder      string    `json:"builder,omitempty" metric:"builder,gaugeVec:builder"`
+	Distribution string    `json:"distribution,omitempty" metric:"builder,gaugeVec:distribution"`
+	Country      string    `json:"country,omitempty" metric:"location,gaugeVec:country"`
+	CountryCode  string    `json:"countryCode,omitempty" metric:"location,gaugeVec:countryCode"`
+	MajorVersion string    `json:"majorVersion,omitempty" metric:"reports_by_major_total,gaugeVec:version"`
 
 	// Once more to create a metric on OS, arch, distribution
-	DistDist string `json:"distDist" metric:"distribution,gaugeVec:distribution"`
-	DistOS   string `json:"distOS" metric:"distribution,gaugeVec:os"`
-	DistArch string `json:"distArch" metric:"distribution,gaugeVec:arch"`
+	DistDist string `json:"distDist,omitempty" metric:"distribution,gaugeVec:distribution"`
+	DistOS   string `json:"distOS,omitempty" metric:"distribution,gaugeVec:os"`
+	DistArch string `json:"distArch,omitempty" metric:"distribution,gaugeVec:arch"`
 
 	// Database counts
 	Database struct {
-		ModernCSQLite bool `json:"modernCSQLite" metric:"database_engine{engine=modernc-sqlite},gauge"`
-		MattnSQLite   bool `json:"mattnSQLite" metric:"database_engine{engine=mattn-sqlite},gauge"`
-		LevelDB       bool `json:"levelDB" metric:"database_engine{engine=leveldb},gauge"`
-	} `json:"database"`
+		ModernCSQLite bool `json:"modernCSQLite,omitempty" metric:"database_engine{engine=modernc-sqlite},gauge"`
+		MattnSQLite   bool `json:"mattnSQLite,omitempty" metric:"database_engine{engine=mattn-sqlite},gauge"`
+		LevelDB       bool `json:"levelDB,omitempty" metric:"database_engine{engine=leveldb},gauge"`
+	} `json:"database,omitzero"`
 }
 
 func New() *Report {
