@@ -125,7 +125,7 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 	}
 
 	ver, _ := db.getAppliedSchemaVersion(tx)
-	shouldVacuum := false
+	appliedMigrations := false
 	if ver.SchemaVersion > 0 {
 		filter := func(scr string) bool {
 			scr = filepath.Base(scr)
@@ -139,7 +139,7 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 			}
 			if int(n) > ver.SchemaVersion {
 				slog.Info("Applying database migration", slogutil.FilePath(db.baseName), slog.String("script", scr))
-				shouldVacuum = true
+				appliedMigrations = true
 				return true
 			}
 			return false
@@ -162,8 +162,10 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 		}
 
 		// Finally, ensure nothing we've done along the way has violated key integrity.
-		if _, err := conn.ExecContext(ctx, "PRAGMA foreign_key_check"); err != nil {
-			return nil, wrap(err)
+		if appliedMigrations {
+			if _, err := conn.ExecContext(ctx, "PRAGMA foreign_key_check"); err != nil {
+				return nil, wrap(err)
+			}
 		}
 	}
 
@@ -176,7 +178,7 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 		return nil, wrap(err)
 	}
 
-	if shouldVacuum {
+	if appliedMigrations {
 		// We applied migrations and should take the opportunity to vaccuum
 		// the database.
 		if err := db.vacuumAndOptimize(); err != nil {
