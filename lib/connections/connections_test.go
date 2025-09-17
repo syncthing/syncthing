@@ -404,7 +404,7 @@ func TestConnectionEstablishment(t *testing.T) {
 	}
 }
 
-func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h func(client, server internalConn)) {
+func withConnectionPair(b interface{ Fatal(...any) }, connUri string, h func(client, server internalConn)) {
 	// Root of the service tree.
 	supervisor := suture.New("main", suture.Spec{
 		PassThroughPanics: true,
@@ -497,7 +497,7 @@ func withConnectionPair(b interface{ Fatal(...interface{}) }, connUri string, h 
 	_ = serverConn.Close()
 }
 
-func mustGetCert(b interface{ Fatal(...interface{}) }) tls.Certificate {
+func mustGetCert(b interface{ Fatal(...any) }) tls.Certificate {
 	cert, err := tlsutil.NewCertificateInMemory("bench", 10)
 	if err != nil {
 		b.Fatal(err)

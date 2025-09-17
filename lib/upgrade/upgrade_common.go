@@ -210,8 +210,8 @@ func CompareVersions(a, b string) Relation {
 }
 
 // Split a version into parts.
-// "1.2.3-beta.2" -> []int{1, 2, 3}, []interface{}{"beta", 2}
-func versionParts(v string) ([]int, []interface{}) {
+// "1.2.3-beta.2" -> []int{1, 2, 3}, []any{"beta", 2}
+func versionParts(v string) ([]int, []any) {
 	if strings.HasPrefix(v, "v") || strings.HasPrefix(v, "V") {
 		// Strip initial 'v' or 'V' prefix if present.
 		v = v[1:]
@@ -226,10 +226,10 @@ func versionParts(v string) ([]int, []interface{}) {
 		release[i] = v
 	}
 
-	var prerelease []interface{}
+	var prerelease []any
 	if len(parts) > 1 {
 		fields = strings.Split(parts[1], ".")
-		prerelease = make([]interface{}, len(fields))
+		prerelease = make([]any, len(fields))
 		for i, s := range fields {
 			v, err := strconv.Atoi(s)
 			if err == nil {

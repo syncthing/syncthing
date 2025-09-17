@@ -163,7 +163,7 @@ func TestInProgress(t *testing.T) {
 		sleepMs(100)
 		c <- fs.Event{Name: "inprogress", Type: fs.NonRemove}
 		sleepMs(1000)
-		evLogger.Log(events.ItemFinished, map[string]interface{}{
+		evLogger.Log(events.ItemFinished, map[string]any{
 			"item": "inprogress",
 		})
 		sleepMs(100)

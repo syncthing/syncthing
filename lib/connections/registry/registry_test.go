@@ -14,8 +14,8 @@ import (
 func TestRegistry(t *testing.T) {
 	r := New()
 
-	want := func(i int) func(interface{}) bool {
-		return func(x interface{}) bool { return x.(int) == i }
+	want := func(i int) func(any) bool {
+		return func(x any) bool { return x.(int) == i }
 	}
 
 	if res := r.Get("int", want(1)); res != nil {
@@ -73,7 +73,7 @@ func TestShortSchemeFirst(t *testing.T) {
 	r.Register("foobar", 1)
 
 	// If we don't care about the value, we should get the one with "foo".
-	res := r.Get("foo", func(interface{}) bool { return false })
+	res := r.Get("foo", func(any) bool { return false })
 	if res != 0 {
 		t.Error("unexpected", res)
 	}
@@ -89,7 +89,7 @@ func BenchmarkGet(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		r.Get("tcp", func(x interface{}) bool {
+		r.Get("tcp", func(x any) bool {
 			return x.(*net.TCPAddr).IP.IsUnspecified()
 		})
 	}

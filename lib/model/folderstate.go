@@ -116,7 +116,7 @@ func (s *stateTracker) setState(newState folderState) {
 		metricFolderState.WithLabelValues(s.folderID).Set(float64(s.current))
 	}()
 
-	eventData := map[string]interface{}{
+	eventData := map[string]any{
 		"folder": s.folderID,
 		"to":     newState.String(),
 		"from":   s.current.String(),
@@ -153,7 +153,7 @@ func (s *stateTracker) setError(err error) {
 		metricFolderState.WithLabelValues(s.folderID).Set(float64(s.current))
 	}()
 
-	eventData := map[string]interface{}{
+	eventData := map[string]any{
 		"folder": s.folderID,
 		"from":   s.current.String(),
 	}

@@ -45,11 +45,11 @@ type adapter struct {
 	l *slog.Logger
 }
 
-func (a adapter) Debugln(vals ...interface{}) {
+func (a adapter) Debugln(vals ...any) {
 	a.log(strings.TrimSpace(fmt.Sprintln(vals...)), slog.LevelDebug)
 }
 
-func (a adapter) Debugf(format string, vals ...interface{}) {
+func (a adapter) Debugf(format string, vals ...any) {
 	a.log(fmt.Sprintf(format, vals...), slog.LevelDebug)
 }
 

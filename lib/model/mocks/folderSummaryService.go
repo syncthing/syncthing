@@ -33,7 +33,7 @@ type FolderSummaryService struct {
 		result1 *model.FolderSummary
 		result2 error
 	}
-	invocations      map[string][][]interface{}
+	invocations      map[string][][]any
 	invocationsMutex sync.RWMutex
 }
 
@@ -45,7 +45,7 @@ func (fake *FolderSummaryService) Serve(arg1 context.Context) error {
 	}{arg1})
 	stub := fake.ServeStub
 	fakeReturns := fake.serveReturns
-	fake.recordInvocation("Serve", []interface{}{arg1})
+	fake.recordInvocation("Serve", []any{arg1})
 	fake.serveMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -106,7 +106,7 @@ func (fake *FolderSummaryService) Summary(arg1 string) (*model.FolderSummary, er
 	}{arg1})
 	stub := fake.SummaryStub
 	fakeReturns := fake.summaryReturns
-	fake.recordInvocation("Summary", []interface{}{arg1})
+	fake.recordInvocation("Summary", []any{arg1})
 	fake.summaryMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -162,24 +162,24 @@ func (fake *FolderSummaryService) SummaryReturnsOnCall(i int, result1 *model.Fol
 	}{result1, result2}
 }
 
-func (fake *FolderSummaryService) Invocations() map[string][][]interface{} {
+func (fake *FolderSummaryService) Invocations() map[string][][]any {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
+	copiedInvocations := map[string][][]any{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *FolderSummaryService) recordInvocation(key string, args []interface{}) {
+func (fake *FolderSummaryService) recordInvocation(key string, args []any) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
+		fake.invocations = map[string][][]any{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
+		fake.invocations[key] = [][]any{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

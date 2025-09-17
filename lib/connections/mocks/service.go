@@ -70,7 +70,7 @@ type Service struct {
 	serveReturnsOnCall map[int]struct {
 		result1 error
 	}
-	invocations      map[string][][]interface{}
+	invocations      map[string][][]any
 	invocationsMutex sync.RWMutex
 }
 
@@ -81,7 +81,7 @@ func (fake *Service) AllAddresses() []string {
 	}{})
 	stub := fake.AllAddressesStub
 	fakeReturns := fake.allAddressesReturns
-	fake.recordInvocation("AllAddresses", []interface{}{})
+	fake.recordInvocation("AllAddresses", []any{})
 	fake.allAddressesMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -134,7 +134,7 @@ func (fake *Service) ConnectionStatus() map[string]connections.ConnectionStatusE
 	}{})
 	stub := fake.ConnectionStatusStub
 	fakeReturns := fake.connectionStatusReturns
-	fake.recordInvocation("ConnectionStatus", []interface{}{})
+	fake.recordInvocation("ConnectionStatus", []any{})
 	fake.connectionStatusMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -187,7 +187,7 @@ func (fake *Service) ExternalAddresses() []string {
 	}{})
 	stub := fake.ExternalAddressesStub
 	fakeReturns := fake.externalAddressesReturns
-	fake.recordInvocation("ExternalAddresses", []interface{}{})
+	fake.recordInvocation("ExternalAddresses", []any{})
 	fake.externalAddressesMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -240,7 +240,7 @@ func (fake *Service) ListenerStatus() map[string]connections.ListenerStatusEntry
 	}{})
 	stub := fake.ListenerStatusStub
 	fakeReturns := fake.listenerStatusReturns
-	fake.recordInvocation("ListenerStatus", []interface{}{})
+	fake.recordInvocation("ListenerStatus", []any{})
 	fake.listenerStatusMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -293,7 +293,7 @@ func (fake *Service) NATType() string {
 	}{})
 	stub := fake.NATTypeStub
 	fakeReturns := fake.nATTypeReturns
-	fake.recordInvocation("NATType", []interface{}{})
+	fake.recordInvocation("NATType", []any{})
 	fake.nATTypeMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -347,7 +347,7 @@ func (fake *Service) Serve(arg1 context.Context) error {
 	}{arg1})
 	stub := fake.ServeStub
 	fakeReturns := fake.serveReturns
-	fake.recordInvocation("Serve", []interface{}{arg1})
+	fake.recordInvocation("Serve", []any{arg1})
 	fake.serveMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -400,24 +400,24 @@ func (fake *Service) ServeReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Service) Invocations() map[string][][]interface{} {
+func (fake *Service) Invocations() map[string][][]any {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
+	copiedInvocations := map[string][][]any{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *Service) recordInvocation(key string, args []interface{}) {
+func (fake *Service) recordInvocation(key string, args []any) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
+		fake.invocations = map[string][][]any{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
+		fake.invocations[key] = [][]any{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

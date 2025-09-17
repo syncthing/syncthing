@@ -75,7 +75,7 @@ type Manager struct {
 	stringReturnsOnCall map[int]struct {
 		result1 string
 	}
-	invocations      map[string][][]interface{}
+	invocations      map[string][][]any
 	invocationsMutex sync.RWMutex
 }
 
@@ -86,7 +86,7 @@ func (fake *Manager) Cache() map[protocol.DeviceID]discover.CacheEntry {
 	}{})
 	stub := fake.CacheStub
 	fakeReturns := fake.cacheReturns
-	fake.recordInvocation("Cache", []interface{}{})
+	fake.recordInvocation("Cache", []any{})
 	fake.cacheMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -139,7 +139,7 @@ func (fake *Manager) ChildErrors() map[string]error {
 	}{})
 	stub := fake.ChildErrorsStub
 	fakeReturns := fake.childErrorsReturns
-	fake.recordInvocation("ChildErrors", []interface{}{})
+	fake.recordInvocation("ChildErrors", []any{})
 	fake.childErrorsMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -192,7 +192,7 @@ func (fake *Manager) Error() error {
 	}{})
 	stub := fake.ErrorStub
 	fakeReturns := fake.errorReturns
-	fake.recordInvocation("Error", []interface{}{})
+	fake.recordInvocation("Error", []any{})
 	fake.errorMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -247,7 +247,7 @@ func (fake *Manager) Lookup(arg1 context.Context, arg2 protocol.DeviceID) ([]str
 	}{arg1, arg2})
 	stub := fake.LookupStub
 	fakeReturns := fake.lookupReturns
-	fake.recordInvocation("Lookup", []interface{}{arg1, arg2})
+	fake.recordInvocation("Lookup", []any{arg1, arg2})
 	fake.lookupMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -311,7 +311,7 @@ func (fake *Manager) Serve(arg1 context.Context) error {
 	}{arg1})
 	stub := fake.ServeStub
 	fakeReturns := fake.serveReturns
-	fake.recordInvocation("Serve", []interface{}{arg1})
+	fake.recordInvocation("Serve", []any{arg1})
 	fake.serveMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -371,7 +371,7 @@ func (fake *Manager) String() string {
 	}{})
 	stub := fake.StringStub
 	fakeReturns := fake.stringReturns
-	fake.recordInvocation("String", []interface{}{})
+	fake.recordInvocation("String", []any{})
 	fake.stringMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -417,24 +417,24 @@ func (fake *Manager) StringReturnsOnCall(i int, result1 string) {
 	}{result1}
 }
 
-func (fake *Manager) Invocations() map[string][][]interface{} {
+func (fake *Manager) Invocations() map[string][][]any {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
+	copiedInvocations := map[string][][]any{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *Manager) recordInvocation(key string, args []interface{}) {
+func (fake *Manager) recordInvocation(key string, args []any) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
+		fake.invocations = map[string][][]any{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
+		fake.invocations[key] = [][]any{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

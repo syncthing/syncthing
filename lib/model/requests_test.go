@@ -590,7 +590,7 @@ func TestRequestSymlinkWindows(t *testing.T) {
 	for {
 		select {
 		case ev := <-sub.C():
-			switch data := ev.Data.(map[string]interface{}); {
+			switch data := ev.Data.(map[string]any); {
 			case ev.Type == events.LocalIndexUpdated:
 				t.Fatalf("Local index was updated unexpectedly: %v", data)
 			case ev.Type == events.StateChanged:

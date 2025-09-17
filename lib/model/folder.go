@@ -1116,7 +1116,7 @@ func (f *folder) setWatchError(err error, nextTryIn time.Duration) {
 	f.watchErr = err
 	f.watchMut.Unlock()
 	if err != prevErr { //nolint:errorlint
-		data := map[string]interface{}{
+		data := map[string]any{
 			"folder": f.ID,
 		}
 		if prevErr != nil {
@@ -1281,7 +1281,7 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) error {
 	if err != nil {
 		return err
 	}
-	f.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
+	f.evLogger.Log(events.LocalIndexUpdated, map[string]any{
 		"folder":    f.ID,
 		"items":     len(fs),
 		"filenames": filenames,

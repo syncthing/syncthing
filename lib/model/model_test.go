@@ -1585,7 +1585,7 @@ func waitForState(t *testing.T, sub events.Subscription, folder, expected string
 	for {
 		select {
 		case ev := <-sub.C():
-			data := ev.Data.(map[string]interface{})
+			data := ev.Data.(map[string]any)
 			if data["folder"].(string) == folder {
 				if data["error"] == nil {
 					err = ""
@@ -1798,7 +1798,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		f("zzrootfile"),
 	}
 
-	mm := func(data interface{}) string {
+	mm := func(data any) string {
 		bytes, err := json.MarshalIndent(data, "", "  ")
 		if err != nil {
 			panic(err)

@@ -100,15 +100,15 @@ type Model struct {
 	connectedToReturnsOnCall map[int]struct {
 		result1 bool
 	}
-	ConnectionStatsStub        func() map[string]interface{}
+	ConnectionStatsStub        func() map[string]any
 	connectionStatsMutex       sync.RWMutex
 	connectionStatsArgsForCall []struct {
 	}
 	connectionStatsReturns struct {
-		result1 map[string]interface{}
+		result1 map[string]any
 	}
 	connectionStatsReturnsOnCall map[int]struct {
-		result1 map[string]interface{}
+		result1 map[string]any
 	}
 	CurrentFolderFileStub        func(string, string) (protocol.FileInfo, bool, error)
 	currentFolderFileMutex       sync.RWMutex
@@ -671,7 +671,7 @@ type Model struct {
 	watchErrorReturnsOnCall map[int]struct {
 		result1 error
 	}
-	invocations      map[string][][]interface{}
+	invocations      map[string][][]any
 	invocationsMutex sync.RWMutex
 }
 
@@ -682,7 +682,7 @@ func (fake *Model) AddConnection(arg1 protocol.Connection, arg2 protocol.Hello) 
 		arg2 protocol.Hello
 	}{arg1, arg2})
 	stub := fake.AddConnectionStub
-	fake.recordInvocation("AddConnection", []interface{}{arg1, arg2})
+	fake.recordInvocation("AddConnection", []any{arg1, arg2})
 	fake.addConnectionMutex.Unlock()
 	if stub != nil {
 		fake.AddConnectionStub(arg1, arg2)
@@ -716,7 +716,7 @@ func (fake *Model) AllGlobalFiles(arg1 string) (iter.Seq[db.FileMetadata], func(
 	}{arg1})
 	stub := fake.AllGlobalFilesStub
 	fakeReturns := fake.allGlobalFilesReturns
-	fake.recordInvocation("AllGlobalFiles", []interface{}{arg1})
+	fake.recordInvocation("AllGlobalFiles", []any{arg1})
 	fake.allGlobalFilesMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -782,7 +782,7 @@ func (fake *Model) Availability(arg1 string, arg2 protocol.FileInfo, arg3 protoc
 	}{arg1, arg2, arg3})
 	stub := fake.AvailabilityStub
 	fakeReturns := fake.availabilityReturns
-	fake.recordInvocation("Availability", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("Availability", []any{arg1, arg2, arg3})
 	fake.availabilityMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
@@ -845,7 +845,7 @@ func (fake *Model) BringToFront(arg1 string, arg2 string) {
 		arg2 string
 	}{arg1, arg2})
 	stub := fake.BringToFrontStub
-	fake.recordInvocation("BringToFront", []interface{}{arg1, arg2})
+	fake.recordInvocation("BringToFront", []any{arg1, arg2})
 	fake.bringToFrontMutex.Unlock()
 	if stub != nil {
 		fake.BringToFrontStub(arg1, arg2)
@@ -878,7 +878,7 @@ func (fake *Model) Closed(arg1 protocol.Connection, arg2 error) {
 		arg2 error
 	}{arg1, arg2})
 	stub := fake.ClosedStub
-	fake.recordInvocation("Closed", []interface{}{arg1, arg2})
+	fake.recordInvocation("Closed", []any{arg1, arg2})
 	fake.closedMutex.Unlock()
 	if stub != nil {
 		fake.ClosedStub(arg1, arg2)
@@ -913,7 +913,7 @@ func (fake *Model) ClusterConfig(arg1 protocol.Connection, arg2 *protocol.Cluste
 	}{arg1, arg2})
 	stub := fake.ClusterConfigStub
 	fakeReturns := fake.clusterConfigReturns
-	fake.recordInvocation("ClusterConfig", []interface{}{arg1, arg2})
+	fake.recordInvocation("ClusterConfig", []any{arg1, arg2})
 	fake.clusterConfigMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -975,7 +975,7 @@ func (fake *Model) Completion(arg1 protocol.DeviceID, arg2 string) (model.Folder
 	}{arg1, arg2})
 	stub := fake.CompletionStub
 	fakeReturns := fake.completionReturns
-	fake.recordInvocation("Completion", []interface{}{arg1, arg2})
+	fake.recordInvocation("Completion", []any{arg1, arg2})
 	fake.completionMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -1039,7 +1039,7 @@ func (fake *Model) ConnectedTo(arg1 protocol.DeviceID) bool {
 	}{arg1})
 	stub := fake.ConnectedToStub
 	fakeReturns := fake.connectedToReturns
-	fake.recordInvocation("ConnectedTo", []interface{}{arg1})
+	fake.recordInvocation("ConnectedTo", []any{arg1})
 	fake.connectedToMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -1092,14 +1092,14 @@ func (fake *Model) ConnectedToReturnsOnCall(i int, result1 bool) {
 	}{result1}
 }
 
-func (fake *Model) ConnectionStats() map[string]interface{} {
+func (fake *Model) ConnectionStats() map[string]any {
 	fake.connectionStatsMutex.Lock()
 	ret, specificReturn := fake.connectionStatsReturnsOnCall[len(fake.connectionStatsArgsForCall)]
 	fake.connectionStatsArgsForCall = append(fake.connectionStatsArgsForCall, struct {
 	}{})
 	stub := fake.ConnectionStatsStub
 	fakeReturns := fake.connectionStatsReturns
-	fake.recordInvocation("ConnectionStats", []interface{}{})
+	fake.recordInvocation("ConnectionStats", []any{})
 	fake.connectionStatsMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -1116,32 +1116,32 @@ func (fake *Model) ConnectionStatsCallCount() int {
 	return len(fake.connectionStatsArgsForCall)
 }
 
-func (fake *Model) ConnectionStatsCalls(stub func() map[string]interface{}) {
+func (fake *Model) ConnectionStatsCalls(stub func() map[string]any) {
 	fake.connectionStatsMutex.Lock()
 	defer fake.connectionStatsMutex.Unlock()
 	fake.ConnectionStatsStub = stub
 }
 
-func (fake *Model) ConnectionStatsReturns(result1 map[string]interface{}) {
+func (fake *Model) ConnectionStatsReturns(result1 map[string]any) {
 	fake.connectionStatsMutex.Lock()
 	defer fake.connectionStatsMutex.Unlock()
 	fake.ConnectionStatsStub = nil
 	fake.connectionStatsReturns = struct {
-		result1 map[string]interface{}
+		result1 map[string]any
 	}{result1}
 }
 
-func (fake *Model) ConnectionStatsReturnsOnCall(i int, result1 map[string]interface{}) {
+func (fake *Model) ConnectionStatsReturnsOnCall(i int, result1 map[string]any) {
 	fake.connectionStatsMutex.Lock()
 	defer fake.connectionStatsMutex.Unlock()
 	fake.ConnectionStatsStub = nil
 	if fake.connectionStatsReturnsOnCall == nil {
 		fake.connectionStatsReturnsOnCall = make(map[int]struct {
-			result1 map[string]interface{}
+			result1 map[string]any
 		})
 	}
 	fake.connectionStatsReturnsOnCall[i] = struct {
-		result1 map[string]interface{}
+		result1 map[string]any
 	}{result1}
 }
 
@@ -1154,7 +1154,7 @@ func (fake *Model) CurrentFolderFile(arg1 string, arg2 string) (protocol.FileInf
 	}{arg1, arg2})
 	stub := fake.CurrentFolderFileStub
 	fakeReturns := fake.currentFolderFileReturns
-	fake.recordInvocation("CurrentFolderFile", []interface{}{arg1, arg2})
+	fake.recordInvocation("CurrentFolderFile", []any{arg1, arg2})
 	fake.currentFolderFileMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -1222,7 +1222,7 @@ func (fake *Model) CurrentGlobalFile(arg1 string, arg2 string) (protocol.FileInf
 	}{arg1, arg2})
 	stub := fake.CurrentGlobalFileStub
 	fakeReturns := fake.currentGlobalFileReturns
-	fake.recordInvocation("CurrentGlobalFile", []interface{}{arg1, arg2})
+	fake.recordInvocation("CurrentGlobalFile", []any{arg1, arg2})
 	fake.currentGlobalFileMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -1289,7 +1289,7 @@ func (fake *Model) CurrentIgnores(arg1 string) ([]string, []string, error) {
 	}{arg1})
 	stub := fake.CurrentIgnoresStub
 	fakeReturns := fake.currentIgnoresReturns
-	fake.recordInvocation("CurrentIgnores", []interface{}{arg1})
+	fake.recordInvocation("CurrentIgnores", []any{arg1})
 	fake.currentIgnoresMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -1355,7 +1355,7 @@ func (fake *Model) DelayScan(arg1 string, arg2 time.Duration) {
 		arg2 time.Duration
 	}{arg1, arg2})
 	stub := fake.DelayScanStub
-	fake.recordInvocation("DelayScan", []interface{}{arg1, arg2})
+	fake.recordInvocation("DelayScan", []any{arg1, arg2})
 	fake.delayScanMutex.Unlock()
 	if stub != nil {
 		fake.DelayScanStub(arg1, arg2)
@@ -1388,7 +1388,7 @@ func (fake *Model) DeviceStatistics() (map[protocol.DeviceID]stats.DeviceStatist
 	}{})
 	stub := fake.DeviceStatisticsStub
 	fakeReturns := fake.deviceStatisticsReturns
-	fake.recordInvocation("DeviceStatistics", []interface{}{})
+	fake.recordInvocation("DeviceStatistics", []any{})
 	fake.deviceStatisticsMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -1445,7 +1445,7 @@ func (fake *Model) DismissPendingDevice(arg1 protocol.DeviceID) error {
 	}{arg1})
 	stub := fake.DismissPendingDeviceStub
 	fakeReturns := fake.dismissPendingDeviceReturns
-	fake.recordInvocation("DismissPendingDevice", []interface{}{arg1})
+	fake.recordInvocation("DismissPendingDevice", []any{arg1})
 	fake.dismissPendingDeviceMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -1507,7 +1507,7 @@ func (fake *Model) DismissPendingFolder(arg1 protocol.DeviceID, arg2 string) err
 	}{arg1, arg2})
 	stub := fake.DismissPendingFolderStub
 	fakeReturns := fake.dismissPendingFolderReturns
-	fake.recordInvocation("DismissPendingFolder", []interface{}{arg1, arg2})
+	fake.recordInvocation("DismissPendingFolder", []any{arg1, arg2})
 	fake.dismissPendingFolderMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -1569,7 +1569,7 @@ func (fake *Model) DownloadProgress(arg1 protocol.Connection, arg2 *protocol.Dow
 	}{arg1, arg2})
 	stub := fake.DownloadProgressStub
 	fakeReturns := fake.downloadProgressReturns
-	fake.recordInvocation("DownloadProgress", []interface{}{arg1, arg2})
+	fake.recordInvocation("DownloadProgress", []any{arg1, arg2})
 	fake.downloadProgressMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -1630,7 +1630,7 @@ func (fake *Model) FolderErrors(arg1 string) ([]model.FileError, error) {
 	}{arg1})
 	stub := fake.FolderErrorsStub
 	fakeReturns := fake.folderErrorsReturns
-	fake.recordInvocation("FolderErrors", []interface{}{arg1})
+	fake.recordInvocation("FolderErrors", []any{arg1})
 	fake.folderErrorsMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -1694,7 +1694,7 @@ func (fake *Model) FolderProgressBytesCompleted(arg1 string) int64 {
 	}{arg1})
 	stub := fake.FolderProgressBytesCompletedStub
 	fakeReturns := fake.folderProgressBytesCompletedReturns
-	fake.recordInvocation("FolderProgressBytesCompleted", []interface{}{arg1})
+	fake.recordInvocation("FolderProgressBytesCompleted", []any{arg1})
 	fake.folderProgressBytesCompletedMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -1754,7 +1754,7 @@ func (fake *Model) FolderStatistics() (map[string]stats.FolderStatistics, error)
 	}{})
 	stub := fake.FolderStatisticsStub
 	fakeReturns := fake.folderStatisticsReturns
-	fake.recordInvocation("FolderStatistics", []interface{}{})
+	fake.recordInvocation("FolderStatistics", []any{})
 	fake.folderStatisticsMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -1811,7 +1811,7 @@ func (fake *Model) GetFolderVersions(arg1 string) (map[string][]versioner.FileVe
 	}{arg1})
 	stub := fake.GetFolderVersionsStub
 	fakeReturns := fake.getFolderVersionsReturns
-	fake.recordInvocation("GetFolderVersions", []interface{}{arg1})
+	fake.recordInvocation("GetFolderVersions", []any{arg1})
 	fake.getFolderVersionsMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -1878,7 +1878,7 @@ func (fake *Model) GlobalDirectoryTree(arg1 string, arg2 string, arg3 int, arg4 
 	}{arg1, arg2, arg3, arg4})
 	stub := fake.GlobalDirectoryTreeStub
 	fakeReturns := fake.globalDirectoryTreeReturns
-	fake.recordInvocation("GlobalDirectoryTree", []interface{}{arg1, arg2, arg3, arg4})
+	fake.recordInvocation("GlobalDirectoryTree", []any{arg1, arg2, arg3, arg4})
 	fake.globalDirectoryTreeMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3, arg4)
@@ -1942,7 +1942,7 @@ func (fake *Model) GlobalSize(arg1 string) (db.Counts, error) {
 	}{arg1})
 	stub := fake.GlobalSizeStub
 	fakeReturns := fake.globalSizeReturns
-	fake.recordInvocation("GlobalSize", []interface{}{arg1})
+	fake.recordInvocation("GlobalSize", []any{arg1})
 	fake.globalSizeMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -2007,7 +2007,7 @@ func (fake *Model) Index(arg1 protocol.Connection, arg2 *protocol.Index) error {
 	}{arg1, arg2})
 	stub := fake.IndexStub
 	fakeReturns := fake.indexReturns
-	fake.recordInvocation("Index", []interface{}{arg1, arg2})
+	fake.recordInvocation("Index", []any{arg1, arg2})
 	fake.indexMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -2069,7 +2069,7 @@ func (fake *Model) IndexUpdate(arg1 protocol.Connection, arg2 *protocol.IndexUpd
 	}{arg1, arg2})
 	stub := fake.IndexUpdateStub
 	fakeReturns := fake.indexUpdateReturns
-	fake.recordInvocation("IndexUpdate", []interface{}{arg1, arg2})
+	fake.recordInvocation("IndexUpdate", []any{arg1, arg2})
 	fake.indexUpdateMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -2130,7 +2130,7 @@ func (fake *Model) LoadIgnores(arg1 string) ([]string, []string, error) {
 	}{arg1})
 	stub := fake.LoadIgnoresStub
 	fakeReturns := fake.loadIgnoresReturns
-	fake.recordInvocation("LoadIgnores", []interface{}{arg1})
+	fake.recordInvocation("LoadIgnores", []any{arg1})
 	fake.loadIgnoresMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -2199,7 +2199,7 @@ func (fake *Model) LocalChangedFolderFiles(arg1 string, arg2 int, arg3 int) ([]p
 	}{arg1, arg2, arg3})
 	stub := fake.LocalChangedFolderFilesStub
 	fakeReturns := fake.localChangedFolderFilesReturns
-	fake.recordInvocation("LocalChangedFolderFiles", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("LocalChangedFolderFiles", []any{arg1, arg2, arg3})
 	fake.localChangedFolderFilesMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
@@ -2264,7 +2264,7 @@ func (fake *Model) LocalFiles(arg1 string, arg2 protocol.DeviceID) (iter.Seq[pro
 	}{arg1, arg2})
 	stub := fake.LocalFilesStub
 	fakeReturns := fake.localFilesReturns
-	fake.recordInvocation("LocalFiles", []interface{}{arg1, arg2})
+	fake.recordInvocation("LocalFiles", []any{arg1, arg2})
 	fake.localFilesMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -2330,7 +2330,7 @@ func (fake *Model) LocalFilesSequenced(arg1 string, arg2 protocol.DeviceID, arg3
 	}{arg1, arg2, arg3})
 	stub := fake.LocalFilesSequencedStub
 	fakeReturns := fake.localFilesSequencedReturns
-	fake.recordInvocation("LocalFilesSequenced", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("LocalFilesSequenced", []any{arg1, arg2, arg3})
 	fake.localFilesSequencedMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
@@ -2395,7 +2395,7 @@ func (fake *Model) LocalSize(arg1 string, arg2 protocol.DeviceID) (db.Counts, er
 	}{arg1, arg2})
 	stub := fake.LocalSizeStub
 	fakeReturns := fake.localSizeReturns
-	fake.recordInvocation("LocalSize", []interface{}{arg1, arg2})
+	fake.recordInvocation("LocalSize", []any{arg1, arg2})
 	fake.localSizeMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -2461,7 +2461,7 @@ func (fake *Model) NeedFolderFiles(arg1 string, arg2 int, arg3 int) ([]protocol.
 	}{arg1, arg2, arg3})
 	stub := fake.NeedFolderFilesStub
 	fakeReturns := fake.needFolderFilesReturns
-	fake.recordInvocation("NeedFolderFiles", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("NeedFolderFiles", []any{arg1, arg2, arg3})
 	fake.needFolderFilesMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
@@ -2532,7 +2532,7 @@ func (fake *Model) NeedSize(arg1 string, arg2 protocol.DeviceID) (db.Counts, err
 	}{arg1, arg2})
 	stub := fake.NeedSizeStub
 	fakeReturns := fake.needSizeReturns
-	fake.recordInvocation("NeedSize", []interface{}{arg1, arg2})
+	fake.recordInvocation("NeedSize", []any{arg1, arg2})
 	fake.needSizeMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -2598,7 +2598,7 @@ func (fake *Model) OnHello(arg1 protocol.DeviceID, arg2 net.Addr, arg3 protocol.
 	}{arg1, arg2, arg3})
 	stub := fake.OnHelloStub
 	fakeReturns := fake.onHelloReturns
-	fake.recordInvocation("OnHello", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("OnHello", []any{arg1, arg2, arg3})
 	fake.onHelloMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3)
@@ -2657,7 +2657,7 @@ func (fake *Model) Override(arg1 string) {
 		arg1 string
 	}{arg1})
 	stub := fake.OverrideStub
-	fake.recordInvocation("Override", []interface{}{arg1})
+	fake.recordInvocation("Override", []any{arg1})
 	fake.overrideMutex.Unlock()
 	if stub != nil {
 		fake.OverrideStub(arg1)
@@ -2690,7 +2690,7 @@ func (fake *Model) PendingDevices() (map[protocol.DeviceID]db.ObservedDevice, er
 	}{})
 	stub := fake.PendingDevicesStub
 	fakeReturns := fake.pendingDevicesReturns
-	fake.recordInvocation("PendingDevices", []interface{}{})
+	fake.recordInvocation("PendingDevices", []any{})
 	fake.pendingDevicesMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -2747,7 +2747,7 @@ func (fake *Model) PendingFolders(arg1 protocol.DeviceID) (map[string]db.Pending
 	}{arg1})
 	stub := fake.PendingFoldersStub
 	fakeReturns := fake.pendingFoldersReturns
-	fake.recordInvocation("PendingFolders", []interface{}{arg1})
+	fake.recordInvocation("PendingFolders", []any{arg1})
 	fake.pendingFoldersMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -2811,7 +2811,7 @@ func (fake *Model) ReceiveOnlySize(arg1 string) (db.Counts, error) {
 	}{arg1})
 	stub := fake.ReceiveOnlySizeStub
 	fakeReturns := fake.receiveOnlySizeReturns
-	fake.recordInvocation("ReceiveOnlySize", []interface{}{arg1})
+	fake.recordInvocation("ReceiveOnlySize", []any{arg1})
 	fake.receiveOnlySizeMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -2878,7 +2878,7 @@ func (fake *Model) RemoteNeedFolderFiles(arg1 string, arg2 protocol.DeviceID, ar
 	}{arg1, arg2, arg3, arg4})
 	stub := fake.RemoteNeedFolderFilesStub
 	fakeReturns := fake.remoteNeedFolderFilesReturns
-	fake.recordInvocation("RemoteNeedFolderFiles", []interface{}{arg1, arg2, arg3, arg4})
+	fake.recordInvocation("RemoteNeedFolderFiles", []any{arg1, arg2, arg3, arg4})
 	fake.remoteNeedFolderFilesMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3, arg4)
@@ -2942,7 +2942,7 @@ func (fake *Model) RemoteSequences(arg1 string) (map[protocol.DeviceID]int64, er
 	}{arg1})
 	stub := fake.RemoteSequencesStub
 	fakeReturns := fake.remoteSequencesReturns
-	fake.recordInvocation("RemoteSequences", []interface{}{arg1})
+	fake.recordInvocation("RemoteSequences", []any{arg1})
 	fake.remoteSequencesMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -3007,7 +3007,7 @@ func (fake *Model) Request(arg1 protocol.Connection, arg2 *protocol.Request) (pr
 	}{arg1, arg2})
 	stub := fake.RequestStub
 	fakeReturns := fake.requestReturns
-	fake.recordInvocation("Request", []interface{}{arg1, arg2})
+	fake.recordInvocation("Request", []any{arg1, arg2})
 	fake.requestMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -3084,7 +3084,7 @@ func (fake *Model) RequestGlobal(arg1 context.Context, arg2 protocol.DeviceID, a
 	}{arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8Copy, arg9})
 	stub := fake.RequestGlobalStub
 	fakeReturns := fake.requestGlobalReturns
-	fake.recordInvocation("RequestGlobal", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8Copy, arg9})
+	fake.recordInvocation("RequestGlobal", []any{arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8Copy, arg9})
 	fake.requestGlobalMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
@@ -3148,7 +3148,7 @@ func (fake *Model) ResetFolder(arg1 string) error {
 	}{arg1})
 	stub := fake.ResetFolderStub
 	fakeReturns := fake.resetFolderReturns
-	fake.recordInvocation("ResetFolder", []interface{}{arg1})
+	fake.recordInvocation("ResetFolder", []any{arg1})
 	fake.resetFolderMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -3210,7 +3210,7 @@ func (fake *Model) RestoreFolderVersions(arg1 string, arg2 map[string]time.Time)
 	}{arg1, arg2})
 	stub := fake.RestoreFolderVersionsStub
 	fakeReturns := fake.restoreFolderVersionsReturns
-	fake.recordInvocation("RestoreFolderVersions", []interface{}{arg1, arg2})
+	fake.recordInvocation("RestoreFolderVersions", []any{arg1, arg2})
 	fake.restoreFolderVersionsMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -3272,7 +3272,7 @@ func (fake *Model) Revert(arg1 string) {
 		arg1 string
 	}{arg1})
 	stub := fake.RevertStub
-	fake.recordInvocation("Revert", []interface{}{arg1})
+	fake.recordInvocation("Revert", []any{arg1})
 	fake.revertMutex.Unlock()
 	if stub != nil {
 		fake.RevertStub(arg1)
@@ -3306,7 +3306,7 @@ func (fake *Model) ScanFolder(arg1 string) error {
 	}{arg1})
 	stub := fake.ScanFolderStub
 	fakeReturns := fake.scanFolderReturns
-	fake.recordInvocation("ScanFolder", []interface{}{arg1})
+	fake.recordInvocation("ScanFolder", []any{arg1})
 	fake.scanFolderMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -3373,7 +3373,7 @@ func (fake *Model) ScanFolderSubdirs(arg1 string, arg2 []string) error {
 	}{arg1, arg2Copy})
 	stub := fake.ScanFolderSubdirsStub
 	fakeReturns := fake.scanFolderSubdirsReturns
-	fake.recordInvocation("ScanFolderSubdirs", []interface{}{arg1, arg2Copy})
+	fake.recordInvocation("ScanFolderSubdirs", []any{arg1, arg2Copy})
 	fake.scanFolderSubdirsMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -3433,7 +3433,7 @@ func (fake *Model) ScanFolders() map[string]error {
 	}{})
 	stub := fake.ScanFoldersStub
 	fakeReturns := fake.scanFoldersReturns
-	fake.recordInvocation("ScanFolders", []interface{}{})
+	fake.recordInvocation("ScanFolders", []any{})
 	fake.scanFoldersMutex.Unlock()
 	if stub != nil {
 		return stub()
@@ -3488,7 +3488,7 @@ func (fake *Model) Sequence(arg1 string, arg2 protocol.DeviceID) (int64, error) 
 	}{arg1, arg2})
 	stub := fake.SequenceStub
 	fakeReturns := fake.sequenceReturns
-	fake.recordInvocation("Sequence", []interface{}{arg1, arg2})
+	fake.recordInvocation("Sequence", []any{arg1, arg2})
 	fake.sequenceMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -3552,7 +3552,7 @@ func (fake *Model) Serve(arg1 context.Context) error {
 	}{arg1})
 	stub := fake.ServeStub
 	fakeReturns := fake.serveReturns
-	fake.recordInvocation("Serve", []interface{}{arg1})
+	fake.recordInvocation("Serve", []any{arg1})
 	fake.serveMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -3619,7 +3619,7 @@ func (fake *Model) SetIgnores(arg1 string, arg2 []string) error {
 	}{arg1, arg2Copy})
 	stub := fake.SetIgnoresStub
 	fakeReturns := fake.setIgnoresReturns
-	fake.recordInvocation("SetIgnores", []interface{}{arg1, arg2Copy})
+	fake.recordInvocation("SetIgnores", []any{arg1, arg2Copy})
 	fake.setIgnoresMutex.Unlock()
 	if stub != nil {
 		return stub(arg1, arg2)
@@ -3680,7 +3680,7 @@ func (fake *Model) State(arg1 string) (string, time.Time, error) {
 	}{arg1})
 	stub := fake.StateStub
 	fakeReturns := fake.stateReturns
-	fake.recordInvocation("State", []interface{}{arg1})
+	fake.recordInvocation("State", []any{arg1})
 	fake.stateMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -3747,7 +3747,7 @@ func (fake *Model) UsageReportingStats(arg1 *contract.Report, arg2 int, arg3 boo
 		arg3 bool
 	}{arg1, arg2, arg3})
 	stub := fake.UsageReportingStatsStub
-	fake.recordInvocation("UsageReportingStats", []interface{}{arg1, arg2, arg3})
+	fake.recordInvocation("UsageReportingStats", []any{arg1, arg2, arg3})
 	fake.usageReportingStatsMutex.Unlock()
 	if stub != nil {
 		fake.UsageReportingStatsStub(arg1, arg2, arg3)
@@ -3781,7 +3781,7 @@ func (fake *Model) WatchError(arg1 string) error {
 	}{arg1})
 	stub := fake.WatchErrorStub
 	fakeReturns := fake.watchErrorReturns
-	fake.recordInvocation("WatchError", []interface{}{arg1})
+	fake.recordInvocation("WatchError", []any{arg1})
 	fake.watchErrorMutex.Unlock()
 	if stub != nil {
 		return stub(arg1)
@@ -3834,24 +3834,24 @@ func (fake *Model) WatchErrorReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *Model) Invocations() map[string][][]interface{} {
+func (fake *Model) Invocations() map[string][][]any {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	copiedInvocations := map[string][][]interface{}{}
+	copiedInvocations := map[string][][]any{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value
 	}
 	return copiedInvocations
 }
 
-func (fake *Model) recordInvocation(key string, args []interface{}) {
+func (fake *Model) recordInvocation(key string, args []any) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
+		fake.invocations = map[string][][]any{}
 	}
 	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
+		fake.invocations[key] = [][]any{}
 	}
 	fake.invocations[key] = append(fake.invocations[key], args)
 }

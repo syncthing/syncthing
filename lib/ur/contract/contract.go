@@ -232,7 +232,7 @@ func (r Report) Value() (driver.Value, error) {
 	return string(bs), err
 }
 
-func (r *Report) Scan(value interface{}) error {
+func (r *Report) Scan(value any) error {
 	// Zero out the previous value
 	// JSON un-marshaller does not touch fields that are not in the payload, so we carry over values from a previous
 	// scan.
@@ -245,7 +245,7 @@ func (r *Report) Scan(value interface{}) error {
 	return json.Unmarshal(b, &r)
 }
 
-func clear(v interface{}, since int) error {
+func clear(v any, since int) error {
 	s := reflect.ValueOf(v).Elem()
 	t := s.Type()
 

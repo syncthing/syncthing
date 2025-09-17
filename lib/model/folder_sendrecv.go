@@ -223,7 +223,7 @@ func (f *sendReceiveFolder) pull() (bool, error) {
 	f.errorsMut.Unlock()
 
 	if pullErrNum > 0 {
-		f.evLogger.Log(events.FolderErrors, map[string]interface{}{
+		f.evLogger.Log(events.FolderErrors, map[string]any{
 			"folder": f.folderID,
 			"errors": f.Errors(),
 		})
@@ -566,7 +566,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 
 	defer func() {
 		slog.Info("Created or updated directory", f.LogAttr(), file.LogAttr())
-		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
+		f.evLogger.Log(events.ItemFinished, map[string]any{
 			"folder": f.folderID,
 			"item":   file.Name,
 			"error":  events.Error(err),
@@ -739,7 +739,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 		} else {
 			slog.Info("Created or updated symlink", f.LogAttr(), file.LogAttr())
 		}
-		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
+		f.evLogger.Log(events.ItemFinished, map[string]any{
 			"folder": f.folderID,
 			"item":   file.Name,
 			"error":  events.Error(err),
@@ -834,7 +834,7 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, dbUpdateChan chan<
 		} else {
 			slog.Info("Deleted directory", f.LogAttr(), file.LogAttr())
 		}
-		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
+		f.evLogger.Log(events.ItemFinished, map[string]any{
 			"folder": f.folderID,
 			"item":   file.Name,
 			"error":  events.Error(err),
@@ -898,7 +898,7 @@ func (f *sendReceiveFolder) deleteFileWithCurrent(file, cur protocol.FileInfo, h
 		} else {
 			slog.Info("Deleted "+kind, f.LogAttr(), file.LogAttr())
 		}
-		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
+		f.evLogger.Log(events.ItemFinished, map[string]any{
 			"folder": f.folderID,
 			"item":   file.Name,
 			"error":  events.Error(err),
@@ -983,14 +983,14 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 		} else {
 			slog.Info("Renamed file", f.LogAttr(), target.LogAttr(), slog.String("from", source.Name))
 		}
-		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
+		f.evLogger.Log(events.ItemFinished, map[string]any{
 			"folder": f.folderID,
 			"item":   source.Name,
 			"error":  events.Error(err),
 			"type":   "file",
 			"action": "delete",
 		})
-		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
+		f.evLogger.Log(events.ItemFinished, map[string]any{
 			"folder": f.folderID,
 			"item":   target.Name,
 			"error":  events.Error(err),
@@ -1276,7 +1276,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 		} else {
 			slog.Info("Updated file metadata", f.LogAttr(), file.LogAttr())
 		}
-		f.evLogger.Log(events.ItemFinished, map[string]interface{}{
+		f.evLogger.Log(events.ItemFinished, map[string]any{
 			"folder": f.folderID,
 			"item":   file.Name,
 			"error":  events.Error(err),
@@ -1717,7 +1717,7 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 				f.model.progressEmitter.Deregister(state)
 			}
 
-			f.evLogger.Log(events.ItemFinished, map[string]interface{}{
+			f.evLogger.Log(events.ItemFinished, map[string]any{
 				"folder": f.folderID,
 				"item":   state.file.Name,
 				"error":  events.Error(err),

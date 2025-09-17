@@ -19,10 +19,10 @@ import (
 )
 
 type event struct {
-	ID   int                    `json:"id"`
-	Type string                 `json:"type"`
-	Time time.Time              `json:"time"`
-	Data map[string]interface{} `json:"data"`
+	ID   int            `json:"id"`
+	Type string         `json:"type"`
+	Time time.Time      `json:"time"`
+	Data map[string]any `json:"data"`
 }
 
 func main() {

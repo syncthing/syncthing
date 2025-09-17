@@ -555,7 +555,7 @@ func TestIndexIDString(t *testing.T) {
 	}
 }
 
-func closeAndWait(c interface{}, closers ...io.Closer) {
+func closeAndWait(c any, closers ...io.Closer) {
 	for _, closer := range closers {
 		closer.Close()
 	}

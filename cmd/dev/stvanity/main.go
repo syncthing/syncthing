@@ -141,7 +141,7 @@ func printProgress(prefix string, count *atomic.Int64) {
 	}
 }
 
-func saveCert(priv interface{}, derBytes []byte) {
+func saveCert(priv any, derBytes []byte) {
 	certOut, err := os.Create("cert.pem")
 	if err != nil {
 		fmt.Println(err)
@@ -182,7 +182,7 @@ func saveCert(priv interface{}, derBytes []byte) {
 	}
 }
 
-func pemBlockForKey(priv interface{}) (*pem.Block, error) {
+func pemBlockForKey(priv any) (*pem.Block, error) {
 	switch k := priv.(type) {
 	case *rsa.PrivateKey:
 		return &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(k)}, nil

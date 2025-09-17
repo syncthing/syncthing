@@ -27,7 +27,7 @@ import (
 type APIClient interface {
 	Get(url string) (*http.Response, error)
 	Post(url, body string) (*http.Response, error)
-	PutJSON(url string, o interface{}) (*http.Response, error)
+	PutJSON(url string, o any) (*http.Response, error)
 }
 
 type apiClient struct {
@@ -133,7 +133,7 @@ func (c *apiClient) RequestString(url, method, data string) (*http.Response, err
 	return c.Request(url, method, bytes.NewBufferString(data))
 }
 
-func (c *apiClient) RequestJSON(url, method string, o interface{}) (*http.Response, error) {
+func (c *apiClient) RequestJSON(url, method string, o any) (*http.Response, error) {
 	data, err := json.Marshal(o)
 	if err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func (c *apiClient) Post(url, body string) (*http.Response, error) {
 	return c.RequestString(url, "POST", body)
 }
 
-func (c *apiClient) PutJSON(url string, o interface{}) (*http.Response, error) {
+func (c *apiClient) PutJSON(url string, o any) (*http.Response, error) {
 	return c.RequestJSON(url, "PUT", o)
 }
 

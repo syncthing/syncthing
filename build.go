@@ -684,7 +684,7 @@ func createPostInstScript(target target) (string, error) {
 }
 
 func shouldBuildSyso(dir string) (string, error) {
-	type M map[string]interface{}
+	type M map[string]any
 	version := getVersion()
 	version = strings.TrimPrefix(version, "v")
 	major, minor, patch := semanticVersion()

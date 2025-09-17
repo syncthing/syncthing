@@ -230,7 +230,7 @@ const BufferSize = 64
 
 type Logger interface {
 	suture.Service
-	Log(t EventType, data interface{})
+	Log(t EventType, data any)
 	Subscribe(mask EventType) Subscription
 }
 
@@ -248,10 +248,10 @@ type Event struct {
 	// Per-subscription sequential event ID. Named "id" for backwards compatibility with the REST API
 	SubscriptionID int `json:"id"`
 	// Global ID of the event across all subscriptions
-	GlobalID int         `json:"globalID"`
-	Time     time.Time   `json:"time"`
-	Type     EventType   `json:"type"`
-	Data     interface{} `json:"data"`
+	GlobalID int       `json:"globalID"`
+	Time     time.Time `json:"time"`
+	Type     EventType `json:"type"`
+	Data     any       `json:"data"`
 }
 
 type Subscription interface {
@@ -320,7 +320,7 @@ loop:
 	return nil
 }
 
-func (l *logger) Log(t EventType, data interface{}) {
+func (l *logger) Log(t EventType, data any) {
 	l.events <- Event{
 		Time: time.Now(), // intentionally high precision
 		Type: t,
@@ -554,7 +554,7 @@ var NoopLogger Logger = &noopLogger{}
 
 func (*noopLogger) Serve(_ context.Context) error { return nil }
 
-func (*noopLogger) Log(_ EventType, _ interface{}) {}
+func (*noopLogger) Log(_ EventType, _ any) {}
 
 func (*noopLogger) Subscribe(_ EventType) Subscription {
 	return &noopSubscription{}

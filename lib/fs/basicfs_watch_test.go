@@ -635,6 +635,6 @@ func (fakeEventInfo) Event() notify.Event {
 	return notify.Write
 }
 
-func (fakeEventInfo) Sys() interface{} {
+func (fakeEventInfo) Sys() any {
 	return nil
 }
