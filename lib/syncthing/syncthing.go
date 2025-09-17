@@ -162,8 +162,10 @@ func (a *App) startup() error {
 		}()
 	}
 
-	perf := ur.CpuBench(context.Background(), 3, 150*time.Millisecond)
-	slog.Info("Measured hashing performance", "perf", fmt.Sprintf("%.02f MB/s", perf))
+	if slog.Default().Enabled(context.Background(), slog.LevelInfo) {
+		perf := ur.CpuBench(context.Background(), 3, 150*time.Millisecond)
+		slog.Info("Measured hashing performance", "perf", fmt.Sprintf("%.02f MB/s", perf))
+	}
 
 	if a.opts.ResetDeltaIdxs {
 		slog.Info("Reinitializing delta index IDs")
