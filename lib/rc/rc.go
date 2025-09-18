@@ -490,7 +490,7 @@ func (p *Process) eventLoop() {
 				// The Starting event tells us where the configuration is. Load
 				// it and populate our list of folders.
 
-				data := ev.Data.(map[string]any)
+				data := ev.Data.(map[string]any) //nolint:forcetypeassert
 				id, err := protocol.DeviceIDFromString(data["myID"].(string))
 				if err != nil {
 					log.Println("eventLoop: DeviceIdFromString:", err)
@@ -525,7 +525,7 @@ func (p *Process) eventLoop() {
 				select {
 				case <-p.startComplete:
 				default:
-					data := ev.Data.(map[string]any)
+					data := ev.Data.(map[string]any) //nolint:forcetypeassert
 					to := data["to"].(string)
 					if to == "idle" {
 						folder := data["folder"].(string)
@@ -537,7 +537,7 @@ func (p *Process) eventLoop() {
 				}
 
 			case "LocalIndexUpdated":
-				data := ev.Data.(map[string]any)
+				data := ev.Data.(map[string]any) //nolint:forcetypeassert
 				folder := data["folder"].(string)
 				p.eventMut.Lock()
 				m := p.updateSequenceLocked(folder, p.id.String(), data["sequence"])
@@ -546,7 +546,7 @@ func (p *Process) eventLoop() {
 				p.eventMut.Unlock()
 
 			case "RemoteIndexUpdated":
-				data := ev.Data.(map[string]any)
+				data := ev.Data.(map[string]any) //nolint:forcetypeassert
 				device := data["device"].(string)
 				folder := data["folder"].(string)
 				p.eventMut.Lock()

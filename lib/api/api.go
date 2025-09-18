@@ -696,7 +696,7 @@ func (*service) getSystemPaths(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *service) getJSMetadata(w http.ResponseWriter, _ *http.Request) {
-	meta, _ := json.Marshal(map[string]any{
+	meta, _ := json.Marshal(map[string]any{ //nolint:errchkjson
 		"deviceID":      s.id.String(),
 		"deviceIDShort": s.id.Short().String(),
 		"authenticated": true,
