@@ -474,6 +474,84 @@ func TestClusterConfig(t *testing.T) {
 	}
 }
 
+func TestClusterConfigEncrypted(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.New(device1)
+	cfg.Options.MinHomeDiskFree.Value = 0 // avoids unnecessary free space checks
+	cfg.Devices = []config.DeviceConfiguration{
+		{
+			DeviceID: device1,
+		},
+		{
+			DeviceID: device2,
+		},
+	}
+	cfg.Folders = []config.FolderConfiguration{
+		{
+			FilesystemType: config.FilesystemTypeFake,
+			ID:             "folder1",
+			Path:           "testdata1",
+			Devices: []config.FolderDeviceConfiguration{
+				{DeviceID: device1, EncryptionPassword: "trololol"}, // not included, untrusted
+				{DeviceID: device2},
+			},
+		},
+		{
+			FilesystemType: config.FilesystemTypeFake,
+			ID:             "folder2",
+			Path:           "testdata2",
+			Devices: []config.FolderDeviceConfiguration{
+				{DeviceID: device1, EncryptionPassword: "trololol"}, // not included, untrusted
+				{DeviceID: device2, EncryptionPassword: "trololol"}, // included, is destinationd device
+			},
+		},
+		{
+			FilesystemType: config.FilesystemTypeFake,
+			ID:             "folder3",
+			Path:           "testdata3",
+			Devices: []config.FolderDeviceConfiguration{
+				{DeviceID: device1},
+				// should not be included, does not include device2
+			},
+		},
+	}
+
+	wrapper, cancel := newConfigWrapper(cfg)
+	defer cancel()
+	m := newModel(t, wrapper, myID, nil)
+	m.ServeBackground()
+	defer cleanupModel(m)
+
+	cm, _ := m.generateClusterConfig(device2)
+
+	if l := len(cm.Folders); l != 2 {
+		t.Fatalf("Incorrect number of folders %d != 2", l)
+	}
+
+	r := cm.Folders[0]
+	if r.ID != "folder1" {
+		t.Errorf("Incorrect folder %q != folder1", r.ID)
+	}
+	if l := len(r.Devices); l != 1 {
+		t.Errorf("Incorrect number of devices %d != 1", l)
+	}
+	if id := r.Devices[0].ID; id != device2 {
+		t.Errorf("Incorrect device ID %s != %s", id, device2)
+	}
+
+	r = cm.Folders[1]
+	if r.ID != "folder2" {
+		t.Errorf("Incorrect folder %q != folder2", r.ID)
+	}
+	if l := len(r.Devices); l != 1 {
+		t.Errorf("Incorrect number of devices %d != 1", l)
+	}
+	if id := r.Devices[0].ID; id != device2 {
+		t.Errorf("Incorrect device ID %s != %s", id, device2)
+	}
+}
+
 func TestIntroducer(t *testing.T) {
 	var introducedByAnyone protocol.DeviceID
 
