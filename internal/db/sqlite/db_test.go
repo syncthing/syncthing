@@ -1206,6 +1206,47 @@ func TestOpenSpecialName(t *testing.T) {
 	db.Close()
 }
 
+func TestBlocksInserted(t *testing.T) {
+	// Verifies that blocks are inserted after syncing a file
+
+	t.Parallel()
+
+	sdb, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := sdb.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// Add remote file
+
+	files := []protocol.FileInfo{genFile("test1", 100, 1)}
+	if err := sdb.Update(folderID, protocol.DeviceID{42}, files); err != nil {
+		t.Fatal(err)
+	}
+
+	// Add the same file locally
+
+	if err := sdb.Update(folderID, protocol.LocalDeviceID, files); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify all the blocks are here
+
+	for i, block := range files[0].Blocks {
+		bs, err := itererr.Collect(sdb.AllLocalBlocksWithHash(folderID, block.Hash))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(bs) == 0 {
+			t.Error("missing blocks for", i)
+		}
+	}
+}
+
 func mustCollect[T any](t *testing.T) func(it iter.Seq[T], errFn func() error) []T {
 	t.Helper()
 	return func(it iter.Seq[T], errFn func() error) []T {
