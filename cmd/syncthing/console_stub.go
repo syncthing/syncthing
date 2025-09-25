@@ -9,6 +9,6 @@
 
 package main
 
-func InitConsole() (func(), error) { 
-	return func() {}, nil // No-op cleanup function for non-Windows
+func InitConsole() error {
+	return nil // No-op for non-Windows
 }
