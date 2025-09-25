@@ -43,12 +43,12 @@ func IsNewConsoleDesired(cli *CLI) bool {
 
 	// No command line arguments without parent (Main should have called AttachConsole already)
 	// means binary was probably double-clicked -> don't allocate console
-	// this check is done aufter already trying to attach a console, so a unparameterized
 	if len(os.Args) <= 1 {
 		return false
 	}
 
 	// SSH sessions -> don't allocate console
+	// TODO: check if this condition is actually needed / valid
 	if os.Getenv("SSH_CLIENT") != "" || os.Getenv("SSH_TTY") != "" {
 		return false
 	}
@@ -57,9 +57,9 @@ func IsNewConsoleDesired(cli *CLI) bool {
 
 }
 
-// AttachConsole connectes to an existing console
+// AttachConsole attached the process to an existing console
 func AttachConsole() error {
-	// Try to attach to parent console
+
 	// (ret != 0 = success, ret == 0 = failure)
 	ret, _, err := procAttachConsole.Call(uintptr(ATTACH_PARENT_PROCESS))
 	if ret != 0 {
@@ -72,18 +72,16 @@ func AttachConsole() error {
 // InitConsole initializes a new console.
 func InitConsole() error {
 
-	// No parent console -> allocate a new one
 	// (ret != 0 = success, ret == 0 = failure)
 	ret, _, err := procAllocConsole.Call()
 	if ret != 0 {
 		return setupConsoleHandles()
 	}
 
-	// All console allocation attempts failed, return the last error for debugging
 	return err
 }
 
-// setupConsoleHandles referes to the console prepared from AttachConsole() or InitConsole()
+// setupConsoleHandles referes handles to the console prepared from AttachConsole() or InitConsole()
 func setupConsoleHandles() error {
 
 	// Create file handles for console output
