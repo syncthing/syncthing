@@ -126,6 +126,7 @@ type CLI struct {
 	DataDir     string `name:"data" short:"D" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
 	HomeDir     string `name:"home" short:"H" placeholder:"PATH" env:"STHOMEDIR" help:"Set configuration and data directory"`
 	VersionFlag bool   `name:"version" help:"Show current version, then exit"`
+	NoConsole2  bool   `name:"no-console2" help:"Do not allocate console (Windows only)"`
 
 	Serve serveCmd `cmd:"" help:"Run Syncthing (default)" default:"withargs"`
 	CLI   cli.CLI  `cmd:"" help:"Command line interface for Syncthing"`
@@ -143,8 +144,9 @@ type CLI struct {
 }
 
 func (c *CLI) AfterApply() error {
-	// Executed after parsing command line options but before running actual
-	// subcommands
+	// Executed after parsing command line options but before running actual subcommands
+	// Doesn't run on --help or invalid arguments
+
 	return setConfigDataLocationsFromFlags(c.HomeDir, c.ConfDir, c.DataDir)
 }
 
@@ -211,6 +213,16 @@ func defaultVars() kong.Vars {
 }
 
 func main() {
+
+	// Kong should be able to use a console if its already present
+	// if --help is used or arguments are invalid, creating a new console seems useless
+	// Creating a new console can be postponed until we got the kong parsings
+	// So we can use those to check if the user even wants a new console
+	var consoleAttached = false
+	if err := AttachConsole(); err == nil {
+		consoleAttached = true
+	}
+
 	// Create a parser with an overridden help function to print our extra
 	// help info.
 	var entrypoint CLI
@@ -230,7 +242,14 @@ func main() {
 
 	kongplete.Complete(parser)
 	ctx, err := parser.Parse(os.Args[1:])
+
 	parser.FatalIfErrorf(err)
+
+	if !consoleAttached && IsNewConsoleDesired(&entrypoint) {
+		if err := InitConsole(); err != nil {
+			slog.Error("Failed to initialize console", slogutil.Error(err))
+		}
+	}
 
 	if entrypoint.VersionFlag {
 		_ = versionCmd{}.Run()
