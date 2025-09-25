@@ -9,6 +9,9 @@
 
 package main
 
+func AttachConsole() error {
+	return nil // No-op for non-Windows
+}
 func InitConsole() error {
 	return nil // No-op for non-Windows
 }
