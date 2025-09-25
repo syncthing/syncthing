@@ -261,10 +261,6 @@ func main() {
 }
 
 func helpHandler(options kong.HelpOptions, ctx *kong.Context) error {
-
-	if err := InitConsole(); err != nil {
-		slog.Error("Failed to initialize console", slogutil.Error(err))
-	}
 	if err := kong.DefaultHelpPrinter(options, ctx); err != nil {
 		return err
 	}
