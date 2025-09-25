@@ -126,6 +126,7 @@ type CLI struct {
 	DataDir     string `name:"data" short:"D" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
 	HomeDir     string `name:"home" short:"H" placeholder:"PATH" env:"STHOMEDIR" help:"Set configuration and data directory"`
 	VersionFlag bool   `name:"version" help:"Show current version, then exit"`
+	// NoConsole   bool   `name:"no-console" help:"Do not allocate console (Windows only)"`
 
 	Serve serveCmd `cmd:"" help:"Run Syncthing (default)" default:"withargs"`
 	CLI   cli.CLI  `cmd:"" help:"Command line interface for Syncthing"`
@@ -145,6 +146,13 @@ type CLI struct {
 func (c *CLI) AfterApply() error {
 	// Executed after parsing command line options but before running actual
 	// subcommands
+
+	// Initialize console
+	// err := InitConsole(c)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to initialize console: %w", err)
+	// }
+
 	return setConfigDataLocationsFromFlags(c.HomeDir, c.ConfDir, c.DataDir)
 }
 
@@ -212,11 +220,10 @@ func defaultVars() kong.Vars {
 
 func main() {
 	// Initialize console for Windows GUI builds
-	freeConsole, err := InitConsole()
+	err := InitConsole()
 	if err != nil {
 		slog.Error("Failed to initialize console", slogutil.Error(err))
 	}
-	defer freeConsole()
 
 	// Create a parser with an overridden help function to print our extra
 	// help info.

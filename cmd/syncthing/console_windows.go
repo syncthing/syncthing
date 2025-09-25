@@ -18,11 +18,10 @@ import (
 )
 
 var (
-	kernel32             = syscall.NewLazyDLL("kernel32.dll")
-	procAllocConsole     = kernel32.NewProc("AllocConsole")
-	procAttachConsole    = kernel32.NewProc("AttachConsole")
-	procFreeConsole      = kernel32.NewProc("FreeConsole")
-	procGetConsoleWindow = kernel32.NewProc("GetConsoleWindow")
+	kernel32          = syscall.NewLazyDLL("kernel32.dll")
+	procAllocConsole  = kernel32.NewProc("AllocConsole")
+	procAttachConsole = kernel32.NewProc("AttachConsole")
+	// There is also FreeConsole, but we don't need it (Windows will clean up after termination anyway)
 )
 
 const (
@@ -31,56 +30,49 @@ const (
 )
 
 // InitConsole initializes console for Windows GUI applications.
-// Returns a cleanup function that should be called to free resources.
-func InitConsole() (func(), error) {
+func InitConsole() error {
 
 	// If this is an inner process (started by monitor) -> don't allocate console
 	// as the monitor handles all I/O through pipes
 	if os.Getenv("STMONITORED") == "yes" {
-		return func() {}, nil
+		return nil
 	}
 
 	// User explicitly disabled console  -> don't allocate console
 	if slices.Contains(os.Args[1:], "--no-console") {
-		return func() {}, nil
+		return nil
 	}
 
 	// SSH sessions -> don't allocate console
 	if os.Getenv("SSH_CLIENT") != "" || os.Getenv("SSH_TTY") != "" {
-		return func() {}, nil
+		return nil
 	}
 
-	// Try to attach to parent console (ret != 0 = success, ret == 0 = failure)
+	// Try to attach to parent console
+	// (ret != 0 = success, ret == 0 = failure)
 	ret, _, _ := procAttachConsole.Call(uintptr(ATTACH_PARENT_PROCESS))
 	if ret != 0 {
-		err := setupConsoleHandles()
-		return func() {}, err
+		return setupConsoleHandles()
 	}
 
 	// No command line arguments without parent means binary was probably double-clicked -> don't allocate console
 	if len(os.Args) <= 1 {
-		return func() {}, nil
+		return nil
 	}
 
-	// No parent console -> allocate a new one (ret != 0 = success, ret == 0 = failure)
+	// No parent console -> allocate a new one
+	// (ret != 0 = success, ret == 0 = failure)
 	ret, _, err := procAllocConsole.Call()
 	if ret != 0 {
-		setupErr := setupConsoleHandles()
-		if setupErr != nil {
-			return func() {}, setupErr
-		}
-		// Return cleanup function that will free the allocated console
-		return func() {
-			procFreeConsole.Call()
-		}, nil
+		return setupConsoleHandles()
 	}
 
 	// All console allocation attempts failed, return the last error for debugging
-	return func() {}, err
+	return err
 }
 
 func setupConsoleHandles() error {
-	
+
 	// Create file handles for console output
 	conout := createConsoleFile("CONOUT$", windows.GENERIC_WRITE|windows.GENERIC_READ)
 	if conout != syscall.InvalidHandle {
