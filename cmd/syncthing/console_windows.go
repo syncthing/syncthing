@@ -11,7 +11,6 @@ package main
 
 import (
 	"os"
-	"slices"
 	"syscall"
 
 	"golang.org/x/sys/windows"
@@ -29,36 +28,49 @@ const (
 	ATTACH_PARENT_PROCESS = 0xFFFFFFFF
 )
 
-// InitConsole initializes console for Windows GUI applications.
-func InitConsole() error {
+func IsNewConsoleDesired(cli *CLI) bool {
 
 	// If this is an inner process (started by monitor) -> don't allocate console
-	// as the monitor handles all I/O through pipes
-	if os.Getenv("STMONITORED") == "yes" {
-		return nil
+	// Parent provides all I/O through pipes
+	if cli.Serve.InternalInnerProcess {
+		return false
 	}
 
-	// User explicitly disabled console  -> don't allocate console
-	if slices.Contains(os.Args[1:], "--no-console") {
-		return nil
+	// User explicitly disabled console -> don't allocate console
+	if cli.NoConsole2 {
+		return false
+	}
+
+	// No command line arguments without parent (Main should have called AttachConsole already)
+	// means binary was probably double-clicked -> don't allocate console
+	// this check is done aufter already trying to attach a console, so a unparameterized
+	if len(os.Args) <= 1 {
+		return false
 	}
 
 	// SSH sessions -> don't allocate console
 	if os.Getenv("SSH_CLIENT") != "" || os.Getenv("SSH_TTY") != "" {
-		return nil
+		return false
 	}
 
+	return true
+
+}
+
+// AttachConsole connectes to an existing console
+func AttachConsole() error {
 	// Try to attach to parent console
 	// (ret != 0 = success, ret == 0 = failure)
-	ret, _, _ := procAttachConsole.Call(uintptr(ATTACH_PARENT_PROCESS))
+	ret, _, err := procAttachConsole.Call(uintptr(ATTACH_PARENT_PROCESS))
 	if ret != 0 {
 		return setupConsoleHandles()
+	} else {
+		return err
 	}
+}
 
-	// No command line arguments without parent means binary was probably double-clicked -> don't allocate console
-	if len(os.Args) <= 1 {
-		return nil
-	}
+// InitConsole initializes a new console.
+func InitConsole() error {
 
 	// No parent console -> allocate a new one
 	// (ret != 0 = success, ret == 0 = failure)
@@ -71,6 +83,7 @@ func InitConsole() error {
 	return err
 }
 
+// setupConsoleHandles referes to the console prepared from AttachConsole() or InitConsole()
 func setupConsoleHandles() error {
 
 	// Create file handles for console output
