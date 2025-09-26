@@ -30,6 +30,7 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
+		{52, migrateToConfigV52},
 		{51, migrateToConfigV51},
 		{50, migrateToConfigV50},
 		{37, migrateToConfigV37},
@@ -99,6 +100,25 @@ func (m migration) apply(cfg *Configuration) {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+}
+
+func migrateToConfigV52(cfg *Configuration) {
+	// Renamed notification ID
+	for i := range cfg.Options.UnackedNotificationIDs {
+		if cfg.Options.UnackedNotificationIDs[i] == "authenticationUserAndPassword" {
+			cfg.Options.UnackedNotificationIDs[i] = "guiAuthentication"
+		}
+	}
+
+	// New required settings
+	if cfg.GUI.WebauthnRpId == "" {
+		cfg.GUI.WebauthnRpId = cfg.GUI.defaultWebauthnRpId()
+	}
+	if len(cfg.GUI.WebauthnOrigins) == 0 {
+		if origins, err := cfg.GUI.defaultWebauthnOrigins(); err == nil {
+			cfg.GUI.WebauthnOrigins = origins
+		}
+	}
 }
 
 func migrateToConfigV51(cfg *Configuration) {
