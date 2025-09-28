@@ -2615,6 +2615,7 @@ func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protoco
 			protocolFolder.StopReason = protocol.FolderStopReasonPaused
 		}
 
+	nextDevice:
 		for _, folderDevice := range folderCfg.Devices {
 			deviceCfg, _ := m.cfg.Device(folderDevice.DeviceID)
 
@@ -2630,9 +2631,17 @@ func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protoco
 			if deviceCfg.DeviceID == m.id && hasEncryptionToken {
 				protocolDevice.EncryptionPasswordToken = encryptionToken
 			} else if folderDevice.EncryptionPassword != "" {
-				protocolDevice.EncryptionPasswordToken = protocol.PasswordToken(m.keyGen, folderCfg.ID, folderDevice.EncryptionPassword)
+				// For encrypted/untrusted devices we send the encryption
+				// token and prepare the password. We do not send any
+				// information about untrusted devices to _other_ devices,
+				// as they are not normal peers sharing the folder and we
+				// don't want things like the introducer features to kick in
+				// for them.
 				if folderDevice.DeviceID == device {
+					protocolDevice.EncryptionPasswordToken = protocol.PasswordToken(m.keyGen, folderCfg.ID, folderDevice.EncryptionPassword)
 					passwords[folderCfg.ID] = folderDevice.EncryptionPassword
+				} else {
+					continue nextDevice
 				}
 			}
 
