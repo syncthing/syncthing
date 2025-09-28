@@ -47,12 +47,6 @@ func IsNewConsoleDesired(cli *CLI) bool {
 		return false
 	}
 
-	// SSH sessions -> don't allocate console
-	// TODO: check if this condition is actually needed / valid
-	if os.Getenv("SSH_CLIENT") != "" || os.Getenv("SSH_TTY") != "" {
-		return false
-	}
-
 	return true
 
 }
