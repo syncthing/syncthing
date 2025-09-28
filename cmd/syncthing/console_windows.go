@@ -37,7 +37,7 @@ func IsNewConsoleDesired(cli *CLI) bool {
 	}
 
 	// User explicitly disabled console -> don't allocate console
-	if cli.NoConsole2 {
+	if cli.Serve.HideConsole {
 		return false
 	}
 

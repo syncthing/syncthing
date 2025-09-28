@@ -126,7 +126,6 @@ type CLI struct {
 	DataDir     string `name:"data" short:"D" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
 	HomeDir     string `name:"home" short:"H" placeholder:"PATH" env:"STHOMEDIR" help:"Set configuration and data directory"`
 	VersionFlag bool   `name:"version" help:"Show current version, then exit"`
-	NoConsole2  bool   `name:"no-console2" help:"Do not allocate console (Windows only)"`
 
 	Serve serveCmd `cmd:"" help:"Run Syncthing (default)" default:"withargs"`
 	CLI   cli.CLI  `cmd:"" help:"Command line interface for Syncthing"`
