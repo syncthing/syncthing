@@ -7,7 +7,7 @@
 //go:build windows
 // +build windows
 
-package main
+package osutil
 
 import (
 	"os"
@@ -28,28 +28,6 @@ const (
 	ATTACH_PARENT_PROCESS = 0xFFFFFFFF
 )
 
-func IsNewConsoleDesired(cli *CLI) bool {
-
-	// If this is an inner process (started by monitor) -> don't allocate console
-	// Parent provides all I/O through pipes
-	if cli.Serve.InternalInnerProcess {
-		return false
-	}
-
-	// User explicitly disabled console -> don't allocate console
-	if cli.Serve.HideConsole {
-		return false
-	}
-
-	// No command line arguments without parent (Main should have called AttachConsole already)
-	// means binary was probably double-clicked -> don't allocate console
-	if len(os.Args) <= 1 {
-		return false
-	}
-
-	return true
-
-}
 
 // AttachConsole attached the process to an existing console
 func AttachConsole() error {

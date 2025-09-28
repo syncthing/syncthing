@@ -9,4 +9,9 @@
 
 package osutil
 
-func HideConsole() {}
+func AttachConsole() error {
+	return nil // No-op for non-Windows
+}
+func InitConsole() error {
+	return nil // No-op for non-Windows
+}

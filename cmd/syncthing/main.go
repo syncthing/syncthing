@@ -218,7 +218,7 @@ func main() {
 	// Creating a new console can be postponed until we got the kong parsings
 	// So we can use those to check if the user even wants a new console
 	var consoleAttached = false
-	if err := AttachConsole(); err == nil {
+	if err := osutil.AttachConsole(); err == nil {
 		consoleAttached = true
 	}
 
@@ -245,7 +245,7 @@ func main() {
 	parser.FatalIfErrorf(err)
 
 	if !consoleAttached && IsNewConsoleDesired(&entrypoint) {
-		if err := InitConsole(); err != nil {
+		if err := osutil.InitConsole(); err != nil {
 			slog.Error("Failed to initialize console", slogutil.Error(err))
 		}
 	}
@@ -280,10 +280,6 @@ func (c *serveCmd) Run() error {
 	if c.GUIAPIKey != "" {
 		// The config picks this up from the environment.
 		os.Setenv("STGUIAPIKEY", c.GUIAPIKey)
-	}
-
-	if c.HideConsole {
-		osutil.HideConsole()
 	}
 
 	// Customize the logging early
@@ -330,6 +326,29 @@ func (c *serveCmd) Run() error {
 		c.monitorMain()
 	}
 	return nil
+}
+
+func IsNewConsoleDesired(cli *CLI) bool {
+
+	// If this is an inner process (started by monitor) -> don't allocate console
+	// Parent provides all I/O through pipes
+	if cli.Serve.InternalInnerProcess {
+		return false
+	}
+
+	// User explicitly disabled console -> don't allocate console
+	if cli.Serve.HideConsole {
+		return false
+	}
+
+	// No command line arguments without parent (Main should have called AttachConsole already)
+	// means binary was probably double-clicked -> don't allocate console
+	if len(os.Args) <= 1 {
+		return false
+	}
+
+	return true
+
 }
 
 func openGUI() error {
