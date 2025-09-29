@@ -23,7 +23,7 @@ example `UMASK=002`.
 **Docker cli**
 ```
 $ docker pull syncthing/syncthing
-$ docker run --network=host \
+$ docker run --network=host  -e STGUIADDRESS= \
     -v /wherever/st-sync:/var/syncthing \
     syncthing/syncthing:latest
 ```
@@ -40,6 +40,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
+      - STGUIADDRESS=
     volumes:
       - /wherever/st-sync:/var/syncthing
     network_mode: host
@@ -68,21 +69,10 @@ there are conflicts.
 
 ## GUI Security
 
-By default Syncthing inside the Docker image listens on `0.0.0.0:8384` to
-allow GUI connections via the Docker proxy. This is set by the
-`STGUIADDRESS` environment variable in the Dockerfile, as it differs from
-what Syncthing would otherwise use by default. This means you should set up
-authentication in the GUI, like for any other externally reachable Syncthing
-instance. If you do not require the GUI, or you use host networking, you can
-unset the `STGUIADDRESS` variable to have Syncthing fall back to listening
-on `127.0.0.1`:
-
-```
-$ docker pull syncthing/syncthing
-$ docker run -e STGUIADDRESS= \
-    -v /wherever/st-sync:/var/syncthing \
-    syncthing/syncthing:latest
-```
-
-With the environment variable unset Syncthing will follow what is set in the
-configuration file / GUI settings dialog.
+By default Syncthing inside the Docker image listens on `0.0.0.0:8384`. This
+allows GUI connections when running without host network mode. The example
+above unsets the `STGUIADDRESS` environment variable to have Syncthing fall
+back to listening on what has been configured in the configuration file or the
+GUI settings dialog. By default this is the localhost IP address `127.0.0.1`.
+If you configure your GUI to be externally reachable, make sure you set up
+authentication and enable TLS.
