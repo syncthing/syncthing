@@ -55,6 +55,32 @@ func TestSetDefaults(t *testing.T) {
 	}
 }
 
+func TestSetDefaultsSkipNonZeroFields(t *testing.T) {
+	type Test struct {
+		A int  `default:"100"`
+		B bool `default:"true"`
+	}
+
+	x := &Test{
+		A: 20,
+	}
+
+	SetDefaults(x)
+	if x.A != 20 {
+		t.Error("int failed")
+	} else if x.B != true {
+		t.Error("bool failed")
+	}
+
+	x = &Test{}
+	SetDefaults(x)
+	if x.A != 100 {
+		t.Error("int failed")
+	} else if x.B != true {
+		t.Error("bool failed")
+	}
+}
+
 func TestFillNillSlices(t *testing.T) {
 	// Nil
 	x := &struct {

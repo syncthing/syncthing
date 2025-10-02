@@ -27,6 +27,9 @@ func SetDefaults(data any) {
 
 		v := tag.Get("default")
 		if len(v) > 0 {
+			if !f.IsZero() {
+				continue
+			}
 			if f.CanInterface() {
 				if parser, ok := f.Interface().(defaultParser); ok {
 					if err := parser.ParseDefault(v); err != nil {
