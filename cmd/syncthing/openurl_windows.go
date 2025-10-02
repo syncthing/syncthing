@@ -10,41 +10,10 @@
 package main
 
 import (
-	"syscall"
-	"unsafe"
+	"os/exec"
 )
 
-var (
-	shell32      = syscall.NewLazyDLL("shell32.dll")
-	shellExecute = shell32.NewProc("ShellExecuteW")
-)
-
+// openURL opens the given URL in the user's default browser on Windows.
 func openURL(url string) error {
-	// Convert strings to UTF-16 for Windows API
-	urlPtr, err := syscall.UTF16PtrFromString(url)
-	if err != nil {
-		return err
-	}
-
-	operationPtr, err := syscall.UTF16PtrFromString("open")
-	if err != nil {
-		return err
-	}
-
-	// Call ShellExecuteW
-	ret, _, _ := shellExecute.Call(
-		0,                                     // hwnd
-		uintptr(unsafe.Pointer(operationPtr)), // lpOperation
-		uintptr(unsafe.Pointer(urlPtr)),       // lpFile
-		0,                                     // lpParameters
-		0,                                     // lpDirectory
-		1,                                     // nShowCmd (SW_SHOWNORMAL)
-	)
-
-	// ShellExecute returns a value > 32 on success
-	if ret <= 32 {
-		return syscall.Errno(ret)
-	}
-
-	return nil
+	return exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
 }
