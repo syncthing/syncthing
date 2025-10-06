@@ -9,8 +9,11 @@
 
 package main
 
-import "os/exec"
+import (
+	"os/exec"
+)
 
+// openURL opens the given URL in the user's default browser on Windows.
 func openURL(url string) error {
-	return exec.Command("cmd.exe", "/C", "start "+url).Run()
+	return exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
 }
