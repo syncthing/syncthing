@@ -10,7 +10,6 @@ User=%i
 Environment="STLOGFORMATTIMESTAMP="
 Environment="STLOGFORMATLEVELSTRING=false"
 Environment="STLOGFORMATLEVELSYSLOG=true"
-# NOTE: If changing the syncthing binary path, also update ExecPaths= below
 ExecStart=/usr/bin/syncthing serve --no-browser --no-restart
 Restart=on-failure
 RestartSec=1
@@ -42,13 +41,6 @@ RestartForceExitStatus=3 4
 # "redundant" options may be non-functional while others still work. So resist
 # the urge to be clever and leave the "redundant" options alone.
 
-# Disallow execution of all binaries.
-NoExecPaths=/
-# Allow execution of syncthing and system shared libraries.
-# NOTE: If you are seeing an error like
-# "Failed to execute /some/path/to/syncthing: Permission denied", this is the
-# option you need to update to use your non-standard install location.
-ExecPaths=/usr/bin/syncthing /usr/lib
 # Makes /usr, /boot, /efi and /etc read-only.
 ProtectSystem=full
 # Protect several system areas syncthing should NEVER touch
@@ -190,6 +182,19 @@ UMask=0027
 ## ProtectSystem=strict because it prevents information disclosure of private
 ## user data in case of service compromise.
 #ProtectHome=tmpfs
+#
+## Disallow execution of all binaries. ExecPaths= below carves out exceptions.
+## Can't be enabled by default due to the External File Versioning feature:
+##   https://docs.syncthing.net/users/versioning.html#external-file-versioning
+## If you do not use that feature, just enable both NoExecPaths and ExecPaths
+## below it. If you do use it, you should still use these options; just add
+## the paths to the binaries you invoke to ExecPaths so they can be called.
+#NoExecPaths=/
+## Allow execution of syncthing and system shared libraries.
+## NOTE: If you are seeing an error like
+## "Failed to execute /some/path/to/syncthing: Permission denied", this is the
+## option you need to update to use your non-standard install location.
+#ExecPaths=/usr/bin/syncthing /usr/lib
 
 [Install]
 WantedBy=multi-user.target
