@@ -10,22 +10,186 @@ User=%i
 Environment="STLOGFORMATTIMESTAMP="
 Environment="STLOGFORMATLEVELSTRING=false"
 Environment="STLOGFORMATLEVELSYSLOG=true"
+# NOTE: If changing the syncthing binary path, also update ExecPaths= below
 ExecStart=/usr/bin/syncthing serve --no-browser --no-restart
 Restart=on-failure
 RestartSec=1
 SuccessExitStatus=3 4
 RestartForceExitStatus=3 4
 
-# Hardening
-ProtectSystem=full
-PrivateTmp=true
-SystemCallArchitectures=native
-MemoryDenyWriteExecute=true
-NoNewPrivileges=true
+#############
+# SANDBOXING
+#############
+#
+# This section contains best-effort sandboxing of syncthing. Such sandboxing is
+# useful to reduce the blast damage of a syncthing exploit.
+#
+# The sandboxing is "best-effort" only because some of these options are ignored
+# if your systemd or kernel are too old or configured in unusual ways. Systemd
+# should (but may not) tell you in the journal logs if that's the case. See the
+# logs (after starting the service) with:
+#
+#    journalctl --boot --pager-end --unit syncthing@<user-you-used>.service
+#
+# See systemd's analysis of syncthing's sandbox with:
+#
+#    systemd-analyze security syncthing@<user-you-used>.service
+#
+# Most of these sandboxing options are documented in `man systemd.exec`.
+#
+# NOTE: Some of these options _appear_ redundant with each other... but
+# depending on the version and configs of systemd and the kernel, some of the
+# "redundant" options may be non-functional while others still work. So resist
+# the urge to be clever and leave the "redundant" options alone.
 
-# Elevated permissions to sync ownership (disabled by default),
-# see https://docs.syncthing.net/advanced/folder-sync-ownership
+# Disallow execution of all binaries.
+NoExecPaths=/
+# Allow execution of syncthing and system shared libraries.
+# NOTE: If you are seeing an error like
+# "Failed to execute /some/path/to/syncthing: Permission denied", this is the
+# option you need to update to use your non-standard install location.
+ExecPaths=/usr/bin/syncthing /usr/lib
+# Makes /usr, /boot, /efi and /etc read-only.
+ProtectSystem=full
+# Protect several system areas syncthing should NEVER touch
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectHostname=true
+ProtectClock=true
+# No new privileges through SUID/SGID binaries
+NoNewPrivileges=true
+# Prevents *setting* SUID/SGID bits on files/dirs
+RestrictSUIDSGID=true
+# Prevent memory pages that are both writable and executable. This kills JIT
+# compilers, but syncthing is precompiled.
+MemoryDenyWriteExecute=true
+# Prevents creation of unprivileged user namespaces which are a LARGE source of
+# privilege escalation exploits.
+#
+# (In 2023, Google saw 44% of kernel exploits using unpriv. user namespaces.
+# Source: https://ubuntu.com/blog/ubuntu-23-10-restricted-unprivileged-user-namespaces)
+#
+# The service can still be placed *inside* such user namespaces (and is, through
+# other sandboxing options), it just can't create any itself.
+RestrictNamespaces=true
+# RT task scheduling can be abused for denial-of-service
+RestrictRealtime=true
+# NOTE: This option is poorly named. It doesn't _restrict_ the listed families,
+# it _allows_ the listed families. Unlisted ones are restricted.
+#
+# Specifically, notice the absence of AF_UNIX (Unix sockets) and AF_PACKET (raw
+# packets). AF_NETLINK is needed because otherwise we see the following error
+# on startup, even though everything actually works:
+#
+#  Failed to list network interfaces (error="route ip+net: netlinkrib:
+#  address family not supported by protocol" log.pkg=upnp)
+#
+# This option does NOT affect sockets passed by systemd through .socket units.
+# Exclusively using systemd-provided sockets (together with restricting all
+# address families) would be _amazing_ for security, but would require some
+# syncthing code and config UX changes.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_NETLINK
+# The lifetime limit of (superuser) capabilities that syncthing can acquire.
+# This option _limits_ capabilities.
+CapabilityBoundingSet=
+# Start with empty (superuser) capabilities. This option _adds_ capabilities.
+# AmbientCapabilities should equal CapabilityBoundingSet.
+AmbientCapabilities=
+# Disables `personality` system call; it can be used for privilege escalation.
+LockPersonality=true
+# Prevents circumvention of restrictions through the use of x86 syscalls on
+# x86-64 systems.
+SystemCallArchitectures=native
+# Clean up IPC objects after service stops.
+RemoveIPC=true
+# Create private namespace for System V IPC.
+# NOTE: This does _nothing_ for AF_UNIX sockets which are far more commonly
+# used.
+PrivateIPC=true
+# Completely isolated /tmp and /var/tmp
+PrivateTmp=disconnected
+# New /dev with safe virtual devices like /dev/null
+PrivateDevices=true
+# Allow access to devices explicitly listed with DeviceAllow and pseudo devices
+# like /dev/null.
+DevicePolicy=closed
+# Creates a new PID namespace. /proc now contains only entries for processes
+# in this PID namespace.
+PrivatePIDs=true
+# Make processes owned by other users hidden in /proc/
+ProtectProc=invisible
+# Prevent access to non-pid interfaces in /proc.
+ProcSubset=pid
+# System call allow-list. This is a very basic start. An explicit list of every
+# syscall syncthing makes would be *much* better. See docs for the property.
+# See SystemCallLog= if building a precise list.
+SystemCallFilter=@system-service
+# Explicitly disallow @privileged syscalls. Syncthing fails to start if we also
+# disallow @resources (which `systemd-analyze` is unhappy about).
+# Also disallow io_uring syscalls which are as of 2025 a huge source of kernel
+# exploits.
+SystemCallFilter=~@privileged io_uring_enter io_uring_enter2 io_uring_register io_uring_setup
+# Return EPERM when a disallowed syscall is made instead of killing the process.
+SystemCallErrorNumber=EPERM
+# Sets up a new user namespace. Maps the "root" user and group as well as the
+# unit's own user and group to themselves and everything else to the "nobody"
+# user and group.
+# Together with running syncthing as a separate user (e.g. "syncthing"), this
+# provides a strong sandbox.
+PrivateUsers=true
+# Disallow creation of group-writable files (2).
+# Disallow creation of files with any 'world' access (7).
+# NOTE: The default value is 0022 so we are only tightening 'world' access to
+# prevent accidental disclosure of private user data.
+# NOTE: Syncthing can still _explicitly_ change file permissions using `chmod`.
+UMask=0027
+
+##################
+# OPTIONAL CONFIG
+##################
+#
+# Users that want to tweak this service file should add a systemd drop-in
+# file to avoid changing the original file.
+#
+# Documentation describing drop-in files:
+#   https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html
+#
+# Example drop-in file location (assuming user "syncthing"):
+#   /etc/systemd/system/syncthing@syncthing.service.d/override.conf
+#
+## Elevated permissions to sync ownership (disabled by default),
+## see https://docs.syncthing.net/advanced/folder-sync-ownership
+## NOTE: Use the same value for *both* of these options.
 #AmbientCapabilities=CAP_CHOWN CAP_FOWNER
+#CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER
+
+#########################
+# EXTRA CREDIT FOR USERS
+#########################
+#
+# Users that want to harden their systems further should set the following
+# properties. (Also through a systemd drop-in file; see comments above.)
+#
+## Makes all of / read-only *except*:
+## - /dev/, /proc/ and /sys/ (see other Protect* options)
+## - ReadWritePaths=
+## - StateDirectory=, LogsDirectory= and similar
+##
+## Can't be enabled by default because we don't know which folders you wish to
+## share! The user can enable this *together* with
+## ReadWritePaths=/my/shared/dir1 /my/shared/dir2
+#ProtectSystem=strict
+#
+## Makes /home, /root and /run/user *invisible* while allowing BindPaths= and
+## BindReadOnlyPaths= to "carve out" access to parts of those dirs.
+## (Use 'true' instead of 'tmpfs' if you don't need to carve out anything.)
+##
+## "Invisible" is *much* better than "just" read-only provided by
+## ProtectSystem=strict because it prevents information disclosure of private
+## user data in case of service compromise.
+#ProtectHome=tmpfs
 
 [Install]
 WantedBy=multi-user.target
