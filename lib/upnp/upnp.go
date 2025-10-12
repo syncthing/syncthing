@@ -276,9 +276,8 @@ loop:
 			continue
 		}
 		for _, igd := range igds {
-			igd := igd // Copy before sending pointer to the channel.
 			select {
-			case results <- &igd:
+			case results <- igd:
 			case <-ctx.Done():
 				return
 			}
@@ -287,7 +286,7 @@ loop:
 	l.Debugln("Discovery for device type", deviceType, "on", intf.Name, "finished.")
 }
 
-func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, resp []byte, netInterface *net.Interface) ([]IGDService, error) {
+func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, resp []byte, netInterface *net.Interface) ([]*IGDService, error) {
 	l.Debugln("Handling UPnP response:\n\n" + string(resp))
 
 	reader := bufio.NewReader(bytes.NewBuffer(resp))
@@ -444,8 +443,8 @@ func getChildServices(d upnpDevice, serviceType string) []upnpService {
 	return result
 }
 
-func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice, netInterface *net.Interface) ([]IGDService, error) {
-	var result []IGDService
+func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice, netInterface *net.Interface) ([]*IGDService, error) {
+	var result []*IGDService
 
 	if device.IsIPv6 && device.DeviceType == urnIgdV1 {
 		// IPv6 UPnP is only standardized for IGDv2. Furthermore, any WANIPConn services for IPv4 that
@@ -486,9 +485,8 @@ func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL st
 	return result, nil
 }
 
-func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice, wanDeviceURN string, wanConnectionURN string, URNs []string, netInterface *net.Interface) []IGDService {
-	var result []IGDService
-
+func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice, wanDeviceURN string, wanConnectionURN string, URNs []string, netInterface *net.Interface) []*IGDService {
+	var result []*IGDService
 	devices := getChildDevices(device, wanDeviceURN)
 
 	if len(devices) < 1 {
@@ -520,7 +518,7 @@ func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, de
 
 						l.Debugln(rootURL, "- found", service.Type, "with URL", u)
 
-						service := IGDService{
+						service := &IGDService{
 							UUID:      deviceUUID,
 							Device:    device,
 							ServiceID: service.ID,
