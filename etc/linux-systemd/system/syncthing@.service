@@ -137,6 +137,11 @@ PrivateUsers=true
 # prevent accidental disclosure of private user data.
 # NOTE: Syncthing can still _explicitly_ change file permissions using `chmod`.
 UMask=0027
+# The default HOME folder for system users on Debian-like systems is
+# /nonexistent, which should never exist.
+# We prevent syncthing from accessing that folder it if was previously created
+# through misconfiguration, or from creating it if it's (correctly) missing.
+InaccessiblePaths=-/nonexistent
 
 ##################
 # OPTIONAL CONFIG
