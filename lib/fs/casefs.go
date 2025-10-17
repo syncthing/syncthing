@@ -423,7 +423,7 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 	}
 
 	for _, comp := range PathComponents(name) {
-		node := r.getExpireAdd(realName)
+		node := r.cache.getExpireAdd(realName, r.fs)
 
 		if node.err != nil {
 			return "", node.err
@@ -449,18 +449,18 @@ func (r *defaultRealCaser) dropCache() {
 
 // getExpireAdd gets an entry for the given key. If no entry exists, or it is
 // expired a new one is created and added to the cache.
-func (r *defaultRealCaser) getExpireAdd(key string) *caseNode {
-	r.cache.mut.Lock()
-	defer r.cache.mut.Unlock()
-	node, ok := r.cache.Get(key)
+func (c *caseCache) getExpireAdd(key string, fs Filesystem) *caseNode {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	node, ok := c.Get(key)
 	if !ok {
-		node := newCaseNode(key, r.fs)
-		r.cache.Add(key, node)
+		node := newCaseNode(key, fs)
+		c.Add(key, node)
 		return node
 	}
 	if node.expires.Before(time.Now()) {
-		node = newCaseNode(key, r.fs)
-		r.cache.Add(key, node)
+		node = newCaseNode(key, fs)
+		c.Add(key, node)
 	}
 	return node
 }
