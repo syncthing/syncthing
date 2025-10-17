@@ -400,7 +400,7 @@ type defaultRealCaser struct {
 }
 
 type caseCache struct {
-	*lru.TwoQueueCache[string, *caseNode]
+	lru.TwoQueueCache[string, *caseNode]
 
 	mut sync.Mutex
 }
@@ -412,7 +412,7 @@ func newCaseCache() *caseCache {
 		panic(err)
 	}
 	return &caseCache{
-		TwoQueueCache: cache,
+		TwoQueueCache: *cache,
 	}
 }
 
