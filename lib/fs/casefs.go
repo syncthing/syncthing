@@ -397,10 +397,13 @@ func (f *caseFilesystem) checkCaseExisting(name string) error {
 type defaultRealCaser struct {
 	cache *caseCache
 	fs    Filesystem
-	mut   sync.Mutex
 }
 
-type caseCache = lru.TwoQueueCache[string, *caseNode]
+type caseCache struct {
+	*lru.TwoQueueCache[string, *caseNode]
+
+	mut sync.Mutex
+}
 
 func newCaseCache() *caseCache {
 	cache, err := lru.New2Q[string, *caseNode](caseCacheItemLimit)
@@ -408,7 +411,9 @@ func newCaseCache() *caseCache {
 	if err != nil {
 		panic(err)
 	}
-	return cache
+	return &caseCache{
+		TwoQueueCache: cache,
+	}
 }
 
 func (r *defaultRealCaser) realCase(name string) (string, error) {
@@ -445,8 +450,8 @@ func (r *defaultRealCaser) dropCache() {
 // getExpireAdd gets an entry for the given key. If no entry exists, or it is
 // expired a new one is created and added to the cache.
 func (r *defaultRealCaser) getExpireAdd(key string) *caseNode {
-	r.mut.Lock()
-	defer r.mut.Unlock()
+	r.cache.mut.Lock()
+	defer r.cache.mut.Unlock()
 	node, ok := r.cache.Get(key)
 	if !ok {
 		node := newCaseNode(key, r.fs)
