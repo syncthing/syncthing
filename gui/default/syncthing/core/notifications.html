@@ -117,14 +117,14 @@
   </div>
 </notification>
 
-<notification id="authenticationUserAndPassword">
+<notification id="guiAuthentication">
   <div class="panel panel-success">
     <div class="panel-heading">
-      <h3 class="panel-title"><span class="fas fa-bolt"></span>&nbsp;<span translate>GUI Authentication: Set User and Password</span></h3>
+      <h3 class="panel-title"><span class="fas fa-bolt"></span>&nbsp;<span translate>GUI Authentication: Setup Required</span></h3>
     </div>
     <div class="panel-body">
       <p>
-        <span translate>Username/Password has not been set for the GUI authentication. Please consider setting it up.</span>
+        <span translate>GUI authentication has not been configured. Please consider setting up a username and password, or enrolling a WebAuthn credential (passkey).</span>
       </p>
       <p>
         <span translate>If you want to prevent other users on this computer from accessing Syncthing and through it your files, consider setting up authentication.</span>
@@ -134,7 +134,7 @@
       <button type="button" class="btn btn-sm btn-default pull-right" ng-click="showSettings()">
         <span class="fas fa-cog"></span>&nbsp;<span translate>Settings</span>
       </button>
-      <button type="button" class="btn btn-sm btn-default pull-left" ng-click="dismissNotification('authenticationUserAndPassword')">
+      <button type="button" class="btn btn-sm btn-default pull-left" ng-click="dismissNotification('guiAuthentication')">
         <span class="fa fa-check-circle"></span>&nbsp;<span translate>OK</span>
       </button>
       <div class="clearfix"></div>

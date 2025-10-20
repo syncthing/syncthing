@@ -55,6 +55,58 @@ func TestSetDefaults(t *testing.T) {
 	}
 }
 
+func TestWithDefaults(t *testing.T) {
+	x := struct {
+		A string    `default:"string"`
+		B int       `default:"2"`
+		C float64   `default:"2.2"`
+		D bool      `default:"true"`
+		E Defaulter `default:"defaulter"`
+	}{}
+
+	if x.A != "" {
+		t.Error("string failed")
+	} else if x.B != 0 {
+		t.Error("int failed")
+	} else if x.C != 0 {
+		t.Errorf("float failed")
+	} else if x.D {
+		t.Errorf("bool failed")
+	} else if x.E.Value != "" {
+		t.Errorf("defaulter failed")
+	}
+
+	y := WithDefaults(x)
+
+	if x.A != "" {
+		t.Error("string failed")
+	} else if x.B != 0 {
+		t.Error("int failed")
+	} else if x.C != 0 {
+		t.Errorf("float failed")
+	} else if x.D {
+		t.Errorf("bool failed")
+	} else if x.E.Value != "" {
+		t.Errorf("defaulter failed")
+	}
+
+	if y.A != "string" {
+		t.Error("string failed")
+	}
+	if y.B != 2 {
+		t.Error("int failed")
+	}
+	if y.C != 2.2 {
+		t.Errorf("float failed")
+	}
+	if !y.D {
+		t.Errorf("bool failed")
+	}
+	if y.E.Value != "defaulter" {
+		t.Errorf("defaulter failed")
+	}
+}
+
 func TestFillNillSlices(t *testing.T) {
 	// Nil
 	x := &struct {
