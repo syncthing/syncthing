@@ -84,7 +84,7 @@ func newParallelHasher(ctx context.Context, folderID string, fs fs.Filesystem, w
 	}
 
 	ph.wg.Add(workers)
-	for i := 0; i < workers; i++ {
+	for range workers {
 		go ph.hashFiles(ctx)
 	}
 
