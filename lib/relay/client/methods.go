@@ -132,7 +132,7 @@ func TestRelay(ctx context.Context, uri *url.URL, certs []tls.Certificate, sleep
 	}()
 	defer cancel()
 
-	for i := 0; i < times; i++ {
+	for range times {
 		_, err = GetInvitationFromRelay(ctx, uri, id, certs, timeout)
 		if err == nil {
 			return nil

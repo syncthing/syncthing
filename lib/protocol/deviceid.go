@@ -181,7 +181,7 @@ func luhnify(s string) (string, error) {
 	}
 
 	res := make([]byte, 4*(13+1))
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		p := s[i*13 : (i+1)*13]
 		copy(res[i*(13+1):], p)
 		l, err := luhn32(p)
@@ -199,7 +199,7 @@ func unluhnify(s string) (string, error) {
 	}
 
 	res := make([]byte, 52)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		p := s[i*(13+1) : (i+1)*(13+1)-1]
 		copy(res[i*13:], p)
 		l, err := luhn32(p)
@@ -216,7 +216,7 @@ func unluhnify(s string) (string, error) {
 func chunkify(s string) string {
 	chunks := len(s) / 7
 	res := make([]byte, chunks*(7+1)-1)
-	for i := 0; i < chunks; i++ {
+	for i := range chunks {
 		if i > 0 {
 			res[i*(7+1)-1] = '-'
 		}

@@ -162,7 +162,7 @@ func main() {
 
 	testCert = createTestCertificate()
 
-	for i := 0; i < requestProcessors; i++ {
+	for range requestProcessors {
 		go requestProcessor(geoip)
 	}
 

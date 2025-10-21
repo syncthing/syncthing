@@ -524,7 +524,7 @@ func (s *bufferedSubscription) Since(id int, into []Event, timeout time.Duration
 			into = append(into, s.buf[i])
 		}
 	}
-	for i := 0; i < s.next; i++ {
+	for i := range s.next {
 		if s.buf[i].SubscriptionID > id {
 			into = append(into, s.buf[i])
 		}

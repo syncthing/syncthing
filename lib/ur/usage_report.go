@@ -436,7 +436,7 @@ func CpuBench(ctx context.Context, iterations int, duration time.Duration) float
 	r.Read(bs)
 
 	var perf float64
-	for i := 0; i < iterations; i++ {
+	for range iterations {
 		if v := cpuBenchOnce(ctx, duration, bs); v > perf {
 			perf = v
 		}
