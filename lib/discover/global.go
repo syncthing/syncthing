@@ -472,7 +472,7 @@ func ipv4Identity(port int) string {
 }
 
 func ipv6Identity(addr string) string {
-	return fmt.Sprintf("IPv6 local multicast discovery on address %s", addr)
+	return "IPv6 local multicast discovery on address " + addr
 }
 
 func http2EnabledTransport(t *http.Transport) *http.Transport {

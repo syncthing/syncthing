@@ -10,7 +10,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
-	"fmt"
+	"encoding/hex"
 	"net"
 	"net/http"
 	"os"
@@ -32,7 +32,7 @@ func userIDFor(req *http.Request) string {
 	now := time.Now().Format("200601")
 	salt := "stcrashreporter"
 	hash := sha256.Sum256([]byte(salt + addr + now))
-	return fmt.Sprintf("%x", hash[:8])
+	return hex.EncodeToString(hash[:8])
 }
 
 // 01234567890abcdef... => 01/23
