@@ -578,7 +578,7 @@ func soapRequestWithIP(ctx context.Context, url, service, function, message stri
 
 	body := fmt.Sprintf(template, message)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(body))
 	if err != nil {
 		return resp, err
 	}

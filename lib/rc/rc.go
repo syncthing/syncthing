@@ -173,7 +173,7 @@ func (p *Process) Get(path string) ([]byte, error) {
 	}
 
 	url := fmt.Sprintf("http://%s%s", p.addr, path)
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +198,7 @@ func (p *Process) Post(path string, data io.Reader) ([]byte, error) {
 		},
 	}
 	url := fmt.Sprintf("http://%s%s", p.addr, path)
-	req, err := http.NewRequest("POST", url, data)
+	req, err := http.NewRequest(http.MethodPost, url, data)
 	if err != nil {
 		return nil, err
 	}
@@ -397,7 +397,7 @@ func (*Process) readResponse(resp *http.Response) ([]byte, error) {
 	if err != nil {
 		return bs, err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return bs, errors.New(resp.Status)
 	}
 	return bs, nil

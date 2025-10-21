@@ -546,7 +546,7 @@ func corsMiddleware(next http.Handler, allowFrameLoading bool) http.Handler {
 	// See https://www.w3.org/TR/cors/ for details.
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Process OPTIONS requests
-		if r.Method == "OPTIONS" {
+		if r.Method == http.MethodOptions {
 			// Add a generous access-control-allow-origin header for CORS requests
 			w.Header().Add("Access-Control-Allow-Origin", "*")
 			// Only GET/POST/OPTIONS Methods are supported
@@ -557,7 +557,7 @@ func corsMiddleware(next http.Handler, allowFrameLoading bool) http.Handler {
 			w.Header().Set("Access-Control-Max-Age", "600")
 
 			// Indicate that no content will be returned
-			w.WriteHeader(204)
+			w.WriteHeader(http.StatusNoContent)
 
 			return
 		}
