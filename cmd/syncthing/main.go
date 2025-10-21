@@ -388,8 +388,8 @@ func upgradeViaRest() error {
 	}
 	u.Path = path.Join(u.Path, "rest/system/upgrade")
 	target := u.String()
-	r, _ := http.NewRequest("POST", target, nil)
-	r.Header.Set("X-API-Key", cfg.GUI().APIKey)
+	r, _ := http.NewRequest(http.MethodPost, target, nil)
+	r.Header.Set("X-Api-Key", cfg.GUI().APIKey)
 
 	tr := &http.Transport{
 		DialContext:     dialer.DialContext,
@@ -407,7 +407,7 @@ func upgradeViaRest() error {
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		bs, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return err

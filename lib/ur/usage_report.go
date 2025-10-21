@@ -366,7 +366,7 @@ func (s *Service) sendUsageReport(ctx context.Context) error {
 			},
 		},
 	}
-	req, err := http.NewRequestWithContext(ctx, "POST", s.cfg.Options().URURL, &b)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.cfg.Options().URURL, &b)
 	if err != nil {
 		return err
 	}
