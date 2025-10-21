@@ -86,7 +86,7 @@ type UnsupportedDeviceTypeError struct {
 }
 
 func (e *UnsupportedDeviceTypeError) Error() string {
-	return fmt.Sprintf("Unsupported UPnP device of type %s", e.deviceType)
+	return "unsupported UPnP device of type " + e.deviceType
 }
 
 const (

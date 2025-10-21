@@ -9,7 +9,6 @@ package pmp
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net"
 	"strings"
@@ -90,7 +89,7 @@ type wrapper struct {
 }
 
 func (w *wrapper) ID() string {
-	return fmt.Sprintf("NAT-PMP@%s", w.gatewayIP.String())
+	return "NAT-PMP@" + w.gatewayIP.String()
 }
 
 func (w *wrapper) GetLocalIPv4Address() net.IP {
