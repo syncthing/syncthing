@@ -350,7 +350,7 @@ func certificateBytes(req *http.Request) ([]byte, error) {
 
 	var bs []byte
 
-	if hdr := req.Header.Get("X-SSL-Cert"); hdr != "" {
+	if hdr := req.Header.Get("X-Ssl-Cert"); hdr != "" {
 		if strings.Contains(hdr, "%") {
 			// Nginx using $ssl_client_escaped_cert
 			// The certificate is in PEM format with url encoding.

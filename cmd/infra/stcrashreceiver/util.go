@@ -23,7 +23,7 @@ import (
 // remote IP, and the current month.
 func userIDFor(req *http.Request) string {
 	addr := req.RemoteAddr
-	if fwd := req.Header.Get("x-forwarded-for"); fwd != "" {
+	if fwd := req.Header.Get("X-Forwarded-For"); fwd != "" {
 		addr = fwd
 	}
 	if host, _, err := net.SplitHostPort(addr); err == nil {
