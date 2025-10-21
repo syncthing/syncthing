@@ -89,10 +89,10 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 		if err != nil {
 			return nil, err
 		}
-		totFiles += int(global.Files)
+		totFiles += global.Files
 		totBytes += global.Bytes
-		if int(global.Files) > maxFiles {
-			maxFiles = int(global.Files)
+		if global.Files > maxFiles {
+			maxFiles = global.Files
 		}
 		if global.Bytes > maxBytes {
 			maxBytes = global.Bytes
