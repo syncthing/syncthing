@@ -39,9 +39,9 @@ func init() {
 
 type quicListener struct {
 	svcutil.ServiceWithError
-	nat atomic.Uint64 // Holds a stun.NATType.
-
 	onAddressesChangedNotifier
+
+	nat atomic.Uint64 // Holds a stun.NATType.
 
 	uri        *url.URL
 	cfg        config.Wrapper

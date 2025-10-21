@@ -32,6 +32,7 @@ type APIClient interface {
 
 type apiClient struct {
 	http.Client
+
 	cfg    config.GUIConfiguration
 	apikey string
 }

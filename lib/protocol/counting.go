@@ -14,6 +14,7 @@ import (
 
 type countingReader struct {
 	io.Reader
+
 	idString string
 	tot      atomic.Int64 // bytes
 	last     atomic.Int64 // unix nanos
@@ -41,6 +42,7 @@ func (c *countingReader) Last() time.Time {
 
 type countingWriter struct {
 	io.Writer
+
 	idString string
 	tot      atomic.Int64 // bytes
 	last     atomic.Int64 // unix nanos

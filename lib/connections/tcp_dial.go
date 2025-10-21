@@ -27,6 +27,7 @@ func init() {
 
 type tcpDialer struct {
 	commonDialer
+
 	registry *registry.Registry
 }
 

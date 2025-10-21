@@ -200,6 +200,7 @@ func NewCertificateInMemory(commonName string, lifetimeDays int) (tls.Certificat
 
 type DowngradingListener struct {
 	net.Listener
+
 	TLSConfig *tls.Config
 }
 
@@ -244,9 +245,10 @@ func (l *DowngradingListener) AcceptNoWrapTLS() (net.Conn, bool, error) {
 }
 
 type UnionedConnection struct {
+	net.Conn
+
 	first     [1]byte
 	firstDone bool
-	net.Conn
 }
 
 func (c *UnionedConnection) Read(b []byte) (n int, err error) {

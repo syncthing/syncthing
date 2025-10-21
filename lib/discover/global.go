@@ -32,6 +32,8 @@ import (
 )
 
 type globalClient struct {
+	errorHolder
+
 	server         string
 	addrList       AddressLister
 	announceClient httpClient
@@ -39,7 +41,6 @@ type globalClient struct {
 	noAnnounce     bool
 	noLookup       bool
 	evLogger       events.Logger
-	errorHolder
 }
 
 type httpClient interface {
@@ -373,6 +374,7 @@ func queryBool(q url.Values, key string) bool {
 
 type idCheckingHTTPClient struct {
 	httpClient
+
 	id protocol.DeviceID
 }
 

@@ -14,8 +14,9 @@ import (
 )
 
 type folderDB struct {
-	folderID string
 	*baseDB
+
+	folderID string
 
 	localDeviceIdx  int64
 	deleteRetention time.Duration

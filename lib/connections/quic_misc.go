@@ -42,6 +42,7 @@ func quicNetwork(uri *url.URL) string {
 type quicTlsConn struct {
 	quic.Connection
 	quic.Stream
+
 	// If we created this connection, we should be the ones closing it.
 	createdConn net.PacketConn
 }

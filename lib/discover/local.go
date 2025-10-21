@@ -34,6 +34,8 @@ import (
 
 type localClient struct {
 	*suture.Supervisor
+	*cache
+
 	myID     protocol.DeviceID
 	addrList AddressLister
 	name     string
@@ -43,8 +45,6 @@ type localClient struct {
 	localBcastStart time.Time
 	localBcastTick  <-chan time.Time
 	forcedBcastTick chan time.Time
-
-	*cache
 }
 
 const (
