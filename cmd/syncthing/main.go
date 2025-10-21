@@ -216,10 +216,7 @@ func main() {
 	// if --help is used or arguments are invalid, creating a new console seems useless
 	// Creating a new console can be postponed until we got the kong parsings
 	// So we can use those to check if the user even wants a new console
-	consoleAttached := false
-	if err := osutil.AttachConsole(); err == nil {
-		consoleAttached = true
-	}
+	consoleAttached := osutil.AttachConsole() == nil
 
 	// Create a parser with an overridden help function to print our extra
 	// help info.
