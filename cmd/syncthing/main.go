@@ -529,7 +529,8 @@ func (c *serveCmd) syncthingMain() {
 			err = upgrade.To(release)
 		}
 		if err != nil {
-			if _, ok := err.(*errNoUpgrade); ok || err == errTooEarlyUpgradeCheck || err == errTooEarlyUpgrade {
+			var noUpgradeErr *errNoUpgrade
+			if errors.As(err, &noUpgradeErr) || errors.Is(err, errTooEarlyUpgradeCheck) || errors.Is(err, errTooEarlyUpgrade) {
 				slog.Debug("Initial automatic upgrade", slogutil.Error(err))
 			} else {
 				slog.Info("Initial automatic upgrade", slogutil.Error(err))
@@ -721,7 +722,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 
 		checkInterval := time.Duration(opts.AutoUpgradeIntervalH) * time.Hour
 		rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
-		if err == upgrade.ErrUpgradeUnsupported {
+		if errors.Is(err, upgrade.ErrUpgradeUnsupported) {
 			sub.Unsubscribe()
 			return
 		}
@@ -837,7 +838,8 @@ func setPauseState(cfgWrapper config.Wrapper, paused bool) {
 }
 
 func exitCodeForUpgrade(err error) int {
-	if _, ok := err.(*errNoUpgrade); ok {
+	var noUpgradeErr *errNoUpgrade
+	if errors.As(err, &noUpgradeErr) {
 		return svcutil.ExitNoUpgradeAvailable.AsInt()
 	}
 	return svcutil.ExitError.AsInt()

@@ -136,7 +136,7 @@ func parseCrashReport(path string, report []byte) (*raven.Packet, error) {
 
 	r := bytes.NewReader(report)
 	ctx, _, err := stack.ScanSnapshot(r, io.Discard, stack.DefaultOpts())
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		return nil, err
 	}
 	if ctx == nil || len(ctx.Goroutines) == 0 {

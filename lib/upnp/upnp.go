@@ -229,7 +229,8 @@ USER-AGENT: syncthing/%s
 
 	_, err = socket.WriteTo(search, &ssdp)
 	if err != nil {
-		if e, ok := err.(net.Error); !ok || !e.Timeout() {
+		var e net.Error
+		if !errors.As(err, &e) || !e.Timeout() {
 			l.Debugln("UPnP discovery: sending search request:", err)
 		}
 		return

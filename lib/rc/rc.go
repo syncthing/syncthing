@@ -144,7 +144,7 @@ func (p *Process) Stop() (*os.ProcessState, error) {
 	default:
 	}
 
-	if _, err := p.Post("/rest/system/shutdown", nil); err != nil && err != io.ErrUnexpectedEOF {
+	if _, err := p.Post("/rest/system/shutdown", nil); err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
 		// Unexpected EOF is somewhat expected here, as we may exit before
 		// returning something sensible.
 		return nil, err
