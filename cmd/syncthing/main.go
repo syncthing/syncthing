@@ -212,12 +212,11 @@ func defaultVars() kong.Vars {
 }
 
 func main() {
-
 	// Kong should be able to use a console if its already present
 	// if --help is used or arguments are invalid, creating a new console seems useless
 	// Creating a new console can be postponed until we got the kong parsings
 	// So we can use those to check if the user even wants a new console
-	var consoleAttached = false
+	consoleAttached := false
 	if err := osutil.AttachConsole(); err == nil {
 		consoleAttached = true
 	}
@@ -329,7 +328,6 @@ func (c *serveCmd) Run() error {
 }
 
 func IsNewConsoleDesired(cli *CLI) bool {
-
 	// If this is an inner process (started by monitor) -> don't allocate console
 	// Parent provides all I/O through pipes
 	if cli.Serve.InternalInnerProcess {
@@ -348,7 +346,6 @@ func IsNewConsoleDesired(cli *CLI) bool {
 	}
 
 	return true
-
 }
 
 func openGUI() error {
