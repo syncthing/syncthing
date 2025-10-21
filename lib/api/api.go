@@ -455,7 +455,7 @@ func (s *service) Serve(ctx context.Context) error {
 	// due to a config change through the API, let that finish successfully.
 	timeout, cancel := context.WithTimeout(context.Background(), s.shutdownTimeout)
 	defer cancel()
-	if err := srv.Shutdown(timeout); err == timeout.Err() {
+	if err := srv.Shutdown(timeout); errors.Is(err, timeout.Err()) {
 		srv.Close()
 	}
 

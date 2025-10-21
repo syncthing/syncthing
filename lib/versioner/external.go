@@ -101,8 +101,9 @@ func (v external) Archive(filePath string) error {
 	combinedOutput, err := cmd.CombinedOutput()
 	l.Debugln("external command output:", string(combinedOutput))
 	if err != nil {
-		if eerr, ok := err.(*exec.ExitError); ok && len(eerr.Stderr) > 0 {
-			return fmt.Errorf("%v: %v", err, string(eerr.Stderr))
+		eerr := &exec.ExitError{}
+		if errors.As(err, &eerr) && len(eerr.Stderr) > 0 {
+			return fmt.Errorf("%w: %v", err, string(eerr.Stderr))
 		}
 		return err
 	}

@@ -209,7 +209,7 @@ func (l *DowngradingListener) Accept() (net.Conn, error) {
 
 	// We failed to identify the socket type, pretend that everything is fine,
 	// and pass it to the underlying handler, and let them deal with it.
-	if err == ErrIdentificationFailed {
+	if errors.Is(err, ErrIdentificationFailed) {
 		return conn, nil
 	}
 

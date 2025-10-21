@@ -5,6 +5,7 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -137,7 +138,8 @@ func TestRelay(ctx context.Context, uri *url.URL, certs []tls.Certificate, sleep
 		if err == nil {
 			return nil
 		}
-		if _, ok := err.(*incorrectResponseCodeErr); !ok {
+		incorrectResponseCodeErr := &incorrectResponseCodeErr{}
+		if errors.As(err, &incorrectResponseCodeErr) {
 			return fmt.Errorf("getting invitation: %w", err)
 		}
 		time.Sleep(sleep)
