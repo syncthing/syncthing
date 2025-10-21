@@ -180,7 +180,7 @@ func main() {
 				relayTestsTotal.WithLabelValues("success").Inc()
 			}
 		}
-		// Run the the stats refresher once the relays are loaded.
+		// Run the stats refresher once the relays are loaded.
 		statsRefresher(statsRefresh)
 	}()
 
