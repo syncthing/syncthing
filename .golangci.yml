@@ -70,6 +70,12 @@ linters:
       # Rollback errors can be ignored
       - linters: [errcheck]
         source: Rollback
+      # Embedded fields named in selectors may add clarity
+      - linters: [staticcheck]
+        text: QF1008
+      # Don't necessarily rewrite !(foo || bar) to !foo && !bar
+      - linters: [staticcheck]
+        text: QF1001
   settings:
     sloglint:
       context: "scope"

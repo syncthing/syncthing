@@ -659,13 +659,14 @@ func auditWriter(auditFile string) io.Writer {
 	var auditDest string
 	var auditFlags int
 
-	if auditFile == "-" {
+	switch auditFile {
+	case "-":
 		fd = os.Stdout
 		auditDest = "stdout"
-	} else if auditFile == "--" {
+	case "--":
 		fd = os.Stderr
 		auditDest = "stderr"
-	} else {
+	default:
 		if auditFile == "" {
 			auditFile = locations.GetTimestamped(locations.AuditLog)
 			auditFlags = os.O_WRONLY | os.O_CREATE | os.O_EXCL

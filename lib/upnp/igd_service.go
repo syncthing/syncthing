@@ -132,11 +132,12 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, intA
 
 func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Protocol, port int, duration time.Duration, ip net.IP) error {
 	var protoNumber int
-	if protocol == nat.TCP {
+	switch protocol {
+	case nat.TCP:
 		protoNumber = 6
-	} else if protocol == nat.UDP {
+	case nat.UDP:
 		protoNumber = 17
-	} else {
+	default:
 		return errors.New("protocol not supported")
 	}
 
@@ -258,11 +259,12 @@ func (s *IGDService) GetLocalIPv4Address() net.IP {
 // SupportsIPVersion checks whether this is a WANIPv6FirewallControl device,
 // in which case pinholing instead of port mapping should be done
 func (s *IGDService) SupportsIPVersion(version nat.IPVersion) bool {
-	if version == nat.IPvAny {
+	switch version {
+	case nat.IPvAny:
 		return true
-	} else if version == nat.IPv6Only {
+	case nat.IPv6Only:
 		return s.URN == urnWANIPv6FirewallControlV1
-	} else if version == nat.IPv4Only {
+	case nat.IPv4Only:
 		return s.URN != urnWANIPv6FirewallControlV1
 	}
 
