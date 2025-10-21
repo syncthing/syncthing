@@ -91,11 +91,11 @@ func loadGUIConfig() (config.GUIConfiguration, error) {
 	guiCfg := cfg.GUI()
 
 	if guiCfg.Address() == "" {
-		return config.GUIConfiguration{}, errors.New("Could not find GUI Address")
+		return config.GUIConfiguration{}, errors.New("could not find GUI Address")
 	}
 
 	if guiCfg.APIKey == "" {
-		return config.GUIConfiguration{}, errors.New("Could not find GUI API key")
+		return config.GUIConfiguration{}, errors.New("could not find GUI API key")
 	}
 
 	return guiCfg, nil
