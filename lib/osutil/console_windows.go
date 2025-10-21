@@ -28,7 +28,6 @@ const (
 	ATTACH_PARENT_PROCESS = 0xFFFFFFFF
 )
 
-
 // AttachConsole attached the process to an existing console
 func AttachConsole() error {
 
