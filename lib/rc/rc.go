@@ -178,7 +178,7 @@ func (p *Process) Get(path string) ([]byte, error) {
 		return nil, err
 	}
 
-	req.Header.Add("X-API-Key", APIKey)
+	req.Header.Add("X-Api-Key", APIKey)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -203,7 +203,7 @@ func (p *Process) Post(path string, data io.Reader) ([]byte, error) {
 		return nil, err
 	}
 
-	req.Header.Add("X-API-Key", APIKey)
+	req.Header.Add("X-Api-Key", APIKey)
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := client.Do(req)

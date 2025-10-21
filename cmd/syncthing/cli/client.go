@@ -113,7 +113,7 @@ func (c *apiClient) Endpoint() string {
 }
 
 func (c *apiClient) Do(req *http.Request) (*http.Response, error) {
-	req.Header.Set("X-API-Key", c.apikey)
+	req.Header.Set("X-Api-Key", c.apikey)
 	resp, err := c.Client.Do(req)
 	if err != nil {
 		return nil, err
