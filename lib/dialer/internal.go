@@ -64,6 +64,7 @@ func socksDialerFunction(u *url.URL, forward proxy.Dialer) (proxy.Dialer, error)
 // existing connection" shenanigans.
 type dialerConn struct {
 	net.Conn
+
 	addr net.Addr
 }
 

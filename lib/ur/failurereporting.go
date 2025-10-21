@@ -41,6 +41,7 @@ var (
 
 type FailureReport struct {
 	FailureData
+
 	Count   int
 	Version string
 }

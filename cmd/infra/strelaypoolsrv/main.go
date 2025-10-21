@@ -653,6 +653,7 @@ func getLocation(host string, geoip *geoip.Provider) location {
 
 type loggingResponseWriter struct {
 	http.ResponseWriter
+
 	statusCode int
 }
 

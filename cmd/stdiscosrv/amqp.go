@@ -23,6 +23,7 @@ import (
 
 type amqpReplicator struct {
 	suture.Service
+
 	broker   string
 	sender   *amqpSender
 	receiver *amqpReceiver

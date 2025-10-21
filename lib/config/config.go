@@ -165,6 +165,7 @@ func (cfg *Configuration) ProbeFreePorts() error {
 
 type xmlConfiguration struct {
 	Configuration
+
 	XMLName xml.Name `xml:"configuration"`
 }
 

@@ -39,6 +39,7 @@ func init() {
 
 type quicDialer struct {
 	commonDialer
+
 	registry *registry.Registry
 }
 

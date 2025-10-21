@@ -749,6 +749,7 @@ func (fs *fakeFS) reportMetricsPer(b *testing.B, divisor float64, unit string) {
 // opened for reading or writing, it's all good.
 type fakeFile struct {
 	*fakeEntry
+
 	mut           *sync.Mutex
 	rng           io.Reader
 	seed          int64

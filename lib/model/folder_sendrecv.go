@@ -48,6 +48,7 @@ func init() {
 // to be fetched.
 type pullBlockState struct {
 	*sharedPullerState
+
 	block protocol.BlockInfo
 }
 
@@ -55,6 +56,7 @@ type pullBlockState struct {
 // copied.
 type copyBlocksState struct {
 	*sharedPullerState
+
 	blocks []protocol.BlockInfo
 	have   int
 }

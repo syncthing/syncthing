@@ -513,6 +513,7 @@ func fixupAddresses(remote *net.TCPAddr, addresses []string) []string {
 
 type loggingResponseWriter struct {
 	http.ResponseWriter
+
 	statusCode int
 }
 

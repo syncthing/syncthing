@@ -171,6 +171,7 @@ func (e encryptedModel) Closed(err error) {
 // encrypts outgoing metadata and decrypts incoming responses.
 type encryptedConnection struct {
 	ConnectionInfo
+
 	conn       *rawConnection
 	folderKeys *folderKeyRegistry
 	keyGen     *KeyGenerator

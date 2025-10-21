@@ -17,6 +17,7 @@ import (
 // A cachedFinder is a Finder with associated cache timeouts.
 type cachedFinder struct {
 	Finder
+
 	cacheTime    time.Duration
 	negCacheTime time.Duration
 	cache        *cache
