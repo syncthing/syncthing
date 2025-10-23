@@ -156,7 +156,7 @@ func testCaseFSStat(t *testing.T, fsys Filesystem) {
 
 func BenchmarkWalkCaseFakeFS100k(b *testing.B) {
 	const entries = 100_000
-	fsys, paths, err := fakefsForBenchmark(entries, 0)
+	fsys, paths, err := fakefsForTest(entries, 0)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -260,7 +260,7 @@ func TestStressCaseFS(t *testing.T) {
 		t.Skip("long test")
 	}
 
-	fsys, paths, err := fakefsForBenchmark(10_000, 0)
+	fsys, paths, err := fakefsForTest(10_000, 0, &OptionDetectCaseConflicts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,8 +326,8 @@ func doubleWalkFSWithOtherOps(fsys Filesystem, paths []string, otherOpEvery int,
 	return nil
 }
 
-func fakefsForBenchmark(nfiles int, latency time.Duration) (Filesystem, []string, error) {
-	fsys := NewFilesystem(FilesystemTypeFake, fmt.Sprintf("fakefsForBenchmark?files=%d&insens=true&latency=%s", nfiles, latency), &OptionDetectCaseConflicts{})
+func fakefsForTest(nfiles int, latency time.Duration, opts ...Option) (Filesystem, []string, error) {
+	fsys := NewFilesystem(FilesystemTypeFake, fmt.Sprintf("fakefsForBenchmark?files=%d&insens=true&latency=%s", nfiles, latency), opts...)
 
 	var paths []string
 	if err := fsys.Walk("/", func(path string, info FileInfo, err error) error {
