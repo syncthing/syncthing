@@ -16,6 +16,9 @@ import (
 )
 
 type DB interface {
+	// Create a service that performs database maintenance periodically (no
+	// more often than the requested interval), or just once when an interval
+	// of exactly zero is requested.
 	Service(maintenanceInterval time.Duration) suture.Service
 
 	// Basics
