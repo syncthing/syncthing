@@ -134,12 +134,15 @@ SystemCallErrorNumber=EPERM
 # Together with running syncthing as a separate user (e.g. "syncthing"), this
 # provides a strong sandbox.
 PrivateUsers=true
-# Disallow creation of group-writable files (2).
-# Disallow creation of files with any 'world' access (7).
-# NOTE: The default value is 0022 so we are only tightening 'world' access to
-# prevent accidental disclosure of private user data.
+# Digits from left to right; disallow creation of files with:
+# - special security-related bits like setuid/setgid
+# - (no restrictions on file owner permissions)
+# - group-writable access
+# - world-readable access
+# NOTE: The default value is 0022. We are only restricting special security bits
+# and world-readable access.
 # NOTE: Syncthing can still _explicitly_ change file permissions using `chmod`.
-UMask=0027
+UMask=7027
 # The default HOME folder for system users on Debian-like systems is
 # /nonexistent, which should never exist.
 # We prevent syncthing from accessing that folder it if was previously created
