@@ -690,6 +690,7 @@ type ConnectionStats struct {
 
 type ConnectionInfo struct {
 	protocol.Statistics
+
 	Address string `json:"address"`
 	Type    string `json:"type"`
 	IsLocal bool   `json:"isLocal"`
@@ -3484,6 +3485,7 @@ func redactPathError(err error) (error, bool) {
 
 type redactedError struct {
 	error
+
 	redacted error
 }
 

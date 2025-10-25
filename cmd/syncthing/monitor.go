@@ -9,6 +9,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -176,7 +177,8 @@ func (c *serveCmd) monitorMain() {
 			os.Exit(svcutil.ExitSuccess.AsInt())
 		}
 
-		if exiterr, ok := err.(*exec.ExitError); ok {
+		exiterr := &exec.ExitError{}
+		if errors.As(err, &exiterr) {
 			exitCode := exiterr.ExitCode()
 			if stopped || c.NoRestart {
 				os.Exit(exitCode)

@@ -44,6 +44,7 @@ type folder struct {
 	stateTracker
 	config.FolderConfiguration
 	*stats.FolderStatisticsReference
+
 	ioLimiter *semaphore.Semaphore
 
 	localFlags protocol.FlagLocal

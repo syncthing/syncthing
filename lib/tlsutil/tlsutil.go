@@ -200,6 +200,7 @@ func NewCertificateInMemory(commonName string, lifetimeDays int) (tls.Certificat
 
 type DowngradingListener struct {
 	net.Listener
+
 	TLSConfig *tls.Config
 }
 
@@ -208,7 +209,7 @@ func (l *DowngradingListener) Accept() (net.Conn, error) {
 
 	// We failed to identify the socket type, pretend that everything is fine,
 	// and pass it to the underlying handler, and let them deal with it.
-	if err == ErrIdentificationFailed {
+	if errors.Is(err, ErrIdentificationFailed) {
 		return conn, nil
 	}
 
@@ -244,9 +245,10 @@ func (l *DowngradingListener) AcceptNoWrapTLS() (net.Conn, bool, error) {
 }
 
 type UnionedConnection struct {
+	net.Conn
+
 	first     [1]byte
 	firstDone bool
-	net.Conn
 }
 
 func (c *UnionedConnection) Read(b []byte) (n int, err error) {

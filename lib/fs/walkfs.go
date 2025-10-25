@@ -63,6 +63,7 @@ type WalkFunc func(path string, info FileInfo, err error) error
 
 type walkFilesystem struct {
 	Filesystem
+
 	checkInfiniteRecursion bool
 }
 

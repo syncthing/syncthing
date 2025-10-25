@@ -249,7 +249,7 @@ func clear(v interface{}, since int) error {
 	s := reflect.ValueOf(v).Elem()
 	t := s.Type()
 
-	for i := 0; i < s.NumField(); i++ {
+	for i := range s.NumField() {
 		f := s.Field(i)
 		tag := t.Field(i).Tag
 

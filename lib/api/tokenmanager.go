@@ -168,8 +168,8 @@ func (m *tokenCookieManager) createSession(username string, persistent bool, w h
 	// either directly to us, or as used by the client towards a reverse
 	// proxy who sends us headers.
 	connectionIsHTTPS := r.TLS != nil ||
-		strings.ToLower(r.Header.Get("x-forwarded-proto")) == "https" ||
-		strings.Contains(strings.ToLower(r.Header.Get("forwarded")), "proto=https")
+		strings.ToLower(r.Header.Get("X-Forwarded-Proto")) == "https" ||
+		strings.Contains(strings.ToLower(r.Header.Get("Forwarded")), "proto=https")
 	// If the connection is HTTPS, or *should* be HTTPS, set the Secure
 	// bit in cookies.
 	useSecureCookie := connectionIsHTTPS || m.guiCfg.UseTLS()

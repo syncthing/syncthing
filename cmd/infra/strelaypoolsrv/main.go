@@ -162,7 +162,7 @@ func main() {
 
 	testCert = createTestCertificate()
 
-	for i := 0; i < requestProcessors; i++ {
+	for range requestProcessors {
 		go requestProcessor(geoip)
 	}
 
@@ -180,7 +180,7 @@ func main() {
 				relayTestsTotal.WithLabelValues("success").Inc()
 			}
 		}
-		// Run the the stats refresher once the relays are loaded.
+		// Run the stats refresher once the relays are loaded.
 		statsRefresher(statsRefresh)
 	}()
 
@@ -653,6 +653,7 @@ func getLocation(host string, geoip *geoip.Provider) location {
 
 type loggingResponseWriter struct {
 	http.ResponseWriter
+
 	statusCode int
 }
 

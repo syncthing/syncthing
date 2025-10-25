@@ -22,6 +22,7 @@ import (
 
 type configMuxBuilder struct {
 	*httprouter.Router
+
 	id  protocol.DeviceID
 	cfg config.Wrapper
 }
