@@ -122,7 +122,10 @@ SystemCallFilter=@system-service
 # disallow @resources (which `systemd-analyze` is unhappy about).
 # Also disallow io_uring syscalls which are as of 2025 a huge source of kernel
 # exploits.
-SystemCallFilter=~@privileged io_uring_enter io_uring_enter2 io_uring_register io_uring_setup
+# Blocking io_uring_setup should be enough, but let's go further.
+# We do not include io_uring_enter2 because it's just a wrapper for
+# io_uring_enter and systemd issues a warning.
+SystemCallFilter=~@privileged io_uring_enter io_uring_register io_uring_setup
 # Return EPERM when a disallowed syscall is made instead of killing the process.
 SystemCallErrorNumber=EPERM
 # Sets up a new user namespace. Maps the "root" user and group as well as the
