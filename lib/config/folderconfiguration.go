@@ -153,7 +153,7 @@ func (f FolderConfiguration) ModTimeWindow() time.Duration {
 }
 
 func (f *FolderConfiguration) CreateMarker() error {
-	if err := f.CheckPath(); err != ErrMarkerMissing {
+	if err := f.CheckPath(); !errors.Is(err, ErrMarkerMissing) {
 		return err
 	}
 	if f.MarkerName != DefaultMarkerName {

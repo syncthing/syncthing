@@ -122,7 +122,7 @@ func (r *rateCalculator) updateRates(interval time.Duration) {
 
 func (r *rateCalculator) rate(periods int) int64 {
 	var tot int64
-	for i := 0; i < periods; i++ {
+	for i := range periods {
 		tot += r.rates[i]
 	}
 	return tot / int64(periods)

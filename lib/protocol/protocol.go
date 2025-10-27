@@ -406,7 +406,7 @@ func (c *rawConnection) readerLoop() {
 	for {
 		msg, err := c.readMessage(fourByteBuf)
 		if err != nil {
-			if err == errUnknownMessage {
+			if errors.Is(err, errUnknownMessage) {
 				// Unknown message types are skipped, for future extensibility.
 				continue
 			}

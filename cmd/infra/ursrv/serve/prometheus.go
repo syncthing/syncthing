@@ -47,7 +47,7 @@ func newMetricsSet(srv *server) *metricsSet {
 
 	var initForType func(reflect.Type)
 	initForType = func(t reflect.Type) {
-		for i := 0; i < t.NumField(); i++ {
+		for i := range t.NumField() {
 			field := t.Field(i)
 			if field.Type.Kind() == reflect.Struct {
 				initForType(field.Type)
@@ -175,7 +175,7 @@ func (s *metricsSet) addReport(r *contract.Report) {
 
 func (s *metricsSet) addReportStruct(v reflect.Value, gaugeVecs map[string][]string) {
 	t := v.Type()
-	for i := 0; i < v.NumField(); i++ {
+	for i := range v.NumField() {
 		field := v.Field(i)
 		if field.Kind() == reflect.Struct {
 			s.addReportStruct(field, gaugeVecs)

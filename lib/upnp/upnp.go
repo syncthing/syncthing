@@ -86,7 +86,7 @@ type UnsupportedDeviceTypeError struct {
 }
 
 func (e *UnsupportedDeviceTypeError) Error() string {
-	return fmt.Sprintf("Unsupported UPnP device of type %s", e.deviceType)
+	return "unsupported UPnP device of type " + e.deviceType
 }
 
 const (
@@ -229,7 +229,8 @@ USER-AGENT: syncthing/%s
 
 	_, err = socket.WriteTo(search, &ssdp)
 	if err != nil {
-		if e, ok := err.(net.Error); !ok || !e.Timeout() {
+		var e net.Error
+		if !errors.As(err, &e) || !e.Timeout() {
 			l.Debugln("UPnP discovery: sending search request:", err)
 		}
 		return
@@ -578,7 +579,7 @@ func soapRequestWithIP(ctx context.Context, url, service, function, message stri
 
 	body := fmt.Sprintf(template, message)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(body))
 	if err != nil {
 		return resp, err
 	}

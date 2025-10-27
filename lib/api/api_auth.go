@@ -337,7 +337,7 @@ func formatOptionalPercentS(template string, username string) string {
 	if nReps < 0 {
 		nReps = 0
 	}
-	for i := 0; i < nReps; i++ {
+	for range nReps {
 		replacements = append(replacements, username)
 	}
 	return fmt.Sprintf(template, replacements...)

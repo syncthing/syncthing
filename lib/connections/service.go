@@ -1340,7 +1340,7 @@ func (c *deviceConnectionTracker) accountAddedConnection(conn protocol.Connectio
 	// how many total connections they want
 	d := conn.DeviceID()
 	c.connections[d] = append(c.connections[d], conn)
-	c.wantConnections[d] = int(h.NumConnections)
+	c.wantConnections[d] = h.NumConnections
 	l.Debugf("Added connection for %s (now %d), they want %d connections", d.Short(), len(c.connections[d]), h.NumConnections)
 
 	// Update active connections metric

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 
 	"github.com/AudriusButkevicius/recli"
@@ -86,7 +87,7 @@ func (h *configHandler) configAfter(_ *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		body, err := responseToBArray(resp)
 		if err != nil {
 			return err

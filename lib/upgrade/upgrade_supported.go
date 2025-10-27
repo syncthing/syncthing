@@ -222,7 +222,7 @@ func upgradeToURL(archiveName, binary string, url string) error {
 func readRelease(archiveName, dir, url string) (string, error) {
 	l.Debugf("loading %q", url)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
@@ -254,15 +254,9 @@ func readTarGz(archiveName, dir string, r io.Reader) (string, error) {
 	var sig []byte
 
 	// Iterate through the files in the archive.
-	i := 0
-	for {
-		if i >= maxArchiveMembers {
-			break
-		}
-		i++
-
+	for range maxArchiveMembers {
 		hdr, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			// end of tar archive
 			break
 		}

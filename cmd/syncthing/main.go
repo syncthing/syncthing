@@ -419,8 +419,8 @@ func upgradeViaRest() error {
 	}
 	u.Path = path.Join(u.Path, "rest/system/upgrade")
 	target := u.String()
-	r, _ := http.NewRequest("POST", target, nil)
-	r.Header.Set("X-API-Key", cfg.GUI().APIKey)
+	r, _ := http.NewRequest(http.MethodPost, target, nil)
+	r.Header.Set("X-Api-Key", cfg.GUI().APIKey)
 
 	tr := &http.Transport{
 		DialContext:     dialer.DialContext,
@@ -438,7 +438,7 @@ func upgradeViaRest() error {
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		bs, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return err
@@ -560,7 +560,8 @@ func (c *serveCmd) syncthingMain() {
 			err = upgrade.To(release)
 		}
 		if err != nil {
-			if _, ok := err.(*errNoUpgrade); ok || err == errTooEarlyUpgradeCheck || err == errTooEarlyUpgrade {
+			var noUpgradeErr *errNoUpgrade
+			if errors.As(err, &noUpgradeErr) || errors.Is(err, errTooEarlyUpgradeCheck) || errors.Is(err, errTooEarlyUpgrade) {
 				slog.Debug("Initial automatic upgrade", slogutil.Error(err))
 			} else {
 				slog.Info("Initial automatic upgrade", slogutil.Error(err))
@@ -690,13 +691,14 @@ func auditWriter(auditFile string) io.Writer {
 	var auditDest string
 	var auditFlags int
 
-	if auditFile == "-" {
+	switch auditFile {
+	case "-":
 		fd = os.Stdout
 		auditDest = "stdout"
-	} else if auditFile == "--" {
+	case "--":
 		fd = os.Stderr
 		auditDest = "stderr"
-	} else {
+	default:
 		if auditFile == "" {
 			auditFile = locations.GetTimestamped(locations.AuditLog)
 			auditFlags = os.O_WRONLY | os.O_CREATE | os.O_EXCL
@@ -751,7 +753,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 
 		checkInterval := time.Duration(opts.AutoUpgradeIntervalH) * time.Hour
 		rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
-		if err == upgrade.ErrUpgradeUnsupported {
+		if errors.Is(err, upgrade.ErrUpgradeUnsupported) {
 			sub.Unsubscribe()
 			return
 		}
@@ -867,7 +869,8 @@ func setPauseState(cfgWrapper config.Wrapper, paused bool) {
 }
 
 func exitCodeForUpgrade(err error) int {
-	if _, ok := err.(*errNoUpgrade); ok {
+	var noUpgradeErr *errNoUpgrade
+	if errors.As(err, &noUpgradeErr) {
 		return svcutil.ExitNoUpgradeAvailable.AsInt()
 	}
 	return svcutil.ExitError.AsInt()

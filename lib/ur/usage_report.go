@@ -89,10 +89,10 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 		if err != nil {
 			return nil, err
 		}
-		totFiles += int(global.Files)
+		totFiles += global.Files
 		totBytes += global.Bytes
-		if int(global.Files) > maxFiles {
-			maxFiles = int(global.Files)
+		if global.Files > maxFiles {
+			maxFiles = global.Files
 		}
 		if global.Bytes > maxBytes {
 			maxBytes = global.Bytes
@@ -366,7 +366,7 @@ func (s *Service) sendUsageReport(ctx context.Context) error {
 			},
 		},
 	}
-	req, err := http.NewRequestWithContext(ctx, "POST", s.cfg.Options().URURL, &b)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.cfg.Options().URURL, &b)
 	if err != nil {
 		return err
 	}
@@ -436,7 +436,7 @@ func CpuBench(ctx context.Context, iterations int, duration time.Duration) float
 	r.Read(bs)
 
 	var perf float64
-	for i := 0; i < iterations; i++ {
+	for range iterations {
 		if v := cpuBenchOnce(ctx, duration, bs); v > perf {
 			perf = v
 		}

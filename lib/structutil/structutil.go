@@ -93,7 +93,7 @@ func FillNil(data any) {
 func fillNil(data any, skipDeprecated bool) {
 	s := reflect.ValueOf(data).Elem()
 	t := s.Type()
-	for i := 0; i < s.NumField(); i++ {
+	for i := range s.NumField() {
 		if skipDeprecated && strings.HasPrefix(t.Field(i).Name, "Deprecated") {
 			continue
 		}
@@ -123,7 +123,7 @@ func fillNil(data any, skipDeprecated bool) {
 				if f.Type().Elem().Kind() != reflect.Struct {
 					continue
 				}
-				for i := 0; i < f.Len(); i++ {
+				for i := range f.Len() {
 					fillNil(f.Index(i).Addr().Interface(), skipDeprecated)
 				}
 			case reflect.Struct:
@@ -142,7 +142,7 @@ func FillNilSlices(data any) error {
 	s := reflect.ValueOf(data).Elem()
 	t := s.Type()
 
-	for i := 0; i < s.NumField(); i++ {
+	for i := range s.NumField() {
 		f := s.Field(i)
 		tag := t.Field(i).Tag
 

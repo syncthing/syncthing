@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -247,10 +248,10 @@ func main() {
 	query.Set("pingInterval", pingInterval.String())
 	query.Set("networkTimeout", networkTimeout.String())
 	if sessionLimitBps > 0 {
-		query.Set("sessionLimitBps", fmt.Sprint(sessionLimitBps))
+		query.Set("sessionLimitBps", strconv.Itoa(sessionLimitBps))
 	}
 	if globalLimitBps > 0 {
-		query.Set("globalLimitBps", fmt.Sprint(globalLimitBps))
+		query.Set("globalLimitBps", strconv.Itoa(globalLimitBps))
 	}
 	if statusAddr != "" {
 		query.Set("statusAddr", statusAddr)

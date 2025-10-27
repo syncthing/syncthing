@@ -140,12 +140,12 @@ func (evType EventType) Merge(other EventType) EventType {
 }
 
 func (evType EventType) String() string {
-	switch {
-	case evType == NonRemove:
+	switch evType {
+	case NonRemove:
 		return "non-remove"
-	case evType == Remove:
+	case Remove:
 		return "remove"
-	case evType == Mixed:
+	case Mixed:
 		return "mixed"
 	default:
 		panic("bug: Unknown event type")
