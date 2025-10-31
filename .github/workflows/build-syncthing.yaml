@@ -949,7 +949,7 @@ jobs:
       - name: Prepare packages
         run: |
           sudo chown -R $(id -u) apt/pool
-          mv packages/*.deb apt/pool
+          mv -n packages/*.deb apt/pool
 
       - name: Update archive
         uses: docker://ghcr.io/kastelo/ezapt:latest
