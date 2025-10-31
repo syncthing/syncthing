@@ -57,6 +57,11 @@ func newService(sdb *DB, maintenanceInterval time.Duration) *Service {
 func (s *Service) Serve(ctx context.Context) error {
 	// Run periodic maintenance
 
+	// If a maintenance interval of zero was set, just run periodic maintenance once
+	if s.maintenanceInterval == 0 {
+		return wrap(s.periodic(ctx))
+	}
+
 	// Figure out when we last ran maintenance and schedule accordingly. If
 	// it was never, do it now.
 	lastMaint, _, _ := s.internalMeta.Time(lastMaintKey)
