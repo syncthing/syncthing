@@ -28,7 +28,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-RELAY" "7" "Oct 23, 2025" "v2.0.0" "Syncthing"
+.TH "SYNCTHING-RELAY" "7" "Nov 01, 2025" "v2.0.0" "Syncthing"
 .SH NAME
 syncthing-relay \- Relay Protocol v1
 .SH WHAT IS A RELAY?
@@ -239,9 +239,8 @@ ResponseAlreadyConnected \- Session is full (both sides already connected)
 ResponseSuccess \- You have successfully joined the session
 .IP 4. 3
 RelayFull \- Relay limits are too strict for you to be able to join the session.
-.UNINDENT
-.sp
 The relay immediately terminates the connection after sending this.
+.UNINDENT
 .sp
 After the successful response, all the bytes written and received will be
 relayed between the two devices in the session directly.
@@ -481,6 +480,18 @@ An integer representing the status code.
 .TP
 .B : Message
 Message associated with the code.
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.EX
+ResponseSuccess           = Response{0, \(dqsuccess\(dq}
+ResponseNotFound          = Response{1, \(dqnot found\(dq}
+ResponseAlreadyConnected  = Response{2, \(dqalready connected\(dq}
+ResponseInternalError     = Response{99, \(dqinternal error\(dq}
+ResponseUnexpectedMessage = Response{100, \(dqunexpected message\(dq}
+.EE
+.UNINDENT
 .UNINDENT
 .SS ConnectRequest message (Type = 5)
 .INDENT 0.0
