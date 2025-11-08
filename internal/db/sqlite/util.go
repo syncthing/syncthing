@@ -10,8 +10,11 @@ import (
 	"cmp"
 	"database/sql/driver"
 	"errors"
+	"fmt"
 	"iter"
+	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/gen/bep"
@@ -121,4 +124,22 @@ func prefixEnd(s string) string {
 		}
 	}
 	return string(bs)
+}
+
+// preExtSuffix takes name (foo.bar.db) and suffix (quux) and returns
+// foo.bar-quux.db
+func preExtSuffix(name, suffix string) string {
+	ext := filepath.Ext(name)
+	noext := strings.TrimSuffix(name, ext)
+	return fmt.Sprintf("%s-%s%s", noext, suffix, ext)
+}
+
+func getExtSuffix(name string) string {
+	ext := filepath.Ext(name)
+	noext := strings.TrimSuffix(name, ext)
+	dashIdx := strings.LastIndex(noext, "-")
+	if dashIdx < 0 {
+		return ""
+	}
+	return noext[dashIdx+1:]
 }

@@ -328,7 +328,7 @@ func TestBenchmarkSizeManyFilesRemotes(t *testing.T) {
 }
 
 func TestBenchmarkLocalInsert(t *testing.T) {
-	db, err := Open(t.TempDir())
+	db, err := Open("/tmp/bench.db") // t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -341,10 +341,10 @@ func TestBenchmarkLocalInsert(t *testing.T) {
 	const numFiles = 1000
 	const numBlocks = 1567
 
-	fdb, err := db.getFolderDB(folderID, true)
-	if err != nil {
-		t.Fatal(err)
-	}
+	// fdb, err := db.getFolderDB(folderID, true)
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
 
 	fs := make([]protocol.FileInfo, numFiles)
 	t0 := time.Now()
@@ -362,16 +362,17 @@ func TestBenchmarkLocalInsert(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		var curFiles, curBlocks int
-		if err := fdb.sql.QueryRowx(`SELECT count(*) FROM files`).Scan(&curFiles); err != nil {
-			t.Fatal(err)
-		}
-		if err := fdb.sql.QueryRowx(`SELECT count(*) FROM blocks`).Scan(&curBlocks); err != nil {
-			t.Fatal(err)
-		}
-		insFiles := curFiles - totFiles
-		insBlocks := curBlocks - totBlocks
-		totFiles, totBlocks = curFiles, curBlocks
+		// var curFiles, curBlocks int
+		// if err := fdb.sql.QueryRowx(`SELECT count(*) FROM files`).Scan(&curFiles); err != nil {
+		// 	t.Fatal(err)
+		// }
+		// if err := fdb.sql.QueryRowx(`SELECT count(*) FROM blocks`).Scan(&curBlocks); err != nil {
+		// 	t.Fatal(err)
+		// }
+		insFiles := numFiles              // curFiles - totFiles
+		insBlocks := numFiles * numBlocks // curBlocks - totBlocks
+		totFiles += insFiles
+		totBlocks += insBlocks
 
 		d0 := time.Since(t0)
 		d1 := time.Since(t1)

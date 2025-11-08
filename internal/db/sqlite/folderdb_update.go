@@ -43,7 +43,8 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 	if err != nil {
 		return wrap(err)
 	}
-	defer tx.Rollback() //nolint:errcheck
+	defer tx.Rollback()
+	defer s.blocksDB.rollback()
 	txp := &txPreparedStmts{Tx: tx}
 
 	//nolint:sqlclosecheck
@@ -153,7 +154,7 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 				return wrap(err, "insert blocklist")
 			} else if device == protocol.LocalDeviceID {
 				// Insert all blocks
-				if err := s.insertBlocksLocked(txp, f.BlocksHash, f.Blocks); err != nil {
+				if err := s.blocksDB.insertBlocksLocked(tx, f.BlocksHash, f.Blocks); err != nil {
 					return wrap(err, "insert blocks")
 				}
 			}
@@ -179,6 +180,12 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 		}
 	}
 
+	s.blocksDB.checkSplitLevel(tx)
+
+	if err := s.blocksDB.commit(); err != nil {
+		return wrap(err)
+	}
+
 	if err := tx.Commit(); err != nil {
 		return wrap(err)
 	}
@@ -199,7 +206,7 @@ func (s *folderDB) DropDevice(device protocol.DeviceID) error {
 	if err != nil {
 		return wrap(err)
 	}
-	defer tx.Rollback() //nolint:errcheck
+	defer tx.Rollback()
 	txp := &txPreparedStmts{Tx: tx}
 
 	// Drop the device, which cascades to delete all files etc for it
@@ -231,7 +238,7 @@ func (s *folderDB) DropAllFiles(device protocol.DeviceID) error {
 	if err != nil {
 		return wrap(err)
 	}
-	defer tx.Rollback() //nolint:errcheck
+	defer tx.Rollback()
 	txp := &txPreparedStmts{Tx: tx}
 
 	// Drop all the file entries
@@ -274,7 +281,7 @@ func (s *folderDB) DropFilesNamed(device protocol.DeviceID, names []string) erro
 	if err != nil {
 		return wrap(err)
 	}
-	defer tx.Rollback() //nolint:errcheck
+	defer tx.Rollback()
 	txp := &txPreparedStmts{Tx: tx}
 
 	// Drop the named files
@@ -301,34 +308,6 @@ func (s *folderDB) DropFilesNamed(device protocol.DeviceID, names []string) erro
 	}
 
 	return wrap(tx.Commit())
-}
-
-func (*folderDB) insertBlocksLocked(tx *txPreparedStmts, blocklistHash []byte, blocks []protocol.BlockInfo) error {
-	if len(blocks) == 0 {
-		return nil
-	}
-	bs := make([]map[string]any, len(blocks))
-	for i, b := range blocks {
-		bs[i] = map[string]any{
-			"hash":           b.Hash,
-			"blocklist_hash": blocklistHash,
-			"idx":            i,
-			"offset":         b.Offset,
-			"size":           b.Size,
-		}
-	}
-
-	// Very large block lists (>8000 blocks) result in "too many variables"
-	// error. Chunk it to a reasonable size.
-	for chunk := range slices.Chunk(bs, 1000) {
-		if _, err := tx.NamedExec(`
-			INSERT OR IGNORE INTO blocks (hash, blocklist_hash, idx, offset, size)
-			VALUES (:hash, :blocklist_hash, :idx, :offset, :size)
-		`, chunk); err != nil {
-			return wrap(err)
-		}
-	}
-	return nil
 }
 
 func (s *folderDB) recalcGlobalForFolder(txp *txPreparedStmts) error {
@@ -542,6 +521,8 @@ func (s *folderDB) periodicCheckpointLocked(fs []protocol.FileInfo) {
 		}
 		cmd := fmt.Sprintf(`PRAGMA wal_checkpoint(%s)`, checkpointType)
 		row := conn.QueryRowContext(context.Background(), cmd)
+
+		s.blocksDB.allShardsCheckpoint(context.Background(), cmd)
 
 		var res, modified, moved int
 		if row.Err() != nil {

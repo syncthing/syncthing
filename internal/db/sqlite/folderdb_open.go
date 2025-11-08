@@ -20,6 +20,8 @@ type folderDB struct {
 
 	localDeviceIdx  int64
 	deleteRetention time.Duration
+
+	blocksDB *blocksDB
 }
 
 func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB, error) {
@@ -40,13 +42,19 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 
 	base, err := openBase(path, maxDBConns, pragmas, schemas, migrations)
 	if err != nil {
-		return nil, err
+		return nil, wrap(err)
+	}
+
+	bdb, err := openBlocksDB(preExtSuffix(path, "blocks"))
+	if err != nil {
+		return nil, wrap(err)
 	}
 
 	fdb := &folderDB{
 		folderID:        folder,
 		baseDB:          base,
 		deleteRetention: deleteRetention,
+		blocksDB:        bdb,
 	}
 
 	_ = fdb.PutKV("folderID", []byte(folder))
