@@ -185,7 +185,7 @@ func (bdb *blocksDB) checkSplitLevel(mainTx *sqlx.Tx) {
 	}
 }
 
-func (bdb *blocksDB) commit() error {
+func (bdb *blocksDB) Commit() error {
 	var firstErr error
 	for _, shard := range bdb.shards {
 		if err := shard.commit(); err != nil && firstErr == nil {
@@ -195,7 +195,7 @@ func (bdb *blocksDB) commit() error {
 	return firstErr
 }
 
-func (bdb *blocksDB) rollback() error {
+func (bdb *blocksDB) Rollback() error {
 	var firstErr error
 	for _, shard := range bdb.shards {
 		if err := shard.rollback(); err != nil && firstErr == nil {

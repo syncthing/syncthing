@@ -44,7 +44,7 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 		return wrap(err)
 	}
 	defer tx.Rollback()
-	defer s.blocksDB.rollback()
+	defer s.blocksDB.Rollback()
 	txp := &txPreparedStmts{Tx: tx}
 
 	//nolint:sqlclosecheck
@@ -182,7 +182,7 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 
 	s.blocksDB.checkSplitLevel(tx)
 
-	if err := s.blocksDB.commit(); err != nil {
+	if err := s.blocksDB.Commit(); err != nil {
 		return wrap(err)
 	}
 
@@ -522,7 +522,7 @@ func (s *folderDB) periodicCheckpointLocked(fs []protocol.FileInfo) {
 		cmd := fmt.Sprintf(`PRAGMA wal_checkpoint(%s)`, checkpointType)
 		row := conn.QueryRowContext(context.Background(), cmd)
 
-		s.blocksDB.allShardsCheckpoint(context.Background(), cmd)
+		_ = s.blocksDB.allShardsCheckpoint(context.Background(), cmd)
 
 		var res, modified, moved int
 		if row.Err() != nil {
