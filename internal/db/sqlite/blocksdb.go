@@ -8,7 +8,6 @@ package sqlite
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"iter"
 	"log/slog"
@@ -24,7 +23,10 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const nameSegmentPrefix = "blocks-"
+const (
+	nameSegmentPrefix = "blocks-"
+	maxShardingLevel  = 8
+)
 
 type blocksDB struct {
 	folderDB          *folderDB
@@ -46,18 +48,24 @@ func openBlocksDB(folderDB *folderDB, shardingThreshold int) (*blocksDB, error) 
 		return nil, wrap(err)
 	}
 
+	// Shard names are all ${folderDB}-blocks-${level}${prefix}. The level
+	// is the number of bits that are used for the prefix, as one hex digit:
+	// 1-f. In practice we currently set the upper limit at 8 bits (256
+	// shards). The prefix is the bits in question, as one hex digit (0-f).
+
 	for _, shardName := range shards {
 		suffix := getInnerExt(shardName)
 		if !strings.HasPrefix(suffix, nameSegmentPrefix) {
 			continue
 		}
 		suffix = strings.TrimPrefix(suffix, nameSegmentPrefix)
-		dbs, err := openBlocksDBShard(shardName, len(suffix))
+		level := int(suffix[0] - '0')
+		dbs, err := openBlocksDBShard(shardName, level)
 		if err != nil {
 			return nil, wrap(err)
 		}
 		bdb.shards[suffix] = dbs
-		bdb.shardingLevel = max(bdb.shardingLevel, len(suffix))
+		bdb.shardingLevel = max(bdb.shardingLevel, level)
 		slog.Debug("Found database shard", slogutil.FilePath(filepath.Base(shardName)), slog.String("suffix", suffix), slog.Int("currentLevel", bdb.shardingLevel))
 	}
 
@@ -86,7 +94,7 @@ func (bdb *blocksDB) insertBlocksLocked(mainTx *sqlx.Tx, blocklistHash []byte, b
 
 	if bdb.shardingLevel == 0 {
 		// No sharding yet, use main tx as-is
-		return insertBlocksLockedInTx(mainTx, blocklistHash, bs)
+		return insertBlocksLockedInTx(mainTx, bs)
 	}
 
 	// Segment into corresponding shards based on the current sharding level
@@ -110,7 +118,7 @@ func (bdb *blocksDB) insertBlocksLocked(mainTx *sqlx.Tx, blocklistHash []byte, b
 	for seg, blocks := range segs {
 		shard, ok := bdb.shards[seg]
 		if !ok {
-			sh, err := openBlocksDBShard(addInnerExt(bdb.folderDB.path, nameSegmentPrefix+seg), len(seg))
+			sh, err := openBlocksDBShard(addInnerExt(bdb.folderDB.path, nameSegmentPrefix+seg), bdb.shardingLevel)
 			if err != nil {
 				return err
 			}
@@ -123,7 +131,7 @@ func (bdb *blocksDB) insertBlocksLocked(mainTx *sqlx.Tx, blocklistHash []byte, b
 			defer wg.Done()
 			concurrency <- struct{}{}
 			defer func() { <-concurrency }()
-			if err := shard.insertBlocksLocked(blocklistHash, blocks); err != nil {
+			if err := shard.insertBlocksLocked(blocks); err != nil {
 				select {
 				case errChan <- err:
 				default:
@@ -196,6 +204,10 @@ func (bdb *blocksDB) allShardsCheckpoint(ctx context.Context, query string) erro
 }
 
 func (bdb *blocksDB) updateShardingLevel() {
+	if bdb.shardingLevel >= maxShardingLevel {
+		return
+	}
+
 	if bdb.shardingLevel == 0 {
 		// If we're at level zero (no sharding) we check if the main folder
 		// db is full, and if so increase the sharding level to one.
@@ -210,8 +222,8 @@ func (bdb *blocksDB) updateShardingLevel() {
 	// shards to see if they are full. (If there are intermediate levels
 	// those will by definition likely already be full, so we should not
 	// look at them.)
-	for prefix, shard := range bdb.shards {
-		if len(prefix) != bdb.shardingLevel {
+	for _, shard := range bdb.shards {
+		if shard.level != bdb.shardingLevel {
 			continue
 		}
 		if bdb.shouldSplit(shard.baseDB) {
@@ -283,12 +295,15 @@ func openBlocksDBShard(path string, level int) (*blocksDBShard, error) {
 	}
 	_ = base
 
-	bdb := &blocksDBShard{level: level, baseDB: base}
+	bdb := &blocksDBShard{
+		level:  level,
+		baseDB: base,
+	}
 
 	return bdb, nil
 }
 
-func (dbs *blocksDBShard) insertBlocksLocked(blocklistHash []byte, blocks []map[string]any) error {
+func (dbs *blocksDBShard) insertBlocksLocked(blocks []map[string]any) error {
 	if len(blocks) == 0 {
 		return nil
 	}
@@ -306,7 +321,7 @@ func (dbs *blocksDBShard) insertBlocksLocked(blocklistHash []byte, blocks []map[
 		dbs.tx = tx
 	}
 
-	return insertBlocksLockedInTx(dbs.tx, blocklistHash, blocks)
+	return insertBlocksLockedInTx(dbs.tx, blocks)
 }
 
 func (dbs *blocksDBShard) commit() error {
@@ -328,10 +343,12 @@ func (dbs *blocksDBShard) rollback() error {
 }
 
 func shardPrefix(level int, hash []byte) string {
-	return hex.EncodeToString(hash[:level/2+1])[:level]
+	mask := uint8(^(0xff >> level))
+	value := hash[0] & mask
+	return fmt.Sprintf("%x%02x", level, value)
 }
 
-func insertBlocksLockedInTx(tx *sqlx.Tx, blocklistHash []byte, blocks []map[string]any) error {
+func insertBlocksLockedInTx(tx *sqlx.Tx, blocks []map[string]any) error {
 	// Very large block lists (>8000 blocks) result in "too many variables"
 	// error. Chunk it to a reasonable size.
 	for chunk := range slices.Chunk(blocks, 1000) {

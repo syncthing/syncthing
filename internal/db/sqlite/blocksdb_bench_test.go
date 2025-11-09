@@ -15,7 +15,7 @@ import (
 
 func TestBenchmarkLocalInsert(t *testing.T) {
 	st, _ := strconv.Atoi(os.Getenv("SHARDING_THRESHOLD"))
-	db, err := Open(t.TempDir(), WithShardingThreshold(st))
+	db, err := Open("/tmp/bench" /*t.TempDir(),*/, WithShardingThreshold(st))
 	if err != nil {
 		t.Fatal(err)
 	}
