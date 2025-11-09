@@ -4,6 +4,8 @@ package sqlite
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -12,7 +14,8 @@ import (
 )
 
 func TestBenchmarkLocalInsert(t *testing.T) {
-	db, err := Open("/tmp/bench.db") // t.TempDir())
+	st, _ := strconv.Atoi(os.Getenv("SHARDING_THRESHOLD"))
+	db, err := Open(t.TempDir(), WithShardingThreshold(st))
 	if err != nil {
 		t.Fatal(err)
 	}
