@@ -111,6 +111,18 @@ func (s *folderDB) AllLocalBlocksWithHash(hash []byte) (iter.Seq[db.BlockMapEntr
 	var retErr error
 	return func(yield func(db.BlockMapEntry) bool) {
 		for _, b := range blocks {
+			// If the block already has a filename set, use it as is.
+
+			if b.FileName != "" {
+				if !yield(b) {
+					return
+				}
+				continue
+			}
+
+			// Otherwise, we need to figure out which filenames match the
+			// blocklist.
+
 			var names []string
 			err := s.stmt(`
 				SELECT n.name as filename FROM files f

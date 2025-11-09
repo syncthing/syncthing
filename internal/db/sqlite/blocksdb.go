@@ -12,6 +12,7 @@ import (
 	"iter"
 	"log/slog"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -107,14 +108,11 @@ func (bdb *blocksDB) insertBlocksLocked(mainTx *sqlx.Tx, blocklistHash []byte, b
 	}
 
 	// Commit each segment to its individual database shard. We do this with
-	// concurrency up to (hardcoded) 16. This matches the first sharding
-	// level, which is the only one almost every user will ever see, and the
-	// next one (256) is too high to expect gains by doing all the commits
-	// concurrently.
+	// concurrency up to the number of CPU cores.
 
 	var wg sync.WaitGroup
 	errChan := make(chan error, 1)
-	concurrency := make(chan struct{}, 16)
+	concurrency := make(chan struct{}, max(4, runtime.NumCPU()))
 	for seg, blocks := range segs {
 		shard, ok := bdb.shards[seg]
 		if !ok {
@@ -148,7 +146,7 @@ func (bdb *blocksDB) insertBlocksLocked(mainTx *sqlx.Tx, blocklistHash []byte, b
 func (bdb *blocksDB) allBlocksWithHash(hash []byte) ([]db.BlockMapEntry, error) {
 	// Start with the main folder database, which may always contain some blocks
 
-	blocks, err := itererr.Collect(allBlocksWithHashInDB(bdb.folderDB.baseDB, hash))
+	blocks, err := itererr.Collect(allBlocksWithHashAndNamesInDB(bdb.folderDB.baseDB, hash))
 	if err != nil {
 		return nil, wrap(err)
 	}
@@ -170,6 +168,15 @@ func (bdb *blocksDB) allBlocksWithHash(hash []byte) ([]db.BlockMapEntry, error) 
 	return blocks, nil
 }
 
+func allBlocksWithHashAndNamesInDB(baseDB *baseDB, hash []byte) (iter.Seq[db.BlockMapEntry], func() error) {
+	return iterStructs[db.BlockMapEntry](baseDB.stmt(`
+		SELECT b.blocklist_hash as blocklisthash, b.idx as blockindex, b.offset, b.size, n.name as filename FROM files f
+		INNER JOIN file_names n ON f.name_idx = n.idx
+		LEFT JOIN blocks b ON f.blocklist_hash = b.blocklist_hash
+		WHERE f.device_idx = {{.LocalDeviceIdx}} AND b.hash = ?
+	`).Queryx(hash))
+}
+
 func allBlocksWithHashInDB(baseDB *baseDB, hash []byte) (iter.Seq[db.BlockMapEntry], func() error) {
 	return iterStructs[db.BlockMapEntry](baseDB.stmt(`
 		SELECT blocklist_hash as blocklisthash, idx as blockindex, offset, size, '' as filename FROM blocks
@@ -180,7 +187,7 @@ func allBlocksWithHashInDB(baseDB *baseDB, hash []byte) (iter.Seq[db.BlockMapEnt
 func (bdb *blocksDB) allShardsCheckpoint(ctx context.Context, query string) error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, 1)
-	concurrency := make(chan struct{}, 16)
+	concurrency := make(chan struct{}, max(4, runtime.NumCPU()))
 	for _, shard := range bdb.shards {
 		wg.Add(1)
 		go func() {
