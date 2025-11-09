@@ -180,8 +180,6 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 		}
 	}
 
-	s.blocksDB.checkSplitLevel(tx)
-
 	if err := s.blocksDB.Commit(); err != nil {
 		return wrap(err)
 	}
@@ -522,7 +520,10 @@ func (s *folderDB) periodicCheckpointLocked(fs []protocol.FileInfo) {
 		cmd := fmt.Sprintf(`PRAGMA wal_checkpoint(%s)`, checkpointType)
 		row := conn.QueryRowContext(context.Background(), cmd)
 
-		_ = s.blocksDB.allShardsCheckpoint(context.Background(), cmd)
+		if err := s.blocksDB.allShardsCheckpoint(context.Background(), cmd); err != nil {
+			slog.Debug("Blocks DB shard failed to checkpoint", slogutil.Error(err))
+		}
+		s.blocksDB.updateShardingLevel()
 
 		var res, modified, moved int
 		if row.Err() != nil {

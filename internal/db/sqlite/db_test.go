@@ -1130,7 +1130,7 @@ func TestInsertLargeFileWithSharding(t *testing.T) {
 	if err != nil {
 		t.Fatal()
 	}
-	fdb.blocksDB.shardlevel = 1
+	fdb.blocksDB.shardingLevel = 1
 
 	// Add a large file (many blocks)
 

@@ -24,26 +24,22 @@ import (
 
 // At ten million blocks we start sharding the block database
 const (
-	splitCutoff       = 10_000_000
-	nameSegmentPrefix = "blocks-"
+	defaultShardingCutoff = 10_000_000
+	nameSegmentPrefix     = "blocks-"
 )
 
 type blocksDB struct {
-	folderDB   *folderDB
-	shardlevel int // current sharding level, zero for no sharding
-	shards     map[string]*blocksDBShard
-}
-
-type blocksDBShard struct {
-	level int      // level of this shared (1, 2, etc.)
-	tx    *sqlx.Tx // currently open write transaction or nil
-	base  *baseDB
+	folderDB       *folderDB
+	shardingLevel  int // current sharding level, zero for no sharding
+	shardingCutoff int // number of entries in blocks table that triggers next level of sharding
+	shards         map[string]*blocksDBShard
 }
 
 func openBlocksDB(folderDB *folderDB) (*blocksDB, error) {
 	bdb := &blocksDB{
-		folderDB: folderDB,
-		shards:   map[string]*blocksDBShard{},
+		folderDB:       folderDB,
+		shardingCutoff: defaultShardingCutoff,
+		shards:         map[string]*blocksDBShard{},
 	}
 
 	// Find any existing shard files
@@ -63,9 +59,204 @@ func openBlocksDB(folderDB *folderDB) (*blocksDB, error) {
 			return nil, wrap(err)
 		}
 		bdb.shards[suffix] = dbs
-		bdb.shardlevel = max(bdb.shardlevel, len(suffix))
+		bdb.shardingLevel = max(bdb.shardingLevel, len(suffix))
 	}
 	return bdb, nil
+}
+
+func (bdb *blocksDB) insertBlocksLocked(mainTx *sqlx.Tx, blocklistHash []byte, blocks []protocol.BlockInfo) error {
+	if len(blocks) == 0 {
+		return nil
+	}
+
+	// Rework the block list to a slice of maps, which is what we need to
+	// pass to the low level SQL bulk insert function. We do this prior to
+	// any segmenting etc as we need the original block indexes heres.
+
+	bs := make([]map[string]any, len(blocks))
+	for i, b := range blocks {
+		bs[i] = map[string]any{
+			"hash":           b.Hash,
+			"blocklist_hash": blocklistHash,
+			"idx":            i,
+			"offset":         b.Offset,
+			"size":           b.Size,
+		}
+	}
+
+	if bdb.shardingLevel == 0 {
+		// No sharding yet, use main tx as-is
+		return insertBlocksLockedInTx(mainTx, blocklistHash, bs)
+	}
+
+	// Segment into corresponding shards based on the current sharding level
+
+	segs := make(map[string][]map[string]any)
+	for _, b := range bs {
+		hash := b["hash"].([]byte) //nolint:forcetypeassert
+		segName := shardPrefix(bdb.shardingLevel, hash)
+		segs[segName] = append(segs[segName], b)
+	}
+
+	// Commit each segment to its individual database shard. We do this with
+	// concurrency up to (hardcoded) 16. This matches the first sharding
+	// level, which is the only one almost every user will ever see, and the
+	// next one (256) is too high to expect gains by doing all the commits
+	// concurrently.
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, 1)
+	concurrency := make(chan struct{}, 16)
+	for seg, blocks := range segs {
+		shard, ok := bdb.shards[seg]
+		if !ok {
+			sh, err := openBlocksDBShard(addInnerExt(bdb.folderDB.path, nameSegmentPrefix+seg), len(seg))
+			if err != nil {
+				return err
+			}
+			bdb.shards[seg] = sh
+			shard = sh
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			concurrency <- struct{}{}
+			defer func() { <-concurrency }()
+			if err := shard.insertBlocksLocked(blocklistHash, blocks); err != nil {
+				select {
+				case errChan <- err:
+				default:
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	close(errChan)
+
+	return <-errChan
+}
+
+func (bdb *blocksDB) allBlocksWithHash(hash []byte) ([]db.BlockMapEntry, error) {
+	// Start with the main folder database, which may always contain some blocks
+
+	blocks, err := itererr.Collect(allBlocksWithHashInDB(bdb.folderDB.baseDB, hash))
+	if err != nil {
+		return nil, wrap(err)
+	}
+
+	// Then check each existing shard up to the max sharding level. If there
+	// isn't one in the map, we haven't created that shard yet and don't
+	// need to go looking there.
+
+	for l := range bdb.shardingLevel {
+		prefix := shardPrefix(l+1, hash) // l=0 is sharding level one
+		if shard, ok := bdb.shards[prefix]; ok {
+			tb, err := itererr.Collect(allBlocksWithHashInDB(shard.baseDB, hash))
+			if err != nil {
+				return nil, wrap(err)
+			}
+			blocks = append(blocks, tb...)
+		}
+	}
+	return blocks, nil
+}
+
+func allBlocksWithHashInDB(baseDB *baseDB, hash []byte) (iter.Seq[db.BlockMapEntry], func() error) {
+	return iterStructs[db.BlockMapEntry](baseDB.stmt(`
+		SELECT blocklist_hash as blocklisthash, idx as blockindex, offset, size, '' as filename FROM blocks
+		WHERE hash = ?
+	`).Queryx(hash))
+}
+
+func (bdb *blocksDB) allShardsCheckpoint(ctx context.Context, query string) error {
+	var wg sync.WaitGroup
+	errChan := make(chan error, 1)
+	concurrency := make(chan struct{}, 16)
+	for _, shard := range bdb.shards {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			concurrency <- struct{}{}
+			defer func() { <-concurrency }()
+
+			conn, err := shard.baseDB.sql.Conn(ctx)
+			if err != nil {
+				return
+			}
+			defer conn.Close()
+			_, _ = conn.ExecContext(ctx, `PRAGMA journal_size_limit = 8388608`)
+			_, _ = conn.ExecContext(ctx, query)
+		}()
+	}
+	wg.Wait()
+	close(errChan)
+
+	return <-errChan
+}
+
+func (bdb *blocksDB) updateShardingLevel() {
+	if bdb.shardingLevel == 0 {
+		// If we're at level zero (no sharding) we check if the main folder
+		// db is full, and if so increase the sharding level to one.
+		if bdb.shouldSplit(bdb.folderDB.baseDB) {
+			bdb.shardingLevel++
+		}
+		return
+	}
+
+	// If we're already doing sharding, check each of the highest-level
+	// shards to see if they are full. (If there are intermediate levels
+	// those will by definition likely already be full, so we should not
+	// look at them.)
+	for prefix, shard := range bdb.shards {
+		if len(prefix) != bdb.shardingLevel {
+			continue
+		}
+		if bdb.shouldSplit(shard.baseDB) {
+			bdb.shardingLevel++
+			break
+		}
+	}
+}
+
+func (bdb *blocksDB) shouldSplit(baseDB *baseDB) bool {
+	var blocks int64
+	if err := baseDB.sql.QueryRowx(`SELECT count(*) FROM blocks`).Scan(&blocks); err != nil {
+		return false
+	}
+
+	return blocks > int64(bdb.shardingCutoff)
+}
+
+func (bdb *blocksDB) Commit() error {
+	// Commit all the shards, return the first error encountered
+
+	var firstErr error
+	for _, shard := range bdb.shards {
+		if err := shard.commit(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
+func (bdb *blocksDB) Rollback() error {
+	// Rollback all the shards, return the first error encountered
+
+	var firstErr error
+	for _, shard := range bdb.shards {
+		if err := shard.rollback(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
+type blocksDBShard struct {
+	level  int      // level of this shard (1, 2, etc.)
+	tx     *sqlx.Tx // currently open write transaction, or nil
+	baseDB *baseDB
 }
 
 func openBlocksDBShard(path string, level int) (*blocksDBShard, error) {
@@ -90,161 +281,9 @@ func openBlocksDBShard(path string, level int) (*blocksDBShard, error) {
 	}
 	_ = base
 
-	bdb := &blocksDBShard{level: level, base: base}
+	bdb := &blocksDBShard{level: level, baseDB: base}
 
 	return bdb, nil
-}
-
-func (bdb *blocksDB) insertBlocksLocked(mainTx *sqlx.Tx, blocklistHash []byte, blocks []protocol.BlockInfo) error {
-	if len(blocks) == 0 {
-		return nil
-	}
-
-	bs := make([]map[string]any, len(blocks))
-	for i, b := range blocks {
-		bs[i] = map[string]any{
-			"hash":           b.Hash,
-			"blocklist_hash": blocklistHash,
-			"idx":            i,
-			"offset":         b.Offset,
-			"size":           b.Size,
-		}
-	}
-
-	if bdb.shardlevel == 0 {
-		// No splitting yet, use main tx
-		return insertBlocksLockedTx(mainTx, blocklistHash, bs)
-	}
-
-	// Segment into corresponding shards
-	segs := make(map[string][]map[string]any)
-	for _, b := range bs {
-		hash := b["hash"].([]byte)
-		segName := shardPrefix(bdb.shardlevel, hash)
-		segs[segName] = append(segs[segName], b)
-	}
-
-	var wg sync.WaitGroup
-	errChan := make(chan error, 1)
-	concurrency := make(chan struct{}, 16)
-	for seg, blocks := range segs {
-		shard, ok := bdb.shards[seg]
-		if !ok {
-			sh, err := openBlocksDBShard(addInnerExt(bdb.folderDB.path, nameSegmentPrefix+seg), len(seg))
-			if err != nil {
-				return err
-			}
-			bdb.shards[seg] = sh
-			shard = sh
-		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			concurrency <- struct{}{}
-			defer func() { <-concurrency }()
-			if err := shard.insertBlocksLocked(blocklistHash, blocks); err != nil {
-				select {
-				case errChan <- err:
-				default:
-				}
-			}
-		}()
-	}
-	wg.Wait()
-	close(errChan)
-
-	return <-errChan
-}
-
-func (s *blocksDB) allBlocksWithHash(hash []byte) ([]db.BlockMapEntry, error) {
-	// Start with the main folder database
-	blocks, err := itererr.Collect(s.allBlocksWithHashInDB(s.folderDB.baseDB, hash))
-	if err != nil {
-		return nil, wrap(err)
-	}
-	// Then check each existing shard up to the max shard level
-	for l := range s.shardlevel {
-		prefix := shardPrefix(l+1, hash) // l=0 is shard level one
-		if shard, ok := s.shards[prefix]; ok {
-			tb, err := itererr.Collect(s.allBlocksWithHashInDB(shard.base, hash))
-			if err != nil {
-				return nil, wrap(err)
-			}
-			blocks = append(blocks, tb...)
-		}
-	}
-	return blocks, nil
-}
-
-func (s *blocksDB) allBlocksWithHashInDB(baseDB *baseDB, hash []byte) (iter.Seq[db.BlockMapEntry], func() error) {
-	return iterStructs[db.BlockMapEntry](baseDB.stmt(`
-		SELECT blocklist_hash as blocklisthash, idx as blockindex, offset, size, '' as filename FROM blocks
-		WHERE hash = ?
-	`).Queryx(hash))
-}
-
-func (bdb *blocksDB) allShardsCheckpoint(ctx context.Context, query string) error {
-	var wg sync.WaitGroup
-	errChan := make(chan error, 1)
-	concurrency := make(chan struct{}, 16)
-	for _, shard := range bdb.shards {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			concurrency <- struct{}{}
-			defer func() { <-concurrency }()
-
-			conn, err := shard.base.sql.Conn(ctx)
-			if err != nil {
-				return
-			}
-			defer conn.Close()
-			_, _ = conn.ExecContext(ctx, `PRAGMA journal_size_limit = 8388608`)
-			_, _ = conn.ExecContext(ctx, query)
-		}()
-	}
-	wg.Wait()
-	close(errChan)
-
-	return <-errChan
-}
-
-func (bdb *blocksDB) checkSplitLevel(mainTx *sqlx.Tx) {
-	if bdb.shardlevel == 0 {
-		if shouldSplit(mainTx) {
-			bdb.shardlevel++
-		}
-		return
-	}
-
-	for _, shard := range bdb.shards {
-		if shard.tx == nil {
-			continue
-		}
-		if shouldSplit(shard.tx) {
-			bdb.shardlevel = max(bdb.shardlevel, shard.level+1)
-		}
-	}
-}
-
-func (bdb *blocksDB) Commit() error {
-	var firstErr error
-	for _, shard := range bdb.shards {
-		if err := shard.commit(); err != nil && firstErr == nil {
-			firstErr = err
-		}
-	}
-	return firstErr
-}
-
-func (bdb *blocksDB) Rollback() error {
-	var firstErr error
-	for _, shard := range bdb.shards {
-		if err := shard.rollback(); err != nil && firstErr == nil {
-			firstErr = err
-		}
-	}
-	return firstErr
 }
 
 func (dbs *blocksDBShard) insertBlocksLocked(blocklistHash []byte, blocks []map[string]any) error {
@@ -252,30 +291,20 @@ func (dbs *blocksDBShard) insertBlocksLocked(blocklistHash []byte, blocks []map[
 		return nil
 	}
 
+	// We are being called within a higher level folderdb transaction, but
+	// we need to have one of our own. We do this implicitly and keep the
+	// transaction around until Commit() or Rollback() is called. This gives
+	// us the same life time as the folderdb transaction.
+
 	if dbs.tx == nil {
-		tx, err := dbs.base.sql.BeginTxx(context.Background(), nil)
+		tx, err := dbs.baseDB.sql.BeginTxx(context.Background(), nil)
 		if err != nil {
 			return err
 		}
 		dbs.tx = tx
 	}
 
-	return insertBlocksLockedTx(dbs.tx, blocklistHash, blocks)
-}
-
-func insertBlocksLockedTx(tx *sqlx.Tx, blocklistHash []byte, blocks []map[string]any) error {
-	// Very large block lists (>8000 blocks) result in "too many variables"
-	// error. Chunk it to a reasonable size.
-	for chunk := range slices.Chunk(blocks, 1000) {
-		if _, err := tx.NamedExec(`
-			INSERT OR IGNORE INTO blocks (hash, blocklist_hash, idx, offset, size)
-			VALUES (:hash, :blocklist_hash, :idx, :offset, :size)
-		`, chunk); err != nil {
-			return wrap(err)
-		}
-	}
-
-	return nil
+	return insertBlocksLockedInTx(dbs.tx, blocklistHash, blocks)
 }
 
 func (dbs *blocksDBShard) commit() error {
@@ -285,15 +314,6 @@ func (dbs *blocksDBShard) commit() error {
 	tx := dbs.tx
 	dbs.tx = nil
 	return wrap(tx.Commit())
-}
-
-func shouldSplit(tx *sqlx.Tx) bool {
-	var blocks int64
-	if err := tx.QueryRowx(`SELECT count(*) FROM blocks`).Scan(&blocks); err != nil {
-		return false
-	}
-
-	return blocks > splitCutoff
 }
 
 func (dbs *blocksDBShard) rollback() error {
@@ -307,4 +327,19 @@ func (dbs *blocksDBShard) rollback() error {
 
 func shardPrefix(level int, hash []byte) string {
 	return hex.EncodeToString(hash[:level/2+1])[:level]
+}
+
+func insertBlocksLockedInTx(tx *sqlx.Tx, blocklistHash []byte, blocks []map[string]any) error {
+	// Very large block lists (>8000 blocks) result in "too many variables"
+	// error. Chunk it to a reasonable size.
+	for chunk := range slices.Chunk(blocks, 1000) {
+		if _, err := tx.NamedExec(`
+			INSERT OR IGNORE INTO blocks (hash, blocklist_hash, idx, offset, size)
+			VALUES (:hash, :blocklist_hash, :idx, :offset, :size)
+		`, chunk); err != nil {
+			return wrap(err)
+		}
+	}
+
+	return nil
 }
