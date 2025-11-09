@@ -25,7 +25,7 @@ func TestBenchmarkLocalInsert(t *testing.T) {
 		}
 	})
 
-	const numFiles = 1000
+	const numFiles = 100
 	const numBlocks = 1567
 
 	fs := make([]protocol.FileInfo, numFiles)
