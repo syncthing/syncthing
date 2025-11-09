@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"iter"
+	"log/slog"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -19,27 +20,24 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-// At ten million blocks we start sharding the block database
-const (
-	defaultShardingCutoff = 10_000_000
-	nameSegmentPrefix     = "blocks-"
-)
+const nameSegmentPrefix = "blocks-"
 
 type blocksDB struct {
-	folderDB       *folderDB
-	shardingLevel  int // current sharding level, zero for no sharding
-	shardingCutoff int // number of entries in blocks table that triggers next level of sharding
-	shards         map[string]*blocksDBShard
+	folderDB          *folderDB
+	shardingLevel     int // current sharding level, zero for no sharding
+	shardingThreshold int // number of entries in blocks table to trigger next level of sharding
+	shards            map[string]*blocksDBShard
 }
 
-func openBlocksDB(folderDB *folderDB) (*blocksDB, error) {
+func openBlocksDB(folderDB *folderDB, shardingThreshold int) (*blocksDB, error) {
 	bdb := &blocksDB{
-		folderDB:       folderDB,
-		shardingCutoff: defaultShardingCutoff,
-		shards:         map[string]*blocksDBShard{},
+		folderDB:          folderDB,
+		shardingThreshold: shardingThreshold,
+		shards:            map[string]*blocksDBShard{},
 	}
 
 	// Find any existing shard files
@@ -60,7 +58,9 @@ func openBlocksDB(folderDB *folderDB) (*blocksDB, error) {
 		}
 		bdb.shards[suffix] = dbs
 		bdb.shardingLevel = max(bdb.shardingLevel, len(suffix))
+		slog.Debug("Found database shard", slogutil.FilePath(filepath.Base(shardName)), slog.String("suffix", suffix), slog.Int("currentLevel", bdb.shardingLevel))
 	}
+
 	return bdb, nil
 }
 
@@ -201,6 +201,7 @@ func (bdb *blocksDB) updateShardingLevel() {
 		// db is full, and if so increase the sharding level to one.
 		if bdb.shouldSplit(bdb.folderDB.baseDB) {
 			bdb.shardingLevel++
+			slog.Debug("Increasing sharding level from base", "level", bdb.shardingLevel)
 		}
 		return
 	}
@@ -215,6 +216,7 @@ func (bdb *blocksDB) updateShardingLevel() {
 		}
 		if bdb.shouldSplit(shard.baseDB) {
 			bdb.shardingLevel++
+			slog.Debug("Increasing sharding level from shard", "level", bdb.shardingLevel)
 			break
 		}
 	}
@@ -226,7 +228,7 @@ func (bdb *blocksDB) shouldSplit(baseDB *baseDB) bool {
 		return false
 	}
 
-	return blocks > int64(bdb.shardingCutoff)
+	return blocks > int64(bdb.shardingThreshold)
 }
 
 func (bdb *blocksDB) Commit() error {

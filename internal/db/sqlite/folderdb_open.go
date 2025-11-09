@@ -18,13 +18,14 @@ type folderDB struct {
 
 	folderID string
 
-	localDeviceIdx  int64
-	deleteRetention time.Duration
+	localDeviceIdx    int64
+	deleteRetention   time.Duration
+	shardingThreshold int
 
 	blocksDB *blocksDB
 }
 
-func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB, error) {
+func openFolderDB(folder, path string, deleteRetention time.Duration, shardingThreshold int) (*folderDB, error) {
 	pragmas := []string{
 		"journal_mode = WAL",
 		"optimize = 0x10002",
@@ -46,12 +47,13 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 	}
 
 	fdb := &folderDB{
-		folderID:        folder,
-		baseDB:          base,
-		deleteRetention: deleteRetention,
+		folderID:          folder,
+		baseDB:            base,
+		deleteRetention:   deleteRetention,
+		shardingThreshold: shardingThreshold,
 	}
 
-	bdb, err := openBlocksDB(fdb)
+	bdb, err := openBlocksDB(fdb, shardingThreshold)
 	if err != nil {
 		return nil, wrap(err)
 	}
@@ -70,7 +72,7 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 // Open the database with options suitable for the migration inserts. This
 // is not a safe mode of operation for normal processing, use only for bulk
 // inserts with a close afterwards.
-func openFolderDBForMigration(folder, path string, deleteRetention time.Duration) (*folderDB, error) {
+func openFolderDBForMigration(folder, path string, deleteRetention time.Duration, shardingThreshold int) (*folderDB, error) {
 	pragmas := []string{
 		"journal_mode = OFF",
 		"foreign_keys = 0",
@@ -89,9 +91,10 @@ func openFolderDBForMigration(folder, path string, deleteRetention time.Duration
 	}
 
 	fdb := &folderDB{
-		folderID:        folder,
-		baseDB:          base,
-		deleteRetention: deleteRetention,
+		folderID:          folder,
+		baseDB:            base,
+		deleteRetention:   deleteRetention,
+		shardingThreshold: shardingThreshold,
 	}
 
 	// Touch device IDs that should always exist and have a low index

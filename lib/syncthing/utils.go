@@ -144,9 +144,9 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
-// Opens a database
-func OpenDatabase(path string, deleteRetention time.Duration) (db.DB, error) {
-	sql, err := sqlite.Open(path, sqlite.WithDeleteRetention(deleteRetention))
+// OpenDatabase opens or creates a database at the given path
+func OpenDatabase(path string, deleteRetention time.Duration, shardingThreshold int) (db.DB, error) {
+	sql, err := sqlite.Open(path, sqlite.WithDeleteRetention(deleteRetention), sqlite.WithShardingThreshold(shardingThreshold))
 	if err != nil {
 		return nil, err
 	}
@@ -156,9 +156,10 @@ func OpenDatabase(path string, deleteRetention time.Duration) (db.DB, error) {
 	return sdb, nil
 }
 
-// Attempts migration of the old (LevelDB-based) database type to the new (SQLite-based) type
-// This will attempt to provide a temporary API server during the migration, if `apiAddr` is not empty.
-func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration) error {
+// TryMigrateDatabase attempts migration of the old (LevelDB-based) database
+// type to the new (SQLite-based) type This will attempt to provide a
+// temporary API server during the migration, if `apiAddr` is not empty.
+func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration, shardingThreshold int) error {
 	oldDBDir := locations.Get(locations.LegacyDatabase)
 	if _, err := os.Lstat(oldDBDir); err != nil {
 		// No old database
@@ -172,7 +173,7 @@ func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration) erro
 	}
 	defer be.Close()
 
-	sdb, err := sqlite.OpenForMigration(locations.Get(locations.Database))
+	sdb, err := sqlite.OpenForMigration(locations.Get(locations.Database), sqlite.WithShardingThreshold(shardingThreshold))
 	if err != nil {
 		return err
 	}
