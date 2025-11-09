@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/jmoiron/sqlx"
@@ -19,48 +20,47 @@ import (
 )
 
 // At ten million blocks we start sharding the block database
-const splitCutoff = 10_000_000
+const (
+	splitCutoff       = 10_000_000
+	nameSegmentPrefix = "blocks-"
+)
 
 type blocksDB struct {
-	pathBase   string
+	pathBase   string // path to the main folder database
+	shardlevel int    // current sharding level, zero for no sharding
 	shards     map[string]*blocksDBShard
-	splitlevel int
 }
 
 type blocksDBShard struct {
-	level int
-	split bool
+	level int      // level of this shared (1, 2, etc.)
+	tx    *sqlx.Tx // currently open write transaction or nil
 	base  *baseDB
-	tx    *sqlx.Tx
 }
 
-func openBlocksDB(path string) (*blocksDB, error) {
+func openBlocksDB(folderDBPath string) (*blocksDB, error) {
 	bdb := &blocksDB{
-		pathBase: path,
+		pathBase: folderDBPath,
 		shards:   map[string]*blocksDBShard{},
 	}
-	shards, err := filepath.Glob(preExtSuffix(bdb.pathBase, "*"))
+
+	// Find any existing shard files
+	shards, err := filepath.Glob(addInnerExt(bdb.pathBase, nameSegmentPrefix+"*"))
 	if err != nil {
 		return nil, wrap(err)
 	}
+
 	for _, shardName := range shards {
-		suffix := getExtSuffix(shardName)
-		if suffix == "" {
+		suffix := getInnerExt(shardName)
+		if !strings.HasPrefix(suffix, nameSegmentPrefix) {
 			continue
 		}
+		suffix = strings.TrimPrefix(suffix, nameSegmentPrefix)
 		dbs, err := openBlocksDBShard(shardName, len(suffix))
 		if err != nil {
 			return nil, wrap(err)
 		}
 		bdb.shards[suffix] = dbs
-		bdb.splitlevel = max(bdb.splitlevel, len(suffix))
-	}
-	for name := range bdb.shards {
-		if name == "" {
-			continue
-		}
-		upperName := name[:len(name)-1]
-		bdb.shards[upperName].split = true
+		bdb.shardlevel = max(bdb.shardlevel, len(suffix))
 	}
 	return bdb, nil
 }
@@ -96,7 +96,7 @@ func (bdb *blocksDB) insertBlocksLocked(mainTx *sqlx.Tx, blocklistHash []byte, b
 	if len(blocks) == 0 {
 		return nil
 	}
-	if bdb.splitlevel == 0 {
+	if bdb.shardlevel == 0 {
 		// No splitting yet, use main tx
 		return insertBlocksLockedTx(mainTx, blocklistHash, blocks)
 	}
@@ -104,7 +104,7 @@ func (bdb *blocksDB) insertBlocksLocked(mainTx *sqlx.Tx, blocklistHash []byte, b
 	// Segment into corresponding sharts
 	segs := make(map[string][]protocol.BlockInfo)
 	for _, b := range blocks {
-		segName := hex.EncodeToString(b.Hash[:bdb.splitlevel/2+1])[:bdb.splitlevel]
+		segName := hex.EncodeToString(b.Hash[:bdb.shardlevel/2+1])[:bdb.shardlevel]
 		segs[segName] = append(segs[segName], b)
 	}
 
@@ -114,7 +114,7 @@ func (bdb *blocksDB) insertBlocksLocked(mainTx *sqlx.Tx, blocklistHash []byte, b
 	for seg, blocks := range segs {
 		shard, ok := bdb.shards[seg]
 		if !ok {
-			sh, err := openBlocksDBShard(preExtSuffix(bdb.pathBase, seg), len(seg))
+			sh, err := openBlocksDBShard(addInnerExt(bdb.pathBase, nameSegmentPrefix+seg), len(seg))
 			if err != nil {
 				return err
 			}
@@ -167,9 +167,9 @@ func (bdb *blocksDB) allShardsCheckpoint(ctx context.Context, query string) erro
 }
 
 func (bdb *blocksDB) checkSplitLevel(mainTx *sqlx.Tx) {
-	if bdb.splitlevel == 0 {
+	if bdb.shardlevel == 0 {
 		if shouldSplit(mainTx) {
-			bdb.splitlevel++
+			bdb.shardlevel++
 		}
 		return
 	}
@@ -179,8 +179,7 @@ func (bdb *blocksDB) checkSplitLevel(mainTx *sqlx.Tx) {
 			continue
 		}
 		if shouldSplit(shard.tx) {
-			shard.split = true
-			bdb.splitlevel = max(bdb.splitlevel, shard.level+1)
+			bdb.shardlevel = max(bdb.shardlevel, shard.level+1)
 		}
 	}
 }

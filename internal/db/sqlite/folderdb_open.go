@@ -45,7 +45,7 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 		return nil, wrap(err)
 	}
 
-	bdb, err := openBlocksDB(preExtSuffix(path, "blocks"))
+	bdb, err := openBlocksDB(path)
 	if err != nil {
 		return nil, wrap(err)
 	}

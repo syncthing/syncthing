@@ -126,20 +126,22 @@ func prefixEnd(s string) string {
 	return string(bs)
 }
 
-// preExtSuffix takes name (foo.bar.db) and suffix (quux) and returns
-// foo.bar-quux.db
-func preExtSuffix(name, suffix string) string {
+// addInnerExt takes a name (foo.bar.db) and inner extension (quux) and
+// returns foo.bar.quux.db
+func addInnerExt(name, suffix string) string {
 	ext := filepath.Ext(name)
 	noext := strings.TrimSuffix(name, ext)
-	return fmt.Sprintf("%s-%s%s", noext, suffix, ext)
+	return fmt.Sprintf("%s.%s%s", noext, suffix, ext)
 }
 
-func getExtSuffix(name string) string {
+// getInnerExt returns the "inner extension" of a file, e.g. "quux" in
+// foo.bar.quux.db
+func getInnerExt(name string) string {
 	ext := filepath.Ext(name)
 	noext := strings.TrimSuffix(name, ext)
-	dashIdx := strings.LastIndex(noext, "-")
-	if dashIdx < 0 {
+	dotIdx := strings.LastIndex(noext, ".")
+	if dotIdx < 0 {
 		return ""
 	}
-	return noext[dashIdx+1:]
+	return noext[dotIdx+1:]
 }
