@@ -1099,6 +1099,75 @@ func TestInsertLargeFile(t *testing.T) {
 		if len(bs) == 0 {
 			t.Error("missing blocks for", i)
 		}
+		for _, b := range bs {
+			if b.FileName != "test1" {
+				t.Fatal("filename should be set")
+			}
+			if b.BlockIndex != i {
+				t.Log(i, b.BlockIndex)
+				t.Error("expected index to be correctly set")
+			}
+		}
+	}
+}
+
+func TestInsertLargeFileWithSharding(t *testing.T) {
+	t.Parallel()
+
+	sdb, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := sdb.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// Enforce sharding in the blocks database
+
+	fdb, err := sdb.getFolderDB(folderID, true)
+	if err != nil {
+		t.Fatal()
+	}
+	fdb.blocksDB.shardlevel = 1
+
+	// Add a large file (many blocks)
+
+	files := []protocol.FileInfo{genFile("test1", 16000, 1)}
+	if err := sdb.Update(folderID, protocol.LocalDeviceID, files); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify the blocks weren't stored in the main folder database
+
+	var count int
+	if err := fdb.sql.Get(&count, `SELECT count(*) FROM blocks`); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatal("no blocks expected in main folder db, due to sharding")
+	}
+
+	// Verify all the blocks are here
+
+	for i, block := range files[0].Blocks {
+		bs, err := itererr.Collect(sdb.AllLocalBlocksWithHash(folderID, block.Hash))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(bs) == 0 {
+			t.Error("missing blocks for", i)
+		}
+		for _, b := range bs {
+			if b.FileName != "test1" {
+				t.Fatal("filename should be set")
+			}
+			if b.BlockIndex != i {
+				t.Log(i, b.BlockIndex)
+				t.Error("expected index to be correctly set")
+			}
+		}
 	}
 }
 

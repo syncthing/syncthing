@@ -99,15 +99,28 @@ func (bdb *blocksDB) insertBlocksLocked(mainTx *sqlx.Tx, blocklistHash []byte, b
 	if len(blocks) == 0 {
 		return nil
 	}
-	if bdb.shardlevel == 0 {
-		// No splitting yet, use main tx
-		return insertBlocksLockedTx(mainTx, blocklistHash, blocks)
+
+	bs := make([]map[string]any, len(blocks))
+	for i, b := range blocks {
+		bs[i] = map[string]any{
+			"hash":           b.Hash,
+			"blocklist_hash": blocklistHash,
+			"idx":            i,
+			"offset":         b.Offset,
+			"size":           b.Size,
+		}
 	}
 
-	// Segment into corresponding sharts
-	segs := make(map[string][]protocol.BlockInfo)
-	for _, b := range blocks {
-		segName := shardPrefix(bdb.shardlevel, b.Hash)
+	if bdb.shardlevel == 0 {
+		// No splitting yet, use main tx
+		return insertBlocksLockedTx(mainTx, blocklistHash, bs)
+	}
+
+	// Segment into corresponding shards
+	segs := make(map[string][]map[string]any)
+	for _, b := range bs {
+		hash := b["hash"].([]byte)
+		segName := shardPrefix(bdb.shardlevel, hash)
 		segs[segName] = append(segs[segName], b)
 	}
 
@@ -234,7 +247,7 @@ func (bdb *blocksDB) Rollback() error {
 	return firstErr
 }
 
-func (dbs *blocksDBShard) insertBlocksLocked(blocklistHash []byte, blocks []protocol.BlockInfo) error {
+func (dbs *blocksDBShard) insertBlocksLocked(blocklistHash []byte, blocks []map[string]any) error {
 	if len(blocks) == 0 {
 		return nil
 	}
@@ -250,21 +263,10 @@ func (dbs *blocksDBShard) insertBlocksLocked(blocklistHash []byte, blocks []prot
 	return insertBlocksLockedTx(dbs.tx, blocklistHash, blocks)
 }
 
-func insertBlocksLockedTx(tx *sqlx.Tx, blocklistHash []byte, blocks []protocol.BlockInfo) error {
-	bs := make([]map[string]any, len(blocks))
-	for i, b := range blocks {
-		bs[i] = map[string]any{
-			"hash":           b.Hash,
-			"blocklist_hash": blocklistHash,
-			"idx":            i,
-			"offset":         b.Offset,
-			"size":           b.Size,
-		}
-	}
-
+func insertBlocksLockedTx(tx *sqlx.Tx, blocklistHash []byte, blocks []map[string]any) error {
 	// Very large block lists (>8000 blocks) result in "too many variables"
 	// error. Chunk it to a reasonable size.
-	for chunk := range slices.Chunk(bs, 1000) {
+	for chunk := range slices.Chunk(blocks, 1000) {
 		if _, err := tx.NamedExec(`
 			INSERT OR IGNORE INTO blocks (hash, blocklist_hash, idx, offset, size)
 			VALUES (:hash, :blocklist_hash, :idx, :offset, :size)
