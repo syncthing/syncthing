@@ -33,7 +33,7 @@ func TestBenchmarkLocalInsert(t *testing.T) {
 	var totFiles, totBlocks int
 
 	fmt.Println("TIME,FILES,BLOCKS,FILES/S,BLOCKS/S")
-	for totBlocks < 500_000_000 {
+	for totBlocks < 200_000_000 { // ~ 24 TiB at minimum block size
 		for i := range fs {
 			fs[i] = genFile(rand.String(24), numBlocks, 0)
 		}
