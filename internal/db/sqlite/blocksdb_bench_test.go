@@ -1,0 +1,54 @@
+//go:build slow
+
+package sqlite
+
+import (
+	"fmt"
+	"testing"
+	"time"
+
+	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
+)
+
+func TestBenchmarkLocalInsert(t *testing.T) {
+	db, err := Open("/tmp/bench.db") // t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	const numFiles = 1000
+	const numBlocks = 1567
+
+	fs := make([]protocol.FileInfo, numFiles)
+	t0 := time.Now()
+	var totFiles, totBlocks int
+
+	fmt.Println("TIME,FILES,BLOCKS,FILES/S,BLOCKS/S")
+	for totBlocks < 1_000_000_000 {
+		for i := range fs {
+			fs[i] = genFile(rand.String(24), numBlocks, 0)
+		}
+
+		t1 := time.Now()
+
+		if err := db.Update(folderID, protocol.LocalDeviceID, fs); err != nil {
+			t.Fatal(err)
+		}
+
+		insFiles := numFiles              // curFiles - totFiles
+		insBlocks := numFiles * numBlocks // curBlocks - totBlocks
+		totFiles += insFiles
+		totBlocks += insBlocks
+
+		d0 := time.Since(t0)
+		d1 := time.Since(t1)
+
+		fmt.Printf("%.2f,%d,%d,%.01f,%.01f\n", d0.Seconds(), totFiles, totBlocks, float64(insFiles)/d1.Seconds(), float64(insBlocks)/d1.Seconds())
+	}
+}

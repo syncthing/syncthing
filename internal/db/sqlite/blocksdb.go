@@ -10,12 +10,15 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"iter"
 	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -26,8 +29,8 @@ const (
 )
 
 type blocksDB struct {
-	pathBase   string // path to the main folder database
-	shardlevel int    // current sharding level, zero for no sharding
+	folderDB   *folderDB
+	shardlevel int // current sharding level, zero for no sharding
 	shards     map[string]*blocksDBShard
 }
 
@@ -37,14 +40,14 @@ type blocksDBShard struct {
 	base  *baseDB
 }
 
-func openBlocksDB(folderDBPath string) (*blocksDB, error) {
+func openBlocksDB(folderDB *folderDB) (*blocksDB, error) {
 	bdb := &blocksDB{
-		pathBase: folderDBPath,
+		folderDB: folderDB,
 		shards:   map[string]*blocksDBShard{},
 	}
 
 	// Find any existing shard files
-	shards, err := filepath.Glob(addInnerExt(bdb.pathBase, nameSegmentPrefix+"*"))
+	shards, err := filepath.Glob(addInnerExt(folderDB.path, nameSegmentPrefix+"*"))
 	if err != nil {
 		return nil, wrap(err)
 	}
@@ -104,7 +107,7 @@ func (bdb *blocksDB) insertBlocksLocked(mainTx *sqlx.Tx, blocklistHash []byte, b
 	// Segment into corresponding sharts
 	segs := make(map[string][]protocol.BlockInfo)
 	for _, b := range blocks {
-		segName := hex.EncodeToString(b.Hash[:bdb.shardlevel/2+1])[:bdb.shardlevel]
+		segName := shardPrefix(bdb.shardlevel, b.Hash)
 		segs[segName] = append(segs[segName], b)
 	}
 
@@ -114,7 +117,7 @@ func (bdb *blocksDB) insertBlocksLocked(mainTx *sqlx.Tx, blocklistHash []byte, b
 	for seg, blocks := range segs {
 		shard, ok := bdb.shards[seg]
 		if !ok {
-			sh, err := openBlocksDBShard(addInnerExt(bdb.pathBase, nameSegmentPrefix+seg), len(seg))
+			sh, err := openBlocksDBShard(addInnerExt(bdb.folderDB.path, nameSegmentPrefix+seg), len(seg))
 			if err != nil {
 				return err
 			}
@@ -138,6 +141,33 @@ func (bdb *blocksDB) insertBlocksLocked(mainTx *sqlx.Tx, blocklistHash []byte, b
 	close(errChan)
 
 	return <-errChan
+}
+
+func (s *blocksDB) allBlocksWithHash(hash []byte) ([]db.BlockMapEntry, error) {
+	// Start with the main folder database
+	blocks, err := itererr.Collect(s.allBlocksWithHashInDB(s.folderDB.baseDB, hash))
+	if err != nil {
+		return nil, wrap(err)
+	}
+	// Then check each existing shard up to the max shard level
+	for l := range s.shardlevel {
+		prefix := shardPrefix(l+1, hash) // l=0 is shard level one
+		if shard, ok := s.shards[prefix]; ok {
+			tb, err := itererr.Collect(s.allBlocksWithHashInDB(shard.base, hash))
+			if err != nil {
+				return nil, wrap(err)
+			}
+			blocks = append(blocks, tb...)
+		}
+	}
+	return blocks, nil
+}
+
+func (s *blocksDB) allBlocksWithHashInDB(baseDB *baseDB, hash []byte) (iter.Seq[db.BlockMapEntry], func() error) {
+	return iterStructs[db.BlockMapEntry](baseDB.stmt(`
+		SELECT blocklist_hash as blocklisthash, idx as blockindex, offset, size, '' as filename FROM blocks
+		WHERE hash = ?
+	`).Queryx(hash))
 }
 
 func (bdb *blocksDB) allShardsCheckpoint(ctx context.Context, query string) error {
@@ -271,4 +301,8 @@ func (dbs *blocksDBShard) rollback() error {
 	tx := dbs.tx
 	dbs.tx = nil
 	return wrap(tx.Rollback())
+}
+
+func shardPrefix(level int, hash []byte) string {
+	return hex.EncodeToString(hash[:level/2+1])[:level]
 }

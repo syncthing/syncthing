@@ -103,15 +103,34 @@ func (s *folderDB) AllLocalFilesWithBlocksHash(h []byte) (iter.Seq[db.FileMetada
 }
 
 func (s *folderDB) AllLocalBlocksWithHash(hash []byte) (iter.Seq[db.BlockMapEntry], func() error) {
-	// We involve the files table in this select because deletion of blocks
-	// & blocklists is deferred (garbage collected) while the files list is
-	// not. This filters out blocks that are in fact deleted.
-	return iterStructs[db.BlockMapEntry](s.stmt(`
-		SELECT f.blocklist_hash as blocklisthash, b.idx as blockindex, b.offset, b.size, n.name as filename FROM files f
-		INNER JOIN file_names n ON f.name_idx = n.idx
-		LEFT JOIN blocks b ON f.blocklist_hash = b.blocklist_hash
-		WHERE f.device_idx = {{.LocalDeviceIdx}} AND b.hash = ?
-	`).Queryx(hash))
+	blocks, err := s.blocksDB.allBlocksWithHash(hash)
+	if err != nil {
+		return func(yield func(db.BlockMapEntry) bool) {}, func() error { return err }
+	}
+
+	var retErr error
+	return func(yield func(db.BlockMapEntry) bool) {
+		for _, b := range blocks {
+			var names []string
+			err := s.stmt(`
+				SELECT n.name as filename FROM files f
+				INNER JOIN file_names n ON f.name_idx = n.idx
+				WHERE f.device_idx = {{.LocalDeviceIdx}} AND f.blocklist_hash = ?
+			`).Select(&names, b.BlocklistHash)
+			if err != nil {
+				if retErr == nil {
+					retErr = err
+				}
+				break
+			}
+			for _, name := range names {
+				b.FileName = name
+				if !yield(b) {
+					return
+				}
+			}
+		}
+	}, func() error { return retErr }
 }
 
 func (s *folderDB) ListDevicesForFolder() ([]protocol.DeviceID, error) {

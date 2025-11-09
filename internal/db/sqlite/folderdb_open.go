@@ -45,17 +45,17 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 		return nil, wrap(err)
 	}
 
-	bdb, err := openBlocksDB(path)
-	if err != nil {
-		return nil, wrap(err)
-	}
-
 	fdb := &folderDB{
 		folderID:        folder,
 		baseDB:          base,
 		deleteRetention: deleteRetention,
-		blocksDB:        bdb,
 	}
+
+	bdb, err := openBlocksDB(fdb)
+	if err != nil {
+		return nil, wrap(err)
+	}
+	fdb.blocksDB = bdb
 
 	_ = fdb.PutKV("folderID", []byte(folder))
 
