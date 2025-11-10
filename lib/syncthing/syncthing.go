@@ -114,10 +114,21 @@ func (a *App) Start() error {
 	return nil
 }
 
+// PerformMaintenance performs database maintenance synchronously.
+func (a *App) PerformMaintenance(ctx context.Context) error {
+	service := a.sdb.Service(0)
+	return service.Serve(ctx)
+}
+
 func (a *App) startup() error {
 	a.mainService.Add(ur.NewFailureHandler(a.cfg, a.evLogger))
 
-	a.mainService.Add(a.sdb.Service(a.opts.DBMaintenanceInterval))
+	// When a maintenance interval of zero is requested, do not schedule it
+	// periodically. Instead, the user is responsible for invoking
+	// maintenance at a convenient time.
+	if a.opts.DBMaintenanceInterval != 0 {
+		a.mainService.Add(a.sdb.Service(a.opts.DBMaintenanceInterval))
+	}
 
 	if a.opts.AuditWriter != nil {
 		a.mainService.Add(newAuditService(a.opts.AuditWriter, a.evLogger))
