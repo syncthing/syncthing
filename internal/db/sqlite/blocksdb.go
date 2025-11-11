@@ -112,7 +112,6 @@ func (bdb *blocksDB) insertBlocksLocked(mainTx *sqlx.Tx, blocklistHash []byte, b
 
 	var wg sync.WaitGroup
 	errChan := make(chan error, 1)
-	concurrency := make(chan struct{}, max(4, runtime.NumCPU()))
 	for seg, blocks := range segs {
 		shard, ok := bdb.shards[seg]
 		if !ok {
@@ -127,8 +126,6 @@ func (bdb *blocksDB) insertBlocksLocked(mainTx *sqlx.Tx, blocklistHash []byte, b
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			concurrency <- struct{}{}
-			defer func() { <-concurrency }()
 			if err := shard.insertBlocksLocked(blocks); err != nil {
 				select {
 				case errChan <- err:
@@ -187,14 +184,10 @@ func allBlocksWithHashInDB(baseDB *baseDB, hash []byte) (iter.Seq[db.BlockMapEnt
 func (bdb *blocksDB) allShardsCheckpoint(ctx context.Context, query string) error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, 1)
-	concurrency := make(chan struct{}, max(4, runtime.NumCPU()))
 	for _, shard := range bdb.shards {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			concurrency <- struct{}{}
-			defer func() { <-concurrency }()
-
 			conn, err := shard.baseDB.sql.Conn(ctx)
 			if err != nil {
 				return
@@ -211,7 +204,7 @@ func (bdb *blocksDB) allShardsCheckpoint(ctx context.Context, query string) erro
 }
 
 func (bdb *blocksDB) updateShardingLevel() {
-	if bdb.shardingLevel >= maxShardingLevel {
+	if bdb.shardingLevel >= maxShardingLevel || 1<<bdb.shardingLevel >= runtime.NumCPU() {
 		return
 	}
 
