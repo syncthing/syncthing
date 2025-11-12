@@ -166,6 +166,7 @@ func (s *DB) Close() error {
 	defer s.folderDBsMut.Unlock()
 	for folder, fdb := range s.folderDBs {
 		fdb.Close()
+		fdb.blocksDB.Close()
 		delete(s.folderDBs, folder)
 	}
 	return wrap(s.baseDB.Close())

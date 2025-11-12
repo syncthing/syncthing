@@ -73,6 +73,14 @@ func openBlocksDB(folderDB *folderDB, shardingThreshold int) (*blocksDB, error) 
 	return bdb, nil
 }
 
+func (bdb *blocksDB) Close() error {
+	for key, shard := range bdb.shards {
+		shard.baseDB.Close()
+		delete(bdb.shards, key)
+	}
+	return nil
+}
+
 func (bdb *blocksDB) insertBlocksLocked(mainTx *sqlx.Tx, blocklistHash []byte, blocks []protocol.BlockInfo) error {
 	if len(blocks) == 0 {
 		return nil
