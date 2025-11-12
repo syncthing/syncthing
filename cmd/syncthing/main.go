@@ -196,7 +196,7 @@ func defaultVars() kong.Vars {
 		"levelString":       strconv.FormatBool(slogutil.DefaultLineFormat.LevelString),
 		"levelSyslog":       strconv.FormatBool(slogutil.DefaultLineFormat.LevelSyslog),
 		"timestampFormat":   slogutil.DefaultLineFormat.TimestampFormat,
-		"deleteRetention":   strconv.Itoa(sqlite.DefaultShardingThreshold),
+		"deleteRetention":   sqlite.DefaultDeleteRetention.String(),
 		"shardingThreshold": strconv.Itoa(sqlite.DefaultShardingThreshold),
 	}
 
