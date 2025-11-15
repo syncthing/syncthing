@@ -256,7 +256,7 @@ func (s *inMemoryStore) write() (err error) {
 	if err != nil {
 		return err
 	}
-	bw := bufio.NewWriter(fd)
+	bw := bufio.NewWriterSize(fd, 1<<20)
 
 	var buf []byte
 	var rangeErr error
