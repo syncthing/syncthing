@@ -54,17 +54,11 @@ type Service struct {
 	subscriber Subscriber
 	client     *stun.Client
 
-	lastWriter LastWriter
-
 	natType NATType
 	addr    *Host
 }
 
-type LastWriter interface {
-	LastWrite() time.Time
-}
-
-func New(cfg config.Wrapper, subscriber Subscriber, conn net.PacketConn, lastWriter LastWriter) *Service {
+func New(cfg config.Wrapper, subscriber Subscriber, conn net.PacketConn) *Service {
 	// Construct the client to use the stun conn
 	client := stun.NewClientWithConnection(conn)
 	client.SetSoftwareName("") // Explicitly unset this, seems to freak some servers out.
@@ -82,8 +76,6 @@ func New(cfg config.Wrapper, subscriber Subscriber, conn net.PacketConn, lastWri
 		cfg:        cfg,
 		subscriber: subscriber,
 		client:     client,
-
-		lastWriter: lastWriter,
 
 		natType: NATUnknown,
 		addr:    nil,
@@ -219,18 +211,13 @@ func (s *Service) stunKeepAlive(ctx context.Context, addr string, extAddr *Host)
 		}
 
 		// Adjust the keepalives to fire only nextSleep after last write.
-		lastWrite := ourLastWrite
-		if quicLastWrite := s.lastWriter.LastWrite(); quicLastWrite.After(lastWrite) {
-			lastWrite = quicLastWrite
-		}
 		minSleep := time.Duration(s.cfg.Options().StunKeepaliveMinS) * time.Second
 		if nextSleep < minSleep {
 			nextSleep = minSleep
 		}
-	tryLater:
 		sleepFor := nextSleep
 
-		timeUntilNextKeepalive := time.Until(lastWrite.Add(sleepFor))
+		timeUntilNextKeepalive := time.Until(ourLastWrite.Add(sleepFor))
 		if timeUntilNextKeepalive > 0 {
 			sleepFor = timeUntilNextKeepalive
 		}
@@ -248,13 +235,6 @@ func (s *Service) stunKeepAlive(ctx context.Context, addr string, extAddr *Host)
 			// Disabled, give up
 			l.Debugf("%s disabled, aborting stun ", s)
 			return errors.New("disabled")
-		}
-
-		// Check if any writes happened while we were sleeping, if they did, sleep again
-		lastWrite = s.lastWriter.LastWrite()
-		if gap := time.Since(lastWrite); gap < nextSleep {
-			l.Debugf("%s stun last write gap less than next sleep: %s < %s. Will try later", s, gap, nextSleep)
-			goto tryLater
 		}
 
 		l.Debugf("%s stun keepalive", s)
