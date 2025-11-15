@@ -13,7 +13,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"path"
 	"runtime"
@@ -74,24 +74,24 @@ func newInMemoryStore(dir string, flushInterval time.Duration, blobs blob.Store)
 		// Try to read from blob storage
 		latestKey, cerr := blobs.LatestKey(context.Background())
 		if cerr != nil {
-			log.Println("Error finding database from blob storage:", cerr)
+			slog.Error("Failed to find database in blob storage", "error", cerr)
 			return s
 		}
 		fd, cerr := os.Create(path.Join(s.dir, "records.db"))
 		if cerr != nil {
-			log.Println("Error creating database file:", cerr)
+			slog.Error("Failed to create database file", "error", cerr)
 			return s
 		}
 		if cerr := blobs.Download(context.Background(), latestKey, fd); cerr != nil {
-			log.Printf("Error downloading database from blob storage: %v", cerr)
+			slog.Error("Failed to download database from blob storage", "error", cerr)
 		}
 		_ = fd.Close()
 		nr, err = s.read()
 	}
 	if err != nil {
-		log.Println("Error reading database:", err)
+		slog.Error("Failed to read database", "error", err)
 	}
-	log.Printf("Read %d records from database", nr)
+	slog.Info("Loaded database", "records", nr)
 	s.expireAndCalculateStatistics()
 	return s
 }
@@ -153,13 +153,13 @@ loop:
 	for {
 		select {
 		case <-t.C:
-			log.Println("Calculating statistics")
+			slog.InfoContext(ctx, "Calculating statistics")
 			s.expireAndCalculateStatistics()
-			log.Println("Flushing database")
+			slog.InfoContext(ctx, "Flushing database")
 			if err := s.write(); err != nil {
-				log.Println("Error writing database:", err)
+				slog.ErrorContext(ctx, "Failed to write database", "error", err)
 			}
-			log.Println("Finished flushing database")
+			slog.InfoContext(ctx, "Finished flushing database")
 			t.Reset(s.flushInterval)
 
 		case <-ctx.Done():
@@ -310,18 +310,24 @@ func (s *inMemoryStore) write() (err error) {
 		return err
 	}
 
+	if info, err := os.Lstat(dbf); err == nil {
+		slog.Info("Saved database", "name", dbf, "size", info.Size(), "modtime", info.ModTime())
+	} else {
+		slog.Warn("Failed to stat database after save", "error", err)
+	}
+
 	// Upload to blob storage
 	if s.blobs != nil {
 		fd, err = os.Open(dbf)
 		if err != nil {
-			log.Printf("Error uploading database to blob storage: %v", err)
+			slog.Error("Failed to upload database to blob storage", "error", err)
 			return nil
 		}
 		defer fd.Close()
 		if err := s.blobs.Upload(context.Background(), s.objKey, fd); err != nil {
-			log.Printf("Error uploading database to blob storage: %v", err)
+			slog.Error("Failed to upload database to blob storage", "error", err)
 		}
-		log.Println("Finished uploading database")
+		slog.Info("Finished uploading database")
 	}
 
 	return nil
@@ -360,7 +366,7 @@ func (s *inMemoryStore) read() (int, error) {
 			key, err = protocol.DeviceIDFromString(string(rec.Key))
 		}
 		if err != nil {
-			log.Println("Bad device ID:", err)
+			slog.Error("Got bad device ID while reading database", "error", err)
 			continue
 		}
 
