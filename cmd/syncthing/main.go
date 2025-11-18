@@ -247,7 +247,7 @@ func helpHandler(options kong.HelpOptions, ctx *kong.Context) error {
 	}
 	if ctx.Command() == "serve" {
 		// Help was requested for `syncthing serve`, so we add our extra
-		// usage info afte the normal options output.
+		// usage info after the normal options output.
 		fmt.Printf(extraUsage, logPackages())
 	}
 	return nil
