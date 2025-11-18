@@ -19,6 +19,22 @@ import (
 	"github.com/urfave/cli"
 )
 
+// Try to mimic the kong output format through custom help templates
+var customAppHelpTemplate = `Usage: {{if .UsageText}}{{.UsageText}}{{else}}{{.HelpName}}{{if .Commands}} command [command options]{{end}} {{if .ArgsUsage}}{{.ArgsUsage}}{{else}}[arguments...]{{end}}{{end}}
+
+{{.Description}}{{if .VisibleFlags}}
+
+Flags:
+  {{range $index, $option := .VisibleFlags}}{{if $index}}
+  {{end}}{{$option}}{{end}}{{end}}{{if .VisibleCommands}}
+
+Commands:{{range .VisibleCategories}}{{if .Name}}
+
+  {{.Name}}:{{range .VisibleCommands}}
+    {{join .Names ", "}}{{"\t"}}{{.Usage}}{{end}}{{else}}{{range .VisibleCommands}}
+  {{join .Names ", "}}{{"\t"}}{{.Usage}}{{end}}{{end}}{{end}}{{end}}
+`
+
 type configHandler struct {
 	original, cfg config.Configuration
 	client        APIClient
@@ -37,6 +53,7 @@ func (c *configCommand) Run(ctx Context, outerCtx *kong.Context) error {
 	app.Metadata = map[string]interface{}{
 		"clientFactory": ctx.clientFactory,
 	}
+	app.CustomAppHelpTemplate = customAppHelpTemplate
 
 	h := new(configHandler)
 	h.client, h.err = ctx.clientFactory.getClient()
