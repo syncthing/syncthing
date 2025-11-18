@@ -29,11 +29,11 @@ type configCommand struct {
 	Args []string `arg:"" default:"-h"`
 }
 
-func (c *configCommand) Run(ctx Context, _ *kong.Context) error {
+func (c *configCommand) Run(ctx Context, outerCtx *kong.Context) error {
 	app := cli.NewApp()
-	app.Author = "The Syncthing Authors"
 	app.Name = "syncthing cli config"
 	app.HelpName = "syncthing cli config"
+	app.Description = outerCtx.Selected().Help
 	app.Metadata = map[string]interface{}{
 		"clientFactory": ctx.clientFactory,
 	}
