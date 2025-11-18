@@ -57,6 +57,8 @@ func (c *configCommand) Run(ctx Context, outerCtx *kong.Context) error {
 
 	app.Commands = commands
 	app.HideHelp = true
+	// Explicitly re-add help only as flags, not as commands
+	app.Flags = []cli.Flag{cli.HelpFlag}
 	app.Before = h.configBefore
 	app.After = h.configAfter
 
