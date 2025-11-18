@@ -35,6 +35,37 @@ Commands:{{range .VisibleCategories}}{{if .Name}}
   {{join .Names ", "}}{{"\t"}}{{.Usage}}{{end}}{{end}}{{end}}{{end}}
 `
 
+var customCommandHelpTemplate = `Usage: {{if .UsageText}}{{.UsageText}}{{else}}{{.HelpName}}{{if .VisibleFlags}} [command options]{{end}} {{if .ArgsUsage}}{{.ArgsUsage}}{{else}}[arguments...]{{end}}{{end}}
+
+{{.Usage}}{{if .VisibleFlags}}
+
+Flags:
+  {{range $index, $option := .VisibleFlags}}{{if $index}}
+  {{end}}{{$option}}{{end}}{{end}}{{if .Category}}
+
+Category:
+  {{.Category}}{{end}}{{if .Description}}
+
+{{.Description}}{{end}}
+`
+
+var customSubcommandHelpTemplate = `Usage: {{if .UsageText}}{{.UsageText}}{{else}}{{.HelpName}} command{{if .VisibleFlags}} [command options]{{end}} {{if .ArgsUsage}}{{.ArgsUsage}}{{else}}[arguments...]{{end}}{{end}}{{if .Description}}
+
+{{.Description}}{{else}}{{if .Usage}}
+
+{{.Usage}}{{end}}{{end}}{{if .VisibleFlags}}
+
+Flags:
+  {{range $index, $option := .VisibleFlags}}{{if $index}}
+  {{end}}{{$option}}{{end}}{{end}}{{if .VisibleCommands}}
+
+Commands:{{range .VisibleCategories}}{{if .Name}}
+
+  {{.Name}}:{{range .VisibleCommands}}
+    {{join .Names ", "}}{{"\t"}}{{.Usage}}{{end}}{{else}}{{range .VisibleCommands}}
+  {{join .Names ", "}}{{"\t"}}{{.Usage}}{{end}}{{end}}{{end}}{{end}}
+`
+
 type configHandler struct {
 	original, cfg config.Configuration
 	client        APIClient
@@ -54,6 +85,8 @@ func (c *configCommand) Run(ctx Context, outerCtx *kong.Context) error {
 		"clientFactory": ctx.clientFactory,
 	}
 	app.CustomAppHelpTemplate = customAppHelpTemplate
+	cli.CommandHelpTemplate = customCommandHelpTemplate       //FIXME bad behavior
+	cli.SubcommandHelpTemplate = customSubcommandHelpTemplate //FIXME bad behavior
 
 	h := new(configHandler)
 	h.client, h.err = ctx.clientFactory.getClient()
