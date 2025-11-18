@@ -31,8 +31,9 @@ type configCommand struct {
 
 func (c *configCommand) Run(ctx Context, _ *kong.Context) error {
 	app := cli.NewApp()
-	app.Name = "syncthing"
 	app.Author = "The Syncthing Authors"
+	app.Name = "syncthing cli config"
+	app.HelpName = "syncthing cli config"
 	app.Metadata = map[string]interface{}{
 		"clientFactory": ctx.clientFactory,
 	}
