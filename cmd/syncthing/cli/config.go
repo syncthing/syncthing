@@ -85,8 +85,9 @@ func (c *configCommand) Run(ctx Context, outerCtx *kong.Context) error {
 		"clientFactory": ctx.clientFactory,
 	}
 	app.CustomAppHelpTemplate = customAppHelpTemplate
-	cli.CommandHelpTemplate = customCommandHelpTemplate       //FIXME bad behavior
-	cli.SubcommandHelpTemplate = customSubcommandHelpTemplate //FIXME bad behavior
+	// Override global templates, as this is out only usage of the package
+	cli.CommandHelpTemplate = customCommandHelpTemplate
+	cli.SubcommandHelpTemplate = customSubcommandHelpTemplate
 
 	h := new(configHandler)
 	h.client, h.err = ctx.clientFactory.getClient()
