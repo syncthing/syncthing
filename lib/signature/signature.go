@@ -174,7 +174,7 @@ type signature struct {
 	R, S *big.Int
 }
 
-// marhalSignature returns ASN.1 encoded bytes for the given integers,
+// marshalSignature returns ASN.1 encoded bytes for the given integers,
 // suitable for PEM encoding.
 func marshalSignature(r, s *big.Int) ([]byte, error) {
 	sig := signature{

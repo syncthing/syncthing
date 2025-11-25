@@ -378,7 +378,7 @@ func (a *aggregator) notify(oldEvents map[string]*aggregatedEvent, out chan<- []
 	}
 }
 
-// popOldEvents finds events that should be scheduled for scanning recursively in dirs,
+// popOldEventsTo finds events that should be scheduled for scanning recursively in dirs,
 // removes those events and empty eventDirs and returns a map with all the removed
 // events referenced by their filesystem path
 func (a *aggregator) popOldEventsTo(to map[string]*aggregatedEvent, dir *eventDir, dirPath string, currTime time.Time, delayRem bool) {

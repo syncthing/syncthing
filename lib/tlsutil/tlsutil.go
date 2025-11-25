@@ -58,7 +58,7 @@ var (
 	}
 )
 
-// SecureDefault returns a tls.Config with reasonable, secure defaults set.
+// SecureDefaultTLS13 returns a tls.Config with reasonable, secure defaults set.
 // This variant allows only TLS 1.3.
 func SecureDefaultTLS13() *tls.Config {
 	return &tls.Config{
