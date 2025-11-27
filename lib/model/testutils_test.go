@@ -85,10 +85,7 @@ func init() {
 }
 
 func newConfigWrapper(cfg config.Configuration) (config.Wrapper, context.CancelFunc) {
-	wrapper := config.Wrap("", cfg, myID, events.NoopLogger)
-	ctx, cancel := context.WithCancel(context.Background())
-	go wrapper.Serve(ctx)
-	return wrapper, cancel
+	return newConfigWrapperFromContext(context.Background(), cfg)
 }
 
 func newDefaultCfgWrapper(t testing.TB) (config.Wrapper, config.FolderConfiguration) {
