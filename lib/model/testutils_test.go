@@ -85,19 +85,24 @@ func init() {
 }
 
 func newConfigWrapper(cfg config.Configuration) (config.Wrapper, context.CancelFunc) {
-	wrapper := config.Wrap("", cfg, myID, events.NoopLogger)
-	ctx, cancel := context.WithCancel(context.Background())
-	go wrapper.Serve(ctx)
-	return wrapper, cancel
+	return newConfigWrapperFromContext(context.Background(), cfg)
 }
 
-func newDefaultCfgWrapper() (config.Wrapper, config.FolderConfiguration, context.CancelFunc) {
-	w, cancel := newConfigWrapper(defaultCfgWrapper.RawCopy())
+func newDefaultCfgWrapper(t testing.TB) (config.Wrapper, config.FolderConfiguration) {
+	w, cancel := newConfigWrapperFromContext(t.Context(), defaultCfgWrapper.RawCopy())
+	t.Cleanup(cancel)
 	fcfg := newFolderConfig()
 	_, _ = w.Modify(func(cfg *config.Configuration) {
 		cfg.SetFolder(fcfg)
 	})
-	return w, fcfg, cancel
+	return w, fcfg
+}
+
+func newConfigWrapperFromContext(ctx context.Context, cfg config.Configuration) (config.Wrapper, context.CancelFunc) {
+	wrapper := config.Wrap("", cfg, myID, events.NoopLogger)
+	ctx, cancel := context.WithCancel(ctx)
+	go wrapper.Serve(ctx)
+	return wrapper, cancel
 }
 
 func newFolderConfig() config.FolderConfiguration {
@@ -108,11 +113,11 @@ func newFolderConfig() config.FolderConfiguration {
 	return cfg
 }
 
-func setupModelWithConnection(t testing.TB) (*testModel, *fakeConnection, config.FolderConfiguration, context.CancelFunc) {
+func setupModelWithConnection(t testing.TB) (*testModel, *fakeConnection, config.FolderConfiguration) {
 	t.Helper()
-	w, fcfg, cancel := newDefaultCfgWrapper()
+	w, fcfg := newDefaultCfgWrapper(t)
 	m, fc := setupModelWithConnectionFromWrapper(t, w)
-	return m, fc, fcfg, cancel
+	return m, fc, fcfg
 }
 
 func setupModelWithConnectionFromWrapper(t testing.TB, w config.Wrapper) (*testModel, *fakeConnection) {
@@ -157,7 +162,7 @@ func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, protectedF
 		mdb.Close()
 	})
 	m := NewModel(cfg, id, mdb, protectedFiles, evLogger, protocol.NewKeyGenerator()).(*model)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	go evLogger.Serve(ctx)
 	return &testModel{
 		model:    m,
