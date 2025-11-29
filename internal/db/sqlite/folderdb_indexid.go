@@ -88,7 +88,6 @@ func (s *folderDB) DropAllIndexIDs() error {
 	return wrap(err)
 }
 
-
 func (s *folderDB) dropIndexIDLocked(device protocol.DeviceID) error {
 	deviceIdx, err := s.deviceIdxLocked(device)
 	if err != nil {
