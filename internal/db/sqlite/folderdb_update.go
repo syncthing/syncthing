@@ -254,7 +254,12 @@ func (s *folderDB) DropAllFiles(device protocol.DeviceID) error {
 	if err := s.recalcGlobalForFolder(txp); err != nil {
 		return wrap(err)
 	}
-	return wrap(tx.Commit())
+
+	if err := tx.Commit(); err != nil {
+		return wrap(err)
+	}
+
+	return wrap(s.dropIndexIDLocked(device))
 }
 
 func (s *folderDB) DropFilesNamed(device protocol.DeviceID, names []string) error {

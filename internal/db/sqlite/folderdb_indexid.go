@@ -88,6 +88,17 @@ func (s *folderDB) DropAllIndexIDs() error {
 	return wrap(err)
 }
 
+
+func (s *folderDB) dropIndexIDLocked(device protocol.DeviceID) error {
+	deviceIdx, err := s.deviceIdxLocked(device)
+	if err != nil {
+		return wrap(err)
+	}
+
+	_, err = s.stmt(`DELETE FROM indexids WHERE device_idx = ?`).Exec(deviceIdx)
+	return wrap(err)
+}
+
 func (s *folderDB) GetDeviceSequence(device protocol.DeviceID) (int64, error) {
 	var res sql.NullInt64
 	err := s.stmt(`
