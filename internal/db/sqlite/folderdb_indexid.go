@@ -88,11 +88,6 @@ func (s *folderDB) DropAllIndexIDs() error {
 	return wrap(err)
 }
 
-func (s *folderDB) dropIndexIDLocked(txp *txPreparedStmts, deviceIdx int64) error {
-	_, err := txp.Exec(`DELETE FROM indexids WHERE device_idx = ?`, deviceIdx)
-	return wrap(err)
-}
-
 func (s *folderDB) GetDeviceSequence(device protocol.DeviceID) (int64, error) {
 	var res sql.NullInt64
 	err := s.stmt(`

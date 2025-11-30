@@ -249,11 +249,11 @@ func (s *folderDB) DropAllFiles(device protocol.DeviceID) error {
 		return wrap(tx.Commit())
 	}
 
-	// Recalc global for the entire folder
-
-	if err := s.dropIndexIDLocked(txp, deviceIdx); err != nil {
+	if _, err := tx.Exec(`DELETE FROM indexids WHERE device_idx = ?`, deviceIdx); err != nil {
 		return wrap(err)
 	}
+
+	// Recalc global for the entire folder
 
 	if err := s.recalcGlobalForFolder(txp); err != nil {
 		return wrap(err)
