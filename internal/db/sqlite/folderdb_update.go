@@ -251,6 +251,10 @@ func (s *folderDB) DropAllFiles(device protocol.DeviceID) error {
 
 	// Recalc global for the entire folder
 
+	if err := s.dropIndexIDLocked(txp, deviceIdx); err != nil {
+		return wrap(err)
+	}
+
 	if err := s.recalcGlobalForFolder(txp); err != nil {
 		return wrap(err)
 	}
