@@ -45,6 +45,7 @@ type DB interface {
 
 	// Cleanup
 	DropAllFiles(folder string, device protocol.DeviceID) error
+	DropFolderDevice(folder string, device protocol.DeviceID) error
 	DropDevice(device protocol.DeviceID) error
 	DropFilesNamed(folder string, device protocol.DeviceID, names []string) error
 	DropFolder(folder string) error
