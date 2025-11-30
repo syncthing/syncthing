@@ -88,13 +88,8 @@ func (s *folderDB) DropAllIndexIDs() error {
 	return wrap(err)
 }
 
-func (s *folderDB) dropIndexIDLocked(device protocol.DeviceID) error {
-	deviceIdx, err := s.deviceIdxLocked(device)
-	if err != nil {
-		return wrap(err)
-	}
-
-	_, err = s.stmt(`DELETE FROM indexids WHERE device_idx = ?`).Exec(deviceIdx)
+func (s *folderDB) dropIndexIDLocked(txp *txPreparedStmts, deviceIdx int64) error {
+	_, err := txp.Exec(`DELETE FROM indexids WHERE device_idx = ?`, deviceIdx)
 	return wrap(err)
 }
 
