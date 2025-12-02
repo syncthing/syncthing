@@ -232,7 +232,7 @@ func (s *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
 	return fdb.DropAllFiles(device)
 }
 
-func (s *DB) DropfolderDevice(folder string, device protocol.DeviceID) error {
+func (s *DB) DropFolderDevice(folder string, device protocol.DeviceID) error {
 	fdb, err := s.getFolderDB(folder, false)
 	if errors.Is(err, errNoSuchFolder) {
 		return nil
