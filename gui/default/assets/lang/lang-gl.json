@@ -180,7 +180,7 @@
     "For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.": "Houbo un erro nos seguintes cartafois ao comezar a comprobar os cambios. Vaise reintentar cada minutos, polo que os erros pronto poderían desaparecer. Se persisten, intente solucionar o problema de base e pida axuda se non pode arranxalo.",
     "Forever": "Para sempre",
     "Full Rescan Interval (s)": "Intervalo de Escaneamento Completo (s)",
-    "GUI": "GUI",
+    "GUI": "Interface",
     "GUI / API HTTPS Certificate": "Certificado HTTPS GUI/API",
     "GUI Authentication Password": "Contrasinal de Autenticación da GUI",
     "GUI Authentication User": "Usuario de Autenticación da GUI",
@@ -277,7 +277,7 @@
     "OK": "OK",
     "Off": "Non activo",
     "Oldest First": "Máis Vellos Primeiro",
-    "Optional descriptive label for the folder. Can be different on each device.": "Etiqueta descritiva opcional para o cartafol. Pode ser distinta en cada dispositivo",
+    "Optional descriptive label for the folder. Can be different on each device.": "Etiqueta descritiva optativa para o cartafol. Pode ser distinta en cada dispositivo.",
     "Options": "Opcións",
     "Out of Sync": "Sen sincronizar",
     "Out of Sync Items": "Elementos sen sincronizar",
@@ -553,7 +553,7 @@
         }
     },
     "unknown device": "dispositivo descoñecido",
-    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} quere compartir o cartafol \"{{cartafol}}\".",
+    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} quere compartir o cartafol \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} quere compartir o cartafol \"{{folderlabel}}\" ({{folder}}).",
     "{%reintroducer%} might reintroduce this device.": "{{reintroducer}} quere volver a presentar este dispositivo."
 }
