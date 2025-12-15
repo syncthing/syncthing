@@ -48,7 +48,6 @@ type localClient struct {
 }
 
 const (
-	BroadcastInterval = 30 * time.Second
 	CacheLifeTime     = 3 * BroadcastInterval
 	Magic             = uint32(0x2EA7D90B) // same as in BEP
 	v13Magic          = uint32(0x7D79BC40) // previous version
