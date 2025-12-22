@@ -197,7 +197,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-windows-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-windows-${{ hashFiles('go.sum') }}
 
       - name: Install dependencies
         run: |
@@ -306,7 +306,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('go.sum') }}
 
       - name: Create packages
         run: |
@@ -401,7 +401,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('go.sum') }}
 
       - name: Import signing certificate
         if: env.CODESIGN_IDENTITY != ''
@@ -529,7 +529,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-cross-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-cross-${{ hashFiles('go.sum') }}
 
       - name: Create packages
         run: |
@@ -736,7 +736,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-debian-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-debian-${{ hashFiles('go.sum') }}
 
       - name: Package for Debian (CGO)
         run: |
@@ -1018,21 +1018,23 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-docker-${{ matrix.pkg }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-docker-${{ matrix.pkg }}-${{ hashFiles('go.sum') }}
 
       - name: Build binaries (CGO)
         run: |
+          mkdir bin
+
           # amd64
           go run build.go -goos linux -goarch amd64 -tags "${{env.TAGS_LINUX}}" -cc "zig cc -target x86_64-linux-musl" -no-upgrade build ${{ matrix.pkg }}
-          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-amd64
+          mv ${{ matrix.pkg }} bin/${{ matrix.pkg }}-linux-amd64
 
           # arm64
           go run build.go -goos linux -goarch arm64 -tags "${{env.TAGS_LINUX}}" -cc "zig cc -target aarch64-linux-musl" -no-upgrade build ${{ matrix.pkg }}
-          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm64
+          mv ${{ matrix.pkg }} bin/${{ matrix.pkg }}-linux-arm64
 
           # arm
           go run build.go -goos linux -goarch arm -tags "${{env.TAGS_LINUX}}" -cc "zig cc -target arm-linux-musleabi -mcpu=arm1136j_s" -no-upgrade build ${{ matrix.pkg }}
-          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm
+          mv ${{ matrix.pkg }} bin/${{ matrix.pkg }}-linux-arm
         env:
           CGO_ENABLED: "1"
           BUILD_USER: docker
@@ -1074,10 +1076,15 @@ jobs:
           echo Pushing to $tags
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
 
+      - name: Prepare context dir
+        run: |
+          mkdir ctx
+          mv bin/* script ctx
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ctx
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64,linux/arm/7
           tags: ${{ env.DOCKER_TAGS }}
