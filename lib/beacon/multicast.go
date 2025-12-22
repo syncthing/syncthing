@@ -11,6 +11,7 @@ import (
 	"errors"
 	"log/slog"
 	"net"
+	"runtime"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/netutil"
@@ -74,6 +75,11 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 				continue
 			}
 
+			if runtime.GOOS == "android" && intf.Flags&net.FlagPointToPoint != 0 {
+				// skip  cellular interfaces
+				continue
+			}
+
 			wcm.IfIndex = intf.Index
 			pconn.SetWriteDeadline(time.Now().Add(time.Second))
 			_, err = pconn.WriteTo(bs, wcm, gaddr)
@@ -130,6 +136,11 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 	joined := 0
 	for _, intf := range intfs {
 		if intf.Flags&net.FlagRunning == 0 || intf.Flags&net.FlagMulticast == 0 {
+			continue
+		}
+
+		if runtime.GOOS == "android" && intf.Flags&net.FlagPointToPoint != 0 {
+			// skip  cellular interfaces
 			continue
 		}
 
