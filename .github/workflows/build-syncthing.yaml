@@ -1079,7 +1079,7 @@ jobs:
       - name: Prepare context dir
         run: |
           mkdir ctx
-          mv bin script ctx
+          mv bin/* script ctx
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
