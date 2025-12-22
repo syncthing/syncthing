@@ -197,7 +197,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-windows-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-windows-${{ hashFiles('go.sum') }}
 
       - name: Install dependencies
         run: |
@@ -306,7 +306,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('go.sum') }}
 
       - name: Create packages
         run: |
@@ -401,7 +401,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('go.sum') }}
 
       - name: Import signing certificate
         if: env.CODESIGN_IDENTITY != ''
@@ -529,7 +529,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-cross-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-cross-${{ hashFiles('go.sum') }}
 
       - name: Create packages
         run: |
@@ -736,7 +736,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-debian-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-debian-${{ hashFiles('go.sum') }}
 
       - name: Package for Debian (CGO)
         run: |
@@ -1018,7 +1018,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-docker-${{ matrix.pkg }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-docker-${{ matrix.pkg }}-${{ hashFiles('go.sum') }}
 
       - name: Build binaries (CGO)
         run: |
