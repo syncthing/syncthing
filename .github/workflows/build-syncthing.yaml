@@ -1022,17 +1022,19 @@ jobs:
 
       - name: Build binaries (CGO)
         run: |
+          mkdir bin
+
           # amd64
           go run build.go -goos linux -goarch amd64 -tags "${{env.TAGS_LINUX}}" -cc "zig cc -target x86_64-linux-musl" -no-upgrade build ${{ matrix.pkg }}
-          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-amd64
+          mv ${{ matrix.pkg }} bin/${{ matrix.pkg }}-linux-amd64
 
           # arm64
           go run build.go -goos linux -goarch arm64 -tags "${{env.TAGS_LINUX}}" -cc "zig cc -target aarch64-linux-musl" -no-upgrade build ${{ matrix.pkg }}
-          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm64
+          mv ${{ matrix.pkg }} bin/${{ matrix.pkg }}-linux-arm64
 
           # arm
           go run build.go -goos linux -goarch arm -tags "${{env.TAGS_LINUX}}" -cc "zig cc -target arm-linux-musleabi -mcpu=arm1136j_s" -no-upgrade build ${{ matrix.pkg }}
-          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm
+          mv ${{ matrix.pkg }} bin/${{ matrix.pkg }}-linux-arm
         env:
           CGO_ENABLED: "1"
           BUILD_USER: docker
@@ -1074,10 +1076,15 @@ jobs:
           echo Pushing to $tags
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
 
+      - name: Prepare context dir
+        run: |
+          mkdir ctx
+          mv bin script ctx
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ctx
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64,linux/arm/7
           tags: ${{ env.DOCKER_TAGS }}
