@@ -75,6 +75,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 				if iaddr, ok := addr.(*net.IPNet); ok && len(iaddr.IP) >= 4 && iaddr.IP.IsGlobalUnicast() && iaddr.IP.To4() != nil {
 					baddr := bcast(iaddr)
 					dsts = append(dsts, baddr.IP)
+					slog.Debug("Added broadcast address", slogutil.Address(baddr), "intf", intf.Name, slog.String("intf_flags", intf.Flags.String()))
 				}
 			}
 		}
@@ -83,8 +84,6 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 			// Fall back to the general IPv4 broadcast address
 			dsts = append(dsts, net.IP{0xff, 0xff, 0xff, 0xff})
 		}
-
-		l.Debugln("addresses:", dsts)
 
 		success := 0
 		for _, ip := range dsts {

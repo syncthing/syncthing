@@ -129,6 +129,11 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 	pconn := ipv6.NewPacketConn(conn)
 	joined := 0
 	for _, intf := range intfs {
+		if intf.Flags&net.FlagMulticast == 0 {
+			slog.DebugContext(ctx, "Not joining multicast group on non-multicast interface", "name", intf.Name, slog.String("flags", intf.Flags.String()))
+			continue
+		}
+
 		err := pconn.JoinGroup(&intf, &net.UDPAddr{IP: gaddr.IP})
 		if err != nil {
 			l.Debugln("IPv6 join", intf.Name, "failed:", err)
