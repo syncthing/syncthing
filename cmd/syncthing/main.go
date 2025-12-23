@@ -156,7 +156,8 @@ type serveCmd struct {
 	Audit                     bool          `help:"Write events to audit file" env:"STAUDIT"`
 	AuditFile                 string        `name:"auditfile" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)" placeholder:"PATH" env:"STAUDITFILE"`
 	DBMaintenanceInterval     time.Duration `help:"Database maintenance interval" default:"8h" env:"STDBMAINTENANCEINTERVAL"`
-	DBDeleteRetentionInterval time.Duration `help:"Database deleted item retention interval" default:"10920h" env:"STDBDELETERETENTIONINTERVAL"`
+	DBDeleteRetentionInterval time.Duration `help:"Database deleted item retention interval" default:"${deleteRetention}" env:"STDBDELETERETENTIONINTERVAL"`
+	DBBlocksShardingThreshold int           `help:"Block count to trigger next sharding level" default:"${shardingThreshold}" env:"STDBBLOCKSSHARDINGTHRESHOLD"`
 	GUIAddress                string        `name:"gui-address" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")" placeholder:"URL" env:"STGUIADDRESS"`
 	GUIAPIKey                 string        `name:"gui-apikey" help:"Override GUI API key" placeholder:"API-KEY" env:"STGUIAPIKEY"`
 	LogFile                   string        `name:"log-file" aliases:"logfile" help:"Log file name (see below)" default:"${logFile}" placeholder:"PATH" env:"STLOGFILE"`
@@ -190,11 +191,13 @@ type serveCmd struct {
 
 func defaultVars() kong.Vars {
 	vars := kong.Vars{
-		"logMaxSize":      strconv.Itoa(10 << 20), // 10 MiB
-		"logMaxFiles":     "3",                    // plus the current one
-		"levelString":     strconv.FormatBool(slogutil.DefaultLineFormat.LevelString),
-		"levelSyslog":     strconv.FormatBool(slogutil.DefaultLineFormat.LevelSyslog),
-		"timestampFormat": slogutil.DefaultLineFormat.TimestampFormat,
+		"logMaxSize":        strconv.Itoa(10 << 20), // 10 MiB
+		"logMaxFiles":       "3",                    // plus the current one
+		"levelString":       strconv.FormatBool(slogutil.DefaultLineFormat.LevelString),
+		"levelSyslog":       strconv.FormatBool(slogutil.DefaultLineFormat.LevelSyslog),
+		"timestampFormat":   slogutil.DefaultLineFormat.TimestampFormat,
+		"deleteRetention":   sqlite.DefaultDeleteRetention.String(),
+		"shardingThreshold": strconv.Itoa(sqlite.DefaultShardingThreshold),
 	}
 
 	// On non-Windows, we explicitly default to "-" which means stdout. On
@@ -504,12 +507,12 @@ func (c *serveCmd) syncthingMain() {
 		go api.Serve(migratingAPICtx)
 	}
 
-	if err := syncthing.TryMigrateDatabase(ctx, c.DBDeleteRetentionInterval); err != nil {
+	if err := syncthing.TryMigrateDatabase(ctx, c.DBDeleteRetentionInterval, c.DBBlocksShardingThreshold); err != nil {
 		slog.Error("Failed to migrate old-style database", slogutil.Error(err))
 		os.Exit(1)
 	}
 
-	sdb, err := syncthing.OpenDatabase(locations.Get(locations.Database), c.DBDeleteRetentionInterval)
+	sdb, err := syncthing.OpenDatabase(locations.Get(locations.Database), c.DBDeleteRetentionInterval, c.DBBlocksShardingThreshold)
 	if err != nil {
 		slog.Error("Error opening database", slogutil.Error(err))
 		os.Exit(1)
