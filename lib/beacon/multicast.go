@@ -11,9 +11,9 @@ import (
 	"errors"
 	"log/slog"
 	"net"
-	"runtime"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/netutil"
 
 	"golang.org/x/net/ipv6"
@@ -75,7 +75,7 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 				continue
 			}
 
-			if runtime.GOOS == "android" && intf.Flags&net.FlagPointToPoint != 0 {
+			if build.IsAndroid && intf.Flags&net.FlagPointToPoint != 0 {
 				// skip  cellular interfaces
 				continue
 			}
@@ -139,7 +139,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 			continue
 		}
 
-		if runtime.GOOS == "android" && intf.Flags&net.FlagPointToPoint != 0 {
+		if build.IsAndroid && intf.Flags&net.FlagPointToPoint != 0 {
 			// skip  cellular interfaces
 			continue
 		}

@@ -11,10 +11,10 @@ import (
 	"errors"
 	"log/slog"
 	"net"
-	"runtime"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/slogutil"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/netutil"
 )
 
@@ -65,7 +65,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 				continue
 			}
 
-			if runtime.GOOS == "android" && intf.Flags&net.FlagPointToPoint != 0 {
+			if build.IsAndroid && intf.Flags&net.FlagPointToPoint != 0 {
 				// skip  cellular interfaces
 				continue
 			}
