@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/internal/slogutil"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/netutil"
 )
 
@@ -61,6 +62,11 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 			intf := intfs[i]
 
 			if intf.Flags&net.FlagRunning == 0 || intf.Flags&net.FlagBroadcast == 0 {
+				continue
+			}
+
+			if build.IsAndroid && intf.Flags&net.FlagPointToPoint != 0 {
+				// skip  cellular interfaces
 				continue
 			}
 
