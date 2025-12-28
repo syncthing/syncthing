@@ -203,7 +203,7 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 }
 
 func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Type", "application/json")
 	// Marshalling might fail, in which case we should return a 500 with the
 	// actual error.
 	bs, err := json.MarshalIndent(jsonObject, "", "  ")
