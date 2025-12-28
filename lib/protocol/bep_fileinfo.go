@@ -200,7 +200,7 @@ func (f *FileInfo) InConflictWith(previous FileInfo) bool {
 		return false
 	}
 
-	if len(f.PreviousBlocksHash) == 0 || len(f.BlocksHash) == 0 {
+	if len(f.PreviousBlocksHash) == 0 || len(previous.BlocksHash) == 0 {
 		// Don't have data to make a content determination, or the type has
 		// changed (file to directory, etc). Consider it a conflict.
 		return true
