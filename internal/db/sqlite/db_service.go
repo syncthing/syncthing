@@ -19,7 +19,6 @@ import (
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/thejerf/suture/v4"
 )
 
 const (
@@ -32,7 +31,7 @@ const (
 	gcMaxRuntime = 5 * time.Minute // max time to spend on gc, per table, per run
 )
 
-func (s *DB) Service(maintenanceInterval time.Duration) suture.Service {
+func (s *DB) Service(maintenanceInterval time.Duration) db.DBService {
 	return newService(s, maintenanceInterval)
 }
 
@@ -40,6 +39,7 @@ type Service struct {
 	sdb                 *DB
 	maintenanceInterval time.Duration
 	internalMeta        *db.Typed
+	start               chan struct{}
 }
 
 func (s *Service) String() string {
@@ -51,36 +51,50 @@ func newService(sdb *DB, maintenanceInterval time.Duration) *Service {
 		sdb:                 sdb,
 		maintenanceInterval: maintenanceInterval,
 		internalMeta:        db.NewTyped(sdb, internalMetaPrefix),
+		start:               make(chan struct{}),
 	}
+}
+
+func (s *Service) StartMaintenance() {
+	s.start <- struct{}{}
 }
 
 func (s *Service) Serve(ctx context.Context) error {
 	// Run periodic maintenance
 
-	// Figure out when we last ran maintenance and schedule accordingly. If
-	// it was never, do it now.
-	lastMaint, _, _ := s.internalMeta.Time(lastMaintKey)
-	nextMaint := lastMaint.Add(s.maintenanceInterval)
-	wait := time.Until(nextMaint)
-	if wait < 0 {
-		wait = time.Minute
+	var timer *time.Timer
+	var timerChannel <-chan time.Time
+	if s.maintenanceInterval != 0 {
+		// Figure out when we last ran maintenance and schedule accordingly. If
+		// it was never, do it now.
+		lastMaint, _, _ := s.internalMeta.Time(lastMaintKey)
+		nextMaint := lastMaint.Add(s.maintenanceInterval)
+		wait := time.Until(nextMaint)
+		if wait < 0 {
+			wait = time.Minute
+		}
+		slog.DebugContext(ctx, "Next periodic run due", "after", wait)
+		timer = time.NewTimer(wait)
+		timerChannel = timer.C
 	}
-	slog.DebugContext(ctx, "Next periodic run due", "after", wait)
 
-	timer := time.NewTimer(wait)
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-timer.C:
+		case <-timerChannel:
+		case <-s.start:
 		}
 
 		if err := s.periodic(ctx); err != nil {
 			return wrap(err)
 		}
 
-		timer.Reset(s.maintenanceInterval)
-		slog.DebugContext(ctx, "Next periodic run due", "after", s.maintenanceInterval)
+		if timer != nil {
+			timer.Reset(s.maintenanceInterval)
+			slog.DebugContext(ctx, "Next periodic run due", "after", s.maintenanceInterval)
+		}
+
 		_ = s.internalMeta.PutTime(lastMaintKey, time.Now())
 	}
 }
