@@ -749,6 +749,10 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 		}
 		sub.Unsubscribe()
 		slog.Error("Automatically upgraded, restarting in 1 minute", slog.String("newVersion", rel.Tag))
+		evLogger.Log(events.UpgradeStarted, map[string]string{
+			"from": build.Version,
+			"to":   rel.Tag,
+		})
 		time.Sleep(time.Minute)
 		app.Stop(svcutil.ExitUpgrade)
 		return

@@ -222,6 +222,12 @@ angular.module('syncthing.core')
             }
         });
 
+        $scope.$on(Events.UPGRADE_STARTED, function (event, arg) {
+            console.log('UpgradeStarted', arg);
+            restarting = true;
+            showModal('#restarting');
+        });
+
         $scope.$on('HTTPError', function (event, arg) {
             // Emitted when a HTTP call fails. We use the status code to try
             // to figure out what's wrong.
