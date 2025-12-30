@@ -70,6 +70,7 @@ angular.module('syncthing.core')
         $scope.failed = {};
         $scope.localChanged = {};
         $scope.scanProgress = {};
+        $scope.syncNeedBytesAtStart = {};
         $scope.themes = [];
         $scope.globalChangeEvents = {};
         $scope.metricRates = false;
@@ -268,6 +269,20 @@ angular.module('syncthing.core')
                 if (data.from === 'scanning' && data.to === 'idle') {
                     refreshFolderStats();
                 }
+
+                // If a folder has started syncing, capture the initial needBytes
+                // to calculate progress relative to files being synced.
+                if (data.to === 'syncing' || data.to === 'sync-preparing') {
+                    var needBytes = $scope.model[data.folder].needBytes;
+                    if (needBytes > 0) {
+                        $scope.syncNeedBytesAtStart[data.folder] = needBytes;
+                    }
+                }
+
+                // If a folder finished syncing, clear the initial needBytes.
+                if ((data.from === 'syncing' || data.from === 'sync-preparing') && data.to !== 'syncing' && data.to !== 'sync-preparing') {
+                    delete $scope.syncNeedBytesAtStart[data.folder];
+                }
             }
         });
 
@@ -445,6 +460,16 @@ angular.module('syncthing.core')
             var data = arg.data;
             $scope.model[data.folder] = data.summary;
             recalcLocalStateTotal();
+
+            // If the folder is syncing and we don't have initial needBytes stored yet,
+            // capture it now. This handles the case where FOLDER_SUMMARY arrives before
+            // or at the same time as STATE_CHANGED.
+            var state = data.summary.state;
+            if ((state === 'syncing' || state === 'sync-preparing') &&
+                !$scope.syncNeedBytesAtStart[data.folder] &&
+                data.summary.needBytes > 0) {
+                $scope.syncNeedBytesAtStart[data.folder] = data.summary.needBytes;
+            }
         });
 
         $scope.$on(Events.FOLDER_COMPLETION, function (event, arg) {
@@ -1050,6 +1075,15 @@ angular.module('syncthing.core')
                 // Do the same thing in case we only have zero byte files to sync.
                 return 95;
             }
+            // Calculate progress proportional to changing files instead of whole dataset.
+            // Uses the needBytes captured at sync start as the total, and shows how much
+            // of that has been completed.
+            var needBytesAtStart = $scope.syncNeedBytesAtStart[folder];
+            if (needBytesAtStart && needBytesAtStart > 0) {
+                var bytesCompleted = needBytesAtStart - $scope.model[folder].needBytes;
+                return progressIntegerPercentage(bytesCompleted, needBytesAtStart);
+            }
+            // Fallback to the old calculation if we don't have the initial needBytes
             return progressIntegerPercentage($scope.model[folder].inSyncBytes, $scope.model[folder].globalBytes);
         };
 
