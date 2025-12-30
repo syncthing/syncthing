@@ -1,4 +1,4 @@
-<configuration version="34">
+<configuration version="52">
     <options>
         <listenAddress>tcp://:23000</listenAddress>
         <allowDelete>false</allowDelete>
@@ -11,6 +11,7 @@
         <maxSendKbps>1234</maxSendKbps>
         <maxRecvKbps>2341</maxRecvKbps>
         <reconnectionIntervalS>6000</reconnectionIntervalS>
+        <quicReconnectionIntervalS>300</quicReconnectionIntervalS>
         <relaysEnabled>false</relaysEnabled>
         <relayReconnectIntervalM>20</relayReconnectIntervalM>
         <relayWithoutGlobalAnn>true</relayWithoutGlobalAnn>

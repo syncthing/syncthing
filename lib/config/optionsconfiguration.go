@@ -29,6 +29,7 @@ type OptionsConfiguration struct {
 	MaxSendKbps                 int      `json:"maxSendKbps" xml:"maxSendKbps"`
 	MaxRecvKbps                 int      `json:"maxRecvKbps" xml:"maxRecvKbps"`
 	ReconnectIntervalS          int      `json:"reconnectionIntervalS" xml:"reconnectionIntervalS" default:"60"`
+	QuicReconnectIntervalS      int      `json:"quicReconnectionIntervalS" xml:"quicReconnectionIntervalS" default:"20"`
 	RelaysEnabled               bool     `json:"relaysEnabled" xml:"relaysEnabled" default:"true"`
 	RelayReconnectIntervalM     int      `json:"relayReconnectIntervalM" xml:"relayReconnectIntervalM" default:"10"`
 	StartBrowser                bool     `json:"startBrowser" xml:"startBrowser" default:"true"`
@@ -114,6 +115,9 @@ func (opts *OptionsConfiguration) prepare(guiPWIsSet bool) {
 	// Very short reconnection intervals are annoying
 	if opts.ReconnectIntervalS < 5 {
 		opts.ReconnectIntervalS = 5
+	}
+	if opts.QuicReconnectIntervalS < 5 {
+		opts.QuicReconnectIntervalS = 5
 	}
 
 	if guiPWIsSet && len(opts.UnackedNotificationIDs) > 0 {

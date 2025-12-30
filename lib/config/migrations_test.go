@@ -34,3 +34,25 @@ func TestMigrateCrashReporting(t *testing.T) {
 		}
 	}
 }
+
+func TestMigrateQuicReconnectInterval(t *testing.T) {
+	cases := []struct {
+		tcpInterval          int
+		expectedQuicInterval int
+	}{
+		{tcpInterval: 60, expectedQuicInterval: 20},
+		{tcpInterval: 120, expectedQuicInterval: 40},
+		{tcpInterval: 25, expectedQuicInterval: 10},
+		{tcpInterval: 5, expectedQuicInterval: 10},
+	}
+
+	for i, tc := range cases {
+		cfg := Configuration{Version: 51, Options: OptionsConfiguration{ReconnectIntervalS: tc.tcpInterval}}
+		migrationsMut.Lock()
+		migrations.apply(&cfg)
+		migrationsMut.Unlock()
+		if cfg.Options.QuicReconnectIntervalS != tc.expectedQuicInterval {
+			t.Errorf("%d: unexpected result, QuicReconnectIntervalS: %v != %v", i, cfg.Options.QuicReconnectIntervalS, tc.expectedQuicInterval)
+		}
+	}
+}
