@@ -1651,13 +1651,34 @@ angular.module('syncthing.core')
 
         $scope.about = {
             paths: {},
+            connectedApplications: [],
             refreshPaths: function () {
                 $http.get(urlbase + '/system/paths').success(function (data) {
                     $scope.about.paths = data;
                 }).error($scope.emitHTTPError);
             },
+            refreshConnectedApplications: function () {
+                var apps = [];
+                for (var deviceID in $scope.connections) {
+                    if (!$scope.connections.hasOwnProperty(deviceID)) {
+                        continue;
+                    }
+                    var conn = $scope.connections[deviceID];
+                    if (conn.connected) {
+                        var deviceCfg = $scope.devices[deviceID];
+                        apps.push({
+                            deviceID: deviceID,
+                            deviceName: $scope.deviceName(deviceCfg),
+                            clientVersion: conn.clientVersion || 'Unknown',
+                            type: conn.type || 'Unknown'
+                        });
+                    }
+                }
+                $scope.about.connectedApplications = apps;
+            },
             show: function () {
                 $scope.about.refreshPaths();
+                $scope.about.refreshConnectedApplications();
                 showModal('#about');
             },
         };
