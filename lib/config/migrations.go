@@ -105,12 +105,7 @@ func (m migration) apply(cfg *Configuration) {
 func migrateToConfigV52(cfg *Configuration) {
 	// So the idea was that we should probably try dialing every 20 seconds.
 	// But prevent something silly like 1/3 = 0 etc.
-	quicInterval := cfg.Options.ReconnectIntervalS / 3
-	if quicInterval < 10 {
-		quicInterval = 10
-	}
-
-	cfg.Options.QuicReconnectIntervalS = quicInterval
+	cfg.Options.QuicReconnectIntervalS = max(cfg.Options.ReconnectIntervalS/3, 10)
 }
 
 func migrateToConfigV51(cfg *Configuration) {
