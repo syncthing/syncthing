@@ -122,7 +122,7 @@
     "Discovery Failures": "Échecs de découverte",
     "Discovery Status": "État de la découverte",
     "Dismiss": "Écarter",
-    "Do not add it to the ignore list, so this notification may recur.": "Attendre la disparition de cette demande : évite l'ajout immédiat à la liste noire persistante.",
+    "Do not add it to the ignore list, so this notification may recur.": "Attendre l'expiration de cette demande : évite l'ajout immédiat à la liste noire persistante.",
     "Do not restore": "Ne pas restaurer",
     "Do not restore all": "Ne pas tout restaurer",
     "Do you want to enable watching for changes for all your folders?": "Voulez-vous activer la surveillance des changements sur tous vos partages ?",
