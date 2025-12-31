@@ -195,19 +195,22 @@ func (f *FileInfo) InConflictWith(previous FileInfo) bool {
 		// If the new file is strictly greater in the ordering than the
 		// existing file, it is not a conflict. If any counter has moved
 		// backwards, or different counters have increased independently,
-		// then the file is not greater but concurrent and we don't take
-		// this branch.
+		// then the file is not greater but lesser or concurrent and we
+		// don't take this branch.
 		return false
 	}
 
-	if len(f.PreviousBlocksHash) == 0 || len(previous.BlocksHash) == 0 {
-		// Don't have data to make a content determination, or the type has
-		// changed (file to directory, etc). Consider it a conflict.
-		return true
+	if f.Version.Concurrent(previous.Version) {
+		if len(f.PreviousBlocksHash) == 0 || len(previous.BlocksHash) == 0 {
+			// Don't have data to make a content determination, or the type has
+			// changed (file to directory, etc). Consider it a conflict.
+			return true
+		}
+		// If the new file is based on the old contents we have, it's not really
+		// a conflict.
+		return !bytes.Equal(f.PreviousBlocksHash, previous.BlocksHash)
 	}
-	// If the new file is based on the old contents we have, it's not really
-	// a conflict.
-	return !bytes.Equal(f.PreviousBlocksHash, previous.BlocksHash)
+	return false
 }
 
 // WinsConflict returns true if "f" is the one to choose when it is in
