@@ -719,6 +719,10 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 }
 
 func (f *folder) scanSubdirsDeletedAndIgnored(ctx context.Context, subDirs []string, batch *scanBatch) (int, error) {
+	// Create caches for optimized existence and symlink checks
+	dirCache := osutil.NewDirExistenceCache(f.mtimefs)
+	symlinkCache := osutil.NewSymlinkCache(f.mtimefs)
+
 	var toIgnore []protocol.FileInfo
 	ignoredParent := ""
 	changes := 0
@@ -792,7 +796,7 @@ outer:
 				// it's still here. Simply stat:ing it won't do as there are
 				// tons of corner cases (e.g. parent dir->symlink, missing
 				// permissions)
-				if !osutil.IsDeleted(f.mtimefs, fi.Name) {
+				if !osutil.IsDeletedCached(f.mtimefs, fi.Name, dirCache, symlinkCache) {
 					if ignoredParent != "" {
 						// Don't ignore parents of this not ignored item
 						toIgnore = toIgnore[:0]
