@@ -67,6 +67,9 @@ type Config struct {
 	ScanXattrs bool
 	// Filter for extended attributes
 	XattrFilter XattrFilter
+	// ExistingFiles is populated during the walk with all visited file/dir paths.
+	// Used for zero-syscall delete detection in Phase 2.
+	ExistingFiles map[string]struct{}
 }
 
 type CurrentFiler interface {
@@ -406,6 +409,11 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 // will simply report the error for that path to the user (same for walk...
 // functions called from here).
 func (w *walker) handleItem(ctx context.Context, path string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) error {
+	// Record this path as existing for zero-syscall delete detection
+	if w.ExistingFiles != nil {
+		w.ExistingFiles[path] = struct{}{}
+	}
+
 	switch {
 	case info.IsSymlink():
 		if err := w.walkSymlink(ctx, path, info, finishedChan); err != nil {

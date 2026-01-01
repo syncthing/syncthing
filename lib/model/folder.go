@@ -510,22 +510,28 @@ func (f *folder) scanSubdirs(ctx context.Context, subDirs []string) error {
 	// Schedule a pull after scanning, but only if we actually detected any
 	// changes.
 	changes := 0
+	scanStart := time.Now()
 	defer func() {
-		f.sl.DebugContext(ctx, "Finished scanning", slog.Int("changes", changes))
+		f.sl.InfoContext(ctx, "Scan completed", slog.Duration("total_duration", time.Since(scanStart)), slog.Int("changes", changes))
 		if changes > 0 {
 			f.SchedulePull()
 		}
 	}()
 
-	changesHere, err := f.scanSubdirsChangedAndNew(ctx, subDirs, batch)
+	phase1Start := time.Now()
+	changesHere, existingFiles, err := f.scanSubdirsChangedAndNew(ctx, subDirs, batch)
+	phase1Duration := time.Since(phase1Start)
+	f.sl.InfoContext(ctx, "Phase 1 (Changed/New) finished", slog.Duration("duration", phase1Duration), slog.Int("changes", changesHere), slog.Int("files_in_map", len(existingFiles)))
 	changes += changesHere
 	if err != nil {
 		return err
 	}
 
+	flush1Start := time.Now()
 	if err := batch.Flush(); err != nil {
 		return err
 	}
+	f.sl.InfoContext(ctx, "Batch flush after Phase 1", slog.Duration("duration", time.Since(flush1Start)))
 
 	if len(subDirs) == 0 {
 		// If we have no specific subdirectories to traverse, set it to one
@@ -536,15 +542,20 @@ func (f *folder) scanSubdirs(ctx context.Context, subDirs []string) error {
 	// Do a scan of the database for each prefix, to check for deleted and
 	// ignored files.
 
-	changesHere, err = f.scanSubdirsDeletedAndIgnored(ctx, subDirs, batch)
+	phase2Start := time.Now()
+	changesHere, err = f.scanSubdirsDeletedAndIgnored(ctx, subDirs, batch, existingFiles)
+	phase2Duration := time.Since(phase2Start)
+	f.sl.InfoContext(ctx, "Phase 2 (Deleted/Ignored) finished", slog.Duration("duration", phase2Duration), slog.Int("changes", changesHere))
 	changes += changesHere
 	if err != nil {
 		return err
 	}
 
+	flush2Start := time.Now()
 	if err := batch.Flush(); err != nil {
 		return err
 	}
+	f.sl.InfoContext(ctx, "Batch flush after Phase 2", slog.Duration("duration", time.Since(flush2Start)))
 
 	f.ScanCompleted()
 	return nil
@@ -646,13 +657,16 @@ func (b *scanBatch) Update(fi protocol.FileInfo) (bool, error) {
 	return true, nil
 }
 
-func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string, batch *scanBatch) (int, error) {
+func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string, batch *scanBatch) (int, map[string]struct{}, error) {
 	changes := 0
 
 	// If we return early e.g. due to a folder health error, the scan needs
 	// to be cancelled.
 	scanCtx, scanCancel := context.WithCancel(ctx)
 	defer scanCancel()
+
+	// Map will be populated by the scanner during the walk for zero-syscall delete detection
+	existingFiles := make(map[string]struct{})
 
 	scanConfig := scanner.Config{
 		Folder:                f.ID,
@@ -672,7 +686,10 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 		ScanOwnership:         f.SendOwnership || f.SyncOwnership,
 		ScanXattrs:            f.SendXattrs || f.SyncXattrs,
 		XattrFilter:           f.XattrFilter,
+		ExistingFiles:         existingFiles, // Populated during walk
 	}
+
+	walkStart := time.Now()
 	var fchan chan scanner.ScanResult
 	if f.Type == config.FolderTypeReceiveEncrypted {
 		fchan = scanner.WalkWithoutHashing(scanCtx, scanConfig)
@@ -681,7 +698,11 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 	}
 
 	alreadyUsedOrExisting := make(map[string]struct{})
+	filesProcessed := 0
+	var totalBatchUpdateTime, totalRenameTime time.Duration
+
 	for res := range fchan {
+		filesProcessed++
 		if res.Err != nil {
 			f.newScanError(res.Path, res.Err)
 			continue
@@ -693,43 +714,61 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 			scanCancel()
 			for range fchan {
 			}
-			return changes, err
+			return changes, existingFiles, err
 		}
 
+		updateStart := time.Now()
 		if ok, err := batch.Update(res.File); err != nil {
-			return 0, err
+			return 0, existingFiles, err
 		} else if ok {
 			changes++
 		}
+		totalBatchUpdateTime += time.Since(updateStart)
 
 		switch f.Type {
 		case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
 		default:
+			renameStart := time.Now()
 			if nf, ok := f.findRename(ctx, res.File, alreadyUsedOrExisting); ok {
 				if ok, err := batch.Update(nf); err != nil {
-					return 0, err
+					return 0, existingFiles, err
 				} else if ok {
 					changes++
 				}
 			}
+			totalRenameTime += time.Since(renameStart)
 		}
 	}
 
-	return changes, nil
+	walkDuration := time.Since(walkStart)
+	f.sl.InfoContext(ctx, "Phase 1 internal breakdown",
+		slog.Duration("walk_total", walkDuration),
+		slog.Duration("batch_updates", totalBatchUpdateTime),
+		slog.Duration("rename_detection", totalRenameTime),
+		slog.Int("files_processed", filesProcessed))
+
+	return changes, existingFiles, nil
 }
 
-func (f *folder) scanSubdirsDeletedAndIgnored(ctx context.Context, subDirs []string, batch *scanBatch) (int, error) {
-	// Create caches for optimized existence and symlink checks
-	dirCache := osutil.NewDirExistenceCache(f.mtimefs)
-	symlinkCache := osutil.NewSymlinkCache(f.mtimefs)
-
+func (f *folder) scanSubdirsDeletedAndIgnored(ctx context.Context, subDirs []string, batch *scanBatch, existingFiles map[string]struct{}) (int, error) {
 	var toIgnore []protocol.FileInfo
 	ignoredParent := ""
 	changes := 0
 
+	// Timing counters
+	var totalDbIterTime, totalIgnoreMatchTime, totalMapLookupTime time.Duration
+	dbFilesChecked := 0
+	mapLookups := 0
+
+	phase2Start := time.Now()
+
 outer:
 	for _, sub := range subDirs {
+		dbIterStart := time.Now()
 		for fi, err := range itererr.Zip(f.db.AllLocalFilesWithPrefix(f.folderID, protocol.LocalDeviceID, sub)) {
+			totalDbIterTime += time.Since(dbIterStart)
+			dbFilesChecked++
+
 			if err != nil {
 				return changes, err
 			}
@@ -762,8 +801,13 @@ outer:
 				ignoredParent = ""
 			}
 
-			switch ignored := f.ignores.Match(fi.Name).IsIgnored(); {
+			ignoreMatchStart := time.Now()
+			ignored := f.ignores.Match(fi.Name).IsIgnored()
+			totalIgnoreMatchTime += time.Since(ignoreMatchStart)
+
+			switch {
 			case fi.IsIgnored() && ignored:
+				dbIterStart = time.Now()
 				continue
 			case !fi.IsIgnored() && ignored:
 				// File was not ignored at last pass but has been ignored.
@@ -775,6 +819,7 @@ outer:
 						// this path as the "highest" ignored parent
 						ignoredParent = fi.Name
 					}
+					dbIterStart = time.Now()
 					continue
 				}
 
@@ -793,15 +838,19 @@ outer:
 				fallthrough
 			case !fi.IsIgnored() && !fi.IsDeleted() && !fi.IsUnsupported():
 				// The file is not ignored, deleted or unsupported. Lets check if
-				// it's still here. Simply stat:ing it won't do as there are
-				// tons of corner cases (e.g. parent dir->symlink, missing
-				// permissions)
-				if !osutil.IsDeletedCached(f.mtimefs, fi.Name, dirCache, symlinkCache) {
+				// it's still here using the existingFiles map (zero syscalls).
+				mapLookupStart := time.Now()
+				_, exists := existingFiles[fi.Name]
+				totalMapLookupTime += time.Since(mapLookupStart)
+				mapLookups++
+
+				if exists {
 					if ignoredParent != "" {
 						// Don't ignore parents of this not ignored item
 						toIgnore = toIgnore[:0]
 						ignoredParent = ""
 					}
+					dbIterStart = time.Now()
 					continue
 				}
 				nf := fi
@@ -853,6 +902,7 @@ outer:
 					}
 				}
 			}
+			dbIterStart = time.Now()
 		}
 
 		select {
@@ -878,6 +928,14 @@ outer:
 			toIgnore = toIgnore[:0]
 		}
 	}
+
+	f.sl.InfoContext(ctx, "Phase 2 internal breakdown",
+		slog.Duration("total", time.Since(phase2Start)),
+		slog.Duration("db_iteration", totalDbIterTime),
+		slog.Duration("ignore_matching", totalIgnoreMatchTime),
+		slog.Duration("map_lookups", totalMapLookupTime),
+		slog.Int("db_files_checked", dbFilesChecked),
+		slog.Int("map_lookup_count", mapLookups))
 
 	return changes, nil
 }
