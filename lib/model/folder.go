@@ -1,5 +1,4 @@
 // Copyright (C) 2014 The Syncthing Authors.
-// Copyright (C) 2026 bxff
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -14,6 +13,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -482,6 +482,10 @@ func (f *folder) scanSubdirs(ctx context.Context, subDirs []string) error {
 	defer cancel()
 	go addTimeUntilCancelled(scanCtx, metricFolderScanSeconds.WithLabelValues(f.ID))
 
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+	initialHeap := memStats.HeapInuse
+
 	for i := range subDirs {
 		sub := osutil.NativeFilename(subDirs[i])
 
@@ -513,7 +517,11 @@ func (f *folder) scanSubdirs(ctx context.Context, subDirs []string) error {
 	changes := 0
 	scanStart := time.Now()
 	defer func() {
-		f.sl.InfoContext(ctx, "Scan completed", slog.Duration("total_duration", time.Since(scanStart)), slog.Int("changes", changes))
+		runtime.ReadMemStats(&memStats)
+		f.sl.InfoContext(ctx, "Scan completed",
+			slog.Duration("total_duration", time.Since(scanStart)),
+			slog.Int("changes", changes),
+			slog.Int64("heap_delta_bytes", int64(memStats.HeapInuse)-int64(initialHeap)))
 		if changes > 0 {
 			f.SchedulePull()
 		}
@@ -666,7 +674,7 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 	scanCtx, scanCancel := context.WithCancel(ctx)
 	defer scanCancel()
 
-	// Map will be populated by the scanner during the walk for zero-syscall delete detection
+	// Map will be populated by the scanner during the walk for delete detection (includes unchanged)
 	existingFiles := make(map[string]struct{})
 
 	// OPTIMIZATION: Preload all local files into a map before the walk.
@@ -677,7 +685,10 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 		return 0, nil, nil, nil, nil, err
 	}
 	preloadDuration := time.Since(preloadStart)
-	f.sl.InfoContext(ctx, "Preloaded local files for scan", slog.Duration("duration", preloadDuration), slog.Int("files", len(preloadedFiles)))
+	f.sl.InfoContext(ctx, "Preloaded local files for scan",
+		slog.Duration("duration", preloadDuration),
+		slog.Int("files", len(preloadedFiles)),
+		slog.Float64("rate_files_per_sec", float64(len(preloadedFiles))/preloadDuration.Seconds()))
 
 	scanConfig := scanner.Config{
 		Folder:                f.ID,
@@ -760,7 +771,8 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 		slog.Duration("walk_total", walkDuration),
 		slog.Duration("batch_updates", totalBatchUpdateTime),
 		slog.Duration("rename_detection", totalRenameTime),
-		slog.Int("files_processed", filesProcessed))
+		slog.Int("files_processed", filesProcessed),
+		slog.Float64("walk_throughput_files_per_sec", float64(filesProcessed)/walkDuration.Seconds()))
 
 	// Return preloadedFiles, sortedNames, and alreadyUsedOrExisting so Phase 2 can reuse them
 	return changes, existingFiles, preloadedFiles, sortedNames, alreadyUsedOrExisting, nil
@@ -959,7 +971,8 @@ done:
 		slog.Duration("ignore_matching", totalIgnoreMatchTime),
 		slog.Duration("map_lookups", totalMapLookupTime),
 		slog.Int("db_files_checked", dbFilesChecked),
-		slog.Int("map_lookup_count", mapLookups))
+		slog.Int("map_lookup_count", mapLookups),
+		slog.Float64("processing_rate_files_per_sec", float64(dbFilesChecked)/time.Since(phase2Start).Seconds()))
 
 	return changes, nil
 }
