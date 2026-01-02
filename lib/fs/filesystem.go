@@ -1,4 +1,5 @@
 // Copyright (C) 2016 The Syncthing Authors.
+// Copyright (C) 2026 bxff
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -35,6 +36,7 @@ type Filesystem interface {
 	Create(name string) (File, error)
 	CreateSymlink(target, name string) error
 	DirNames(name string) ([]string, error)
+	ReadDir(name string) ([]fs.DirEntry, error)
 	Lstat(name string) (FileInfo, error)
 	Mkdir(name string, perm FileMode) error
 	MkdirAll(name string, perm FileMode) error

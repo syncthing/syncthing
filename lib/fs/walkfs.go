@@ -109,13 +109,19 @@ func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc, ances
 		}
 	}
 
-	names, err := f.DirNames(path)
+	// OPTIMIZATION: Use ReadDir instead of DirNames + Lstat
+	// ReadDir returns DirEntry which includes file type from getdents64,
+	// avoiding a separate lstat syscall per file for directory detection.
+	entries, err := f.ReadDir(path)
 	if err != nil {
 		return walkFn(path, info, err)
 	}
 
-	for _, name := range names {
-		filename := filepath.Join(path, name)
+	for _, entry := range entries {
+		filename := filepath.Join(path, entry.Name())
+		// Get full FileInfo via Lstat. The ReadDir above gives us DirEntry
+		// which includes file type from getdents64, avoiding extra syscalls
+		// for directory detection, but we still need Lstat for full metadata.
 		fileInfo, err := f.Lstat(filename)
 		if err != nil {
 			if err := walkFn(filename, fileInfo, err); err != nil && !errors.Is(err, SkipDir) {

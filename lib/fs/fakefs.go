@@ -1,4 +1,5 @@
 // Copyright (C) 2018 The Syncthing Authors.
+// Copyright (C) 2026 bxff
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -12,6 +13,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
+	stdfs "io/fs"
 	"math/rand"
 	"net/url"
 	"os"
@@ -363,6 +365,43 @@ func (fs *fakeFS) DirNames(name string) ([]string, error) {
 
 	return names, nil
 }
+
+func (fs *fakeFS) ReadDir(name string) ([]stdfs.DirEntry, error) {
+	names, err := fs.DirNames(name)
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]stdfs.DirEntry, 0, len(names))
+	for _, n := range names {
+		fi, err := fs.Lstat(filepath.Join(name, n))
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, &fakeDirEntry{fi})
+	}
+	return entries, nil
+}
+
+// fakeDirEntry wraps FileInfo to implement fs.DirEntry
+type fakeDirEntry struct {
+	FileInfo
+}
+
+func (d *fakeDirEntry) Name() string { return d.FileInfo.Name() }
+func (d *fakeDirEntry) IsDir() bool  { return d.FileInfo.IsDir() }
+func (d *fakeDirEntry) Type() stdfs.FileMode {
+	return stdfs.FileMode(d.FileInfo.Mode()) & stdfs.ModeType
+}
+func (d *fakeDirEntry) Info() (stdfs.FileInfo, error) {
+	return &fakeStdFileInfo{d.FileInfo}, nil
+}
+
+// fakeStdFileInfo wraps FileInfo to implement io/fs.FileInfo
+type fakeStdFileInfo struct {
+	FileInfo
+}
+
+func (i *fakeStdFileInfo) Mode() stdfs.FileMode { return stdfs.FileMode(i.FileInfo.Mode()) }
 
 func (fs *fakeFS) Lstat(name string) (FileInfo, error) {
 	fs.mut.Lock()

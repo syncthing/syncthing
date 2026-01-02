@@ -1,4 +1,5 @@
 // Copyright (C) 2025 The Syncthing Authors.
+// Copyright (C) 2026 bxff
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -42,6 +43,11 @@ type DB interface {
 	AllLocalFilesWithBlocksHash(folder string, h []byte) (iter.Seq[FileMetadata], func() error)
 	AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit, offset int) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocalBlocksWithHash(folder string, hash []byte) (iter.Seq[BlockMapEntry], func() error)
+
+	// AllLocalFilesMap returns all local files as a map for efficient lookup,
+	// plus a slice of file names in sorted (lexicographic) order.
+	// This is used by the scanner to avoid per-file DB queries during the walk.
+	AllLocalFilesMap(folder string, device protocol.DeviceID) (map[string]protocol.FileInfo, []string, error)
 
 	// Cleanup
 	DropAllFiles(folder string, device protocol.DeviceID) error

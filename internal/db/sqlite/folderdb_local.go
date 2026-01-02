@@ -1,4 +1,5 @@
 // Copyright (C) 2025 The Syncthing Authors.
+// Copyright (C) 2026 bxff
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -57,6 +58,36 @@ func (s *folderDB) AllLocalFiles(device protocol.DeviceID) (iter.Seq[protocol.Fi
 		WHERE d.device_id = ?
 	`).Queryx(device.String()))
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
+}
+
+func (s *folderDB) AllLocalFilesMap(device protocol.DeviceID) (map[string]protocol.FileInfo, []string, error) {
+	// OPTIMIZATION: Exclude block data from preload to reduce memory usage.
+	// Scanner uses IgnoreBlocks:true in IsEquivalentOptional, so blocks aren't needed.
+	// This reduces memory from ~270MB to ~40MB for 135K files.
+	// ORDER BY name ensures Phase 2 iteration is in lexicographic order.
+	it, errFn := iterStructs[indirectFI](s.stmt(`
+		SELECT fi.fiprotobuf, NULL as blprotobuf FROM fileinfos fi
+		INNER JOIN files f on fi.sequence = f.sequence
+		INNER JOIN devices d ON d.idx = f.device_idx
+		INNER JOIN file_names n ON f.name_idx = n.idx
+		WHERE d.device_id = ?
+		ORDER BY n.name
+	`).Queryx(device.String()))
+
+	result := make(map[string]protocol.FileInfo, 150000) // Pre-size for ~135K files
+	names := make([]string, 0, 150000)
+	for ifi, err := range itererr.Zip(it, errFn) {
+		if err != nil {
+			return nil, nil, err
+		}
+		fi, err := ifi.FileInfo()
+		if err != nil {
+			return nil, nil, err
+		}
+		result[fi.Name] = fi
+		names = append(names, fi.Name)
+	}
+	return result, names, nil
 }
 
 func (s *folderDB) AllLocalFilesBySequence(device protocol.DeviceID, startSeq int64, limit int) (iter.Seq[protocol.FileInfo], func() error) {

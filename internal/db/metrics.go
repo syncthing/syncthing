@@ -1,4 +1,5 @@
 // Copyright (C) 2025 The Syncthing Authors.
+// Copyright (C) 2026 bxff
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -96,6 +97,11 @@ func (m metricsDB) AllLocalFilesBySequence(folder string, device protocol.Device
 func (m metricsDB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit, offset int) (iter.Seq[protocol.FileInfo], func() error) {
 	defer m.account(folder, "AllNeededGlobalFiles")()
 	return m.DB.AllNeededGlobalFiles(folder, device, order, limit, offset)
+}
+
+func (m metricsDB) AllLocalFilesMap(folder string, device protocol.DeviceID) (map[string]protocol.FileInfo, []string, error) {
+	defer m.account(folder, "AllLocalFilesMap")()
+	return m.DB.AllLocalFilesMap(folder, device)
 }
 
 func (m metricsDB) GetGlobalAvailability(folder, file string) ([]protocol.DeviceID, error) {

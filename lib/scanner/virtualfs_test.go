@@ -1,4 +1,5 @@
 // Copyright (C) 2017 The Syncthing Authors.
+// Copyright (C) 2026 bxff
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -10,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	stdfs "io/fs"
 	"path/filepath"
 	"strings"
 	"time"
@@ -49,6 +51,21 @@ func (i infiniteFS) DirNames(name string) ([]string, error) {
 		}
 	}
 	return names, nil
+}
+
+func (i infiniteFS) ReadDir(name string) ([]stdfs.DirEntry, error) {
+	names, err := i.DirNames(name)
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]stdfs.DirEntry, 0, len(names))
+	for _, n := range names {
+		// Construct info for the child.
+		childPath := filepath.Join(name, n)
+		fi, _ := i.Lstat(childPath)
+		entries = append(entries, virtualDirEntry{fi})
+	}
+	return entries, nil
 }
 
 func (i infiniteFS) Open(name string) (fs.File, error) {
@@ -94,6 +111,24 @@ func (s singleFileFS) DirNames(name string) ([]string, error) {
 	return []string{s.name}, nil
 }
 
+func (s singleFileFS) ReadDir(name string) ([]stdfs.DirEntry, error) {
+	names, err := s.DirNames(name)
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]stdfs.DirEntry, 0, len(names))
+	for _, n := range names {
+		// For singleFileFS, children of "." is s.name
+		childPath := n
+		fi, err := s.Lstat(childPath)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, virtualDirEntry{fi})
+	}
+	return entries, nil
+}
+
 func (s singleFileFS) Open(name string) (fs.File, error) {
 	if name != s.name {
 		return nil, errors.New("no such file")
@@ -107,6 +142,27 @@ func (singleFileFS) Options() []fs.Option {
 
 func (singleFileFS) PlatformData(_ string, _, _ bool, _ fs.XattrFilter) (protocol.PlatformData, error) {
 	return protocol.PlatformData{}, nil
+}
+
+type virtualDirEntry struct {
+	fs.FileInfo
+}
+
+func (e virtualDirEntry) Name() string { return e.FileInfo.Name() }
+func (e virtualDirEntry) IsDir() bool  { return e.FileInfo.IsDir() }
+func (e virtualDirEntry) Type() stdfs.FileMode {
+	return stdfs.FileMode(e.FileInfo.Mode()) & stdfs.ModeType
+}
+func (e virtualDirEntry) Info() (stdfs.FileInfo, error) {
+	return virtualStdFileInfo{e.FileInfo}, nil
+}
+
+type virtualStdFileInfo struct {
+	fs.FileInfo
+}
+
+func (i virtualStdFileInfo) Mode() stdfs.FileMode {
+	return stdfs.FileMode(i.FileInfo.Mode())
 }
 
 type fakeInfo struct {

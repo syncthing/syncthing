@@ -1,4 +1,5 @@
 // Copyright (C) 2020 The Syncthing Authors.
+// Copyright (C) 2026 bxff
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -10,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"sync"
 	"time"
@@ -271,6 +273,13 @@ func (f *caseFilesystem) DirNames(name string) ([]string, error) {
 		return nil, err
 	}
 	return f.Filesystem.DirNames(name)
+}
+
+func (f *caseFilesystem) ReadDir(name string) ([]fs.DirEntry, error) {
+	if err := f.checkCase(name); err != nil {
+		return nil, err
+	}
+	return f.Filesystem.ReadDir(name)
 }
 
 func (f *caseFilesystem) Open(name string) (File, error) {

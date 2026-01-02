@@ -1,4 +1,5 @@
 // Copyright (C) 2016 The Syncthing Authors.
+// Copyright (C) 2026 bxff
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -9,6 +10,7 @@ package fs
 import (
 	"context"
 	"fmt"
+	stdfs "io/fs"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -65,6 +67,12 @@ func (fs *logFilesystem) DirNames(name string) ([]string, error) {
 	names, err := fs.Filesystem.DirNames(name)
 	l.Debugln(fs.getCaller(), fs.Type(), fs.URI(), "DirNames", name, names, err)
 	return names, err
+}
+
+func (fs *logFilesystem) ReadDir(name string) ([]stdfs.DirEntry, error) {
+	entries, err := fs.Filesystem.ReadDir(name)
+	l.Debugln(fs.getCaller(), fs.Type(), fs.URI(), "ReadDir", name, len(entries), err)
+	return entries, err
 }
 
 func (fs *logFilesystem) Lstat(name string) (FileInfo, error) {

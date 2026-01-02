@@ -1,4 +1,5 @@
 // Copyright (C) 2025 The Syncthing Authors.
+// Copyright (C) 2026 bxff
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -219,6 +220,17 @@ func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order
 		return func(yield func(protocol.FileInfo) bool) {}, func() error { return err }
 	}
 	return fdb.AllNeededGlobalFiles(device, order, limit, offset)
+}
+
+func (s *DB) AllLocalFilesMap(folder string, device protocol.DeviceID) (map[string]protocol.FileInfo, []string, error) {
+	fdb, err := s.getFolderDB(folder, false)
+	if errors.Is(err, errNoSuchFolder) {
+		return make(map[string]protocol.FileInfo), nil, nil
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	return fdb.AllLocalFilesMap(device)
 }
 
 func (s *DB) DropAllFiles(folder string, device protocol.DeviceID) error {

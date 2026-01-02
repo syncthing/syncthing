@@ -1,4 +1,5 @@
 // Copyright (C) 2014 The Syncthing Authors.
+// Copyright (C) 2026 bxff
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -68,7 +69,7 @@ type Config struct {
 	// Filter for extended attributes
 	XattrFilter XattrFilter
 	// ExistingFiles is populated during the walk with all visited file/dir paths.
-	// Used for zero-syscall delete detection in Phase 2.
+	// Used for delete detection in Phase 2 - includes unchanged files.
 	ExistingFiles map[string]struct{}
 }
 
@@ -409,11 +410,6 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 // will simply report the error for that path to the user (same for walk...
 // functions called from here).
 func (w *walker) handleItem(ctx context.Context, path string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) error {
-	// Record this path as existing for zero-syscall delete detection
-	if w.ExistingFiles != nil {
-		w.ExistingFiles[path] = struct{}{}
-	}
-
 	switch {
 	case info.IsSymlink():
 		if err := w.walkSymlink(ctx, path, info, finishedChan); err != nil {
@@ -439,6 +435,11 @@ func (w *walker) handleItem(ctx context.Context, path string, info fs.FileInfo, 
 }
 
 func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo) error {
+	// Track ALL visited files for delete detection (before any early returns)
+	if w.ExistingFiles != nil {
+		w.ExistingFiles[relPath] = struct{}{}
+	}
+
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
 	blockSize := protocol.BlockSize(info.Size())
@@ -476,6 +477,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 			IgnoreXattrs:    !w.ScanXattrs,
 		}) {
 			l.Debugln(w, "unchanged:", curFile)
+			// File already tracked above at function entry
 			return nil
 		}
 		if curFile.ShouldConflict() && !f.ShouldConflict() {
@@ -503,6 +505,11 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 }
 
 func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, finishedChan chan<- ScanResult) error {
+	// Track ALL visited directories for delete detection (before any early returns)
+	if w.ExistingFiles != nil {
+		w.ExistingFiles[relPath] = struct{}{}
+	}
+
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
 	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter)
@@ -523,6 +530,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 			IgnoreXattrs:    !w.ScanXattrs,
 		}) {
 			l.Debugln(w, "unchanged:", curFile)
+			// Directory already tracked above at function entry
 			return nil
 		}
 		if curFile.ShouldConflict() && !f.ShouldConflict() {
@@ -556,6 +564,11 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 		return nil
 	}
 
+	// Track ALL visited symlinks for delete detection (before any early returns)
+	if w.ExistingFiles != nil {
+		w.ExistingFiles[relPath] = struct{}{}
+	}
+
 	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter)
 	if err != nil {
 		return err
@@ -575,6 +588,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 			IgnoreXattrs:    !w.ScanXattrs,
 		}) {
 			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
+			// Symlink already tracked above at function entry
 			return nil
 		}
 		if curFile.ShouldConflict() && !f.ShouldConflict() {

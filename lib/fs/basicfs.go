@@ -1,4 +1,5 @@
 // Copyright (C) 2016 The Syncthing Authors.
+// Copyright (C) 2026 bxff
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -9,6 +10,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"os/user"
@@ -238,6 +240,14 @@ func (f *BasicFilesystem) DirNames(name string) ([]string, error) {
 	}
 
 	return names, nil
+}
+
+func (f *BasicFilesystem) ReadDir(name string) ([]fs.DirEntry, error) {
+	name, err := f.rooted(name)
+	if err != nil {
+		return nil, err
+	}
+	return os.ReadDir(name)
 }
 
 func (f *BasicFilesystem) Open(name string) (File, error) {

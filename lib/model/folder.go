@@ -1,4 +1,5 @@
-// Copyright (C) 2025 The Syncthing Authors & bxff
+// Copyright (C) 2014 The Syncthing Authors.
+// Copyright (C) 2026 bxff
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -519,7 +520,7 @@ func (f *folder) scanSubdirs(ctx context.Context, subDirs []string) error {
 	}()
 
 	phase1Start := time.Now()
-	changesHere, existingFiles, err := f.scanSubdirsChangedAndNew(ctx, subDirs, batch)
+	changesHere, existingFiles, preloadedFiles, sortedNames, alreadyUsedOrExisting, err := f.scanSubdirsChangedAndNew(ctx, subDirs, batch)
 	phase1Duration := time.Since(phase1Start)
 	f.sl.InfoContext(ctx, "Phase 1 (Changed/New) finished", slog.Duration("duration", phase1Duration), slog.Int("changes", changesHere), slog.Int("files_in_map", len(existingFiles)))
 	changes += changesHere
@@ -543,7 +544,7 @@ func (f *folder) scanSubdirs(ctx context.Context, subDirs []string) error {
 	// ignored files.
 
 	phase2Start := time.Now()
-	changesHere, err = f.scanSubdirsDeletedAndIgnored(ctx, subDirs, batch, existingFiles)
+	changesHere, err = f.scanSubdirsDeletedAndIgnored(ctx, subDirs, batch, existingFiles, preloadedFiles, sortedNames, alreadyUsedOrExisting)
 	phase2Duration := time.Since(phase2Start)
 	f.sl.InfoContext(ctx, "Phase 2 (Deleted/Ignored) finished", slog.Duration("duration", phase2Duration), slog.Int("changes", changesHere))
 	changes += changesHere
@@ -657,7 +658,7 @@ func (b *scanBatch) Update(fi protocol.FileInfo) (bool, error) {
 	return true, nil
 }
 
-func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string, batch *scanBatch) (int, map[string]struct{}, error) {
+func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string, batch *scanBatch) (int, map[string]struct{}, map[string]protocol.FileInfo, []string, map[string]struct{}, error) {
 	changes := 0
 
 	// If we return early e.g. due to a folder health error, the scan needs
@@ -668,12 +669,22 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 	// Map will be populated by the scanner during the walk for zero-syscall delete detection
 	existingFiles := make(map[string]struct{})
 
+	// OPTIMIZATION: Preload all local files into a map before the walk.
+	// This eliminates ~135K individual DB queries (one per file) during walkRegular.
+	preloadStart := time.Now()
+	preloadedFiles, sortedNames, err := f.db.AllLocalFilesMap(f.folderID, protocol.LocalDeviceID)
+	if err != nil {
+		return 0, nil, nil, nil, nil, err
+	}
+	preloadDuration := time.Since(preloadStart)
+	f.sl.InfoContext(ctx, "Preloaded local files for scan", slog.Duration("duration", preloadDuration), slog.Int("files", len(preloadedFiles)))
+
 	scanConfig := scanner.Config{
 		Folder:                f.ID,
 		Subs:                  subDirs,
 		Matcher:               f.ignores,
 		TempLifetime:          time.Duration(f.model.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler:          cFiler{db: f.db, folder: f.folderID},
+		CurrentFiler:          mapCFiler{files: preloadedFiles}, // Use preloaded map instead of DB queries
 		Filesystem:            f.mtimefs,
 		IgnorePerms:           f.IgnorePerms,
 		AutoNormalize:         f.AutoNormalize,
@@ -686,7 +697,7 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 		ScanOwnership:         f.SendOwnership || f.SyncOwnership,
 		ScanXattrs:            f.SendXattrs || f.SyncXattrs,
 		XattrFilter:           f.XattrFilter,
-		ExistingFiles:         existingFiles, // Populated during walk
+		ExistingFiles:         existingFiles, // Populated during walk for delete detection
 	}
 
 	walkStart := time.Now()
@@ -708,18 +719,22 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 			continue
 		}
 
+		// Note: existingFiles is populated by the scanner (walk.go) for ALL visited paths,
+		// including unchanged files. We don't write to it here to avoid a race condition
+		// (the scanner runs in a separate goroutine).
+
 		if err := batch.FlushIfFull(); err != nil {
 			// Prevent a race between the scan aborting due to context
 			// cancellation and releasing the snapshot in defer here.
 			scanCancel()
 			for range fchan {
 			}
-			return changes, existingFiles, err
+			return changes, existingFiles, preloadedFiles, sortedNames, alreadyUsedOrExisting, err
 		}
 
 		updateStart := time.Now()
 		if ok, err := batch.Update(res.File); err != nil {
-			return 0, existingFiles, err
+			return 0, existingFiles, preloadedFiles, sortedNames, alreadyUsedOrExisting, err
 		} else if ok {
 			changes++
 		}
@@ -731,7 +746,7 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 			renameStart := time.Now()
 			if nf, ok := f.findRename(ctx, res.File, alreadyUsedOrExisting); ok {
 				if ok, err := batch.Update(nf); err != nil {
-					return 0, existingFiles, err
+					return 0, existingFiles, preloadedFiles, sortedNames, alreadyUsedOrExisting, err
 				} else if ok {
 					changes++
 				}
@@ -747,10 +762,11 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 		slog.Duration("rename_detection", totalRenameTime),
 		slog.Int("files_processed", filesProcessed))
 
-	return changes, existingFiles, nil
+	// Return preloadedFiles, sortedNames, and alreadyUsedOrExisting so Phase 2 can reuse them
+	return changes, existingFiles, preloadedFiles, sortedNames, alreadyUsedOrExisting, nil
 }
 
-func (f *folder) scanSubdirsDeletedAndIgnored(ctx context.Context, subDirs []string, batch *scanBatch, existingFiles map[string]struct{}) (int, error) {
+func (f *folder) scanSubdirsDeletedAndIgnored(ctx context.Context, subDirs []string, batch *scanBatch, existingFiles map[string]struct{}, preloadedFiles map[string]protocol.FileInfo, sortedNames []string, alreadyUsedOrExisting map[string]struct{}) (int, error) {
 	var toIgnore []protocol.FileInfo
 	ignoredParent := ""
 	changes := 0
@@ -762,156 +778,42 @@ func (f *folder) scanSubdirsDeletedAndIgnored(ctx context.Context, subDirs []str
 
 	phase2Start := time.Now()
 
-outer:
-	for _, sub := range subDirs {
-		dbIterStart := time.Now()
-		for fi, err := range itererr.Zip(f.db.AllLocalFilesWithPrefix(f.folderID, protocol.LocalDeviceID, sub)) {
-			totalDbIterTime += time.Since(dbIterStart)
-			dbFilesChecked++
-
-			if err != nil {
-				return changes, err
-			}
-
-			select {
-			case <-ctx.Done():
-				break outer
-			default:
-			}
-
-			if err := batch.FlushIfFull(); err != nil {
-				return 0, err
-			}
-
-			if ignoredParent != "" && !fs.IsParent(fi.Name, ignoredParent) {
-				for _, file := range toIgnore {
-					f.sl.DebugContext(ctx, "Marking file as ignored", slogutil.FilePath(file.Name))
-					nf := file
-					nf.SetIgnored()
-					if ok, err := batch.Update(nf); err != nil {
-						return 0, err
-					} else if ok {
-						changes++
-					}
-					if err := batch.FlushIfFull(); err != nil {
-						return 0, err
-					}
+	// OPTIMIZATION: Iterate preloadedFiles using sortedNames (lexicographic order from DB).
+	// This avoids the expensive protobuf deserialization of 135K files.
+	dbIterStart := time.Now()
+	for _, name := range sortedNames {
+		// Filter by prefix if needed (check against all subdirs)
+		if len(subDirs) > 0 && subDirs[0] != "" {
+			matchesAny := false
+			for _, sub := range subDirs {
+				if strings.HasPrefix(name, sub) {
+					matchesAny = true
+					break
 				}
-				toIgnore = toIgnore[:0]
-				ignoredParent = ""
 			}
-
-			ignoreMatchStart := time.Now()
-			ignored := f.ignores.Match(fi.Name).IsIgnored()
-			totalIgnoreMatchTime += time.Since(ignoreMatchStart)
-
-			switch {
-			case fi.IsIgnored() && ignored:
-				dbIterStart = time.Now()
+			if !matchesAny {
 				continue
-			case !fi.IsIgnored() && ignored:
-				// File was not ignored at last pass but has been ignored.
-				if fi.IsDirectory() {
-					// Delay ignoring as a child might be unignored.
-					toIgnore = append(toIgnore, fi)
-					if ignoredParent == "" {
-						// If the parent wasn't ignored already, set
-						// this path as the "highest" ignored parent
-						ignoredParent = fi.Name
-					}
-					dbIterStart = time.Now()
-					continue
-				}
-
-				f.sl.DebugContext(ctx, "Marking file as ignored", slogutil.FilePath(fi.Name))
-				nf := fi
-				nf.SetIgnored()
-				if ok, err := batch.Update(nf); err != nil {
-					return 0, err
-				} else if ok {
-					changes++
-				}
-
-			case fi.IsIgnored() && !ignored:
-				// Successfully scanned items are already un-ignored during
-				// the scan, so check whether it is deleted.
-				fallthrough
-			case !fi.IsIgnored() && !fi.IsDeleted() && !fi.IsUnsupported():
-				// The file is not ignored, deleted or unsupported. Lets check if
-				// it's still here using the existingFiles map (zero syscalls).
-				mapLookupStart := time.Now()
-				_, exists := existingFiles[fi.Name]
-				totalMapLookupTime += time.Since(mapLookupStart)
-				mapLookups++
-
-				if exists {
-					if ignoredParent != "" {
-						// Don't ignore parents of this not ignored item
-						toIgnore = toIgnore[:0]
-						ignoredParent = ""
-					}
-					dbIterStart = time.Now()
-					continue
-				}
-				nf := fi
-				nf.SetDeleted(f.shortID)
-				nf.LocalFlags = f.localFlags
-				if fi.ShouldConflict() {
-					// We do not want to override the global version with
-					// the deleted file. Setting to an empty version makes
-					// sure the file gets in sync on the following pull.
-					nf.Version = protocol.Vector{}
-				}
-				f.sl.DebugContext(ctx, "Marking file as deleted", slogutil.FilePath(nf.Name))
-				if ok, err := batch.Update(nf); err != nil {
-					return 0, err
-				} else if ok {
-					changes++
-				}
-			case fi.IsDeleted() && fi.IsReceiveOnlyChanged():
-				switch f.Type {
-				case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
-					switch gf, ok, err := f.db.GetGlobalFile(f.folderID, fi.Name); {
-					case err != nil:
-						return 0, err
-					case !ok:
-					case gf.IsReceiveOnlyChanged():
-						f.sl.DebugContext(ctx, "Removing deleted receive-only item that is globally receive-only from db", slogutil.FilePath(fi.Name))
-						batch.Remove(fi.Name)
-						changes++
-					case gf.IsDeleted():
-						// Our item is deleted and the global item is deleted too. We just
-						// pretend it is a normal deleted file (nobody cares about that).
-						f.sl.DebugContext(ctx, "Marking globally deleted item as not locally changed", slogutil.FilePath(fi.Name))
-						fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
-						if ok, err := batch.Update(fi); err != nil {
-							return 0, err
-						} else if ok {
-							changes++
-						}
-					}
-				default:
-					// No need to bump the version for a file that was and is
-					// deleted and just the folder type/local flags changed.
-					fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
-					f.sl.DebugContext(ctx, "Removing receive-only flag on deleted item", slogutil.FilePath(fi.Name))
-					if ok, err := batch.Update(fi); err != nil {
-						return 0, err
-					} else if ok {
-						changes++
-					}
-				}
 			}
-			dbIterStart = time.Now()
 		}
+		fi := preloadedFiles[name]
+		// Skip files already processed by rename detection in Phase 1
+		if _, processed := alreadyUsedOrExisting[name]; processed {
+			continue
+		}
+		totalDbIterTime += time.Since(dbIterStart)
+		dbFilesChecked++
 
 		select {
 		case <-ctx.Done():
-			return changes, ctx.Err()
+			goto done
 		default:
 		}
 
-		if len(toIgnore) > 0 {
+		if err := batch.FlushIfFull(); err != nil {
+			return 0, err
+		}
+
+		if ignoredParent != "" && !fs.IsParent(fi.Name, ignoredParent) {
 			for _, file := range toIgnore {
 				f.sl.DebugContext(ctx, "Marking file as ignored", slogutil.FilePath(file.Name))
 				nf := file
@@ -926,6 +828,128 @@ outer:
 				}
 			}
 			toIgnore = toIgnore[:0]
+			ignoredParent = ""
+		}
+
+		ignoreMatchStart := time.Now()
+		ignored := f.ignores.Match(fi.Name).IsIgnored()
+		totalIgnoreMatchTime += time.Since(ignoreMatchStart)
+
+		switch {
+		case fi.IsIgnored() && ignored:
+			dbIterStart = time.Now()
+			continue
+		case !fi.IsIgnored() && ignored:
+			// File was not ignored at last pass but has been ignored.
+			if fi.IsDirectory() {
+				// Delay ignoring as a child might be unignored.
+				toIgnore = append(toIgnore, fi)
+				if ignoredParent == "" {
+					// If the parent wasn't ignored already, set
+					// this path as the "highest" ignored parent
+					ignoredParent = fi.Name
+				}
+				dbIterStart = time.Now()
+				continue
+			}
+
+			f.sl.DebugContext(ctx, "Marking file as ignored", slogutil.FilePath(fi.Name))
+			nf := fi
+			nf.SetIgnored()
+			if ok, err := batch.Update(nf); err != nil {
+				return 0, err
+			} else if ok {
+				changes++
+			}
+
+		case fi.IsIgnored() && !ignored:
+			// Successfully scanned items are already un-ignored during
+			// the scan, so check whether it is deleted.
+			fallthrough
+		case !fi.IsIgnored() && !fi.IsDeleted() && !fi.IsUnsupported():
+			// The file is not ignored, deleted or unsupported. Lets check if
+			// it's still here using the existingFiles map (zero syscalls).
+			mapLookupStart := time.Now()
+			_, exists := existingFiles[fi.Name]
+			totalMapLookupTime += time.Since(mapLookupStart)
+			mapLookups++
+
+			if exists {
+				if ignoredParent != "" {
+					// Don't ignore parents of this not ignored item
+					toIgnore = toIgnore[:0]
+					ignoredParent = ""
+				}
+				dbIterStart = time.Now()
+				continue
+			}
+			nf := fi
+			nf.SetDeleted(f.shortID)
+			nf.LocalFlags = f.localFlags
+			if fi.ShouldConflict() {
+				// We do not want to override the global version with
+				// the deleted file. Setting to an empty version makes
+				// sure the file gets in sync on the following pull.
+				nf.Version = protocol.Vector{}
+			}
+			f.sl.DebugContext(ctx, "Marking file as deleted", slogutil.FilePath(nf.Name))
+			if ok, err := batch.Update(nf); err != nil {
+				return 0, err
+			} else if ok {
+				changes++
+			}
+		case fi.IsDeleted() && fi.IsReceiveOnlyChanged():
+			switch f.Type {
+			case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
+				switch gf, ok, err := f.db.GetGlobalFile(f.folderID, fi.Name); {
+				case err != nil:
+					return 0, err
+				case !ok:
+				case gf.IsReceiveOnlyChanged():
+					f.sl.DebugContext(ctx, "Removing deleted receive-only item that is globally receive-only from db", slogutil.FilePath(fi.Name))
+					batch.Remove(fi.Name)
+					changes++
+				case gf.IsDeleted():
+					// Our item is deleted and the global item is deleted too. We just
+					// pretend it is a normal deleted file (nobody cares about that).
+					f.sl.DebugContext(ctx, "Marking globally deleted item as not locally changed", slogutil.FilePath(fi.Name))
+					fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
+					if ok, err := batch.Update(fi); err != nil {
+						return 0, err
+					} else if ok {
+						changes++
+					}
+				}
+			default:
+				// No need to bump the version for a file that was and is
+				// deleted and just the folder type/local flags changed.
+				fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
+				f.sl.DebugContext(ctx, "Removing receive-only flag on deleted item", slogutil.FilePath(fi.Name))
+				if ok, err := batch.Update(fi); err != nil {
+					return 0, err
+				} else if ok {
+					changes++
+				}
+			}
+		}
+		dbIterStart = time.Now()
+	}
+
+done:
+	// Handle any remaining toIgnore items at end of scan
+	if len(toIgnore) > 0 {
+		for _, file := range toIgnore {
+			f.sl.DebugContext(ctx, "Marking file as ignored", slogutil.FilePath(file.Name))
+			nf := file
+			nf.SetIgnored()
+			if ok, err := batch.Update(nf); err != nil {
+				return 0, err
+			} else if ok {
+				changes++
+			}
+			if err := batch.FlushIfFull(); err != nil {
+				return 0, err
+			}
 		}
 	}
 
@@ -1458,16 +1482,13 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 	return dirs
 }
 
-type cFiler struct {
-	db     db.DB
-	folder string
+// mapCFiler implements scanner.CurrentFiler using a preloaded map for efficient lookup.
+// This eliminates per-file DB queries during the filesystem walk.
+type mapCFiler struct {
+	files map[string]protocol.FileInfo
 }
 
-// Implements scanner.CurrentFiler
-func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
-	fi, ok, err := cf.db.GetDeviceFile(cf.folder, protocol.LocalDeviceID, file)
-	if err != nil || !ok {
-		return protocol.FileInfo{}, false
-	}
-	return fi, true
+func (m mapCFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
+	fi, ok := m.files[file]
+	return fi, ok
 }
