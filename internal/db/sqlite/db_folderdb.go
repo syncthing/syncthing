@@ -177,6 +177,17 @@ func (s *DB) AllLocalFiles(folder string, device protocol.DeviceID) (iter.Seq[pr
 	return fdb.AllLocalFiles(device)
 }
 
+func (s *DB) AllLocalFilesOrdered(folder string, device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error) {
+	fdb, err := s.getFolderDB(folder, false)
+	if errors.Is(err, errNoSuchFolder) {
+		return func(yield func(protocol.FileInfo) bool) {}, func() error { return nil }
+	}
+	if err != nil {
+		return func(yield func(protocol.FileInfo) bool) {}, func() error { return err }
+	}
+	return fdb.AllLocalFilesOrdered(device)
+}
+
 func (s *DB) AllLocalFilesBySequence(folder string, device protocol.DeviceID, startSeq int64, limit int) (iter.Seq[protocol.FileInfo], func() error) {
 	fdb, err := s.getFolderDB(folder, false)
 	if errors.Is(err, errNoSuchFolder) {
@@ -219,17 +230,6 @@ func (s *DB) AllNeededGlobalFiles(folder string, device protocol.DeviceID, order
 		return func(yield func(protocol.FileInfo) bool) {}, func() error { return err }
 	}
 	return fdb.AllNeededGlobalFiles(device, order, limit, offset)
-}
-
-func (s *DB) AllLocalFilesMap(folder string, device protocol.DeviceID) (map[string]protocol.FileInfo, []string, error) {
-	fdb, err := s.getFolderDB(folder, false)
-	if errors.Is(err, errNoSuchFolder) {
-		return make(map[string]protocol.FileInfo), nil, nil
-	}
-	if err != nil {
-		return nil, nil, err
-	}
-	return fdb.AllLocalFilesMap(device)
 }
 
 func (s *DB) DropAllFiles(folder string, device protocol.DeviceID) error {

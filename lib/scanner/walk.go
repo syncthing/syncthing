@@ -67,9 +67,6 @@ type Config struct {
 	ScanXattrs bool
 	// Filter for extended attributes
 	XattrFilter XattrFilter
-	// ExistingFiles is populated during the walk with all visited file/dir paths.
-	// Used for delete detection in Phase 2 - includes unchanged files.
-	ExistingFiles map[string]struct{}
 }
 
 type CurrentFiler interface {
@@ -434,11 +431,6 @@ func (w *walker) handleItem(ctx context.Context, path string, info fs.FileInfo, 
 }
 
 func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo) error {
-	// Track ALL visited files for delete detection (before any early returns)
-	if w.ExistingFiles != nil {
-		w.ExistingFiles[relPath] = struct{}{}
-	}
-
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
 	blockSize := protocol.BlockSize(info.Size())
@@ -504,11 +496,6 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 }
 
 func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, finishedChan chan<- ScanResult) error {
-	// Track ALL visited directories for delete detection (before any early returns)
-	if w.ExistingFiles != nil {
-		w.ExistingFiles[relPath] = struct{}{}
-	}
-
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
 	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter)
@@ -561,11 +548,6 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 	// an error.
 	if build.IsWindows {
 		return nil
-	}
-
-	// Track ALL visited symlinks for delete detection (before any early returns)
-	if w.ExistingFiles != nil {
-		w.ExistingFiles[relPath] = struct{}{}
 	}
 
 	f, err := CreateFileInfo(info, relPath, w.Filesystem, w.ScanOwnership, w.ScanXattrs, w.XattrFilter)

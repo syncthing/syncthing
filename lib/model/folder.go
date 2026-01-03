@@ -528,9 +528,9 @@ func (f *folder) scanSubdirs(ctx context.Context, subDirs []string) error {
 	}()
 
 	phase1Start := time.Now()
-	changesHere, existingFiles, preloadedFiles, sortedNames, alreadyUsedOrExisting, err := f.scanSubdirsChangedAndNew(ctx, subDirs, batch)
+	changesHere, cfiler, alreadyUsedOrExisting, err := f.scanSubdirsChangedAndNew(ctx, subDirs, batch)
 	phase1Duration := time.Since(phase1Start)
-	f.sl.InfoContext(ctx, "Phase 1 (Changed/New) finished", slog.Duration("duration", phase1Duration), slog.Int("changes", changesHere), slog.Int("files_in_map", len(existingFiles)))
+	f.sl.InfoContext(ctx, "Phase 1 (Changed/New) finished", slog.Duration("duration", phase1Duration), slog.Int("changes", changesHere))
 	changes += changesHere
 	if err != nil {
 		return err
@@ -549,10 +549,11 @@ func (f *folder) scanSubdirs(ctx context.Context, subDirs []string) error {
 	}
 
 	// Do a scan of the database for each prefix, to check for deleted and
-	// ignored files.
+	// ignored files. Now uses streamingCFiler which has already collected
+	// deleted files during Phase 1.
 
 	phase2Start := time.Now()
-	changesHere, err = f.scanSubdirsDeletedAndIgnored(ctx, subDirs, batch, existingFiles, preloadedFiles, sortedNames, alreadyUsedOrExisting)
+	changesHere, err = f.scanSubdirsDeletedAndIgnored(ctx, subDirs, batch, cfiler, alreadyUsedOrExisting)
 	phase2Duration := time.Since(phase2Start)
 	f.sl.InfoContext(ctx, "Phase 2 (Deleted/Ignored) finished", slog.Duration("duration", phase2Duration), slog.Int("changes", changesHere))
 	changes += changesHere
@@ -666,7 +667,7 @@ func (b *scanBatch) Update(fi protocol.FileInfo) (bool, error) {
 	return true, nil
 }
 
-func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string, batch *scanBatch) (int, map[string]struct{}, map[string]protocol.FileInfo, []string, map[string]struct{}, error) {
+func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string, batch *scanBatch) (int, *streamingCFiler, map[string]struct{}, error) {
 	changes := 0
 
 	// If we return early e.g. due to a folder health error, the scan needs
@@ -674,28 +675,21 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 	scanCtx, scanCancel := context.WithCancel(ctx)
 	defer scanCancel()
 
-	// Map will be populated by the scanner during the walk for delete detection (includes unchanged)
-	existingFiles := make(map[string]struct{})
-
-	// OPTIMIZATION: Preload all local files into a map before the walk.
-	// This eliminates ~135K individual DB queries (one per file) during walkRegular.
-	preloadStart := time.Now()
-	preloadedFiles, sortedNames, err := f.db.AllLocalFilesMap(f.folderID, protocol.LocalDeviceID)
-	if err != nil {
-		return 0, nil, nil, nil, nil, err
-	}
-	preloadDuration := time.Since(preloadStart)
-	f.sl.InfoContext(ctx, "Preloaded local files for scan",
-		slog.Duration("duration", preloadDuration),
-		slog.Int("files", len(preloadedFiles)),
-		slog.Float64("rate_files_per_sec", float64(len(preloadedFiles))/preloadDuration.Seconds()))
+	// STREAMING OPTIMIZATION: Use streaming DB iterator instead of full preload.
+	// Memory: O(1) instead of O(n) for 135K files (~40MB saved).
+	// Delete detection is handled by streamingCFiler tracking skipped DB entries.
+	streamStart := time.Now()
+	dbIter, errFn := f.db.AllLocalFilesOrdered(f.folderID, protocol.LocalDeviceID)
+	cfiler := newStreamingCFiler(dbIter, errFn)
+	f.sl.InfoContext(ctx, "Started streaming DB iterator for scan",
+		slog.Duration("setup_time", time.Since(streamStart)))
 
 	scanConfig := scanner.Config{
 		Folder:                f.ID,
 		Subs:                  subDirs,
 		Matcher:               f.ignores,
 		TempLifetime:          time.Duration(f.model.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler:          mapCFiler{files: preloadedFiles}, // Use preloaded map instead of DB queries
+		CurrentFiler:          cfiler, // Streaming iterator instead of preloaded map
 		Filesystem:            f.mtimefs,
 		IgnorePerms:           f.IgnorePerms,
 		AutoNormalize:         f.AutoNormalize,
@@ -708,7 +702,6 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 		ScanOwnership:         f.SendOwnership || f.SyncOwnership,
 		ScanXattrs:            f.SendXattrs || f.SyncXattrs,
 		XattrFilter:           f.XattrFilter,
-		ExistingFiles:         existingFiles, // Populated during walk for delete detection
 	}
 
 	walkStart := time.Now()
@@ -730,22 +723,18 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 			continue
 		}
 
-		// Note: existingFiles is populated by the scanner (walk.go) for ALL visited paths,
-		// including unchanged files. We don't write to it here to avoid a race condition
-		// (the scanner runs in a separate goroutine).
-
 		if err := batch.FlushIfFull(); err != nil {
 			// Prevent a race between the scan aborting due to context
 			// cancellation and releasing the snapshot in defer here.
 			scanCancel()
 			for range fchan {
 			}
-			return changes, existingFiles, preloadedFiles, sortedNames, alreadyUsedOrExisting, err
+			return changes, cfiler, alreadyUsedOrExisting, err
 		}
 
 		updateStart := time.Now()
 		if ok, err := batch.Update(res.File); err != nil {
-			return 0, existingFiles, preloadedFiles, sortedNames, alreadyUsedOrExisting, err
+			return 0, cfiler, alreadyUsedOrExisting, err
 		} else if ok {
 			changes++
 		}
@@ -757,13 +746,18 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 			renameStart := time.Now()
 			if nf, ok := f.findRename(ctx, res.File, alreadyUsedOrExisting); ok {
 				if ok, err := batch.Update(nf); err != nil {
-					return 0, existingFiles, preloadedFiles, sortedNames, alreadyUsedOrExisting, err
+					return 0, cfiler, alreadyUsedOrExisting, err
 				} else if ok {
 					changes++
 				}
 			}
 			totalRenameTime += time.Since(renameStart)
 		}
+	}
+
+	// Check for iterator error
+	if err := cfiler.Error(); err != nil {
+		return changes, cfiler, alreadyUsedOrExisting, err
 	}
 
 	walkDuration := time.Since(walkStart)
@@ -774,31 +768,30 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 		slog.Int("files_processed", filesProcessed),
 		slog.Float64("walk_throughput_files_per_sec", float64(filesProcessed)/walkDuration.Seconds()))
 
-	// Return preloadedFiles, sortedNames, and alreadyUsedOrExisting so Phase 2 can reuse them
-	return changes, existingFiles, preloadedFiles, sortedNames, alreadyUsedOrExisting, nil
+	// Return cfiler so Phase 2 can process deleted files
+	return changes, cfiler, alreadyUsedOrExisting, nil
 }
 
-func (f *folder) scanSubdirsDeletedAndIgnored(ctx context.Context, subDirs []string, batch *scanBatch, existingFiles map[string]struct{}, preloadedFiles map[string]protocol.FileInfo, sortedNames []string, alreadyUsedOrExisting map[string]struct{}) (int, error) {
+func (f *folder) scanSubdirsDeletedAndIgnored(ctx context.Context, subDirs []string, batch *scanBatch, cfiler *streamingCFiler, alreadyUsedOrExisting map[string]struct{}) (int, error) {
 	var toIgnore []protocol.FileInfo
 	ignoredParent := ""
 	changes := 0
 
-	// Timing counters
-	var totalDbIterTime, totalIgnoreMatchTime, totalMapLookupTime time.Duration
-	dbFilesChecked := 0
-	mapLookups := 0
-
 	phase2Start := time.Now()
 
-	// OPTIMIZATION: Iterate preloadedFiles using sortedNames (lexicographic order from DB).
-	// This avoids the expensive protobuf deserialization of 135K files.
-	dbIterStart := time.Now()
-	for _, name := range sortedNames {
+	// STREAMING OPTIMIZATION: Deleted files were detected during Phase 1
+	// when the DB iterator advanced past entries not visited by the FS walk.
+	// Finish draining the iterator to collect all remaining deleted files.
+	deletedFiles := cfiler.Finish()
+
+	// Process all deleted files
+	filesProcessed := 0
+	for _, fi := range deletedFiles {
 		// Filter by prefix if needed (check against all subdirs)
 		if len(subDirs) > 0 && subDirs[0] != "" {
 			matchesAny := false
 			for _, sub := range subDirs {
-				if strings.HasPrefix(name, sub) {
+				if strings.HasPrefix(fi.Name, sub) {
 					matchesAny = true
 					break
 				}
@@ -807,13 +800,12 @@ func (f *folder) scanSubdirsDeletedAndIgnored(ctx context.Context, subDirs []str
 				continue
 			}
 		}
-		fi := preloadedFiles[name]
+
 		// Skip files already processed by rename detection in Phase 1
-		if _, processed := alreadyUsedOrExisting[name]; processed {
+		if _, processed := alreadyUsedOrExisting[fi.Name]; processed {
 			continue
 		}
-		totalDbIterTime += time.Since(dbIterStart)
-		dbFilesChecked++
+		filesProcessed++
 
 		select {
 		case <-ctx.Done():
@@ -843,13 +835,10 @@ func (f *folder) scanSubdirsDeletedAndIgnored(ctx context.Context, subDirs []str
 			ignoredParent = ""
 		}
 
-		ignoreMatchStart := time.Now()
 		ignored := f.ignores.Match(fi.Name).IsIgnored()
-		totalIgnoreMatchTime += time.Since(ignoreMatchStart)
 
 		switch {
 		case fi.IsIgnored() && ignored:
-			dbIterStart = time.Now()
 			continue
 		case !fi.IsIgnored() && ignored:
 			// File was not ignored at last pass but has been ignored.
@@ -861,7 +850,6 @@ func (f *folder) scanSubdirsDeletedAndIgnored(ctx context.Context, subDirs []str
 					// this path as the "highest" ignored parent
 					ignoredParent = fi.Name
 				}
-				dbIterStart = time.Now()
 				continue
 			}
 
@@ -879,22 +867,8 @@ func (f *folder) scanSubdirsDeletedAndIgnored(ctx context.Context, subDirs []str
 			// the scan, so check whether it is deleted.
 			fallthrough
 		case !fi.IsIgnored() && !fi.IsDeleted() && !fi.IsUnsupported():
-			// The file is not ignored, deleted or unsupported. Lets check if
-			// it's still here using the existingFiles map (zero syscalls).
-			mapLookupStart := time.Now()
-			_, exists := existingFiles[fi.Name]
-			totalMapLookupTime += time.Since(mapLookupStart)
-			mapLookups++
-
-			if exists {
-				if ignoredParent != "" {
-					// Don't ignore parents of this not ignored item
-					toIgnore = toIgnore[:0]
-					ignoredParent = ""
-				}
-				dbIterStart = time.Now()
-				continue
-			}
+			// The file is not ignored, deleted or unsupported.
+			// It was in DB but not in FS walk -> it's deleted.
 			nf := fi
 			nf.SetDeleted(f.shortID)
 			nf.LocalFlags = f.localFlags
@@ -944,7 +918,6 @@ func (f *folder) scanSubdirsDeletedAndIgnored(ctx context.Context, subDirs []str
 				}
 			}
 		}
-		dbIterStart = time.Now()
 	}
 
 done:
@@ -967,12 +940,9 @@ done:
 
 	f.sl.InfoContext(ctx, "Phase 2 internal breakdown",
 		slog.Duration("total", time.Since(phase2Start)),
-		slog.Duration("db_iteration", totalDbIterTime),
-		slog.Duration("ignore_matching", totalIgnoreMatchTime),
-		slog.Duration("map_lookups", totalMapLookupTime),
-		slog.Int("db_files_checked", dbFilesChecked),
-		slog.Int("map_lookup_count", mapLookups),
-		slog.Float64("processing_rate_files_per_sec", float64(dbFilesChecked)/time.Since(phase2Start).Seconds()))
+		slog.Int("deleted_files_from_phase1", len(deletedFiles)),
+		slog.Int("files_processed", filesProcessed),
+		slog.Float64("processing_rate_files_per_sec", float64(filesProcessed)/time.Since(phase2Start).Seconds()))
 
 	return changes, nil
 }
@@ -1495,13 +1465,102 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 	return dirs
 }
 
-// mapCFiler implements scanner.CurrentFiler using a preloaded map for efficient lookup.
-// This eliminates per-file DB queries during the filesystem walk.
-type mapCFiler struct {
-	files map[string]protocol.FileInfo
+// streamingCFiler implements scanner.CurrentFiler using a streaming DB iterator.
+// Files are streamed in lexicographic order (matching FS walk order after lex-sort fix).
+// This eliminates O(n) memory usage by not preloading all files.
+//
+// IMPORTANT: The FS walk MUST visit files in lexicographic order (ensured by walkfs.go lex-sort).
+// The DB iterator returns files in ORDER BY name.
+// As files are queried, we advance the iterator. Files in DB before the current position
+// but not queried are considered deleted.
+type streamingCFiler struct {
+	iter     func() (protocol.FileInfo, bool) // Iterator function: returns (file, hasMore)
+	errFn    func() error                     // Error check function
+	current  *protocol.FileInfo               // Current DB entry (nil if exhausted)
+	hasMore  bool                             // Whether iterator has more entries
+	deleted  []protocol.FileInfo              // Files skipped (deleted from disk)
+	advanced bool                             // Whether we've called Next at least once
 }
 
-func (m mapCFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
-	fi, ok := m.files[file]
-	return fi, ok
+// newStreamingCFiler creates a streaming CurrentFiler from an ordered DB iterator.
+func newStreamingCFiler(it func(yield func(protocol.FileInfo) bool), errFn func() error) *streamingCFiler {
+	// Convert range-over-func iterator to pull-style iterator
+	ch := make(chan protocol.FileInfo, 1000) // Buffer for prefetch
+	go func() {
+		defer close(ch)
+		it(func(fi protocol.FileInfo) bool {
+			ch <- fi
+			return true
+		})
+	}()
+
+	c := &streamingCFiler{
+		iter: func() (protocol.FileInfo, bool) {
+			fi, ok := <-ch
+			return fi, ok
+		},
+		errFn:   errFn,
+		hasMore: true,
+	}
+	return c
+}
+
+// advance moves to the next DB entry.
+func (c *streamingCFiler) advance() {
+	if !c.hasMore {
+		return
+	}
+	fi, ok := c.iter()
+	c.hasMore = ok
+	if ok {
+		c.current = &fi
+	} else {
+		c.current = nil
+	}
+	c.advanced = true
+}
+
+// CurrentFile looks up a file by advancing the iterator.
+// Since both FS and DB are in lex order, we advance until we find the file or pass it.
+// Files we skip over are deleted (in DB but not on disk).
+func (c *streamingCFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
+	// Advance iterator on first call
+	if !c.advanced {
+		c.advance()
+	}
+
+	// Advance past any DB entries that come before 'name' - these are deleted
+	for c.hasMore && c.current != nil && c.current.Name < name {
+		c.deleted = append(c.deleted, *c.current)
+		c.advance()
+	}
+
+	// Check if current entry matches
+	if c.hasMore && c.current != nil && c.current.Name == name {
+		fi := *c.current
+		c.advance() // Move past this entry
+		return fi, true
+	}
+
+	// File not in DB (new file)
+	return protocol.FileInfo{}, false
+}
+
+// Finish drains the remaining DB entries (all are deleted).
+func (c *streamingCFiler) Finish() []protocol.FileInfo {
+	// Advance iterator on first call if not already done
+	if !c.advanced {
+		c.advance()
+	}
+	// Any remaining entries in DB are deleted
+	for c.hasMore && c.current != nil {
+		c.deleted = append(c.deleted, *c.current)
+		c.advance()
+	}
+	return c.deleted
+}
+
+// Error returns any error from the iterator.
+func (c *streamingCFiler) Error() error {
+	return c.errFn()
 }

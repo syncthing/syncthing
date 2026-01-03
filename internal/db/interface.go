@@ -37,16 +37,12 @@ type DB interface {
 	AllGlobalFiles(folder string) (iter.Seq[FileMetadata], func() error)
 	AllGlobalFilesPrefix(folder string, prefix string) (iter.Seq[FileMetadata], func() error)
 	AllLocalFiles(folder string, device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error)
+	AllLocalFilesOrdered(folder string, device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocalFilesBySequence(folder string, device protocol.DeviceID, startSeq int64, limit int) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocalFilesWithPrefix(folder string, device protocol.DeviceID, prefix string) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocalFilesWithBlocksHash(folder string, h []byte) (iter.Seq[FileMetadata], func() error)
 	AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit, offset int) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocalBlocksWithHash(folder string, hash []byte) (iter.Seq[BlockMapEntry], func() error)
-
-	// AllLocalFilesMap returns all local files as a map for efficient lookup,
-	// plus a slice of file names in sorted (lexicographic) order.
-	// This is used by the scanner to avoid per-file DB queries during the walk.
-	AllLocalFilesMap(folder string, device protocol.DeviceID) (map[string]protocol.FileInfo, []string, error)
 
 	// Cleanup
 	DropAllFiles(folder string, device protocol.DeviceID) error

@@ -59,11 +59,11 @@ func (s *folderDB) AllLocalFiles(device protocol.DeviceID) (iter.Seq[protocol.Fi
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 
-func (s *folderDB) AllLocalFilesMap(device protocol.DeviceID) (map[string]protocol.FileInfo, []string, error) {
-	// OPTIMIZATION: Exclude block data from preload to reduce memory usage.
-	// Scanner uses IgnoreBlocks:true in IsEquivalentOptional, so blocks aren't needed.
-	// This reduces memory from ~270MB to ~40MB for 135K files.
-	// ORDER BY name ensures Phase 2 iteration is in lexicographic order.
+// AllLocalFilesOrdered returns a streaming iterator over local files in lexicographic order.
+// This is used for parallel scanning where the walk order must match DB order.
+// Memory usage is O(1) as files are streamed one at a time.
+// Blocks are excluded since scanner uses IgnoreBlocks:true in comparisons.
+func (s *folderDB) AllLocalFilesOrdered(device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error) {
 	it, errFn := iterStructs[indirectFI](s.stmt(`
 		SELECT fi.fiprotobuf, NULL as blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
@@ -72,21 +72,7 @@ func (s *folderDB) AllLocalFilesMap(device protocol.DeviceID) (map[string]protoc
 		WHERE d.device_id = ?
 		ORDER BY n.name
 	`).Queryx(device.String()))
-
-	result := make(map[string]protocol.FileInfo, 150000) // Pre-size for ~135K files
-	names := make([]string, 0, 150000)
-	for ifi, err := range itererr.Zip(it, errFn) {
-		if err != nil {
-			return nil, nil, err
-		}
-		fi, err := ifi.FileInfo()
-		if err != nil {
-			return nil, nil, err
-		}
-		result[fi.Name] = fi
-		names = append(names, fi.Name)
-	}
-	return result, names, nil
+	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 
 func (s *folderDB) AllLocalFilesBySequence(device protocol.DeviceID, startSeq int64, limit int) (iter.Seq[protocol.FileInfo], func() error) {

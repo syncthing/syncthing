@@ -13,6 +13,7 @@ package fs
 import (
 	"errors"
 	"path/filepath"
+	"sort"
 )
 
 var ErrInfiniteRecursion = errors.New("infinite filesystem recursion detected")
@@ -116,6 +117,20 @@ func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc, ances
 	if err != nil {
 		return walkFn(path, info, err)
 	}
+
+	// Sort entries in lex-order matching DB's ORDER BY name.
+	// Directories are treated as "name/" so "a.txt" < "a/" (since '.' < '/').
+	// This ensures the DFS walk order matches lexicographic DB iteration.
+	sort.Slice(entries, func(i, j int) bool {
+		nameI, nameJ := entries[i].Name(), entries[j].Name()
+		if entries[i].IsDir() {
+			nameI += "/"
+		}
+		if entries[j].IsDir() {
+			nameJ += "/"
+		}
+		return nameI < nameJ
+	})
 
 	for _, entry := range entries {
 		filename := filepath.Join(path, entry.Name())
