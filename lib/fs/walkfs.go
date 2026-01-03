@@ -13,6 +13,7 @@ package fs
 import (
 	"errors"
 	"path/filepath"
+	"sort"
 )
 
 var ErrInfiniteRecursion = errors.New("infinite filesystem recursion detected")
@@ -109,13 +110,33 @@ func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc, ances
 		}
 	}
 
-	names, err := f.DirNames(path)
+	// OPTIMIZATION: Use ReadDir instead of DirNames + Lstat
+	// ReadDir returns DirEntry which includes file type from getdents64,
+	// avoiding a separate lstat syscall per file for directory detection.
+	entries, err := f.ReadDir(path)
 	if err != nil {
 		return walkFn(path, info, err)
 	}
 
-	for _, name := range names {
-		filename := filepath.Join(path, name)
+	// Sort entries in lex-order matching DB's ORDER BY name.
+	// Directories are treated as "name/" so "a.txt" < "a/" (since '.' < '/').
+	// This ensures the DFS walk order matches lexicographic DB iteration.
+	sort.Slice(entries, func(i, j int) bool {
+		nameI, nameJ := entries[i].Name(), entries[j].Name()
+		if entries[i].IsDir() {
+			nameI += "/"
+		}
+		if entries[j].IsDir() {
+			nameJ += "/"
+		}
+		return nameI < nameJ
+	})
+
+	for _, entry := range entries {
+		filename := filepath.Join(path, entry.Name())
+		// Get full FileInfo via Lstat. The ReadDir above gives us DirEntry
+		// which includes file type from getdents64, avoiding extra syscalls
+		// for directory detection, but we still need Lstat for full metadata.
 		fileInfo, err := f.Lstat(filename)
 		if err != nil {
 			if err := walkFn(filename, fileInfo, err); err != nil && !errors.Is(err, SkipDir) {

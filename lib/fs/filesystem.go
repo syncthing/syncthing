@@ -35,6 +35,7 @@ type Filesystem interface {
 	Create(name string) (File, error)
 	CreateSymlink(target, name string) error
 	DirNames(name string) ([]string, error)
+	ReadDir(name string) ([]fs.DirEntry, error)
 	Lstat(name string) (FileInfo, error)
 	Mkdir(name string, perm FileMode) error
 	MkdirAll(name string, perm FileMode) error

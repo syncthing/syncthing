@@ -132,3 +132,67 @@ func testWalkInfiniteRecursion(t *testing.T, fsType FilesystemType, uri string) 
 		t.Fatal("Infinite recursion not detected correctly")
 	}
 }
+
+// TestWalkLexOrder verifies that the walk produces lexicographic order
+// where files sort before directories with the same prefix.
+// This is critical for parallel scanning where FS walk order must match
+// DB ORDER BY name order.
+func TestWalkLexOrder(t *testing.T) {
+	// Create a fake filesystem with entries that would sort differently
+	// under naive alphabetic sort vs lex-order with dir suffix.
+	//
+	// Structure:
+	//   a/z.txt
+	//   a.txt
+	//
+	// Naive sort: a/ then a.txt (because "a" < "a.txt")
+	// Lex-order:  a.txt then a/ (because "a.txt" < "a/" since '.' < '/')
+	fs := NewFilesystem(FilesystemTypeFake, "TestWalkLexOrder")
+
+	if err := fs.MkdirAll("a", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := fs.Mkdir("b", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Create files that would interleave with directories
+	for _, name := range []string{"a.txt", "a/z.txt", "b.txt", "b/y.txt"} {
+		dir := filepath.Dir(name)
+		if dir != "." {
+			fs.MkdirAll(dir, 0o755)
+		}
+		f, err := fs.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.Close()
+	}
+
+	var visited []string
+	err := fs.Walk(".", func(path string, info FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if path != "." {
+			visited = append(visited, path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Expected lex-order: .stfolder (auto-created by fake fs), a.txt, a, a/z.txt, b.txt, b, b/y.txt
+	// Note: "a.txt" < "a/" because '.' (46) < '/' (47)
+	// .stfolder comes first because '.' < 'a'
+	expected := []string{".stfolder", "a.txt", "a", "a/z.txt", "b.txt", "b", "b/y.txt"}
+
+	if len(visited) != len(expected) {
+		t.Fatalf("Wrong number of entries: got %v, expected %v", visited, expected)
+	}
+	for i, path := range visited {
+		if path != expected[i] {
+			t.Fatalf("Wrong order at index %d: got %q, expected %q.\nFull order: %v", i, path, expected[i], visited)
+		}
+	}
+}
