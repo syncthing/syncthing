@@ -678,9 +678,10 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 	// STREAMING OPTIMIZATION: Use streaming DB iterator instead of full preload.
 	// Memory: O(1) instead of O(n) for 135K files (~40MB saved).
 	// Delete detection is handled by streamingCFiler tracking skipped DB entries.
+	// Deleted files are bounded to 1000/batch; callback nil = collect all for Phase 2.
 	streamStart := time.Now()
 	dbIter, errFn := f.db.AllLocalFilesOrdered(f.folderID, protocol.LocalDeviceID)
-	cfiler := newStreamingCFiler(dbIter, errFn)
+	cfiler := newStreamingCFiler(dbIter, errFn, nil) // nil = collect all deleted for Phase 2
 	f.sl.InfoContext(ctx, "Started streaming DB iterator for scan",
 		slog.Duration("setup_time", time.Since(streamStart)))
 
@@ -1466,24 +1467,32 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 }
 
 // streamingCFiler implements scanner.CurrentFiler using a streaming DB iterator.
-// Files are streamed in lexicographic order (matching FS walk order after lex-sort fix).
+// Files are streamed in lexicographic order (matching FS walk order after heap-sort fix).
 // This eliminates O(n) memory usage by not preloading all files.
 //
-// IMPORTANT: The FS walk MUST visit files in lexicographic order (ensured by walkfs.go lex-sort).
+// IMPORTANT: The FS walk MUST visit files in lexicographic order (ensured by walkfs.go heap-walk).
 // The DB iterator returns files in ORDER BY name.
 // As files are queried, we advance the iterator. Files in DB before the current position
 // but not queried are considered deleted.
+//
+// Deleted files are collected and flushed via onDeletedBatch callback when threshold is reached.
+// This bounds memory usage to O(deletedBatchSize) instead of O(total_deleted).
+const deletedBatchSize = 1000
+
 type streamingCFiler struct {
-	iter     func() (protocol.FileInfo, bool) // Iterator function: returns (file, hasMore)
-	errFn    func() error                     // Error check function
-	current  *protocol.FileInfo               // Current DB entry (nil if exhausted)
-	hasMore  bool                             // Whether iterator has more entries
-	deleted  []protocol.FileInfo              // Files skipped (deleted from disk)
-	advanced bool                             // Whether we've called Next at least once
+	iter           func() (protocol.FileInfo, bool) // Iterator function: returns (file, hasMore)
+	errFn          func() error                     // Error check function
+	onDeletedBatch func([]protocol.FileInfo)        // Callback when batch is full (nil = collect all)
+	current        *protocol.FileInfo               // Current DB entry (nil if exhausted)
+	hasMore        bool                             // Whether iterator has more entries
+	deleted        []protocol.FileInfo              // Files skipped (deleted from disk) - bounded
+	advanced       bool                             // Whether we've called Next at least once
 }
 
 // newStreamingCFiler creates a streaming CurrentFiler from an ordered DB iterator.
-func newStreamingCFiler(it func(yield func(protocol.FileInfo) bool), errFn func() error) *streamingCFiler {
+// onDeletedBatch is called when deleted files batch reaches threshold. If nil, all
+// deleted files are collected and returned by Finish().
+func newStreamingCFiler(it func(yield func(protocol.FileInfo) bool), errFn func() error, onDeletedBatch func([]protocol.FileInfo)) *streamingCFiler {
 	// Convert range-over-func iterator to pull-style iterator
 	ch := make(chan protocol.FileInfo, 1000) // Buffer for prefetch
 	go func() {
@@ -1499,8 +1508,10 @@ func newStreamingCFiler(it func(yield func(protocol.FileInfo) bool), errFn func(
 			fi, ok := <-ch
 			return fi, ok
 		},
-		errFn:   errFn,
-		hasMore: true,
+		errFn:          errFn,
+		onDeletedBatch: onDeletedBatch,
+		hasMore:        true,
+		deleted:        make([]protocol.FileInfo, 0, deletedBatchSize),
 	}
 	return c
 }
@@ -1520,6 +1531,15 @@ func (c *streamingCFiler) advance() {
 	c.advanced = true
 }
 
+// addDeleted adds a file to the deleted list, flushing if threshold reached.
+func (c *streamingCFiler) addDeleted(fi protocol.FileInfo) {
+	c.deleted = append(c.deleted, fi)
+	if len(c.deleted) >= deletedBatchSize && c.onDeletedBatch != nil {
+		c.onDeletedBatch(c.deleted)
+		c.deleted = make([]protocol.FileInfo, 0, deletedBatchSize)
+	}
+}
+
 // CurrentFile looks up a file by advancing the iterator.
 // Since both FS and DB are in lex order, we advance until we find the file or pass it.
 // Files we skip over are deleted (in DB but not on disk).
@@ -1531,7 +1551,7 @@ func (c *streamingCFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 
 	// Advance past any DB entries that come before 'name' - these are deleted
 	for c.hasMore && c.current != nil && c.current.Name < name {
-		c.deleted = append(c.deleted, *c.current)
+		c.addDeleted(*c.current)
 		c.advance()
 	}
 
@@ -1546,7 +1566,7 @@ func (c *streamingCFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 	return protocol.FileInfo{}, false
 }
 
-// Finish drains the remaining DB entries (all are deleted).
+// Finish drains the remaining DB entries (all are deleted) and returns unflushed deleted files.
 func (c *streamingCFiler) Finish() []protocol.FileInfo {
 	// Advance iterator on first call if not already done
 	if !c.advanced {
@@ -1554,7 +1574,7 @@ func (c *streamingCFiler) Finish() []protocol.FileInfo {
 	}
 	// Any remaining entries in DB are deleted
 	for c.hasMore && c.current != nil {
-		c.deleted = append(c.deleted, *c.current)
+		c.addDeleted(*c.current)
 		c.advance()
 	}
 	return c.deleted
