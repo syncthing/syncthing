@@ -268,6 +268,30 @@ func (c *serveCmd) Run() error {
 		osutil.HideConsole()
 	}
 
+	if build.IsWindows {
+		if isService, err := osutil.IsWindowsService(); err == nil && isService {
+			handler := &osutil.WindowsServiceHandler{
+				MainFunc: func(ctx context.Context) {
+					done := make(chan struct{})
+					go func() {
+						c.syncthingMain()
+						close(done)
+					}()
+					select {
+					case <-ctx.Done():
+						p, err := os.FindProcess(os.Getpid())
+						if err == nil {
+							_ = p.Signal(os.Interrupt)
+						}
+						<-done
+					case <-done:
+					}
+				},
+			}
+			return osutil.RunService("syncthing", handler)
+		}
+	}
+
 	// Customize the logging early
 	slogutil.SetLineFormat(slogutil.LineFormat{
 		TimestampFormat: c.LogFormatTimestamp,
