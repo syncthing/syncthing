@@ -281,7 +281,7 @@ func (c *serveCmd) Run() error {
 					case <-ctx.Done():
 						p, err := os.FindProcess(os.Getpid())
 						if err == nil {
-							_ = p.Signal(os.Interrupt)
+							_ = p.Signal(os.Kill)
 						}
 						<-done
 					case <-done:

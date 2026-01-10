@@ -5,7 +5,6 @@ package osutil
 import (
 	"context"
 	"os"
-	"os/exec"
 	"sync"
 
 	"golang.org/x/sys/windows/svc"
@@ -77,6 +76,7 @@ func (m *WindowsServiceHandler) Execute(args []string, r <-chan svc.ChangeReques
 	s <- svc.Status{State: svc.StartPending}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	var wg sync.WaitGroup
 
 	wg.Add(1)
@@ -89,21 +89,14 @@ func (m *WindowsServiceHandler) Execute(args []string, r <-chan svc.ChangeReques
 
 	s <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
-	stopped := false
 	for c := range r {
 		switch c.Cmd {
 		case svc.Interrogate:
 			s <- c.CurrentStatus
 		case svc.Stop, svc.Shutdown:
 			s <- svc.Status{State: svc.StopPending}
-			_ = exec.Command("taskkill", "/IM", "syncthing.exe", "/F").Run()
 			cancel()
-			stopped = true
-			break
 		default:
-		}
-		if stopped {
-			break
 		}
 	}
 
