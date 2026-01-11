@@ -4,104 +4,70 @@ package osutil
 
 import (
 	"context"
-	"os"
-	"sync"
 
 	"golang.org/x/sys/windows/svc"
-	"golang.org/x/sys/windows/svc/eventlog"
-	"golang.org/x/sys/windows/svc/mgr"
 )
 
 func IsWindowsService() (bool, error) {
 	return svc.IsWindowsService()
 }
 
-func RunService(name string, handler svc.Handler) error {
-	return svc.Run(name, handler)
+type WindowsService struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	mainFunc func(ctx context.Context)
+
+	done chan struct{}
 }
 
-func InstallService(name, displayName string, args ...string) error {
-	m, err := mgr.Connect()
-	if err != nil {
-		return err
-	}
-	defer m.Disconnect()
-
-	exepath, err := os.Executable()
-	if err != nil {
-		return err
-	}
-
-	s, err := m.CreateService(name, exepath, mgr.Config{DisplayName: displayName}, args...)
-	if err != nil {
-		return err
-	}
-	defer s.Close()
-
-	if err := eventlog.InstallAsEventCreate(name, eventlog.Error|eventlog.Warning|eventlog.Info); err != nil {
-		s.Delete()
-		return err
-	}
-
-	return nil
-}
-
-func RemoveService(name string) error {
-	m, err := mgr.Connect()
-	if err != nil {
-		return err
-	}
-	defer m.Disconnect()
-
-	s, err := m.OpenService(name)
-	if err != nil {
-		return err
-	}
-	defer s.Close()
-
-	if err = s.Delete(); err != nil {
-		return err
-	}
-	_ = eventlog.Remove(name)
-	return nil
-}
-
-type WindowsServiceHandler struct {
-	MainFunc func(ctx context.Context)
-}
-
-func (m *WindowsServiceHandler) Execute(args []string, r <-chan svc.ChangeRequest, s chan<- svc.Status) (bool, uint32) {
-	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
-
-	s <- svc.Status{State: svc.StartPending}
-
+func NewWindowsService(mainFunc func(ctx context.Context)) *WindowsService {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	var wg sync.WaitGroup
+	return &WindowsService{
+		ctx:      ctx,
+		cancel:   cancel,
+		mainFunc: mainFunc,
+		done:     make(chan struct{}),
+	}
+}
 
-	wg.Add(1)
+func (s *WindowsService) Execute(args []string, r <-chan svc.ChangeRequest, status chan<- svc.Status) (bool, uint32) {
+	const acceptedCommands = svc.AcceptStop | svc.AcceptShutdown
+
+	status <- svc.Status{State: svc.StartPending}
+
 	go func() {
-		defer wg.Done()
-		if m.MainFunc != nil {
-			m.MainFunc(ctx)
+		defer close(s.done)
+		if s.mainFunc != nil {
+			s.mainFunc(s.ctx)
 		}
 	}()
 
-	s <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
+	status <- svc.Status{State: svc.Running, Accepts: acceptedCommands}
 
-	for c := range r {
-		switch c.Cmd {
+	for req := range r {
+		switch req.Cmd {
 		case svc.Interrogate:
-			s <- c.CurrentStatus
+			status <- req.CurrentStatus
+
 		case svc.Stop, svc.Shutdown:
-			s <- svc.Status{State: svc.StopPending}
-			cancel()
+			status <- svc.Status{State: svc.StopPending}
+
+			s.cancel()
+
+			<-s.done
+
+			status <- svc.Status{State: svc.Stopped}
+			return false, 0
+
 		default:
 		}
 	}
 
-	wg.Wait()
-
-	s <- svc.Status{State: svc.StopPending}
 	return false, 0
+}
+
+func RunService(name string, mainFunc func(ctx context.Context)) error {
+	service := NewWindowsService(mainFunc)
+	return svc.Run(name, service)
 }
