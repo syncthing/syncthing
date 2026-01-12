@@ -31,6 +31,9 @@ func NewWindowsService(mainFunc func(ctx context.Context)) *WindowsService {
 	}
 }
 
+// This function is automatically called by
+// Windows Service Control Manager (SCM) on Start action.
+// https://pkg.go.dev/golang.org/x/sys/windows/svc#Handler
 func (s *WindowsService) Execute(args []string, r <-chan svc.ChangeRequest, status chan<- svc.Status) (bool, uint32) {
 	const acceptedCommands = svc.AcceptStop | svc.AcceptShutdown
 
