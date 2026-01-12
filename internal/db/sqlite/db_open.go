@@ -20,19 +20,23 @@ import (
 )
 
 const (
-	maxDBConns         = 16
-	minDeleteRetention = 24 * time.Hour
+	maxDBConns               = 16
+	minDeleteRetention       = 24 * time.Hour
+	DefaultDeleteRetention   = (365 + 90) * 24 * time.Hour
+	minShardingThreshold     = 1_000_000
+	DefaultShardingThreshold = 10_000_000
 )
 
 type DB struct {
 	*baseDB
 
-	pathBase        string
-	deleteRetention time.Duration
+	pathBase          string
+	deleteRetention   time.Duration
+	shardingThreshold int
 
 	folderDBsMut   sync.RWMutex
 	folderDBs      map[string]*folderDB
-	folderDBOpener func(folder, path string, deleteRetention time.Duration) (*folderDB, error)
+	folderDBOpener func(folder, path string, deleteRetention time.Duration, shardingThreshold int) (*folderDB, error)
 }
 
 var _ db.DB = (*DB)(nil)
@@ -45,6 +49,16 @@ func WithDeleteRetention(d time.Duration) Option {
 			s.deleteRetention = 0
 		} else {
 			s.deleteRetention = max(d, minDeleteRetention)
+		}
+	}
+}
+
+func WithShardingThreshold(t int) Option {
+	return func(s *DB) {
+		if t <= 0 {
+			s.shardingThreshold = DefaultShardingThreshold
+		} else {
+			s.shardingThreshold = max(t, minShardingThreshold)
 		}
 	}
 }
@@ -75,10 +89,12 @@ func Open(path string, opts ...Option) (*DB, error) {
 	}
 
 	db := &DB{
-		pathBase:       path,
-		baseDB:         mainBase,
-		folderDBs:      make(map[string]*folderDB),
-		folderDBOpener: openFolderDB,
+		pathBase:          path,
+		deleteRetention:   DefaultDeleteRetention,
+		shardingThreshold: DefaultShardingThreshold,
+		baseDB:            mainBase,
+		folderDBs:         make(map[string]*folderDB),
+		folderDBOpener:    openFolderDB,
 	}
 
 	for _, opt := range opts {
@@ -96,10 +112,10 @@ func Open(path string, opts ...Option) (*DB, error) {
 	return db, nil
 }
 
-// Open the database with options suitable for the migration inserts. This
-// is not a safe mode of operation for normal processing, use only for bulk
-// inserts with a close afterwards.
-func OpenForMigration(path string) (*DB, error) {
+// OpenForMigration opens the database with options suitable for the
+// migration inserts. This is not a safe mode of operation for normal
+// processing, use only for bulk inserts with a close afterwards.
+func OpenForMigration(path string, opts ...Option) (*DB, error) {
 	pragmas := []string{
 		"journal_mode = OFF",
 		"foreign_keys = 0",
@@ -126,10 +142,16 @@ func OpenForMigration(path string) (*DB, error) {
 	}
 
 	db := &DB{
-		pathBase:       path,
-		baseDB:         mainBase,
-		folderDBs:      make(map[string]*folderDB),
-		folderDBOpener: openFolderDBForMigration,
+		pathBase:          path,
+		deleteRetention:   DefaultDeleteRetention,
+		shardingThreshold: DefaultShardingThreshold,
+		baseDB:            mainBase,
+		folderDBs:         make(map[string]*folderDB),
+		folderDBOpener:    openFolderDBForMigration,
+	}
+
+	for _, opt := range opts {
+		opt(db)
 	}
 
 	if err := db.cleanDroppedFolders(); err != nil {
@@ -144,6 +166,7 @@ func (s *DB) Close() error {
 	defer s.folderDBsMut.Unlock()
 	for folder, fdb := range s.folderDBs {
 		fdb.Close()
+		fdb.blocksDB.Close()
 		delete(s.folderDBs, folder)
 	}
 	return wrap(s.baseDB.Close())

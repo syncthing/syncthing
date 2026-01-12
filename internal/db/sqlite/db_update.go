@@ -57,6 +57,13 @@ func (s *DB) cleanDroppedFolders() error {
 		return wrap(err)
 	}
 
+	// Remove the extension so we can use the name as a prefix match. That
+	// is, if we have folder.0001-ewj9vqof.db we will also allow names like
+	// folder.0001-ewj9vqof-blocks-whatever.db
+	for i, name := range names {
+		names[i] = strings.TrimSuffix(name, filepath.Ext(name))
+	}
+
 	// All folder database files on disk.
 	files, err := filepath.Glob(filepath.Join(s.pathBase, "folder.*"))
 	if err != nil {

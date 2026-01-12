@@ -10,8 +10,11 @@ import (
 	"cmp"
 	"database/sql/driver"
 	"errors"
+	"fmt"
 	"iter"
+	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/gen/bep"
@@ -121,4 +124,24 @@ func prefixEnd(s string) string {
 		}
 	}
 	return string(bs)
+}
+
+// addInnerExt takes a name (foo.bar.db) and inner extension (quux) and
+// returns foo.bar.quux.db
+func addInnerExt(name, suffix string) string {
+	ext := filepath.Ext(name)
+	noext := strings.TrimSuffix(name, ext)
+	return fmt.Sprintf("%s.%s%s", noext, suffix, ext)
+}
+
+// getInnerExt returns the "inner extension" of a file, e.g. "quux" in
+// foo.bar.quux.db
+func getInnerExt(name string) string {
+	ext := filepath.Ext(name)
+	noext := strings.TrimSuffix(name, ext)
+	dotIdx := strings.LastIndex(noext, ".")
+	if dotIdx < 0 {
+		return ""
+	}
+	return noext[dotIdx+1:]
 }

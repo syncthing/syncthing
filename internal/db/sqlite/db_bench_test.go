@@ -44,7 +44,7 @@ func BenchmarkUpdate(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	for size < 200_000 {
+	for size < 10_000 {
 		for {
 			local, err := db.CountLocal(folderID, protocol.LocalDeviceID)
 			if err != nil {
