@@ -15,8 +15,17 @@ import (
 	"github.com/thejerf/suture/v4"
 )
 
+type DBService interface {
+	suture.Service
+
+	// Starts maintenance asynchronously, if not already running
+	StartMaintenance()
+}
+
 type DB interface {
-	Service(maintenanceInterval time.Duration) suture.Service
+	// Create a service that performs database maintenance periodically (no
+	// more often than the requested interval)
+	Service(maintenanceInterval time.Duration) DBService
 
 	// Basics
 	Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error
