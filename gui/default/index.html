@@ -596,7 +596,9 @@
                         <th><span class="far fa-fw fa-clock"></span>&nbsp;<span translate>Last Scan</span></th>
                         <td translate ng-if="folderStats[folder.id].lastScanDays >= 365" class="text-right">Never</td>
                         <td ng-if="folderStats[folder.id].lastScanDays < 365" class="text-right">
-                          <span>{{folderStats[folder.id].lastScan | date:'yyyy-MM-dd HH:mm:ss'}}</span>
+                          <span tooltip data-original-title="{{folderStats[folder.id].lastScan | timeAgo}}">
+                            {{folderStats[folder.id].lastScan | date:'yyyy-MM-dd HH:mm:ss'}}
+                          </span>
                         </td>
                       </tr>
                       <tr ng-if="folder.type != 'sendonly' && folder.type != 'receiveencrypted' && folderStats[folder.id].lastFile && folderStats[folder.id].lastFile.filename">
@@ -1066,9 +1068,10 @@
   <script type="text/javascript" src="syncthing/core/popoverDirective.js"></script>
   <script type="text/javascript" src="syncthing/core/syncthingController.js"></script>
   <script type="text/javascript" src="syncthing/core/tooltipDirective.js"></script>
-  <script type="text/javascript" src="syncthing/core/uncamelFilter.js"></script>
-  <script type="text/javascript" src="syncthing/core/uniqueFolderDirective.js"></script>
-  <script type="text/javascript" src="syncthing/core/validDeviceidDirective.js"></script>
+          <script type="text/javascript" src="syncthing/core/timeAgoFilter.js"></script>
+        <script type="text/javascript" src="syncthing/core/uncamelFilter.js"></script>
+        <script type="text/javascript" src="syncthing/core/uniqueFolderDirective.js"></script>
+        <script type="text/javascript" src="syncthing/core/validDeviceidDirective.js"></script>
   <script type="text/javascript" src="assets/lang/valid-langs.js"></script>
   <script type="text/javascript" src="assets/lang/prettyprint.js"></script>
   <script type="text/javascript" src="meta.js"></script>
