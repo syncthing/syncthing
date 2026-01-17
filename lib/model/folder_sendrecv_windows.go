@@ -31,7 +31,7 @@ func (f *sendReceiveFolder) syncOwnership(file *protocol.FileInfo, path string) 
 }
 
 func lookupUserAndGroup(name string, group bool) (string, string, error) {
-	// Look up either the the user or the group, returning the other kind as
+	// Look up either the user or the group, returning the other kind as
 	// blank. This might seem an odd maneuver, but it matches what Chown
 	// wants as input and hides the ugly nested if:s down here.
 
