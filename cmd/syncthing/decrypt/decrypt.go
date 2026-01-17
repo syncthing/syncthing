@@ -240,7 +240,7 @@ func (c *CLI) decryptFile(encFi *protocol.FileInfo, plainFi *protocol.FileInfo, 
 		// Verify the hash against the plaintext block info
 		if !scanner.Validate(dec, plainBlock.Hash) {
 			// The block decrypted correctly but fails the hash check. This
-			// is odd and unexpected, but it it's still a valid block from
+			// is odd and unexpected, but it's still a valid block from
 			// the source. The file might have changed while we pulled it?
 			err := fmt.Errorf("plaintext block %d (%d bytes) failed validation after decryption", i, plainBlock.Size)
 			if c.Continue {
