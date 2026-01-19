@@ -217,7 +217,6 @@ input[type="checkbox"].extended-attributes-filter-rule-checkbox {
 li[language-select] > .dropdown-menu {
     column-count: 2;
     column-gap: 0;
-    width: 450px;
 }
 
 li[language-select] > .dropdown-menu > li > a {
