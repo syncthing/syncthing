@@ -232,6 +232,17 @@ func (s *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
 	return fdb.DropAllFiles(device)
 }
 
+func (s *DB) DropFolderDevice(folder string, device protocol.DeviceID) error {
+	fdb, err := s.getFolderDB(folder, false)
+	if errors.Is(err, errNoSuchFolder) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return fdb.DropDevice(device)
+}
+
 func (s *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []string) error {
 	fdb, err := s.getFolderDB(folder, false)
 	if errors.Is(err, errNoSuchFolder) {
