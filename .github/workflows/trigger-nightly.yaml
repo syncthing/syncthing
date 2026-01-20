@@ -13,7 +13,7 @@ jobs:
     name: Push to release-nightly to trigger build
     steps:
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           token: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
           fetch-depth: 0
