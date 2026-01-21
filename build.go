@@ -65,6 +65,9 @@ type target struct {
 	debname           string
 	debdeps           []string
 	debpre            string
+	rpmname           string
+	rpmdeps           []string
+	rpmpre            string
 	description       string
 	buildPkgs         []string
 	binaryName        string
@@ -86,10 +89,12 @@ var targets = map[string]target{
 		// the archive creation stuff. buildPkgs gets filled out in init()
 	},
 	"syncthing": {
-		// The default target for "build", "install", "tar", "zip", "deb", etc.
+		// The default target for "build", "install", "tar", "zip", "deb", "rpm", etc.
 		name:        "syncthing",
 		debname:     "syncthing",
 		debdeps:     []string{"libc6", "procps"},
+		rpmname:     "syncthing",
+		rpmdeps:     []string{"hicolor-icon-theme"},
 		description: "Open Source Continuous File Synchronization",
 		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/syncthing"},
 		binaryName:  "syncthing", // .exe will be added automatically for Windows builds
@@ -135,6 +140,9 @@ var targets = map[string]target{
 		debname:     "syncthing-discosrv",
 		debdeps:     []string{"libc6"},
 		debpre:      "cmd/stdiscosrv/scripts/preinst",
+		rpmname:     "syncthing-discosrv",
+		rpmdeps:     []string{},
+		rpmpre:      "cmd/stdiscosrv/scripts/rpm-preinst",
 		description: "Syncthing Discovery Server",
 		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/stdiscosrv"},
 		binaryName:  "stdiscosrv", // .exe will be added automatically for Windows builds
@@ -161,6 +169,9 @@ var targets = map[string]target{
 		debname:     "syncthing-relaysrv",
 		debdeps:     []string{"libc6"},
 		debpre:      "cmd/strelaysrv/scripts/preinst",
+		rpmname:     "syncthing-relaysrv",
+		rpmdeps:     []string{},
+		rpmpre:      "cmd/strelaysrv/scripts/rpm-preinst",
 		description: "Syncthing Relay Server",
 		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/strelaysrv"},
 		binaryName:  "strelaysrv", // .exe will be added automatically for Windows builds
@@ -330,6 +341,9 @@ func runCommand(cmd string, target target) {
 
 	case "deb":
 		buildDeb(target, tags)
+
+	case "rpm":
+		buildRpm(target, tags)
 
 	case "vet":
 		metalintShort()
@@ -681,6 +695,231 @@ func createPostInstScript(target target) (string, error) {
 		return "", err
 	}
 	return scriptname, nil
+}
+
+// rpmArch converts Go architecture names to RPM architecture names
+func rpmArch(arch string) string {
+	switch arch {
+	case "amd64":
+		return "x86_64"
+	case "386":
+		return "i686"
+	case "arm64":
+		return "aarch64"
+	case "arm", "armhf":
+		return "armv7hl"
+	case "armel":
+		return "armv6hl"
+	default:
+		return arch
+	}
+}
+
+// parseRPMVersion converts Syncthing version to RPM version and release.
+// Uses tilde versioning per Fedora guidelines so pre-releases sort correctly.
+// Examples:
+//
+//	v1.27.0      -> version=1.27.0, release=1
+//	v1.27.0-rc.1 -> version=1.27.0~rc.1, release=1
+func parseRPMVersion(ver string) (version, release string) {
+	ver = strings.TrimPrefix(ver, "v")
+	// Replace dashes with tildes for pre-releases (e.g., rc.1, beta.1)
+	// Tilde causes the version segment to sort older: 1.27.0~rc.1 < 1.27.0
+	version = strings.ReplaceAll(ver, "-", "~")
+	release = "1"
+	return
+}
+
+// filterInstallationFilesForRPM returns installation files with UFW entries removed
+// and destination paths transformed from "deb/" prefix to "rpm/" prefix.
+func filterInstallationFilesForRPM(files []archiveFile) []archiveFile {
+	var result []archiveFile
+	for _, f := range files {
+		// Skip UFW firewall rules - RPM systems use firewalld
+		if strings.Contains(f.src, "firewall-ufw") {
+			continue
+		}
+		// Transform destination path from deb/ to rpm/
+		newDst := strings.Replace(f.dst, "deb/", "rpm/", 1)
+		result = append(result, archiveFile{
+			src:  f.src,
+			dst:  newDst,
+			perm: f.perm,
+		})
+	}
+	return result
+}
+
+func buildRpm(target target, tags []string) {
+	os.RemoveAll("rpm")
+
+	// "goarch" here may be set to RPM-style arch names. We convert to Go arch
+	// for building and keep the RPM arch for the package.
+	rpmarch := goarch
+	switch goarch {
+	case "x86_64":
+		goarch = "amd64"
+		rpmarch = "x86_64"
+	case "i686", "i386":
+		goarch = "386"
+		rpmarch = "i686"
+	case "aarch64":
+		goarch = "arm64"
+		rpmarch = "aarch64"
+	case "armv7hl", "armhf":
+		goarch = "arm"
+		rpmarch = "armv7hl"
+	case "armel", "armv6hl":
+		goarch = "arm"
+		rpmarch = "armv6hl"
+	default:
+		rpmarch = rpmArch(goarch)
+	}
+
+	build(target, append(tags, "noupgrade"))
+
+	// Filter and transform installation files for RPM
+	rpmFiles := filterInstallationFilesForRPM(target.installationFiles)
+
+	for i := range rpmFiles {
+		rpmFiles[i].src = strings.Replace(rpmFiles[i].src, "{{binary}}", target.BinaryName(), 1)
+		rpmFiles[i].dst = strings.Replace(rpmFiles[i].dst, "{{binary}}", target.BinaryName(), 1)
+	}
+
+	for _, af := range rpmFiles {
+		if err := copyFile(af.src, af.dst, af.perm); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	maintainer := "Syncthing Release Management <release@syncthing.net>"
+	rpmver, rpmrel := parseRPMVersion(version)
+
+	args := []string{
+		"-t", "rpm",
+		"-s", "dir",
+		"-C", "rpm",
+		"-n", target.rpmname,
+		"-v", rpmver,
+		"--iteration", rpmrel,
+		"-a", rpmarch,
+		"-m", maintainer,
+		"--vendor", "Syncthing Foundation",
+		"--description", target.description,
+		"--url", "https://syncthing.net/",
+		"--license", "MPL-2.0",
+	}
+
+	for _, dep := range target.rpmdeps {
+		args = append(args, "-d", dep)
+	}
+
+	// Add systemd scriptlets if service is defined
+	if target.systemdService != "" {
+		rpmpost, err := createRPMPostInstScript(target)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer os.Remove(rpmpost)
+
+		rpmpreun, err := createRPMPreUnScript(target)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer os.Remove(rpmpreun)
+
+		rpmpostun, err := createRPMPostUnScript(target)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer os.Remove(rpmpostun)
+
+		args = append(args, "--after-install", rpmpost)
+		args = append(args, "--before-remove", rpmpreun)
+		args = append(args, "--after-remove", rpmpostun)
+	}
+
+	// Pre-install script for user creation (server packages only)
+	if target.rpmpre != "" {
+		args = append(args, "--before-install", target.rpmpre)
+	}
+
+	runPrint("fpm", args...)
+}
+
+func createRPMPostInstScript(target target) (string, error) {
+	scriptname := filepath.Join("script", "rpm-post-inst.template")
+	t, err := template.ParseFiles(scriptname)
+	if err != nil {
+		return "", err
+	}
+	outname := filepath.Join("script", "rpm-post-inst")
+	w, err := os.Create(outname)
+	if err != nil {
+		return "", err
+	}
+	defer w.Close()
+
+	data := struct {
+		Service string
+	}{
+		Service: target.systemdService,
+	}
+
+	if err = t.Execute(w, data); err != nil {
+		return "", err
+	}
+	return outname, nil
+}
+
+func createRPMPreUnScript(target target) (string, error) {
+	scriptname := filepath.Join("script", "rpm-preun.template")
+	t, err := template.ParseFiles(scriptname)
+	if err != nil {
+		return "", err
+	}
+	outname := filepath.Join("script", "rpm-preun")
+	w, err := os.Create(outname)
+	if err != nil {
+		return "", err
+	}
+	defer w.Close()
+
+	data := struct {
+		Service string
+	}{
+		Service: target.systemdService,
+	}
+
+	if err = t.Execute(w, data); err != nil {
+		return "", err
+	}
+	return outname, nil
+}
+
+func createRPMPostUnScript(target target) (string, error) {
+	scriptname := filepath.Join("script", "rpm-postun.template")
+	t, err := template.ParseFiles(scriptname)
+	if err != nil {
+		return "", err
+	}
+	outname := filepath.Join("script", "rpm-postun")
+	w, err := os.Create(outname)
+	if err != nil {
+		return "", err
+	}
+	defer w.Close()
+
+	data := struct {
+		Service string
+	}{
+		Service: target.systemdService,
+	}
+
+	if err = t.Execute(w, data); err != nil {
+		return "", err
+	}
+	return outname, nil
 }
 
 func shouldBuildSyso(dir string) (string, error) {
