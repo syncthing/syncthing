@@ -9,6 +9,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -95,11 +96,11 @@ func main() {
 		level = slog.LevelDebug
 	}
 	slogutil.SetDefaultLevel(level)
-
-	slog.Info(build.LongVersionFor("stdiscosrv"))
 	if cli.Version {
+		fmt.Println(build.LongVersionFor("stdiscosrv"))
 		return
 	}
+	slog.Info(build.LongVersionFor("stdiscosrv"))
 
 	buildInfo.WithLabelValues(build.Version, runtime.Version(), build.User, build.Date.UTC().Format("2006-01-02T15:04:05Z")).Set(1)
 
