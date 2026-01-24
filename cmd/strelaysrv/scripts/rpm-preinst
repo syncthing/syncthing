@@ -1,0 +1,9 @@
+#!/bin/bash
+# Pre-install script for syncthing-relaysrv RPM
+# Creates system user/group for the relay server
+
+getent group syncthing >/dev/null || groupadd -r syncthing
+getent passwd syncthing-relaysrv >/dev/null || \
+    useradd -r -g syncthing -d /var/lib/syncthing-relaysrv \
+    -s /sbin/nologin -c "Syncthing Relay Server" syncthing-relaysrv
+exit 0

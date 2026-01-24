@@ -163,6 +163,7 @@ jobs:
       - package-cross
       - package-source
       - package-debian
+      - package-rpm
       - package-windows
       - govulncheck
       - golangci
@@ -760,6 +761,60 @@ jobs:
           path: "*.deb"
 
   #
+  # RPM (Fedora/RHEL/CentOS)
+  #
+
+  package-rpm:
+    name: Package for RPM
+    runs-on: ubuntu-latest
+    needs:
+      - facts
+    env:
+      VERSION: ${{ needs.facts.outputs.version }}
+      RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: ${{ needs.facts.outputs.go-version }}
+          cache: false
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
+
+      - name: Install fpm
+        run: |
+          gem install fpm
+
+      - uses: mlugg/setup-zig@v2
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-rpm-${{ hashFiles('go.sum') }}
+
+      - name: Package for RPM (CGO)
+        run: |
+          for tgt in syncthing stdiscosrv strelaysrv ; do
+            go run build.go -no-upgrade -installsuffix=no-upgrade -tags "${{env.TAGS_LINUX}}" -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" rpm "$tgt"
+            go run build.go -no-upgrade -installsuffix=no-upgrade -tags "${{env.TAGS_LINUX}}" -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" rpm "$tgt"
+          done
+        env:
+          BUILD_USER: rpm
+          CGO_ENABLED: "1"
+          EXTRA_LDFLAGS: "-linkmode=external -extldflags=-static"
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-packages
+          path: "*.rpm"
+
+  #
   # Nightlies
   #
 
@@ -821,6 +876,7 @@ jobs:
     needs:
       - sign-for-upgrade
       - package-debian
+      - package-rpm
       - facts
     env:
       VERSION: ${{ needs.facts.outputs.version }}
@@ -842,6 +898,12 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: debian-packages
+          path: packages
+
+      - name: Download rpm packages
+        uses: actions/download-artifact@v7
+        with:
+          name: rpm-packages
           path: packages
 
       - uses: actions/setup-go@v6
