@@ -818,6 +818,9 @@ jobs:
     environment: release
     permissions:
       contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
     needs:
       - sign-for-upgrade
       - package-debian
@@ -844,10 +847,10 @@ jobs:
           name: debian-packages
           path: packages
 
-      - uses: actions/setup-go@v6
+      - name: Create GitHub build provenance attestations
+        uses: actions/attest-build-provenance@v3
         with:
-          go-version: ${{ needs.facts.outputs.go-version }}
-          cache: false
+          subject-path: packages/*
 
       - name: Push to object store (${{ env.VERSION }})
         uses: docker://docker.io/rclone/rclone:latest
