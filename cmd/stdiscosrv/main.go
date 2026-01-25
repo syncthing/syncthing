@@ -120,7 +120,7 @@ func main() {
 			os.Exit(1)
 		}
 		devID := protocol.NewDeviceID(cert.Certificate[0])
-		slog.Info("Loaded certificate keypair", "deviceID", devID.String())
+		slog.Info("Loaded certificate keypair", "deviceId", devID.String())
 	}
 
 	// Root of the service tree.
