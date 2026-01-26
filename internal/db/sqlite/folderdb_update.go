@@ -243,6 +243,11 @@ func (s *folderDB) DropAllFiles(device protocol.DeviceID) error {
 	if err != nil {
 		return wrap(err)
 	}
+
+	if _, err := tx.Exec(`DELETE FROM indexids WHERE device_idx = ?`, deviceIdx); err != nil {
+		return wrap(err)
+	}
+
 	if n, err := result.RowsAffected(); err == nil && n == 0 {
 		// The delete affected no rows, so we don't need to redo the entire
 		// global/need calculation.
