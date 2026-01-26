@@ -94,7 +94,7 @@ var targets = map[string]target{
 		debname:     "syncthing",
 		debdeps:     []string{"libc6", "procps"},
 		rpmname:     "syncthing",
-		rpmdeps:     []string{"hicolor-icon-theme"},
+		rpmdeps:     []string{},
 		description: "Open Source Continuous File Synchronization",
 		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/syncthing"},
 		binaryName:  "syncthing", // .exe will be added automatically for Windows builds
