@@ -30,6 +30,7 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
+		{52, migrateToConfigV52},
 		{51, migrateToConfigV51},
 		{50, migrateToConfigV50},
 		{37, migrateToConfigV37},
@@ -99,6 +100,12 @@ func (m migration) apply(cfg *Configuration) {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+}
+
+func migrateToConfigV52(cfg *Configuration) {
+	// So the idea was that we should probably try dialing every 20 seconds.
+	// But prevent something silly like 1/3 = 0 etc.
+	cfg.Options.QuicReconnectIntervalS = max(cfg.Options.ReconnectIntervalS/3, 10)
 }
 
 func migrateToConfigV51(cfg *Configuration) {
