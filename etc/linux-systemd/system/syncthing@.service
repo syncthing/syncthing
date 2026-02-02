@@ -71,18 +71,19 @@ RestrictRealtime=true
 # NOTE: This option is poorly named. It doesn't _restrict_ the listed families,
 # it _allows_ the listed families. Unlisted ones are restricted.
 #
-# Specifically, notice the absence of AF_UNIX (Unix sockets) and AF_PACKET (raw
-# packets). AF_NETLINK is needed because otherwise we see the following error
-# on startup, even though everything actually works:
+# Specifically, notice the absence of AF_PACKET (raw packets).
+# AF_UNIX is needed to support binding to UNIX sockets.
+# AF_NETLINK is needed to support hotplugging of network devices and because
+# otherwise we see the following (non-fatal) error on startup:
 #
 #  Failed to list network interfaces (error="route ip+net: netlinkrib:
 #  address family not supported by protocol" log.pkg=upnp)
 #
-# This option does NOT affect sockets passed by systemd through .socket units.
+# This option does NOT affect systemd socket passing using .socket units.
 # Exclusively using systemd-provided sockets (together with restricting all
 # address families) would be _amazing_ for security, but would require some
 # syncthing code and config UX changes.
-RestrictAddressFamilies=AF_INET AF_INET6 AF_NETLINK
+RestrictAddressFamilies=AF_INET AF_INET6 AF_NETLINK AF_UNIX
 # The lifetime limit of (superuser) capabilities that syncthing can acquire.
 # This option _limits_ capabilities.
 CapabilityBoundingSet=
