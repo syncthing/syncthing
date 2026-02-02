@@ -372,7 +372,7 @@
     "Show detailed listener status": "Afficher l'état détaillé de l'écouteur",
     "Show diff with previous version": "Afficher les différences avec la version précédente",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Affiché à la place de l'ID de l'appareil dans l'état du groupe. Sera diffusé aux autres appareils comme nom convivial optionnel par défaut.",
-    "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Nom convivial local affiché à la place de l'ID de l'appareil dans la plupart des écrans. Si laissé vide, c'est le nom convivial local de l'appareil distant qui sera utilisé. (Modifiable ultérieurement).",
+    "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Nom convivial local affiché à la place de l'ID de l'appareil dans la plupart des écrans. Si laissé vide, c'est le nom convivial local de l'appareil distant qui sera utilisé dès que celui-ci sera en ligne. (Modifiable ultérieurement).",
     "Shut Down": "Arrêter",
     "Shutdown Complete": "Arrêt complet",
     "Simple": "Suivi simplifié",
