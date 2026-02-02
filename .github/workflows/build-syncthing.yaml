@@ -197,7 +197,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-windows-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-windows-${{ hashFiles('go.sum') }}
 
       - name: Install dependencies
         run: |
@@ -235,7 +235,7 @@ jobs:
       - package-windows
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: unsigned-packages-windows
           path: packages
@@ -306,7 +306,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('go.sum') }}
 
       - name: Create packages
         run: |
@@ -401,7 +401,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('go.sum') }}
 
       - name: Import signing certificate
         if: env.CODESIGN_IDENTITY != ''
@@ -484,7 +484,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: packages-macos
 
@@ -529,7 +529,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-cross-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-cross-${{ hashFiles('go.sum') }}
 
       - name: Create packages
         run: |
@@ -641,7 +641,11 @@ jobs:
           path: tools
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
+        with:
+          pattern: packages-*
+          path: packages
+          merge-multiple: true
 
       - uses: actions/setup-go@v6
         with:
@@ -657,8 +661,6 @@ jobs:
           export PRIVATE_KEY="$RUNNER_TEMP/privkey.pem"
           export PATH="$PATH:$(go env GOPATH)/bin"
           echo "$STSIGTOOL_PRIVATE_KEY" | base64 -d > "$PRIVATE_KEY"
-          mkdir packages
-          mv packages-*/* packages
           pushd packages
           "$GITHUB_WORKSPACE/tools/sign-only"
           rm -f "$PRIVATE_KEY"
@@ -736,7 +738,7 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-debian-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-debian-${{ hashFiles('go.sum') }}
 
       - name: Package for Debian (CGO)
         run: |
@@ -776,7 +778,7 @@ jobs:
           path: tools
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: packages-signed
           path: packages
@@ -816,6 +818,9 @@ jobs:
     environment: release
     permissions:
       contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
     needs:
       - sign-for-upgrade
       - package-debian
@@ -831,21 +836,21 @@ jobs:
           ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - name: Download signed packages
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: packages-signed
           path: packages
 
       - name: Download debian packages
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: debian-packages
           path: packages
 
-      - uses: actions/setup-go@v6
+      - name: Create GitHub build provenance attestations
+        uses: actions/attest-build-provenance@v3
         with:
-          go-version: ${{ needs.facts.outputs.go-version }}
-          cache: false
+          subject-path: packages/*
 
       - name: Push to object store (${{ env.VERSION }})
         uses: docker://docker.io/rclone/rclone:latest
@@ -927,7 +932,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download packages
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: debian-packages
           path: packages
@@ -949,7 +954,7 @@ jobs:
       - name: Prepare packages
         run: |
           sudo chown -R $(id -u) apt/pool
-          mv packages/*.deb apt/pool
+          mv -n packages/*.deb apt/pool
 
       - name: Update archive
         uses: docker://ghcr.io/kastelo/ezapt:latest
@@ -1018,21 +1023,23 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-docker-${{ matrix.pkg }}-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-docker-${{ matrix.pkg }}-${{ hashFiles('go.sum') }}
 
       - name: Build binaries (CGO)
         run: |
+          mkdir bin
+
           # amd64
           go run build.go -goos linux -goarch amd64 -tags "${{env.TAGS_LINUX}}" -cc "zig cc -target x86_64-linux-musl" -no-upgrade build ${{ matrix.pkg }}
-          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-amd64
+          mv ${{ matrix.pkg }} bin/${{ matrix.pkg }}-linux-amd64
 
           # arm64
           go run build.go -goos linux -goarch arm64 -tags "${{env.TAGS_LINUX}}" -cc "zig cc -target aarch64-linux-musl" -no-upgrade build ${{ matrix.pkg }}
-          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm64
+          mv ${{ matrix.pkg }} bin/${{ matrix.pkg }}-linux-arm64
 
           # arm
           go run build.go -goos linux -goarch arm -tags "${{env.TAGS_LINUX}}" -cc "zig cc -target arm-linux-musleabi -mcpu=arm1136j_s" -no-upgrade build ${{ matrix.pkg }}
-          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm
+          mv ${{ matrix.pkg }} bin/${{ matrix.pkg }}-linux-arm
         env:
           CGO_ENABLED: "1"
           BUILD_USER: docker
@@ -1044,6 +1051,9 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -1071,10 +1081,15 @@ jobs:
           echo Pushing to $tags
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
 
+      - name: Prepare context dir
+        run: |
+          mkdir ctx
+          mv bin/* script ctx
+
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ctx
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64,linux/arm/7
           tags: ${{ env.DOCKER_TAGS }}

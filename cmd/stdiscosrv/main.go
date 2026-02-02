@@ -9,9 +9,9 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"log"
+	"fmt"
+	"log/slog"
 	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
@@ -24,6 +24,7 @@ import (
 	"github.com/syncthing/syncthing/internal/blob"
 	"github.com/syncthing/syncthing/internal/blob/azureblob"
 	"github.com/syncthing/syncthing/internal/blob/s3"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -32,8 +33,7 @@ import (
 )
 
 const (
-	addressExpiryTime          = 2 * time.Hour
-	databaseStatisticsInterval = 5 * time.Minute
+	addressExpiryTime = 2 * time.Hour
 
 	// Reannounce-After is set to reannounceAfterSeconds +
 	// random(reannounzeFuzzSeconds), similar for Retry-After
@@ -88,16 +88,19 @@ type CLI struct {
 }
 
 func main() {
-	log.SetOutput(os.Stdout)
-
 	var cli CLI
 	kong.Parse(&cli)
-	debug = cli.Debug
 
-	log.Println(build.LongVersionFor("stdiscosrv"))
+	level := slog.LevelInfo
+	if cli.Debug {
+		level = slog.LevelDebug
+	}
+	slogutil.SetDefaultLevel(level)
 	if cli.Version {
+		fmt.Println(build.LongVersionFor("stdiscosrv"))
 		return
 	}
+	slog.Info(build.LongVersionFor("stdiscosrv"))
 
 	buildInfo.WithLabelValues(build.Version, runtime.Version(), build.User, build.Date.UTC().Format("2006-01-02T15:04:05Z")).Set(1)
 
@@ -106,16 +109,18 @@ func main() {
 		var err error
 		cert, err = tls.LoadX509KeyPair(cli.Cert, cli.Key)
 		if os.IsNotExist(err) {
-			log.Println("Failed to load keypair. Generating one, this might take a while...")
+			slog.Info("Failed to load keypair. Generating one, this might take a while...")
 			cert, err = tlsutil.NewCertificate(cli.Cert, cli.Key, "stdiscosrv", 20*365, false)
 			if err != nil {
-				log.Fatalln("Failed to generate X509 key pair:", err)
+				slog.Error("Failed to generate X509 key pair", "error", err)
+				os.Exit(1)
 			}
 		} else if err != nil {
-			log.Fatalln("Failed to load keypair:", err)
+			slog.Error("Failed to load keypair", "error", err)
+			os.Exit(1)
 		}
 		devID := protocol.NewDeviceID(cert.Certificate[0])
-		log.Println("Server device ID is", devID)
+		slog.Info("Loaded certificate keypair", "deviceId", devID.String())
 	}
 
 	// Root of the service tree.
@@ -133,7 +138,8 @@ func main() {
 		blobs, err = azureblob.NewBlobStore(cli.DBAzureBlobAccount, cli.DBAzureBlobKey, cli.DBAzureBlobContainer)
 	}
 	if err != nil {
-		log.Fatalf("Failed to create blob store: %v", err)
+		slog.Error("Failed to create blob store", "error", err)
+		os.Exit(1)
 	}
 
 	// Start the database.
@@ -158,7 +164,9 @@ func main() {
 		go func() {
 			mux := http.NewServeMux()
 			mux.Handle("/metrics", promhttp.Handler())
-			log.Fatal(http.ListenAndServe(cli.MetricsListen, mux))
+			err := http.ListenAndServe(cli.MetricsListen, mux)
+			slog.Error("Failed to serve", "error", err)
+			os.Exit(1)
 		}()
 	}
 
@@ -170,7 +178,7 @@ func main() {
 	signal.Notify(signalChan, os.Interrupt)
 	go func() {
 		sig := <-signalChan
-		log.Printf("Received signal %s; shutting down", sig)
+		slog.Info("Received signal; shutting down", "signal", sig)
 		cancel()
 	}()
 
