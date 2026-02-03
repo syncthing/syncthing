@@ -431,7 +431,7 @@ func (c *serveCmd) syncthingMain() {
 
 	// Print our version information up front, so any crash that happens
 	// early etc. will have it available.
-	slog.Info(build.LongVersion) //nolint:sloglint
+	slog.Info("Starting Syncthing", build.LogAttrs()...)
 
 	// Ensure that we have a certificate and key.
 	cert, err := syncthing.LoadOrGenerateCertificate(

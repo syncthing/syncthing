@@ -57,6 +57,48 @@ func TestParseVersion(t *testing.T) {
 				Extra:    []string{"Some Wrapper", "purego", "stnoupgrade"},
 			},
 		},
+		// New structured log format
+		{
+			longVersion: `2026-02-03 08:49:09 INF Starting Syncthing (version=v2.0.14-rc.2.dev.2.gb40f2acd.dirty-startuplogs codename="Hafnium Hornet" build.user=jb build.host=jbo-m3wl72rv build.date="2026-02-02 04:32:24 UTC" runtime.version=go1.25.6 runtime.goos=darwin runtime.goarch=arm64 log.pkg=main)`,
+			parsed: VersionParts{
+				Version:  "v2.0.14-rc.2.dev.2.gb40f2acd.dirty-startuplogs",
+				Tag:      "v2.0.14-rc.2.dev",
+				Commit:   "b40f2acd",
+				Codename: "Hafnium Hornet",
+				Runtime:  "go1.25.6",
+				GOOS:     "darwin",
+				GOARCH:   "arm64",
+				Builder:  "jb@jbo-m3wl72rv",
+			},
+		},
+		// New structured log format with tags
+		{
+			longVersion: `2026-02-03 08:49:09 INF Starting Syncthing (version=v2.0.14 codename="Hafnium Hornet" build.user=jb build.host=host runtime.version=go1.25.6 runtime.goos=linux runtime.goarch=amd64 tags="Some Wrapper, purego")`,
+			parsed: VersionParts{
+				Version:  "v2.0.14",
+				Tag:      "v2.0.14",
+				Codename: "Hafnium Hornet",
+				Runtime:  "go1.25.6",
+				GOOS:     "linux",
+				GOARCH:   "amd64",
+				Builder:  "jb@host",
+				Extra:    []string{"Some Wrapper", "purego"},
+			},
+		},
+		// New structured log format with single tag
+		{
+			longVersion: `2026-02-03 08:49:09 INF Starting Syncthing (version=v2.0.14 codename="Hafnium Hornet" build.user=jb build.host=host runtime.version=go1.25.6 runtime.goos=linux runtime.goarch=amd64 tags=singletag)`,
+			parsed: VersionParts{
+				Version:  "v2.0.14",
+				Tag:      "v2.0.14",
+				Codename: "Hafnium Hornet",
+				Runtime:  "go1.25.6",
+				GOOS:     "linux",
+				GOARCH:   "amd64",
+				Builder:  "jb@host",
+				Extra:    []string{"singletag"},
+			},
+		},
 	}
 
 	for _, tc := range cases {

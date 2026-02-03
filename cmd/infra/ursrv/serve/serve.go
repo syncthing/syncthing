@@ -101,7 +101,7 @@ type distributionMatch struct {
 }
 
 func (cli *CLI) Run() error {
-	slog.Info("Starting", "version", build.Version)
+	slog.Info("Starting usage reporting server", build.LogAttrs()...)
 
 	// Listening
 

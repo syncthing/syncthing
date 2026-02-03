@@ -9,6 +9,7 @@ package build
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"regexp"
 	"runtime"
@@ -102,6 +103,27 @@ func LongVersionFor(program string) string {
 		v = fmt.Sprintf("%s [%s]", v, strings.Join(tags, ", "))
 	}
 	return v
+}
+
+func LogAttrs() []any {
+	attrs := []any{
+		slog.String("version", Version),
+		slog.String("codename", Codename),
+		slog.Group("build",
+			slog.String("user", User),
+			slog.String("host", Host),
+			slog.String("date", Date.UTC().Format("2006-01-02 15:04:05 MST")),
+		),
+		slog.Group("runtime",
+			slog.String("version", runtime.Version()),
+			slog.String("goos", runtime.GOOS),
+			slog.String("goarch", runtime.GOARCH),
+		),
+	}
+	if tags := TagsList(); len(tags) > 0 {
+		attrs = append(attrs, slog.String("tags", strings.Join(tags, ", ")))
+	}
+	return attrs
 }
 
 func TagsList() []string {

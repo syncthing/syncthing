@@ -270,10 +270,15 @@ func (f FolderConfiguration) Description() string {
 }
 
 func (f FolderConfiguration) LogAttr() slog.Attr {
-	if f.Label == "" || f.Label == f.ID {
-		return slog.Group("folder", slog.String("id", f.ID), slog.String("type", f.Type.String()))
+	attrs := []any{
+		slog.String("id", f.ID),
+		slog.String("type", f.Type.String()),
+		slog.String("path", f.Path),
 	}
-	return slog.Group("folder", slog.String("label", f.Label), slog.String("id", f.ID), slog.String("type", f.Type.String()))
+	if f.Label != "" && f.Label == f.ID {
+		attrs = append([]any{slog.String("label", f.Label)}, attrs...)
+	}
+	return slog.Group("folder", attrs...)
 }
 
 func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {

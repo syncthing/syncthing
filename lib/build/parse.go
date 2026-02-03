@@ -15,10 +15,13 @@ import (
 // syncthing v1.1.4-rc.1+30-g6aaae618-dirty-crashrep "Erbium Earthworm" (go1.12.5 darwin-amd64) jb@kvin.kastelo.net 2019-05-23 16:08:14 UTC [foo, bar]
 // or, somewhere along the way the "+" in the version tag disappeared:
 // syncthing v1.23.7-dev.26.gdf7b56ae.dirty-stversionextra "Fermium Flea" (go1.20.5 darwin-arm64) jb@ok.kastelo.net 2023-07-12 06:55:26 UTC [Some Wrapper, purego, stnoupgrade]
+// or, the new structured log format:
+// 2026-02-03 08:49:09 INF Starting Syncthing (version=v2.0.14-rc.2.dev.2.gb40f2acd.dirty-startuplogs codename="Hafnium Hornet" build.user=jb ...)
 var (
-	longVersionRE = regexp.MustCompile(`syncthing\s+(v[^\s]+)\s+"([^"]+)"\s\(([^\s]+)\s+([^-]+)-([^)]+)\)\s+([^\s]+)[^\[]*(?:\[(.+)\])?$`)
-	gitExtraRE    = regexp.MustCompile(`\.\d+\.g[0-9a-f]+`) // ".1.g6aaae618"
-	gitExtraSepRE = regexp.MustCompile(`[.-]`)              // dot or dash
+	longVersionRE       = regexp.MustCompile(`syncthing\s+(v[^\s]+)\s+"([^"]+)"\s\(([^\s]+)\s+([^-]+)-([^)]+)\)\s+([^\s]+)[^\[]*(?:\[(.+)\])?$`)
+	structuredVersionRE = regexp.MustCompile(`Starting Syncthing \((.+)\)`)
+	gitExtraRE          = regexp.MustCompile(`\.\d+\.g[0-9a-f]+`) // ".1.g6aaae618"
+	gitExtraSepRE       = regexp.MustCompile(`[.-]`)              // dot or dash
 )
 
 type VersionParts struct {
@@ -47,11 +50,22 @@ func (v VersionParts) Environment() string {
 }
 
 func ParseVersion(line string) (VersionParts, error) {
+	// Try the old format first
 	m := longVersionRE.FindStringSubmatch(line)
-	if len(m) == 0 {
-		return VersionParts{}, errors.New("unintelligible version string")
+	if len(m) > 0 {
+		return parseOldFormat(m)
 	}
 
+	// Try the new structured log format
+	m = structuredVersionRE.FindStringSubmatch(line)
+	if len(m) > 0 {
+		return parseStructuredFormat(m[1])
+	}
+
+	return VersionParts{}, errors.New("unintelligible version string")
+}
+
+func parseOldFormat(m []string) (VersionParts, error) {
 	v := VersionParts{
 		Version:  m[1],
 		Codename: m[2],
@@ -64,22 +78,7 @@ func ParseVersion(line string) (VersionParts, error) {
 	// Split the version tag into tag and commit. This is old style
 	// v1.2.3-something.4+11-g12345678 or newer with just dots
 	// v1.2.3-something.4.11.g12345678 or v1.2.3-dev.11.g12345678.
-	parts := []string{v.Version}
-	if strings.Contains(v.Version, "+") {
-		parts = strings.Split(v.Version, "+")
-	} else {
-		idxs := gitExtraRE.FindStringIndex(v.Version)
-		if len(idxs) > 0 {
-			parts = []string{v.Version[:idxs[0]], v.Version[idxs[0]+1:]}
-		}
-	}
-	v.Tag = parts[0]
-	if len(parts) > 1 {
-		fields := gitExtraSepRE.Split(parts[1], -1)
-		if len(fields) >= 2 && strings.HasPrefix(fields[1], "g") {
-			v.Commit = fields[1][1:]
-		}
-	}
+	v.Tag, v.Commit = splitVersionTag(v.Version)
 
 	if len(m) >= 8 && m[7] != "" {
 		tags := strings.Split(m[7], ",")
@@ -90,4 +89,104 @@ func ParseVersion(line string) (VersionParts, error) {
 	}
 
 	return v, nil
+}
+
+func parseStructuredFormat(attrs string) (VersionParts, error) {
+	v := VersionParts{}
+	var buildUser, buildHost string
+
+	// Parse key=value pairs, handling quoted values
+	for len(attrs) > 0 {
+		attrs = strings.TrimLeft(attrs, " ")
+		if attrs == "" {
+			break
+		}
+
+		// Find key
+		eqIdx := strings.Index(attrs, "=")
+		if eqIdx == -1 {
+			break
+		}
+		key := attrs[:eqIdx]
+		attrs = attrs[eqIdx+1:]
+
+		// Find value (may be quoted)
+		var value string
+		if len(attrs) > 0 && attrs[0] == '"' {
+			// Quoted value - find closing quote
+			endIdx := strings.Index(attrs[1:], "\"")
+			if endIdx == -1 {
+				break
+			}
+			value = attrs[1 : endIdx+1]
+			attrs = attrs[endIdx+2:]
+		} else {
+			// Unquoted value - find next space
+			spaceIdx := strings.Index(attrs, " ")
+			if spaceIdx == -1 {
+				value = attrs
+				attrs = ""
+			} else {
+				value = attrs[:spaceIdx]
+				attrs = attrs[spaceIdx:]
+			}
+		}
+
+		switch key {
+		case "version":
+			v.Version = value
+			v.Tag, v.Commit = splitVersionTag(value)
+		case "codename":
+			v.Codename = value
+		case "build.user":
+			buildUser = value
+		case "build.host":
+			buildHost = value
+		case "runtime.version":
+			v.Runtime = value
+		case "runtime.goos":
+			v.GOOS = value
+		case "runtime.goarch":
+			v.GOARCH = value
+		case "tags":
+			tags := strings.Split(value, ",")
+			for i := range tags {
+				tags[i] = strings.TrimSpace(tags[i])
+			}
+			v.Extra = tags
+		}
+	}
+
+	if v.Version == "" {
+		return VersionParts{}, errors.New("missing version in structured format")
+	}
+
+	// Combine user@host like the old format
+	if buildUser != "" && buildHost != "" {
+		v.Builder = buildUser + "@" + buildHost
+	} else if buildUser != "" {
+		v.Builder = buildUser
+	}
+
+	return v, nil
+}
+
+func splitVersionTag(version string) (tag, commit string) {
+	parts := []string{version}
+	if strings.Contains(version, "+") {
+		parts = strings.Split(version, "+")
+	} else {
+		idxs := gitExtraRE.FindStringIndex(version)
+		if len(idxs) > 0 {
+			parts = []string{version[:idxs[0]], version[idxs[0]+1:]}
+		}
+	}
+	tag = parts[0]
+	if len(parts) > 1 {
+		fields := gitExtraSepRE.Split(parts[1], -1)
+		if len(fields) >= 2 && strings.HasPrefix(fields[1], "g") {
+			commit = fields[1][1:]
+		}
+	}
+	return tag, commit
 }

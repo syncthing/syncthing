@@ -100,7 +100,7 @@ func main() {
 		fmt.Println(build.LongVersionFor("stdiscosrv"))
 		return
 	}
-	slog.Info(build.LongVersionFor("stdiscosrv"))
+	slog.Info("Starting discovery server", build.LogAttrs()...)
 
 	buildInfo.WithLabelValues(build.Version, runtime.Version(), build.User, build.Date.UTC().Format("2006-01-02T15:04:05Z")).Set(1)
 
