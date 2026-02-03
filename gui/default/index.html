@@ -36,7 +36,7 @@
         </span>
       </div>
     </nav>
-
+  <!-- Warning Container -->
     <div class="container content">
       <div class="row">
         <div class="col-md-12">
@@ -581,13 +581,13 @@
                         <td class="text-right no-overflow-ellipse overflow-break-word">
                           <span ng-repeat="device in otherDevices(folder.devices)">
                             <span ng-if="folder.type !== 'receiveencrypted' && device.encryptionPassword" class="text-nowrap">
-                              <span class="fa fa-lock"></span>&nbsp;<!-- Avoid stray space...
-                         --></span><!-- Avoid stray space...
-                         --><span ng-switch="completion[device.deviceID][folder.id].remoteState"><!-- Avoid stray space...
-                           --><a ng-switch-when="notSharing" href="" ng-click="editDeviceExisting(devices[device.deviceID])" data-original-title="{{'The remote device has not accepted sharing this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>1</sup></a><!-- Avoid stray space...
-                           --><a ng-switch-when="paused" href="" ng-click="editDeviceExisting(devices[device.deviceID])" data-original-title="{{'The remote device has paused this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>2</sup></a><!-- Avoid stray space...
-                           --><a ng-switch-default href="" ng-click="editDeviceExisting(devices[device.deviceID])">{{deviceName(devices[device.deviceID])}}</a><!-- Avoid stray space...
-                           --><span ng-if="!$last">,</span>
+                              <span class="fa fa-lock"></span>&nbsp;<!-- Avoid stray space...-->
+                            </span><!-- Avoid stray space...-->
+                            <span ng-switch="completion[device.deviceID][folder.id].remoteState"><!-- Avoid stray space...-->
+                              <a ng-switch-when="notSharing" href="" ng-click="editDeviceExisting(devices[device.deviceID])" data-original-title="{{'The remote device has not accepted sharing this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>1</sup></a><!-- Avoid stray space...-->
+                              <a ng-switch-when="paused" href="" ng-click="editDeviceExisting(devices[device.deviceID])" data-original-title="{{'The remote device has paused this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>2</sup></a><!-- Avoid stray space...-->
+                              <a ng-switch-default href="" ng-click="editDeviceExisting(devices[device.deviceID])">{{deviceName(devices[device.deviceID])}}</a><!-- Avoid stray space...-->
+                              <span ng-if="!$last">,</span>
                             </span>
                           </span>
                         </td>
