@@ -8,6 +8,7 @@ package build
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -89,10 +90,36 @@ func parseClassic(m []string) (VersionParts, error) {
 }
 
 func parseStructured(attrs string) (VersionParts, error) {
-	v := VersionParts{}
-	var buildUser, buildHost string
+	kvs := parseStructuredKVs(attrs)
+	if kvs["version"] == "" {
+		return VersionParts{}, errors.New("missing version in structured format")
+	}
 
-	// Parse key=value pairs, handling quoted values
+	vp := VersionParts{
+		Version:  kvs["version"],
+		Codename: kvs["codename"],
+		Builder:  fmt.Sprintf("%s@%s", kvs["build.user"], kvs["build.host"]),
+		Runtime:  kvs["runtime.version"],
+		GOOS:     kvs["runtime.goos"],
+		GOARCH:   kvs["runtime.goarch"],
+	}
+
+	vp.Tag, vp.Commit = splitVersionTag(vp.Version)
+
+	if tags := kvs["tags"]; tags != "" {
+		tags := strings.Split(kvs["tags"], ",")
+		for i := range tags {
+			tags[i] = strings.TrimSpace(tags[i])
+		}
+		vp.Extra = tags
+	}
+
+	return vp, nil
+}
+
+func parseStructuredKVs(attrs string) map[string]string {
+	res := make(map[string]string)
+
 	for len(attrs) > 0 {
 		attrs = strings.TrimLeft(attrs, " ")
 		if attrs == "" {
@@ -107,7 +134,6 @@ func parseStructured(attrs string) (VersionParts, error) {
 		key := attrs[:eqIdx]
 		attrs = attrs[eqIdx+1:]
 
-		// Find value (may be quoted with possible escaped characters)
 		var value string
 		if len(attrs) > 0 && attrs[0] == '"' {
 			// Quoted value - use strconv to properly handle escapes
@@ -132,43 +158,10 @@ func parseStructured(attrs string) (VersionParts, error) {
 			}
 		}
 
-		switch key {
-		case "version":
-			v.Version = value
-			v.Tag, v.Commit = splitVersionTag(value)
-		case "codename":
-			v.Codename = value
-		case "build.user":
-			buildUser = value
-		case "build.host":
-			buildHost = value
-		case "runtime.version":
-			v.Runtime = value
-		case "runtime.goos":
-			v.GOOS = value
-		case "runtime.goarch":
-			v.GOARCH = value
-		case "tags":
-			tags := strings.Split(value, ",")
-			for i := range tags {
-				tags[i] = strings.TrimSpace(tags[i])
-			}
-			v.Extra = tags
-		}
+		res[key] = value
 	}
 
-	if v.Version == "" {
-		return VersionParts{}, errors.New("missing version in structured format")
-	}
-
-	// Combine user@host like the old format
-	if buildUser != "" && buildHost != "" {
-		v.Builder = buildUser + "@" + buildHost
-	} else if buildUser != "" {
-		v.Builder = buildUser
-	}
-
-	return v, nil
+	return res
 }
 
 func splitVersionTag(version string) (tag, commit string) {
