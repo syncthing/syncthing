@@ -99,6 +99,19 @@ func TestParseVersion(t *testing.T) {
 				Extra:    []string{"singletag"},
 			},
 		},
+		// New structured log format with escaped quotes in value
+		{
+			longVersion: `2026-02-03 08:49:09 INF Starting Syncthing (version=v2.0.14 codename="\"Quoted\" Hornet" build.user=jb build.host=host runtime.version=go1.25.6 runtime.goos=linux runtime.goarch=amd64)`,
+			parsed: VersionParts{
+				Version:  "v2.0.14",
+				Tag:      "v2.0.14",
+				Codename: `"Quoted" Hornet`,
+				Runtime:  "go1.25.6",
+				GOOS:     "linux",
+				GOARCH:   "amd64",
+				Builder:  "jb@host",
+			},
+		},
 	}
 
 	for _, tc := range cases {

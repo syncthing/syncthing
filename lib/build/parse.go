@@ -9,6 +9,7 @@ package build
 import (
 	"errors"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -110,16 +111,19 @@ func parseStructuredFormat(attrs string) (VersionParts, error) {
 		key := attrs[:eqIdx]
 		attrs = attrs[eqIdx+1:]
 
-		// Find value (may be quoted)
+		// Find value (may be quoted with possible escaped characters)
 		var value string
 		if len(attrs) > 0 && attrs[0] == '"' {
-			// Quoted value - find closing quote
-			endIdx := strings.Index(attrs[1:], "\"")
-			if endIdx == -1 {
+			// Quoted value - use strconv to properly handle escapes
+			quoted, err := strconv.QuotedPrefix(attrs)
+			if err != nil {
 				break
 			}
-			value = attrs[1 : endIdx+1]
-			attrs = attrs[endIdx+2:]
+			value, err = strconv.Unquote(quoted)
+			if err != nil {
+				break
+			}
+			attrs = attrs[len(quoted):]
 		} else {
 			// Unquoted value - find next space
 			spaceIdx := strings.Index(attrs, " ")
