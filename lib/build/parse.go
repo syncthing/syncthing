@@ -19,10 +19,10 @@ import (
 // or, the new structured log format:
 // 2026-02-03 08:49:09 INF Starting Syncthing (version=v2.0.14-rc.2.dev.2.gb40f2acd.dirty-startuplogs codename="Hafnium Hornet" build.user=jb ...)
 var (
-	longVersionRE       = regexp.MustCompile(`syncthing\s+(v[^\s]+)\s+"([^"]+)"\s\(([^\s]+)\s+([^-]+)-([^)]+)\)\s+([^\s]+)[^\[]*(?:\[(.+)\])?$`)
-	structuredVersionRE = regexp.MustCompile(`Starting Syncthing \((.+)\)`)
-	gitExtraRE          = regexp.MustCompile(`\.\d+\.g[0-9a-f]+`) // ".1.g6aaae618"
-	gitExtraSepRE       = regexp.MustCompile(`[.-]`)              // dot or dash
+	longVersionRE = regexp.MustCompile(`syncthing\s+(v[^\s]+)\s+"([^"]+)"\s\(([^\s]+)\s+([^-]+)-([^)]+)\)\s+([^\s]+)[^\[]*(?:\[(.+)\])?$`)
+	structuredRE  = regexp.MustCompile(`Starting Syncthing \((.+)\)`)
+	gitExtraRE    = regexp.MustCompile(`\.\d+\.g[0-9a-f]+`) // ".1.g6aaae618"
+	gitExtraSepRE = regexp.MustCompile(`[.-]`)              // dot or dash
 )
 
 type VersionParts struct {
@@ -51,22 +51,18 @@ func (v VersionParts) Environment() string {
 }
 
 func ParseVersion(line string) (VersionParts, error) {
-	// Try the old format first
-	m := longVersionRE.FindStringSubmatch(line)
-	if len(m) > 0 {
-		return parseOldFormat(m)
+	if m := structuredRE.FindStringSubmatch(line); len(m) > 0 {
+		return parseStructured(m[1])
 	}
 
-	// Try the new structured log format
-	m = structuredVersionRE.FindStringSubmatch(line)
-	if len(m) > 0 {
-		return parseStructuredFormat(m[1])
+	if m := longVersionRE.FindStringSubmatch(line); len(m) > 0 {
+		return parseClassic(m)
 	}
 
 	return VersionParts{}, errors.New("unintelligible version string")
 }
 
-func parseOldFormat(m []string) (VersionParts, error) {
+func parseClassic(m []string) (VersionParts, error) {
 	v := VersionParts{
 		Version:  m[1],
 		Codename: m[2],
@@ -92,7 +88,7 @@ func parseOldFormat(m []string) (VersionParts, error) {
 	return v, nil
 }
 
-func parseStructuredFormat(attrs string) (VersionParts, error) {
+func parseStructured(attrs string) (VersionParts, error) {
 	v := VersionParts{}
 	var buildUser, buildHost string
 
