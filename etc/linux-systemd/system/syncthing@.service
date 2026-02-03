@@ -165,9 +165,13 @@ InaccessiblePaths=-/nonexistent
 #
 ## Elevated permissions to sync ownership (disabled by default),
 ## see https://docs.syncthing.net/advanced/folder-sync-ownership
-## NOTE: Use the same value for *both* of these options.
+##
+## NOTE:
+##  - Use the same value for *both* of these options.
+##  - You need to set PrivateUsers=false as well.
 #AmbientCapabilities=CAP_CHOWN CAP_FOWNER
 #CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER
+#PrivateUsers=false
 
 #########################
 # EXTRA CREDIT FOR USERS
@@ -182,7 +186,7 @@ InaccessiblePaths=-/nonexistent
 ## - StateDirectory=, LogsDirectory= and similar
 ##
 ## Can't be enabled by default because we don't know which folders you wish to
-## share! The user can enable this *together* with
+## share! The user should enable this *together* with
 ## ReadWritePaths=/my/shared/dir1 /my/shared/dir2
 #ProtectSystem=strict
 #
@@ -200,7 +204,7 @@ InaccessiblePaths=-/nonexistent
 ##   https://docs.syncthing.net/users/versioning.html#external-file-versioning
 ## If you do not use that feature, just enable both NoExecPaths and ExecPaths
 ## below it. If you do use it, you should still use these options; just add
-## the paths to the binaries you invoke to ExecPaths so they can be called.
+## the paths to the binaries you invoke to ExecPaths so they can be executed.
 #NoExecPaths=/
 ## Allow execution of syncthing and system shared libraries.
 ## NOTE: If you are seeing an error like
