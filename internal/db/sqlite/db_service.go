@@ -8,6 +8,7 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
 	"encoding/binary"
 	"fmt"
 	"log/slog"
@@ -26,9 +27,13 @@ const (
 	lastMaintKey           = "lastMaint"
 	lastSuccessfulGCSeqKey = "lastSuccessfulGCSeq"
 
-	gcMinChunks  = 5
-	gcChunkSize  = 100_000         // approximate number of rows to process in a single gc query
-	gcMaxRuntime = 5 * time.Minute // max time to spend on gc, per table, per run
+	gcMinChunks          = 5
+	gcChunkSize          = 100_000         // approximate number of rows to process in a single gc query
+	gcMaxRuntime         = 5 * time.Minute // max time to spend on gc, per table, per run
+	vacPageTarget        = 1_000           // the targeted number of pages to be removed by a vacuum run
+	vacFreelistRatio     = 0.1             // only trigger vacuum if the percentage of free pages is this high
+	vacCheckpointFreq    = 4               // invoke a checkpoint after this many vacuum runs
+	maxFailedCheckpoints = 4               // trigger a RESTART checkpoint after this many failed PASSIVE ones
 )
 
 func (s *DB) Service(maintenanceInterval time.Duration) db.DBService {
@@ -162,11 +167,63 @@ func tidy(ctx context.Context, db *sqlx.DB) error {
 		return wrap(err)
 	}
 	defer conn.Close()
+	if err = vacuum(ctx, conn); err != nil {
+		return err
+	}
 	_, _ = conn.ExecContext(ctx, `ANALYZE`)
 	_, _ = conn.ExecContext(ctx, `PRAGMA optimize`)
-	_, _ = conn.ExecContext(ctx, `PRAGMA incremental_vacuum`)
-	_, _ = conn.ExecContext(ctx, `PRAGMA journal_size_limit = 8388608`)
-	_, _ = conn.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)
+	return nil
+}
+
+func vacuum(ctx context.Context, conn *sql.Conn) error {
+	var freelistCount, pageCount int
+	err := conn.QueryRowContext(ctx, `SELECT freelist_count, page_count FROM pragma_freelist_count(), pragma_page_count()`).Scan(&freelistCount, &pageCount)
+	if err != nil {
+		return wrap(err)
+	}
+
+	if pageCount == 0 || freelistCount < vacPageTarget || float64(freelistCount)/float64(pageCount) < vacFreelistRatio {
+		slog.DebugContext(ctx, "Skipping incremental vacuum", "pages", pageCount, "freelist", freelistCount)
+		return nil
+	}
+
+	runs := freelistCount / vacPageTarget
+
+	start := time.Now()
+	failedCheckpoints := 0
+	for i := range runs {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		if _, err := conn.ExecContext(ctx, `PRAGMA incremental_vacuum(?)`, vacPageTarget); err != nil {
+			return wrap(err)
+		}
+
+		if i > 0 && i%vacCheckpointFreq == 0 {
+			checkpointType := "PASSIVE"
+			if failedCheckpoints >= maxFailedCheckpoints {
+				checkpointType = "RESTART"
+				failedCheckpoints = 0
+			}
+			var busy, modified, moved int
+			cmd := fmt.Sprintf(`PRAGMA wal_checkpoint(%s)`, checkpointType)
+			if err := conn.QueryRowContext(ctx, cmd).Scan(&busy, &modified, &moved); err != nil {
+				return wrap(err)
+			}
+
+			if busy == 1 {
+				failedCheckpoints++
+			} else {
+				failedCheckpoints = 0
+			}
+		}
+	}
+
+	slog.DebugContext(ctx, "Incremental vacuum finished", "pages", pageCount, "removed", runs*vacPageTarget, "runtime", time.Since(start))
+
 	return nil
 }
 
