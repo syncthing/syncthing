@@ -113,7 +113,7 @@ func (s *inMemoryStore) merge(key *protocol.DeviceID, addrs []*discosrv.Database
 	}
 
 	if oldRec, ok := s.m.Load(*key); ok {
-		newRec = merge(oldRec, newRec)
+		newRec = merge(newRec, oldRec)
 	}
 	s.m.Store(*key, newRec)
 
@@ -135,7 +135,13 @@ func (s *inMemoryStore) get(key *protocol.DeviceID) (*discosrv.DatabaseRecord, e
 		return &discosrv.DatabaseRecord{}, nil
 	}
 
-	rec.Addresses = expire(rec.Addresses, s.clock.Now())
+	naddresses, changed := expire(rec.Addresses, s.clock.Now())
+	if changed {
+		rec = &discosrv.DatabaseRecord{
+			Addresses: naddresses,
+			Seen:      rec.Seen,
+		}
+	}
 	databaseOperations.WithLabelValues(dbOpGet, dbResSuccess).Inc()
 	return rec, nil
 }
@@ -184,12 +190,12 @@ func (s *inMemoryStore) expireAndCalculateStatistics() {
 		}
 		n++
 
-		addresses := expire(rec.Addresses, now)
-		if len(addresses) == 0 {
-			rec.Addresses = nil
-			s.m.Store(key, rec)
-		} else if len(addresses) != len(rec.Addresses) {
-			rec.Addresses = addresses
+		addresses, changed := expire(rec.Addresses, now)
+		if changed {
+			rec = &discosrv.DatabaseRecord{
+				Addresses: addresses,
+				Seen:      rec.Seen,
+			}
 			s.m.Store(key, rec)
 		}
 
@@ -371,9 +377,9 @@ func (s *inMemoryStore) read() (int, error) {
 		}
 
 		slices.SortFunc(rec.Addresses, Cmp)
-		rec.Addresses = slices.CompactFunc(rec.Addresses, Equal)
+		rec.Addresses, _ = expire(slices.CompactFunc(rec.Addresses, Equal), s.clock.Now())
 		s.m.Store(key, &discosrv.DatabaseRecord{
-			Addresses: expire(rec.Addresses, s.clock.Now()),
+			Addresses: rec.Addresses,
 			Seen:      rec.Seen,
 		})
 		nr++
@@ -384,7 +390,7 @@ func (s *inMemoryStore) read() (int, error) {
 // merge returns the merged result of the two database records a and b. The
 // result is the union of the two address sets, with the newer expiry time
 // chosen for any duplicates. The address list in a is overwritten and
-// reused for the result.
+// reused for the result; b is not modified.
 func merge(a, b *discosrv.DatabaseRecord) *discosrv.DatabaseRecord {
 	// Both lists must be sorted for this to work.
 
@@ -415,25 +421,33 @@ func merge(a, b *discosrv.DatabaseRecord) *discosrv.DatabaseRecord {
 	return a
 }
 
-// expire returns the list of addresses after removing expired entries.
-// Expiration happen in place, so the slice given as the parameter is
-// destroyed. Internal order is preserved.
-func expire(addrs []*discosrv.DatabaseAddress, now time.Time) []*discosrv.DatabaseAddress {
+// expire returns the list of addresses after removing expired entries. A
+// new slice is allocated if any changes are required, and the changed
+// boolean indicates whether that happened or not.
+func expire(addrs []*discosrv.DatabaseAddress, now time.Time) (result []*discosrv.DatabaseAddress, changed bool) {
 	cutoff := now.UnixNano()
-	naddrs := addrs[:0]
-	for i := range addrs {
-		if i > 0 && addrs[i].Address == addrs[i-1].Address {
-			// Skip duplicates
-			continue
-		}
-		if addrs[i].Expires >= cutoff {
-			naddrs = append(naddrs, addrs[i])
+	remains := 0
+	for _, a := range addrs {
+		if a.Expires < cutoff {
+			changed = true
+		} else {
+			remains++
 		}
 	}
-	if len(naddrs) == 0 {
-		return nil
+	if !changed {
+		return addrs, false
 	}
-	return naddrs
+	if remains == 0 {
+		return nil, true
+	}
+
+	naddrs := make([]*discosrv.DatabaseAddress, 0, remains)
+	for _, a := range addrs {
+		if a.Expires >= cutoff {
+			naddrs = append(naddrs, a)
+		}
+	}
+	return naddrs, true
 }
 
 func Cmp(d, other *discosrv.DatabaseAddress) (n int) {
