@@ -115,9 +115,8 @@ PrivatePIDs=true
 ProtectProc=invisible
 # Prevent access to non-pid interfaces in /proc.
 ProcSubset=pid
-# System call allow-list. This is a very basic start. An explicit list of every
-# syscall syncthing makes would be *much* better. See docs for the property.
-# See SystemCallLog= if building a precise list.
+# System call allow-list. `@system-service` is a systemd-provided category that
+# allows common syscalls needed for system services.
 SystemCallFilter=@system-service
 # Explicitly disallow @privileged syscalls. Syncthing fails to start if we also
 # disallow @resources (which `systemd-analyze` is unhappy about).
@@ -129,12 +128,6 @@ SystemCallFilter=@system-service
 SystemCallFilter=~@privileged io_uring_enter io_uring_register io_uring_setup
 # Return EPERM when a disallowed syscall is made instead of killing the process.
 SystemCallErrorNumber=EPERM
-# Sets up a new user namespace. Maps the "root" user and group as well as the
-# unit's own user and group to themselves and everything else to the "nobody"
-# user and group.
-# Together with running syncthing as a separate user (e.g. "syncthing"), this
-# provides a strong sandbox.
-PrivateUsers=true
 # Digits from left to right; disallow creation of files with:
 # - special security-related bits like setuid/setgid
 # - (no restrictions on file owner permissions)
@@ -168,10 +161,10 @@ InaccessiblePaths=-/nonexistent
 ##
 ## NOTE:
 ##  - Use the same value for *both* of these options.
-##  - You need to set PrivateUsers=false as well.
+##  - PrivateUsers=false must be set (false is the default, but you might have
+##    changed it to true in the "extra credit" section below).
 #AmbientCapabilities=CAP_CHOWN CAP_FOWNER
 #CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER
-#PrivateUsers=false
 
 #########################
 # EXTRA CREDIT FOR USERS
@@ -189,6 +182,16 @@ InaccessiblePaths=-/nonexistent
 ## share! The user should enable this *together* with
 ## ReadWritePaths=/my/shared/dir1 /my/shared/dir2
 #ProtectSystem=strict
+#
+## When enabled, sets up a new user namespace. Maps the "root" user and group as
+## well as the unit's own user and group to themselves and everything else to the
+## "nobody" user and group.
+## Together with running syncthing as a separate user (e.g. "syncthing"), this
+## provides a strong sandbox.
+## NOTE: You _really_ want to set this to true. The only reason it has been left
+## on "false" was to not break existing users that use syncthing's support for
+## file ownership syncing.
+#PrivateUsers=true
 #
 ## Makes /home, /root and /run/user *invisible* while allowing BindPaths= and
 ## BindReadOnlyPaths= to "carve out" access to parts of those dirs.
