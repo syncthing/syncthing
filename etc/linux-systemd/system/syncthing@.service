@@ -38,12 +38,12 @@ RestartForceExitStatus=3 4
 #
 # NOTE: Some of these options _appear_ redundant with each other... but
 # depending on the version and configs of systemd and the kernel, some of the
-# "redundant" options may be non-functional while others still work. So resist
-# the urge to be clever and leave the "redundant" options alone.
+# "redundant" options may be non-functional while others still work.
+# We recommend leaving the "redundant" options in place.
 
 # Makes /usr, /boot, /efi and /etc read-only.
 ProtectSystem=full
-# Protect several system areas syncthing should NEVER touch
+# Protect several system areas syncthing should not be touching.
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectKernelLogs=true
@@ -57,8 +57,8 @@ RestrictSUIDSGID=true
 # Prevent memory pages that are both writable and executable. This kills JIT
 # compilers, but syncthing is precompiled.
 MemoryDenyWriteExecute=true
-# Prevents creation of unprivileged user namespaces which are a LARGE source of
-# privilege escalation exploits.
+# Prevents creation of unprivileged user namespaces which are a significant
+# source of privilege escalation exploits.
 #
 # (In 2023, Google saw 44% of kernel exploits using unpriv. user namespaces.
 # Source: https://ubuntu.com/blog/ubuntu-23-10-restricted-unprivileged-user-namespaces)
@@ -80,14 +80,12 @@ RestrictRealtime=true
 #  address family not supported by protocol" log.pkg=upnp)
 #
 # This option does NOT affect systemd socket passing using .socket units.
-# Exclusively using systemd-provided sockets (together with restricting all
-# address families) would be _amazing_ for security, but would require some
-# syncthing code and config UX changes.
 RestrictAddressFamilies=AF_INET AF_INET6 AF_NETLINK AF_UNIX
 # The lifetime limit of (superuser) capabilities that syncthing can acquire.
-# This option _limits_ capabilities.
+# This option _restricts_ capabilities.
 CapabilityBoundingSet=
-# Start with empty (superuser) capabilities. This option _adds_ capabilities.
+# Start with empty (superuser) capabilities.
+# This option _expands_ capabilities.
 # AmbientCapabilities should equal CapabilityBoundingSet.
 AmbientCapabilities=
 # Disables `personality` system call; it can be used for privilege escalation.
@@ -98,8 +96,7 @@ SystemCallArchitectures=native
 # Clean up IPC objects after service stops.
 RemoveIPC=true
 # Create private namespace for System V IPC.
-# NOTE: This does _nothing_ for AF_UNIX sockets which are far more commonly
-# used.
+# NOTE: This does not apply to AF_UNIX sockets which are more commonly used.
 PrivateIPC=true
 # Completely isolated /tmp and /var/tmp
 PrivateTmp=disconnected
@@ -120,9 +117,8 @@ ProcSubset=pid
 SystemCallFilter=@system-service
 # Explicitly disallow @privileged syscalls. Syncthing fails to start if we also
 # disallow @resources (which `systemd-analyze` is unhappy about).
-# Also disallow io_uring syscalls which are as of 2025 a huge source of kernel
-# exploits.
-# Blocking io_uring_setup should be enough, but let's go further.
+# Also disallow io_uring syscalls which are as of 2025 a significant source of
+# kernel exploits.
 # We do not include io_uring_enter2 because it's just a wrapper for
 # io_uring_enter and systemd issues a warning.
 SystemCallFilter=~@privileged io_uring_enter io_uring_register io_uring_setup
@@ -178,35 +174,35 @@ InaccessiblePaths=-/nonexistent
 ## - ReadWritePaths=
 ## - StateDirectory=, LogsDirectory= and similar
 ##
-## Can't be enabled by default because we don't know which folders you wish to
-## share! The user should enable this *together* with
+## This cannot be enabled by default because we don't know which folders you wish to
+## share. If enabling this option, enable it along with ReadWritePaths=, e.g.:
 ## ReadWritePaths=/my/shared/dir1 /my/shared/dir2
 #ProtectSystem=strict
 #
 ## When enabled, sets up a new user namespace. Maps the "root" user and group as
-## well as the unit's own user and group to themselves and everything else to the
-## "nobody" user and group.
-## Together with running syncthing as a separate user (e.g. "syncthing"), this
-## provides a strong sandbox.
-## NOTE: You _really_ want to set this to true. The only reason it has been left
-## on "false" was to not break existing users that use syncthing's support for
-## file ownership syncing.
+## well as the unit's own user and group to themselves and everything else to
+## the  "nobody" user and group.
+## This is useful to securely detach the user and group databases used by the
+## unit from the rest of the system, and thus to create an effective sandbox
+## environment.
 #PrivateUsers=true
 #
 ## Makes /home, /root and /run/user *invisible* while allowing BindPaths= and
 ## BindReadOnlyPaths= to "carve out" access to parts of those dirs.
 ## (Use 'true' instead of 'tmpfs' if you don't need to carve out anything.)
 ##
-## "Invisible" is *much* better than "just" read-only provided by
-## ProtectSystem=strict because it prevents information disclosure of private
-## user data in case of service compromise.
+## "Invisible" is superior to read-only provided by ProtectSystem=strict because
+## it prevents information disclosure of private user data in case of service
+## compromise.
 #ProtectHome=tmpfs
 #
 ## Disallow execution of all binaries. ExecPaths= below carves out exceptions.
 ## Can't be enabled by default due to the External File Versioning feature:
 ##   https://docs.syncthing.net/users/versioning.html#external-file-versioning
-## If you do not use that feature, just enable both NoExecPaths and ExecPaths
-## below it. If you do use it, you should still use these options; just add
+##
+## If you do not use that feature, you can enable both NoExecPaths and
+## ExecPaths.
+## If you do use that featuer, you can still use these options; just add
 ## the paths to the binaries you invoke to ExecPaths so they can be executed.
 #NoExecPaths=/
 ## Allow execution of syncthing and system shared libraries.
