@@ -381,7 +381,7 @@
 
         <div class="col-md-6" aria-labelledby="folder_list" role="region" >
           <h3 id="folder_list"><span translate>Folders</span><span ng-if="folderList().length > 1"> ({{folderList().length}})</span></h3>
-          <div class="panel panel-default" ng-repeat="(folderGroupKey, folderGroup) in folderGroups">
+          <div ng-repeat="(folderGroupKey, folderGroup) in folderGroups">
             <h4>{{ folderGroup }} 
               <span ng-if="folderListByGroup(folderGroup).length > 1 && folderGroup.length > 0"> ({{folderListByGroup(folderGroup).length}})</span>
             </h4>
