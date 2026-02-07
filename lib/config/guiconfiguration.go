@@ -33,6 +33,8 @@ type GUIConfiguration struct {
 	InsecureSkipHostCheck     bool     `json:"insecureSkipHostcheck" xml:"insecureSkipHostcheck,omitempty"`
 	InsecureAllowFrameLoading bool     `json:"insecureAllowFrameLoading" xml:"insecureAllowFrameLoading,omitempty"`
 	SendBasicAuthPrompt       bool     `json:"sendBasicAuthPrompt" xml:"sendBasicAuthPrompt,attr"`
+	SessionCookieDurationS    int      `json:"sessionCookieDurationS" xml:"sessionCookieDurationS,omitempty" default:"604800"`
+	SessionCookiePath         string   `json:"sessionCookiePath" xml:"sessionCookiePath,omitempty" default:"/"`
 }
 
 func (c GUIConfiguration) IsAuthEnabled() bool {
@@ -175,6 +177,11 @@ func (c GUIConfiguration) IsValidAPIKey(apiKey string) bool {
 func (c *GUIConfiguration) prepare() {
 	if c.APIKey == "" {
 		c.APIKey = rand.String(32)
+	}
+	if c.SessionCookiePath == "" {
+		c.SessionCookiePath = "/"
+	} else if !strings.HasPrefix(c.SessionCookiePath, "/") {
+		c.SessionCookiePath = "/" + c.SessionCookiePath
 	}
 }
 
