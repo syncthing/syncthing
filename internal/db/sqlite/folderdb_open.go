@@ -20,6 +20,13 @@ type folderDB struct {
 
 	localDeviceIdx  int64
 	deleteRetention time.Duration
+	// used to remember where in the hash cleanups we were during the last GC triggered
+	// because the device sequence changed
+	// blocks and blocklists are incrementally processed to the GC must continue for them
+	// to complete a full scan
+	// 1 << 32 in these means the GC caught up
+	targetBlocksStart     int64
+	targetBlocklistsStart int64
 }
 
 func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB, error) {
@@ -47,6 +54,8 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 		folderID:        folder,
 		baseDB:          base,
 		deleteRetention: deleteRetention,
+		targetBlocksStart:      (1 << 32),
+		targetBlocklistsStart:  (1 << 32),
 	}
 
 	_ = fdb.PutKV("folderID", []byte(folder))

@@ -8,10 +8,8 @@ package sqlite
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
 	"log/slog"
-	"math/rand"
 	"strings"
 	"time"
 
@@ -127,7 +125,24 @@ func (s *Service) periodic(ctx context.Context) error {
 		if prev, _, err := meta.Int64(lastSuccessfulGCSeqKey); err != nil {
 			return wrap(err)
 		} else if seq == prev {
-			slog.DebugContext(ctx, "Skipping unnecessary GC", "folder", fdb.folderID, "fdb", fdb.baseName)
+			if fdb.hashCleanupCaughtUp() {
+				slog.DebugContext(ctx, "Skipping unnecessary GC", "folder", fdb.folderID, "fdb", fdb.baseName)
+			} else {
+				slog.DebugContext(ctx, "Catching up on hash cleanups", "folder", fdb.folderID, "fdb", fdb.baseName)				// Blocks and blocklists to delete might still exist
+				// as their GC returns without error on timeout
+				// TODO remember where we started our cleanup and stop when a full pass was done
+				if err := func() error {
+					fdb.updateLock.Lock()
+					defer fdb.updateLock.Unlock()
+
+					if err := s.garbageCollectBlocklistsAndBlocksLocked(ctx, fdb, false); err != nil {
+						return wrap(err)
+					}
+					return nil
+				}(); err != nil {
+					return wrap(err)
+				}
+			}
 			return nil
 		}
 
@@ -143,7 +158,7 @@ func (s *Service) periodic(ctx context.Context) error {
 			if err := garbageCollectNamesAndVersions(ctx, fdb); err != nil {
 				return wrap(err)
 			}
-			if err := garbageCollectBlocklistsAndBlocksLocked(ctx, fdb); err != nil {
+			if err := s.garbageCollectBlocklistsAndBlocksLocked(ctx, fdb, true); err != nil {
 				return wrap(err)
 			}
 			return tidy(ctx, fdb.sql)
@@ -154,6 +169,10 @@ func (s *Service) periodic(ctx context.Context) error {
 		// Update the successful GC sequence.
 		return wrap(meta.PutInt64(lastSuccessfulGCSeqKey, seq))
 	}))
+}
+
+func (fdb *folderDB) hashCleanupCaughtUp() bool {
+	return (fdb.targetBlocksStart == (1 << 32)) && (fdb.targetBlocklistsStart == (1 << 32))
 }
 
 func tidy(ctx context.Context, db *sqlx.DB) error {
@@ -219,7 +238,7 @@ func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB) error {
 	return nil
 }
 
-func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB) error {
+func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB, device_seq_changed bool) error {
 	// Remove all blocklists not referred to by any files and, by extension,
 	// any blocks not referred to by a blocklist. This is an expensive
 	// operation when run normally, especially if there are a lot of blocks
@@ -256,46 +275,106 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 		count_query := `SELECT cast(substr(stat, 0, instr(stat, ' ')) as integer) as "COUNT(*)"
                                 FROM sqlite_stat1 where tbl = '` + table + `' LIMIT 1`
 		if err := tx.GetContext(ctx, &rows, count_query); err != nil {
-			slog.DebugContext(ctx, table, "Error fetching row count", err)
 			return wrap(err)
 		}
 
-		chunks := max(gcMinChunks, rows/gcChunkSize)
-		l := slog.With("folder", fdb.folderID, "fdb", fdb.baseName, "table", table, "rows", rows, "chunks", chunks)
+		// Find where the last GC stopped and what is the recommended range to process
+		prefixKey := "next" + table + "HashPrefix"
+		chunkSizeKey := table + "ChunkSize"
 
-		// Process rows in chunks up to a given time limit. We always use at
-		// least gcMinChunks chunks, then increase the number as the number of rows
-		// exceeds gcMinChunks*gcChunkSize.
-		t0 := time.Now()
-		for i, br := range randomBlobRanges(int(chunks)) {
-			if d := time.Since(t0); d > gcMaxRuntime {
-				l.InfoContext(ctx, "GC was interrupted due to exceeding time limit", "processed", i, "runtime", time.Since(t0))
+		// if not yet set, returns 0 which is what we need to init the process
+		// these are int32 values mapped to the first 32 bits of the blocklist_hash values
+		nextPrefix64, _, _ := s.internalMeta.Int64(prefixKey)
+		chunkSize64, _, _ := s.internalMeta.Int64(chunkSizeKey)
+		nextPrefix := int(nextPrefix64)
+		chunkSize := max(gcMinChunkSize, int(chunkSize64))
+
+		if !device_seq_changed {
+			// Did we caught up for this table
+			if (table == "blocks") && (fdb.targetBlocksStart == (1 << 32)) {
 				break
 			}
-
-			// The limit column must be an indexed column with a mostly random distribution of blobs.
-			// That's the blocklist_hash column for blocklists, and the hash column for blocks.
-			limitColumn := table + ".blocklist_hash"
-			if table == "blocks" {
-				limitColumn = "blocks.hash"
+			if (table == "blocklists") && (fdb.targetBlocklistsStart == (1 << 32)) {
+				break
 			}
+		}
 
-			q := fmt.Sprintf(`
+		l := slog.With("folder", fdb.folderID, "fdb", fdb.baseName, "table", table, "rows", rows,
+			"prefix", nextPrefix, "chunksize", chunkSize)
+
+		// TODO: blobRange was inspired by the previous random implementation, cleanups still to do
+		br := blobRange{nextPrefix, chunkSize}
+
+		// The limit column must be an indexed column with a mostly random distribution of blobs.
+		// That's the blocklist_hash column for blocklists, and the hash column for blocks.
+		limitColumn := table + ".blocklist_hash"
+		if table == "blocks" {
+			limitColumn = "blocks.hash"
+		}
+
+		t0 := time.Now()
+		limitCondition := br.SQL(limitColumn)
+		q := fmt.Sprintf(`
 				DELETE FROM %s
 				WHERE %s AND NOT EXISTS (
 					SELECT 1 FROM files WHERE files.blocklist_hash = %s.blocklist_hash
-				)`, table, br.SQL(limitColumn), table)
+				)`, table, limitCondition, table)
 
-			if res, err := tx.ExecContext(ctx, q); err != nil {
-				return wrap(err, "delete from "+table)
-			} else {
-				l.DebugContext(ctx, "GC query result", "processed", i, "runtime", time.Since(t0), "result", slogutil.Expensive(func() any {
-					rows, err := res.RowsAffected()
-					if err != nil {
-						return slogutil.Error(err)
-					}
-					return slog.Int64("rows", rows)
-				}))
+
+		if res, err := tx.ExecContext(ctx, q); err != nil {
+			l.DebugContext(ctx, "GC failed", "table", table, "runtime", time.Since(t0), "error", err)
+			return wrap(err, "delete from "+table)
+		} else {
+			l.DebugContext(ctx, "GC query result", "runtime", time.Since(t0), "result", slogutil.Expensive(func() any {
+				rows, err := res.RowsAffected()
+				if err != nil {
+					return slogutil.Error(err)
+				}
+				return slog.Int64("rows", rows)
+			}))
+		}
+
+		// Did we overshoot the target runtime ?
+		actualChunkSize := br.actualChunkSize()
+		if d := time.Since(t0); d > gcTargetRuntime {
+			// Reduce chunkSize (note : minimum is enforced when loading value)
+			chunkSize = actualChunkSize / 2
+			l.DebugContext(ctx, "GC too aggressive, reducing speed", "table", table, "new_chunk_size", chunkSize)
+		} else if (d < (gcTargetRuntime / 2)) && (actualChunkSize == chunkSize) && (chunkSize < (1 << 32)) {
+			// Increase chunkSize based on the difference between max GC runtime and actual runtime
+			// target 3/4 of the max
+			// max speedup is 32 which makes allows reaching the maxChunkSize in 6 passes
+			// 32 = 2 ** 5, min is 128 = 2 ** 7
+			speedup := min((3 * float64(gcTargetRuntime)) / (4 * float64(d)), 32.0)
+			chunkSize = min(int(float64(chunkSize) * speedup), 1 << 32)
+			l.DebugContext(ctx, "GC slow, increasing speed", "table", table, "new_chunk_size", chunkSize)
+		}
+		// Store the next range
+		newbr := br.next(chunkSize)
+		s.internalMeta.PutInt64(prefixKey, int64(newbr.start))
+		s.internalMeta.PutInt64(chunkSizeKey, int64(newbr.size))
+
+
+		// If the seq changed we record the beginning ot the last processed range
+		if device_seq_changed {
+			if table == "blocks" {
+				fdb.targetBlocksStart = nextPrefix64
+			} else if table == "blocklists" {
+				fdb.targetBlocklistsStart = nextPrefix64
+			}
+		} else {
+			// the seq didn't change we must advance until we completed a full scan of the prefixes
+			// which happens when a processed range covers our beginning recorded above
+			if table == "blocks" {
+				if br.include(int(fdb.targetBlocksStart)) {
+					// Mark this table done
+					fdb.targetBlocksStart = 1 << 32
+				}
+			} else if table == "blocklists" {
+				if br.include(int(fdb.targetBlocklistsStart)) {
+					// Mark this table done
+					fdb.targetBlocklistsStart = 1 << 32
+				}
 			}
 		}
 	}
@@ -303,57 +382,56 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 	return wrap(tx.Commit())
 }
 
-// blobRange defines a range for blob searching. A range is open ended if
-// start or end is nil.
+// blobRange defines a range for blob searching.
+// it is initialized with a chunk size and computes the appropriate end
 type blobRange struct {
-	start, end []byte
+	start, size int
+}
+
+func (r blobRange) end() int {
+	stop := r.start + r.size
+	if stop >= (1 << 32) {
+		return (1 << 32)
+	} else {
+		return stop
+	}
+}
+
+func (r blobRange) next(size int) blobRange {
+	start := r.end()
+	if start == (1 << 32) {
+		start = 0
+	}
+	return blobRange{start, size}
+}
+
+func (r blobRange) include(position int) bool {
+	if (position >= r.start) && (position < r.end()) {
+		return true
+	} else {
+		return false
+	}
+}
+
+// return the actual size being processed (the last chunk is usually shorter than chunkSize)
+func (r blobRange) actualChunkSize() int {
+	prefixesRemaining := (1 << 32) - r.start
+	if (r.size > prefixesRemaining) {
+		return prefixesRemaining
+	} else {
+		return r.size
+	}
 }
 
 // SQL returns the SQL where clause for the given range, e.g.
 // `column >= x'49249248' AND column < x'6db6db6c'`
 func (r blobRange) SQL(name string) string {
 	var sb strings.Builder
-	if r.start != nil {
-		fmt.Fprintf(&sb, "%s >= x'%x'", name, r.start)
-	}
-	if r.start != nil && r.end != nil {
+	fmt.Fprintf(&sb, "%s >= x'%08X'", name, r.start)
+	end := r.end()
+	if end != (1 << 32) {
 		sb.WriteString(" AND ")
-	}
-	if r.end != nil {
-		fmt.Fprintf(&sb, "%s < x'%x'", name, r.end)
+		fmt.Fprintf(&sb, "%s < x'%08X'", name, end)
 	}
 	return sb.String()
-}
-
-// randomBlobRanges returns n blobRanges in random order
-func randomBlobRanges(n int) []blobRange {
-	ranges := blobRanges(n)
-	rand.Shuffle(len(ranges), func(i, j int) { ranges[i], ranges[j] = ranges[j], ranges[i] })
-	return ranges
-}
-
-// blobRanges returns n blobRanges
-func blobRanges(n int) []blobRange {
-	// We use three byte (24 bit) prefixes to get fairly granular ranges and easy bit
-	// conversions.
-	rangeSize := (1 << 24) / n
-	ranges := make([]blobRange, 0, n)
-	var prev []byte
-	for i := range n {
-		var pref []byte
-		if i < n-1 {
-			end := (i + 1) * rangeSize
-			pref = intToBlob(end)
-		}
-		ranges = append(ranges, blobRange{prev, pref})
-		prev = pref
-	}
-	return ranges
-}
-
-func intToBlob(n int) []byte {
-	var pref [4]byte
-	binary.BigEndian.PutUint32(pref[:], uint32(n)) //nolint:gosec
-	// first byte is always zero and not part of the range
-	return pref[1:]
 }
