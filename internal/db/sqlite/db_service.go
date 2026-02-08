@@ -162,8 +162,6 @@ func tidy(ctx context.Context, db *sqlx.DB) error {
 		return wrap(err)
 	}
 	defer conn.Close()
-	_, _ = conn.ExecContext(ctx, `ANALYZE`)
-	_, _ = conn.ExecContext(ctx, `PRAGMA optimize`)
 	_, _ = conn.ExecContext(ctx, `PRAGMA incremental_vacuum`)
 	_, _ = conn.ExecContext(ctx, `PRAGMA journal_size_limit = 8388608`)
 	_, _ = conn.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)
