@@ -251,9 +251,12 @@ func garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB)
 
 	// Both blocklists and blocks refer to blocklists_hash from the files table.
 	for _, table := range []string{"blocklists", "blocks"} {
-		// Count the number of rows
+		// Get an estimate of the number of rows
 		var rows int64
-		if err := tx.GetContext(ctx, &rows, `SELECT count(*) FROM `+table); err != nil {
+		count_query := `SELECT cast(substr(stat, 0, instr(stat, ' ')) as integer) as "COUNT(*)"
+                                FROM sqlite_stat1 where tbl = '` + table + `' LIMIT 1`
+		if err := tx.GetContext(ctx, &rows, count_query); err != nil {
+			slog.DebugContext(ctx, table, "Error fetching row count", err)
 			return wrap(err)
 		}
 
