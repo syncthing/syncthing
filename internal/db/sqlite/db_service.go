@@ -39,7 +39,7 @@ type Service struct {
 	sdb                 *DB
 	maintenanceInterval time.Duration
 	internalMeta        *db.Typed
-	start               chan struct{}
+	start               chan chan error
 }
 
 func (s *Service) String() string {
@@ -51,15 +51,17 @@ func newService(sdb *DB, maintenanceInterval time.Duration) *Service {
 		sdb:                 sdb,
 		maintenanceInterval: maintenanceInterval,
 		internalMeta:        db.NewTyped(sdb, internalMetaPrefix),
-		start:               make(chan struct{}),
+		start:               make(chan chan error),
 	}
 }
 
-func (s *Service) StartMaintenance() {
+func (s *Service) StartMaintenance() <-chan error {
+	finishChan := make(chan error, 1)
 	select {
-	case s.start <- struct{}{}:
+	case s.start <- finishChan:
 	default:
 	}
+	return finishChan
 }
 
 func (s *Service) Serve(ctx context.Context) error {
@@ -80,14 +82,20 @@ func (s *Service) Serve(ctx context.Context) error {
 	}
 
 	for {
+		var finishChan chan error
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-timer.C:
-		case <-s.start:
+		case finishChan = <-s.start:
 		}
 
-		if err := s.periodic(ctx); err != nil {
+		err := s.periodic(ctx)
+		if finishChan != nil {
+			finishChan <- err
+		}
+
+		if err != nil {
 			return wrap(err)
 		}
 
@@ -98,6 +106,11 @@ func (s *Service) Serve(ctx context.Context) error {
 
 		_ = s.internalMeta.PutTime(lastMaintKey, time.Now())
 	}
+}
+
+func (s *Service) LastMaintenanceTime() time.Time {
+	lastMaint, _, _ := s.internalMeta.Time(lastMaintKey)
+	return lastMaint
 }
 
 func (s *Service) periodic(ctx context.Context) error {
