@@ -155,7 +155,7 @@ type serveCmd struct {
 	AllowNewerConfig          bool          `help:"Allow loading newer than current config version" env:"STALLOWNEWERCONFIG"`
 	Audit                     bool          `help:"Write events to audit file" env:"STAUDIT"`
 	AuditFile                 string        `name:"auditfile" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)" placeholder:"PATH" env:"STAUDITFILE"`
-	DBMaintenanceInterval     time.Duration `help:"Database maintenance interval; set to zero to disable periodic maintenance" default:"8h" env:"STDBMAINTENANCEINTERVAL"`
+	DBMaintenanceInterval     time.Duration `help:"Database maintenance interval; set to zero to disable periodic maintenance" default:"1h" env:"STDBMAINTENANCEINTERVAL"`
 	DBDeleteRetentionInterval time.Duration `help:"Database deleted item retention interval" default:"10920h" env:"STDBDELETERETENTIONINTERVAL"`
 	GUIAddress                string        `name:"gui-address" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")" placeholder:"URL" env:"STGUIADDRESS"`
 	GUIAPIKey                 string        `name:"gui-apikey" help:"Override GUI API key" placeholder:"API-KEY" env:"STGUIAPIKEY"`
