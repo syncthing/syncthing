@@ -26,9 +26,9 @@ const (
 	lastMaintKey           = "lastMaint"
 	lastSuccessfulGCSeqKey = "lastSuccessfulGCSeq"
 
-	gcMinChunks  = 5
-	gcChunkSize  = 100_000         // approximate number of rows to process in a single gc query
-	gcMaxRuntime = 5 * time.Minute // max time to spend on gc, per table, per run
+	// initial and minimum target of prefix chunk size (among 2**32), this will increase to adapt to the DB speed
+	gcMinChunkSize  = 128 // this is chosen to allow reaching 2**32 which is a full scan in 6 minutes
+	gcTargetRuntime = 250 * time.Millisecond // max time to spend on gc, per table, per run
 )
 
 func (s *DB) Service(maintenanceInterval time.Duration) db.DBService {
