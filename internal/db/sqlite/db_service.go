@@ -287,9 +287,11 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 		if !device_seq_changed {
 			// Did we caught up for this table
 			if (table == "blocks") && (fdb.targetBlocksStart == (1 << 32)) {
+				l.DebugContext(ctx, "GC already completed")
 				break
 			}
 			if (table == "blocklists") && (fdb.targetBlocklistsStart == (1 << 32)) {
+				l.DebugContext(ctx, "GC already completed")
 				break
 			}
 		}
