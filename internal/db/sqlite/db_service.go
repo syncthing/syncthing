@@ -106,7 +106,8 @@ func (s *Service) periodic(ctx context.Context) error {
 	defer func() { slog.DebugContext(ctx, "Periodic done in", "t1", time.Since(t1), "t0t1", t1.Sub(t0)) }()
 
 	s.sdb.updateLock.Lock()
-	err := tidy(ctx, s.sdb.sql)
+	// Triggers the truncate checkpoint on the main DB
+	err := tidy(ctx, s.sdb.sql, s.sdb.baseName, true)
 	s.sdb.updateLock.Unlock()
 	if err != nil {
 		return err
@@ -161,7 +162,13 @@ func (s *Service) periodic(ctx context.Context) error {
 			if err := s.garbageCollectBlocklistsAndBlocksLocked(ctx, fdb, true); err != nil {
 				return wrap(err)
 			}
-			return tidy(ctx, fdb.sql)
+			if fdb.nextCheckpoint.Before(time.Now()) {
+				val := tidy(ctx, fdb.sql, fdb.baseName, true)
+				fdb.nextCheckpoint = time.Now().Add(fdb.checkpointInterval)
+				return val
+			} else {
+				return tidy(ctx, fdb.sql, fdb.baseName, false)
+			}
 		}(); err != nil {
 			return wrap(err)
 		}
@@ -175,20 +182,30 @@ func (fdb *folderDB) hashCleanupCaughtUp() bool {
 	return (fdb.targetBlocksStart == (1 << 32)) && (fdb.targetBlocklistsStart == (1 << 32))
 }
 
-func tidy(ctx context.Context, db *sqlx.DB) error {
+func tidy(ctx context.Context, db *sqlx.DB, name string, do_truncate_checkpoint bool) error {
+	t0 := time.Now()
+	defer func() { slog.DebugContext(ctx, "tidy", "database", name, "runtime", time.Since(t0)) }()
+
 	conn, err := db.Conn(ctx)
 	if err != nil {
 		return wrap(err)
 	}
 	defer conn.Close()
+	// These two should not be needed more than once
 	_, _ = conn.ExecContext(ctx, `PRAGMA incremental_vacuum`)
 	_, _ = conn.ExecContext(ctx, `PRAGMA journal_size_limit = 8388608`)
-	_, _ = conn.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)
+	if do_truncate_checkpoint {
+		// This is potentially really slow on a folderDB and is called after taking the updateLock
+		_, _ = conn.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)
+	}
 	return nil
 }
 
 func garbageCollectNamesAndVersions(ctx context.Context, fdb *folderDB) error {
 	l := slog.With("folder", fdb.folderID, "fdb", fdb.baseName)
+
+	t0 := time.Now()
+	defer func() { l.DebugContext(ctx, "GC names and version", "runtime", time.Since(t0)) }()
 
 	res, err := fdb.stmt(`
 		DELETE FROM file_names
@@ -217,8 +234,11 @@ func garbageCollectNamesAndVersions(ctx context.Context, fdb *folderDB) error {
 
 func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB) error {
 	l := slog.With("folder", fdb.folderID, "fdb", fdb.baseName)
+	t0 := time.Now()
+	defer func() { l.DebugContext(ctx, "GC deleted files", "runtime", time.Since(t0)) }()
+
 	if fdb.deleteRetention <= 0 {
-		slog.DebugContext(ctx, "Delete retention is infinite, skipping cleanup")
+		l.DebugContext(ctx, "Delete retention is infinite, skipping cleanup")
 		return nil
 	}
 
@@ -239,6 +259,9 @@ func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB) error {
 }
 
 func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, fdb *folderDB, device_seq_changed bool) error {
+	tGlobal := time.Now()
+	defer func() { slog.DebugContext(ctx, "GC blocks/blocklists", "runtime", time.Since(tGlobal)) }()
+
 	// Remove all blocklists not referred to by any files and, by extension,
 	// any blocks not referred to by a blocklist. This is an expensive
 	// operation when run normally, especially if there are a lot of blocks

@@ -27,6 +27,8 @@ type folderDB struct {
 	// 1 << 32 in these means the GC caught up
 	targetBlocksStart     int64
 	targetBlocklistsStart int64
+	checkpointInterval    time.Duration
+	nextCheckpoint        time.Time
 }
 
 func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB, error) {
@@ -56,6 +58,8 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 		deleteRetention: deleteRetention,
 		targetBlocksStart:      (1 << 32),
 		targetBlocklistsStart:  (1 << 32),
+		checkpointInterval:     24 * time.Hour, // tunable?
+		nextCheckpoint:  time.Now().Add(24 * time.Hour),
 	}
 
 	_ = fdb.PutKV("folderID", []byte(folder))
