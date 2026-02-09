@@ -316,7 +316,7 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 
 
 		if res, err := tx.ExecContext(ctx, q); err != nil {
-			l.DebugContext(ctx, "GC failed", "table", table, "runtime", time.Since(t0), "error", err)
+			l.DebugContext(ctx, "GC failed", "runtime", time.Since(t0), "error", err)
 			return wrap(err, "delete from "+table)
 		} else {
 			l.DebugContext(ctx, "GC query result", "runtime", time.Since(t0), "result", slogutil.Expensive(func() any {
@@ -324,7 +324,7 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 				if err != nil {
 					return slogutil.Error(err)
 				}
-				return slog.Int64("rows", rows)
+				return slog.Int64("affected_rows", rows)
 			}))
 		}
 
@@ -333,7 +333,7 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 		if d := time.Since(t0); d > gcTargetRuntime {
 			// Reduce chunkSize (note : minimum is enforced when loading value)
 			chunkSize = actualChunkSize / 2
-			l.DebugContext(ctx, "GC too aggressive, reducing speed", "table", table, "new_chunk_size", chunkSize)
+			l.DebugContext(ctx, "GC too aggressive, reducing speed", "new_chunk_size", chunkSize)
 		} else if (d < (gcTargetRuntime / 2)) && (actualChunkSize == chunkSize) && (chunkSize < (1 << 32)) {
 			// Increase chunkSize based on the difference between max GC runtime and actual runtime
 			// target 3/4 of the max
@@ -341,7 +341,7 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 			// 32 = 2 ** 5, min is 128 = 2 ** 7
 			speedup := min((3 * float64(gcTargetRuntime)) / (4 * float64(d)), 32.0)
 			chunkSize = min(int(float64(chunkSize) * speedup), 1 << 32)
-			l.DebugContext(ctx, "GC slow, increasing speed", "table", table, "new_chunk_size", chunkSize)
+			l.DebugContext(ctx, "GC slow, increasing speed", "new_chunk_size", chunkSize)
 		}
 		// Store the next range
 		newbr := br.next(chunkSize)
