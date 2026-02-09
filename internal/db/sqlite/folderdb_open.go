@@ -20,13 +20,16 @@ type folderDB struct {
 
 	localDeviceIdx  int64
 	deleteRetention time.Duration
+	cursor_columns  map[string]string
+	cursor_values   map[string]int
+	chunk_sizes     map[string]int
 	// used to remember where in the hash cleanups we were during the last GC triggered
 	// because the device sequence changed
 	// blocks and blocklists are incrementally processed to the GC must continue for them
 	// to complete a full scan
 	// 1 << 32 in these means the GC caught up
-	targetBlocksStart     int64
-	targetBlocklistsStart int64
+	coverage_full_at      map[string]int
+	// Avoid to many checkpoints
 	checkpointInterval    time.Duration
 	nextCheckpoint        time.Time
 }
@@ -56,10 +59,26 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 		folderID:        folder,
 		baseDB:          base,
 		deleteRetention: deleteRetention,
-		targetBlocksStart:      (1 << 32),
-		targetBlocklistsStart:  (1 << 32),
-		checkpointInterval:     24 * time.Hour, // tunable?
-		nextCheckpoint:  time.Now().Add(24 * time.Hour),
+		// used to incrementally process GC on some tables
+		cursor_columns:  map[string]string{
+			"blocks":     "hash",
+			"blocklists": "blocklist_hash",
+		},
+		cursor_values:   map[string]int{
+			"blocks":     0,
+			"blocklists": 0,
+		},
+		chunk_sizes: map[string]int{
+			"blocks":     128,
+			"blocklists": 128,
+		},
+		// 1 << 32 : GC caught up
+		coverage_full_at: map[string]int {
+			"blocks":     1 << 32,
+			"blocklists": 1 << 32,
+		},
+		checkpointInterval: 24 * time.Hour, // tunable?
+		nextCheckpoint:     time.Now().Add(24 * time.Hour),
 	}
 
 	_ = fdb.PutKV("folderID", []byte(folder))
