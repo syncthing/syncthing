@@ -76,5 +76,5 @@ CREATE INDEX IF NOT EXISTS files_name_idx_only ON files (name_idx)
 CREATE INDEX IF NOT EXISTS files_version_idx_only ON files (version_idx)
 ;
 
-CREATE INDEX IF NOT EXISTS files_deleted_idx_only ON files (deleted)
+CREATE INDEX IF NOT EXISTS files_deleted_is_true_only ON files (deleted) WHERE deleted
 ;
