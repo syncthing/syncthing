@@ -270,14 +270,6 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 
 	// Both blocklists and blocks refer to blocklists_hash from the files table.
 	for _, table := range []string{"blocklists", "blocks"} {
-		// Get an estimate of the number of rows
-		var rows int64
-		count_query := `SELECT cast(substr(stat, 0, instr(stat, ' ')) as integer) as "COUNT(*)"
-                                FROM sqlite_stat1 where tbl = '` + table + `' LIMIT 1`
-		if err := tx.GetContext(ctx, &rows, count_query); err != nil {
-			return wrap(err)
-		}
-
 		// Find where the last GC stopped and what is the recommended range to process
 		prefixKey := "next" + table + "HashPrefix"
 		chunkSizeKey := table + "ChunkSize"
@@ -289,6 +281,9 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 		nextPrefix := int(nextPrefix64)
 		chunkSize := max(gcMinChunkSize, int(chunkSize64))
 
+		l := slog.With("folder", fdb.folderID, "fdb", fdb.baseName, "table", table,
+			"prefix", nextPrefix, "chunksize", chunkSize)
+
 		if !device_seq_changed {
 			// Did we caught up for this table
 			if (table == "blocks") && (fdb.targetBlocksStart == (1 << 32)) {
@@ -298,9 +293,6 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 				break
 			}
 		}
-
-		l := slog.With("folder", fdb.folderID, "fdb", fdb.baseName, "table", table, "rows", rows,
-			"prefix", nextPrefix, "chunksize", chunkSize)
 
 		// TODO: blobRange was inspired by the previous random implementation, cleanups still to do
 		br := blobRange{nextPrefix, chunkSize}
