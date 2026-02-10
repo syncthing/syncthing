@@ -243,18 +243,23 @@ func garbageCollectNamesOrVersions(ctx context.Context, fdb *folderDB, table str
 	l := slog.With("folder", fdb.folderID, "fdb", fdb.baseName, "table", table, "start", chunkStart, "chunk_size", chunkSize)
 
 	t0 := time.Now()
-	defer func() { l.DebugContext(ctx, "GC name or version", "runtime", time.Since(t0)) }()
+	t1 := time.Now()
+	defer func() {
+		l.DebugContext(ctx, "GC runtime for " + table, "Total", time.Since(t0), "Chunk limits fetch", t1.Sub(t0),
+			"Delete", time.Since(t1) )
+	}()
 
 	var chunkEnd sql.NullInt64
-	err := fdb.stmt(`SELECT MAX(idx) FROM ` + table + ` WHERE idx >= ?
-                         ORDER BY idx LIMIT ?`).Get(&chunkEnd, chunkStart, chunkSize)
+	err := fdb.stmt(`SELECT MAX(idx) FROM (SELECT idx FROM ` + table + ` WHERE idx >= ?
+                         ORDER BY idx LIMIT ?)`).Get(&chunkEnd, chunkStart, chunkSize)
 	if err != nil {
-		l.WarnContext(ctx, "max from chunk", "error", err)
+		l.WarnContext(ctx, table + ": max from chunk", "error", err)
 		return wrap(err, "delete " + table)
 	}
+	l.DebugContext(ctx, table + " chunk end", "MAX result", chunkEnd)
 	if !chunkEnd.Valid {
 		// We reached the end of the idx range and found nothing
-		l.DebugContext(ctx, "MAX from chunk is NULL: end of table reached")
+		l.DebugContext(ctx, table + ": MAX from chunk is NULL, end of table reached")
 		fdb.cursor_values[table] = 0
 		lastValid := chunkStart - 1
 		if lastValid < 0 {
@@ -276,12 +281,15 @@ func garbageCollectNamesOrVersions(ctx context.Context, fdb *folderDB, table str
 	}
 	intChunkEnd := chunkEnd.Int64
 	var actualChunkSize int
-	err = fdb.stmt(`SELECT COUNT(idx) FROM ` + table + ` WHERE idx >= ? AND idx <= ?`).Get(&actualChunkSize, chunkStart, intChunkEnd)
+	err = fdb.stmt(`SELECT COUNT(idx) FROM ` + table +
+		       ` WHERE idx >= ? AND idx <= ?`).Get(&actualChunkSize, chunkStart, intChunkEnd)
 	if err != nil {
-		l.WarnContext(ctx, "count from chunk", "error", err)
+		l.WarnContext(ctx, table + ": count from chunk", "error", err)
 		return wrap(err, "delete " + table)
 	}
+	l.DebugContext(ctx, table + " actual chunk size", "result", actualChunkSize)
 
+	t1 = time.Now()
 	idx_column := "name_idx"
 	if table == "file_versions" { idx_column = "version_idx" }
 	res, err := fdb.stmt(`
@@ -291,11 +299,11 @@ func garbageCollectNamesOrVersions(ctx context.Context, fdb *folderDB, table str
                 AND NOT EXISTS (SELECT 1 FROM files f WHERE f.` + idx_column + ` = idx)
 	`).Exec(chunkStart, chunkSize)
 	if err != nil {
-		l.WarnContext(ctx, "delete failed", "error", err)
-		return wrap(err, "delete " + table)
+		l.WarnContext(ctx, table + "delete failed", "error", err)
+		return wrap(err, table + " DELETE")
 	}
 	if aff, err := res.RowsAffected(); err == nil {
-		l.DebugContext(ctx, "Removed old", "affected", aff)
+		l.DebugContext(ctx, table + " DELETE", "affected", aff)
 	}
 
 	newChunkSize := adaptChunkSize(chunkSize, actualChunkSize, time.Since(t0), l, ctx)
