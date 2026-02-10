@@ -128,7 +128,7 @@ func (s *Service) periodic(ctx context.Context) error {
 		if err != nil { return wrap(err) }
 		// Get the last successful GC sequence. If it's the same as the
 		// current sequence, nothing has changed and we can skip the GC
-		// entirely.
+		// once all table rows have been processed
 		meta := db.NewTyped(fdb, internalMetaPrefix)
 		if prev, _, err := meta.Int64(lastSuccessfulGCSeqKey); err != nil {
 			return wrap(err)
@@ -240,6 +240,9 @@ func tidy(ctx context.Context, db *sqlx.DB, name string, do_truncate_checkpoint 
 func garbageCollectNamesOrVersions(ctx context.Context, fdb *folderDB, table string, device_seq_changed bool) error {
 	chunkStart := fdb.cursor_values[table]
 	chunkSize := fdb.chunk_sizes[table]
+	partialChunk := false
+	intChunkEnd := int64(0) // will be set if chunkEnd.Valid
+
 	l := slog.With("folder", fdb.folderID, "fdb", fdb.baseName, "table", table, "start", chunkStart, "chunk_size", chunkSize)
 
 	t0 := time.Now()
@@ -250,75 +253,61 @@ func garbageCollectNamesOrVersions(ctx context.Context, fdb *folderDB, table str
 	}()
 
 	var chunkEnd sql.NullInt64
-	err := fdb.stmt(`SELECT MAX(idx) FROM (SELECT idx FROM ` + table + ` WHERE idx >= ?
-                         ORDER BY idx LIMIT ?)`).Get(&chunkEnd, chunkStart, chunkSize)
-	if err != nil {
-		l.WarnContext(ctx, table + ": max from chunk", "error", err)
-		return wrap(err, "delete " + table)
-	}
-	l.DebugContext(ctx, table + " chunk end", "MAX result", chunkEnd)
+	// Try to fetch the end of a full chunk
+	_ = fdb.stmt(`SELECT idx FROM ` + table + ` WHERE idx >= ?
+                      ORDER BY idx LIMIT 1 OFFSET ?`).Get(&chunkEnd, chunkStart, chunkSize - 1)
+	// Error err is normal (no rows in resultset expected)
 	if !chunkEnd.Valid {
-		// We reached the end of the idx range and found nothing
-		l.DebugContext(ctx, table + ": MAX from chunk is NULL, end of table reached")
-		fdb.cursor_values[table] = 0
-		lastValid := chunkStart - 1
-		if lastValid < 0 {
-			// Empty table, coverage is always full
-			fdb.coverage_full_at[table] = 1 << 62
-		} else {
-			if device_seq_changed {
-				fdb.coverage_full_at[table] = lastValid
-			} else {
-				// the entry might have been GCed
-				// if the lastValid idx entry was < to our target
-				if fdb.coverage_full_at[table] > lastValid {
-					fdb.coverage_full_at[table] = 1 << 62
-				} // else still waiting to reach it by looping at the start
-			}
+		// End not found, partial chunk or end already reached
+		// Find the end of the idx range to get a partial chunk
+		err := fdb.stmt(`SELECT MAX(idx) FROM ` + table).Get(&chunkEnd)
+		if err != nil {
+			l.WarnContext(ctx, table + "MAX(idx) failed", "error", err)
+			return wrap(err, table + " DELETE")
 		}
-		// No need to adapt chunkSize, we didn't process anything
-		return nil
+		partialChunk = true
 	}
-	intChunkEnd := chunkEnd.Int64
-	var actualChunkSize int
-	err = fdb.stmt(`SELECT COUNT(idx) FROM ` + table +
-		       ` WHERE idx >= ? AND idx <= ?`).Get(&actualChunkSize, chunkStart, intChunkEnd)
-	if err != nil {
-		l.WarnContext(ctx, table + ": count from chunk", "error", err)
-		return wrap(err, "delete " + table)
+	l.DebugContext(ctx, table + " chunk", "last idx", chunkEnd, "full chunk", !partialChunk)
+
+	if chunkEnd.Valid {
+		intChunkEnd = chunkEnd.Int64
+		// Next chunk start position
+		if partialChunk {
+			fdb.cursor_values[table] = 0
+		} else {
+			fdb.cursor_values[table] = intChunkEnd + 1
+		}
+
+		idx_column := "name_idx"
+		if table == "file_versions" { idx_column = "version_idx" }
+		res, err := fdb.stmt(`DELETE FROM ` + table + `
+                                      WHERE idx >= ? AND idx <= ?
+                                      AND NOT EXISTS (SELECT 1 FROM files f WHERE f.` + idx_column + ` = idx)
+	                             `).Exec(chunkStart, intChunkEnd)
+		if err != nil {
+			l.WarnContext(ctx, table + "delete failed", "error", err)
+			return wrap(err, table + " DELETE")
+		}
+		if aff, err := res.RowsAffected(); err == nil {
+			l.DebugContext(ctx, table + " DELETE", "affected", aff)
+		}
+
+		// Pass information about unknown chunk size (0) when needed
+		var actualChunkSize int
+		if partialChunk { actualChunkSize = 0 } else { actualChunkSize = chunkSize }
+		newChunkSize := adaptChunkSize(chunkSize, actualChunkSize, time.Since(t0), l, ctx)
+		if (newChunkSize != 0) { fdb.chunk_sizes[table] = newChunkSize }
 	}
-	l.DebugContext(ctx, table + " actual chunk size", "result", actualChunkSize)
 
-	t1 = time.Now()
-	idx_column := "name_idx"
-	if table == "file_versions" { idx_column = "version_idx" }
-	res, err := fdb.stmt(`
-		DELETE FROM ` + table + `
-		WHERE idx IN (SELECT idx FROM ` + table + ` WHERE idx > ?
-                              ORDER BY idx LIMIT ?)
-                AND NOT EXISTS (SELECT 1 FROM files f WHERE f.` + idx_column + ` = idx)
-	`).Exec(chunkStart, chunkSize)
-	if err != nil {
-		l.WarnContext(ctx, table + "delete failed", "error", err)
-		return wrap(err, table + " DELETE")
-	}
-	if aff, err := res.RowsAffected(); err == nil {
-		l.DebugContext(ctx, table + " DELETE", "affected", aff)
-	}
-
-	newChunkSize := adaptChunkSize(chunkSize, actualChunkSize, time.Since(t0), l, ctx)
-	if (newChunkSize != 0) { chunkSize = newChunkSize }
-
-	fdb.chunk_sizes[table] = chunkSize
-	fdb.cursor_values[table] = intChunkEnd + 1
-
-	// If the seq changed we record the end ot the last processed range
+	// If the seq changed we record the end of the last processed range
 	if device_seq_changed {
-		fdb.coverage_full_at[table] = intChunkEnd
+		if chunkEnd.Valid {
+			fdb.coverage_full_at[table] = intChunkEnd
+		} // else no chunk processed, last end is still applicable
 	} else {
 		// which idx do we target
 		full_at := fdb.coverage_full_at[table]
-		if (full_at >= chunkStart) && (full_at <= intChunkEnd)  {
+		if (full_at >= chunkStart) && ((full_at <= intChunkEnd) || partialChunk) {
 			fdb.coverage_full_at[table] = 1 << 62
 		}
 	}
@@ -511,8 +500,9 @@ func (r blobRange) SQL(name string) string {
 }
 
 // actualChunkSize reflects the case where pagination couldn't fetch the asked chunkSize
-// max chunk size is hard coded to 1<<32 which is fine for pagination and neeed for the iterations over hash values
+// max chunk size is hard coded to 1<<32 which is fine for pagination and needed for the iterations over hash values
 // returns 0 if no change is needed
+// if actualChunkSize < chunkSize don't speed up
 func adaptChunkSize(chunkSize int, actualChunkSize int, process_duration time.Duration, l *slog.Logger,
 	            ctx context.Context) int {
 	newChunkSize := 0
