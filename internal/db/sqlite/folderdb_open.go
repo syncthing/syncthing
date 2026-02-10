@@ -71,10 +71,10 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 			"file_versions": 0,
 		},
 		chunk_sizes: map[string]int{
-			"blocks":        128,
-			"blocklists":    128,
-			"file_names":    128,
-			"file_versions": 128,
+			"blocks":        gcMinChunkSize,
+			"blocklists":    gcMinChunkSize,
+			"file_names":    gcMinChunkSize,
+			"file_versions": gcMinChunkSize,
 		},
 		// These values are arbitrary large for their usage and mean that the GC caught up
 		// other values are target to reach to end a full pass on the table

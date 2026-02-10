@@ -27,6 +27,7 @@ const (
 	mainDBMaintenanceInterval = 24 * time.Hour
 	// initial and minimum target of prefix chunk size (among 2**32), this will increase to adapt to the DB speed
 	gcMinChunkSize  = 128 // this is chosen to allow reaching 2**32 which is a full scan in 6 minutes
+	gcMaxChunkSize  = 1 << 32
 	gcTargetRuntime = 250 * time.Millisecond // max time to spend on gc, per table, per run
 	vacuumPages     = 256 // pages are 4k with current SQLite this is 1M worth vaccumed
 )
@@ -124,9 +125,7 @@ func (s *Service) periodic(ctx context.Context) error {
 	return wrap(s.sdb.forEachFolder(func(fdb *folderDB) error {
 		// Get the current device sequence, for comparison in the next step.
 		seq, err := fdb.GetDeviceSequence(protocol.LocalDeviceID)
-		if err != nil {
-			return wrap(err)
-		}
+		if err != nil { return wrap(err) }
 		// Get the last successful GC sequence. If it's the same as the
 		// current sequence, nothing has changed and we can skip the GC
 		// entirely.
@@ -136,7 +135,8 @@ func (s *Service) periodic(ctx context.Context) error {
 		} else if seq == prev {
 			// No change in DB, but incremental cleanups might have to finish their slow walk
 			if fdb.hashCleanupCaughtUp() && fdb.namesCleanupCaughtUp() && fdb.versionsCleanupCaughtUp() {
-				slog.DebugContext(ctx, "Skipping unnecessary GC", "folder", fdb.folderID, "fdb", fdb.baseName)
+				slog.DebugContext(ctx, "Skipping unnecessary GC", "folder", fdb.folderID,
+					          "fdb", fdb.baseName)
 			} else {
 				if !fdb.hashCleanupCaughtUp() {
 					slog.DebugContext(ctx, "Catching up on hash cleanups", "folder",
@@ -345,7 +345,7 @@ func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB) error {
 		return wrap(err)
 	}
 	if aff, err := res.RowsAffected(); err == nil {
-		l.DebugContext(ctx, "Removed old deleted file records", "affected", aff)
+		l.DebugContext(ctx, "files: removed old deleted records", "affected", aff)
 	}
 	return nil
 }
@@ -518,16 +518,16 @@ func adaptChunkSize(chunkSize int, actualChunkSize int, process_duration time.Du
 	newChunkSize := 0
 	// Did we overshoot the target runtime ?
 	if process_duration > gcTargetRuntime {
-		newChunkSize = max(chunkSize / 2, 128)
+		newChunkSize = max(chunkSize / 2, gcMinChunkSize)
 		l.DebugContext(ctx, "GC too aggressive, reducing speed", "new_chunk_size", newChunkSize)
 	} else if (process_duration < (gcTargetRuntime / 2)) && (actualChunkSize == chunkSize) &&
-		(chunkSize < (1 << 32)) {
+		(chunkSize < gcMaxChunkSize) {
 		// Increase chunkSize based on the difference between max GC runtime and actual runtime
 		// target 3/4 of the max
-		// max speedup is 32 which makes allows reaching 1 << 32 in 6 passes
-		// 32 = 2 ** 5, min is 128 = 2 ** 7
+		// max speedup is 32 which makes allows reaching gcMaxChunkSize 1 << 32 in 6 passes
+		// 32 = 2 ** 5, gcMinChunkSize = 128 = 2 ** 7
 		speedup := min((3 * float64(gcTargetRuntime)) / (4 * float64(process_duration)), 32.0)
-		newChunkSize = min(int(float64(chunkSize) * speedup), 1 << 32)
+		newChunkSize = min(int(float64(chunkSize) * speedup), gcMaxChunkSize)
 		l.DebugContext(ctx, "GC slow, increasing speed", "new_chunk_size", newChunkSize)
 	}
 	return newChunkSize
