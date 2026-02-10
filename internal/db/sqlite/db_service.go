@@ -21,10 +21,10 @@ import (
 )
 
 const (
-	internalMetaPrefix     = "dbsvc"
-	lastMaintKey           = "lastMaint"
-	lastSuccessfulGCSeqKey = "lastSuccessfulGCSeq"
-
+	internalMetaPrefix        = "dbsvc"
+	lastMaintKey              = "lastMaint"
+	lastSuccessfulGCSeqKey    = "lastSuccessfulGCSeq"
+	mainDBMaintenanceInterval = 24 * time.Hour
 	// initial and minimum target of prefix chunk size (among 2**32), this will increase to adapt to the DB speed
 	gcMinChunkSize  = 128 // this is chosen to allow reaching 2**32 which is a full scan in 6 minutes
 	gcTargetRuntime = 250 * time.Millisecond // max time to spend on gc, per table, per run
@@ -38,6 +38,7 @@ func (s *DB) Service(maintenanceInterval time.Duration) db.DBService {
 type Service struct {
 	sdb                 *DB
 	maintenanceInterval time.Duration
+	nextMainDBMaintenance time.Time
 	internalMeta        *db.Typed
 	start               chan struct{}
 }
@@ -52,6 +53,8 @@ func newService(sdb *DB, maintenanceInterval time.Duration) *Service {
 		maintenanceInterval: maintenanceInterval,
 		internalMeta:        db.NewTyped(sdb, internalMetaPrefix),
 		start:               make(chan struct{}),
+		// Maybe superfluous, 1min wait is to spread start load
+		nextMainDBMaintenance: time.Now().Add(time.Minute),
 	}
 }
 
@@ -104,15 +107,18 @@ func (s *Service) periodic(ctx context.Context) error {
 	t0 := time.Now()
 	slog.DebugContext(ctx, "Periodic start")
 
-	t1 := time.Now()
-	defer func() { slog.DebugContext(ctx, "Periodic done in", "t1", time.Since(t1), "t0t1", t1.Sub(t0)) }()
+	defer func() { slog.DebugContext(ctx, "Periodic done", "duration", time.Since(t0)) }()
 
-	s.sdb.updateLock.Lock()
-	// Triggers the truncate checkpoint on the main DB
-	err := tidy(ctx, s.sdb.sql, s.sdb.baseName, true)
-	s.sdb.updateLock.Unlock()
-	if err != nil {
-		return err
+	// We reuse the periodic maintenance of folders which is done at short intervals to trigger
+	// the main DB maintenance at long intervals (alternatively it could use its own Timer)
+	if s.nextMainDBMaintenance.Before(time.Now()) {
+		// Triggers the truncate checkpoint on the main DB
+		// the main DB is very small it doesn't need frequent vacuum/checkpoints
+		s.sdb.updateLock.Lock()
+		err := tidy(ctx, s.sdb.sql, s.sdb.baseName, true)
+		s.sdb.updateLock.Unlock()
+		s.nextMainDBMaintenance = time.Now().Add(mainDBMaintenanceInterval)
+		if err != nil { return err }
 	}
 
 	return wrap(s.sdb.forEachFolder(func(fdb *folderDB) error {
