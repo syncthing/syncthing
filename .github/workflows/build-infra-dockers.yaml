@@ -7,7 +7,7 @@ on:
       - infra-*
 
 env:
-  GO_VERSION: "~1.25.0"
+  GO_VERSION: "~1.26.0"
   CGO_ENABLED: "0"
   BUILD_USER: docker
   BUILD_HOST: github.syncthing.net
