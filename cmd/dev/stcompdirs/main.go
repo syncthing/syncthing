@@ -15,8 +15,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 )
 
 func main() {
