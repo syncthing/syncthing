@@ -90,6 +90,9 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 	}
 
 	_ = fdb.PutKV("folderID", []byte(folder))
+	// Note: this is a target. SQLite checkpoints might fail to keep it below depending
+	// on concurrent activity
+	_, _ = fdb.sql.Exec("PRAGMA journal_size_limit = 8388608")
 
 	// Touch device IDs that should always exist and have a low index
 	// numbers, and will never change

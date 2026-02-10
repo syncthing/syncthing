@@ -227,7 +227,7 @@ func tidy(ctx context.Context, db *sqlx.DB, name string, do_truncate_checkpoint 
 	conn, err := db.Conn(ctx)
 	if err != nil { return wrap(err) }
 	defer conn.Close()
-	_, _ = conn.ExecContext(ctx, `PRAGMA journal_size_limit = 8388608`)
+
 	// Don't try to free too many pages at once by passing a maximum
 	_, _ = conn.ExecContext(ctx, fmt.Sprintf(`PRAGMA incremental_vacuum(%d)`, vacuumPages))
 	if do_truncate_checkpoint {
