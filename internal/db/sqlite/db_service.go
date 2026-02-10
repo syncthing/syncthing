@@ -28,6 +28,7 @@ const (
 	// initial and minimum target of prefix chunk size (among 2**32), this will increase to adapt to the DB speed
 	gcMinChunkSize  = 128 // this is chosen to allow reaching 2**32 which is a full scan in 6 minutes
 	gcTargetRuntime = 250 * time.Millisecond // max time to spend on gc, per table, per run
+	vacuumPages     = 256 // pages are 4k with current SQLite this is 1M worth vaccumed
 )
 
 func (s *DB) Service(maintenanceInterval time.Duration) db.DBService {
@@ -230,9 +231,9 @@ func tidy(ctx context.Context, db *sqlx.DB, name string, do_truncate_checkpoint 
 		return wrap(err)
 	}
 	defer conn.Close()
-	// These two should not be needed more than once
-	_, _ = conn.ExecContext(ctx, `PRAGMA incremental_vacuum`)
 	_, _ = conn.ExecContext(ctx, `PRAGMA journal_size_limit = 8388608`)
+	// Don't try to free too many pages at once by passing a maximum
+	_, _ = conn.ExecContext(ctx, fmt.Sprintf(`PRAGMA incremental_vacuum(%d)`, vacuumPages))
 	if do_truncate_checkpoint {
 		// This is potentially really slow on a folderDB and is called after taking the updateLock
 		_, _ = conn.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)
