@@ -73,6 +73,7 @@ angular.module('syncthing.core')
             CLUSTER_CONFIG_RECEIVED: 'ClusterConfigReceived',   // Emitted when receiving a remote device's cluster config
             DOWNLOAD_PROGRESS: 'DownloadProgress',   // Emitted during file downloads for each folder for each file
             FAILURE: 'Failure',   // Specific errors sent to the usage reporting server for diagnosis
+            UPGRADE_RESTART_SCHEDULED: 'UpgradeRestartScheduled',   // Auto-upgrade completed, restart scheduled
             FOLDER_COMPLETION: 'FolderCompletion',   //Emitted when the local or remote contents for a folder changes
             FOLDER_REJECTED: 'FolderRejected',   // DEPRECATED: Emitted when a device sends index information for a folder we do not have, or have but do not share with the device in question
             PENDING_FOLDERS_CHANGED: 'PendingFoldersChanged',   // Emitted when pending folders were added / updated (offered by some device, but not shared to them) or removed (folder ignored or added or no longer offered from the remote device)

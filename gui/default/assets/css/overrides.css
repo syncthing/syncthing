@@ -221,8 +221,8 @@ li[language-select] > .dropdown-menu {
 }
 
 li[language-select] > .dropdown-menu > li > a {
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow-wrap: break-word;
 }
 
 .nav>li{
