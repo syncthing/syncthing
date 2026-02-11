@@ -156,7 +156,7 @@ type serveCmd struct {
 	AuditFile                  string        `name:"auditfile" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)" placeholder:"PATH" env:"STAUDITFILE"`
 	DBMaintenanceInterval      time.Duration `help:"Database maintenance interval; set to zero to disable periodic maintenance" default:"8h" env:"STDBMAINTENANCEINTERVAL"`
 	DBDeleteRetentionInterval  time.Duration `help:"Database deleted item retention interval" default:"10920h" env:"STDBDELETERETENTIONINTERVAL"`
-	DBPerFolderMaxCacheSizeMiB int           `help:"Maximum size of database memory cache per folder (MiB)" default:"64" env:""STDBPERFOLDERMAXCACHESIZEMIB"`
+	DBPerFolderMaxCacheSizeMiB int           `help:"Maximum size of database memory cache per folder (MiB)" default:"32" env:"STDBPERFOLDERMAXCACHESIZEMIB"`
 	GUIAddress                 string        `name:"gui-address" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")" placeholder:"URL" env:"STGUIADDRESS"`
 	GUIAPIKey                  string        `name:"gui-apikey" help:"Override GUI API key" placeholder:"API-KEY" env:"STGUIAPIKEY"`
 	LogFile                    string        `name:"log-file" aliases:"logfile" help:"Log file name (see below)" default:"${logFile}" placeholder:"PATH" env:"STLOGFILE"`
