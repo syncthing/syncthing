@@ -749,7 +749,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 		}
 		sub.Unsubscribe()
 		restartDelay := time.Minute
-		evLogger.Log(events.UpgradeRestartScheduled, map[string]interface{}{
+		evLogger.Log(events.UpgradeRestartScheduled, map[string]any{
 			"delayS":     int(restartDelay / time.Second),
 			"newVersion": rel.Tag,
 		})
