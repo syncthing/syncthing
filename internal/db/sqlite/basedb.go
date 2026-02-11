@@ -49,13 +49,13 @@ type baseDB struct {
 	tplInput      map[string]any
 }
 
-func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScripts []string) (*baseDB, error) {
+func openBase(path string, maxConns, cacheSizeMiB int, pragmas, schemaScripts, migrationScripts []string) (*baseDB, error) {
 	// Open the database with options to enable foreign keys and recursive
 	// triggers (needed for the delete+insert triggers on row replace).
 	pathURL := url.URL{
 		Scheme:   "file",
 		Path:     fileToUriPath(path),
-		RawQuery: commonOptions,
+		RawQuery: commonOptionsWithCache(cacheSizeMiB * 1024 / maxConns),
 	}
 	sqlDB, err := sqlx.Open(dbDriver, pathURL.String())
 	if err != nil {

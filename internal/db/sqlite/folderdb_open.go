@@ -22,7 +22,7 @@ type folderDB struct {
 	deleteRetention time.Duration
 }
 
-func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB, error) {
+func openFolderDB(folder, path string, deleteRetention time.Duration, cacheSizeMiB int) (*folderDB, error) {
 	pragmas := []string{
 		"journal_mode = WAL",
 		"optimize = 0x10002",
@@ -38,7 +38,7 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 		"sql/migrations/folder/*",
 	}
 
-	base, err := openBase(path, maxDBConns, pragmas, schemas, migrations)
+	base, err := openBase(path, maxDBConns, cacheSizeMiB, pragmas, schemas, migrations)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 // Open the database with options suitable for the migration inserts. This
 // is not a safe mode of operation for normal processing, use only for bulk
 // inserts with a close afterwards.
-func openFolderDBForMigration(folder, path string, deleteRetention time.Duration) (*folderDB, error) {
+func openFolderDBForMigration(folder, path string, deleteRetention time.Duration, cacheSizeMiB int) (*folderDB, error) {
 	pragmas := []string{
 		"journal_mode = OFF",
 		"foreign_keys = 0",
@@ -75,7 +75,7 @@ func openFolderDBForMigration(folder, path string, deleteRetention time.Duration
 		"sql/schema/folder/*",
 	}
 
-	base, err := openBase(path, 1, pragmas, schemas, nil)
+	base, err := openBase(path, 1, cacheSizeMiB, pragmas, schemas, nil)
 	if err != nil {
 		return nil, err
 	}
