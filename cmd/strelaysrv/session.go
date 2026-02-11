@@ -158,19 +158,12 @@ func (s *session) Serve() {
 			}
 
 			wg := sync.WaitGroup{}
-			wg.Add(2)
 
 			var err0 error
-			go func() {
-				err0 = s.proxy(s.conns[0], s.conns[1])
-				wg.Done()
-			}()
+			wg.Go(func() { err0 = s.proxy(s.conns[0], s.conns[1]) })
 
 			var err1 error
-			go func() {
-				err1 = s.proxy(s.conns[1], s.conns[0])
-				wg.Done()
-			}()
+			wg.Go(func() { err1 = s.proxy(s.conns[1], s.conns[0]) })
 
 			sessionMut.Lock()
 			activeSessions = append(activeSessions, s)

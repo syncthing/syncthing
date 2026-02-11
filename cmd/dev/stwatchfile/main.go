@@ -13,8 +13,6 @@ import (
 	"io"
 	"os"
 	"time"
-
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 )
 
 func main() {

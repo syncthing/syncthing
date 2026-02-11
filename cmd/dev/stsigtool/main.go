@@ -12,7 +12,6 @@ import (
 	"log"
 	"os"
 
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/signature"
 	"github.com/syncthing/syncthing/lib/upgrade"
 )

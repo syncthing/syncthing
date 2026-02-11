@@ -110,24 +110,18 @@ func TestCloseOnBlockingSend(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		c.ClusterConfig(&ClusterConfig{}, nil)
-		wg.Done()
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		c.Close(errManual)
-		wg.Done()
-	}()
+	})
 
 	// This simulates an error from ping timeout
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		c.internalClose(ErrTimeout)
-		wg.Done()
-	}()
+	})
 
 	done := make(chan struct{})
 	go func() {
