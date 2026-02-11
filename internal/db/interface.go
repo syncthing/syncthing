@@ -19,7 +19,12 @@ type DBService interface {
 	suture.Service
 
 	// Starts maintenance asynchronously, if not already running
-	StartMaintenance()
+	// Returns a channel that will receive the result when the requested maintenance finishes
+	StartMaintenance() <-chan error
+
+	// Returns the last time database maintenance completed
+	// This will return time zero when database maintenance has never completed successfully.
+	LastMaintenanceTime() time.Time
 }
 
 type DB interface {
