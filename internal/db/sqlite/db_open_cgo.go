@@ -16,7 +16,7 @@ import (
 
 const (
 	dbDriver      = "sqlite3"
-	commonOptions = "_fk=true&_rt=true&_sync=1&_txlock=immediate&_cache_size=-65536"
+	commonOptions = "_fk=true&_rt=true&_sync=1&_txlock=immediate"
 )
 
 func commonOptionsWithCache(sizeKiB int) string {
