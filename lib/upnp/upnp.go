@@ -129,7 +129,7 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 		wg.Go(func() {
 			hasGUA, err := interfaceHasGUAIPv6(intf)
 			if err != nil {
-				l.Debugf("Couldn't check for IPv6 GUAs on %s: %s", intf.Name, err)
+				l.Debugf("Couldn't check for IPv6 GUAs on %s: %s", intf.Name, err) //nolint:contextcheck
 			} else if hasGUA {
 				// Discover IPv6 gateways on interface. Only discover IGDv2, since IGDv1
 				// + IPv6 is not standardized and will lead to duplicates on routers.

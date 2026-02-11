@@ -199,7 +199,7 @@ func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration) erro
 		var writeErr error
 		var wg sync.WaitGroup
 		writerDone := make(chan struct{})
-		wg.Go(func() {
+		wg.Go(func() { //nolint:contextcheck
 			defer close(writerDone)
 			var batch []protocol.FileInfo
 			files, blocks := 0, 0
