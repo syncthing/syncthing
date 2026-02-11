@@ -187,7 +187,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: "~1.25.0" # temporarily stay on Go 1.25 due to linker error on Go 1.26
+          go-version: "~1.25.7" # temporarily stay on Go 1.25 due to linker error on Go 1.26
           cache: false
 
       - uses: mlugg/setup-zig@v2
