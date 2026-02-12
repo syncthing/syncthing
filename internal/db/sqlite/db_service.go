@@ -134,7 +134,7 @@ func (s *Service) periodic(ctx context.Context) error {
 			return wrap(err)
 		} else if seq == prev {
 			// No change in DB, but incremental cleanups might have to finish their slow walk
-			if fdb.hashCleanupCaughtUp() && fdb.namesCleanupCaughtUp() && fdb.versionsCleanupCaughtUp() {
+			if fdb.cleanupsCaughtUp() {
 				slog.DebugContext(ctx, "Skipping unnecessary GC", "folder", fdb.folderID,
 					          "fdb", fdb.baseName)
 			} else {
@@ -210,6 +210,9 @@ func (s *Service) periodic(ctx context.Context) error {
 	}))
 }
 
+func (fdb *folderDB) cleanupsCaughtUp() bool {
+	return fdb.hashCleanupCaughtUp() && fdb.namesCleanupCaughtUp() && fdb.versionsCleanupCaughtUp()
+}
 func (fdb *folderDB) hashCleanupCaughtUp() bool {
 	return (fdb.coverage_full_at["blocks"] == (1 << 32)) && (fdb.coverage_full_at["blocklists"] == (1 << 32))
 }
