@@ -406,8 +406,13 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 		nextPrefix := int(fdb.cursor_values[table])
 		chunkSize := fdb.chunk_sizes[table]
 
-		l := slog.With("folder", fdb.folderID, "fdb", fdb.baseName, "table", table,
-			"prefix", nextPrefix, "chunksize", chunkSize)
+		// General case
+		l := slog.With("folder/table", fdb.folderID + "/" + table, "prefix", nextPrefix, "chunksize", chunkSize,
+			"fdb", fdb.baseName)
+		// Shorter log when doing a full scan
+		if (nextPrefix == 0) && (chunkSize == (1 << 32)) {
+			l = slog.With("FULLscan on folder/table", fdb.folderID + "/" + table, "fdb", fdb.baseName)
+		}
 
 		if !device_seq_changed {
 			// Did we caught up for this table
@@ -430,7 +435,7 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 		// blocklist_hash instead
 		q := fmt.Sprintf(`
 				DELETE FROM %s
-				WHERE %s AND NOT EXISTS (
+				WHERE %s NOT EXISTS (
 					SELECT 1 FROM files WHERE files.blocklist_hash = %s.blocklist_hash
 				)`, table, limitCondition, table)
 
@@ -515,13 +520,17 @@ func (r blobRange) actualChunkSize() int {
 
 // SQL returns the SQL where clause for the given range, e.g.
 // `column >= x'49249248' AND column < x'6db6db6c'`
+// AND is postfixed when needed for combination with next condition
 func (r blobRange) SQL(name string) string {
+	// Full range" no condition (no need for a postfixed AND either)
+	if (r.end() == (1 << 32)) && (r.start == 0) {
+		return ""
+	}
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "%s >= x'%08X'", name, r.start)
-	end := r.end()
-	if end != (1 << 32) {
+	fmt.Fprintf(&sb, "%s >= x'%08X' AND ", name, r.start)
+	if r.end() != (1 << 32) {
+		fmt.Fprintf(&sb, "%s < x'%08X'", name, r.end())
 		sb.WriteString(" AND ")
-		fmt.Fprintf(&sb, "%s < x'%08X'", name, end)
 	}
 	return sb.String()
 }
