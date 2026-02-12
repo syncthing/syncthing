@@ -371,7 +371,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	for _, available := range devs {
 		if _, ok := expected[available]; !ok {
 			l.Debugln("dropping", folder, "state for", available)
-			_ = m.sdb.DropAllFiles(folder, available)
+			_ = m.sdb.DropFolderDevice(folder, available)
 		}
 	}
 
