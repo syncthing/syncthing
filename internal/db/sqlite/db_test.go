@@ -863,12 +863,10 @@ func TestConcurrentUpdate(t *testing.T) {
 	const n = 32
 	res := make([]error, n)
 	var wg sync.WaitGroup
-	wg.Add(n)
 	for i := range n {
-		go func() {
+		wg.Go(func() {
 			res[i] = db.Update(folderID, protocol.DeviceID{byte(i), byte(i), byte(i)}, files)
-			wg.Done()
-		}()
+		})
 	}
 	wg.Wait()
 	for i, err := range res {

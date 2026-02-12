@@ -42,7 +42,7 @@ type Service struct {
 	maintenanceInterval   time.Duration
 	nextMainDBMaintenance time.Time
 	internalMeta          *db.Typed
-	start                 chan struct{}
+	start                 chan chan error
 }
 
 func (s *Service) String() string {
@@ -54,17 +54,19 @@ func newService(sdb *DB, maintenanceInterval time.Duration) *Service {
 		sdb:                 sdb,
 		maintenanceInterval: maintenanceInterval,
 		internalMeta:        db.NewTyped(sdb, internalMetaPrefix),
-		start:               make(chan struct{}),
+		start:               make(chan chan error),
 		// Maybe superfluous, 1min wait is to spread start load
 		nextMainDBMaintenance: time.Now().Add(time.Minute),
 	}
 }
 
-func (s *Service) StartMaintenance() {
+func (s *Service) StartMaintenance() <-chan error {
+	finishChan := make(chan error, 1)
 	select {
-	case s.start <- struct{}{}:
+	case s.start <- finishChan:
 	default:
 	}
+	return finishChan
 }
 
 func (s *Service) Serve(ctx context.Context) error {
@@ -73,14 +75,20 @@ func (s *Service) Serve(ctx context.Context) error {
 	if s.maintenanceInterval == 0 { timer.Stop() }
 
 	for {
+		var finishChan chan error
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-timer.C:
-		case <-s.start:
+		case finishChan = <-s.start:
 		}
 
-		if err := s.periodic(ctx); err != nil {
+		err := s.periodic(ctx)
+		if finishChan != nil {
+			finishChan <- err
+		}
+
+		if err != nil {
 			wait := time.Until(s.nextFolderMaintenance())
 			timer.Reset(wait)
 			slog.WarnContext(ctx, "Periodic run failed", "err", err)
@@ -94,6 +102,11 @@ func (s *Service) Serve(ctx context.Context) error {
 		}
 		time.Sleep(5 * time.Second)
 	}
+}
+
+func (s *Service) LastMaintenanceTime() time.Time {
+	lastMaint, _, _ := s.internalMeta.Time(lastMaintKey)
+	return lastMaint
 }
 
 func (s *Service) periodic(ctx context.Context) error {
