@@ -34,3 +34,25 @@ func TestMigrateCrashReporting(t *testing.T) {
 		}
 	}
 }
+
+func TestMigrateReconnectInterval(t *testing.T) {
+	cases := []struct {
+		oldInterval         int
+		expectedNewInterval int
+	}{
+		{oldInterval: 60, expectedNewInterval: 20},
+		{oldInterval: 120, expectedNewInterval: 40},
+		{oldInterval: 25, expectedNewInterval: 10},
+		{oldInterval: 5, expectedNewInterval: 5},
+	}
+
+	for i, tc := range cases {
+		cfg := Configuration{Version: 51, Options: OptionsConfiguration{ReconnectIntervalS: tc.oldInterval}}
+		migrationsMut.Lock()
+		migrations.apply(&cfg)
+		migrationsMut.Unlock()
+		if cfg.Options.ReconnectIntervalS != tc.expectedNewInterval {
+			t.Errorf("%d: unexpected result, ReconnectIntervalS: %v != %v", i, cfg.Options.ReconnectIntervalS, tc.expectedNewInterval)
+		}
+	}
+}
