@@ -178,6 +178,7 @@ func (c *GUIConfiguration) prepare() {
 	if c.APIKey == "" {
 		c.APIKey = rand.String(32)
 	}
+	c.SessionCookiePath = strings.TrimSpace(c.SessionCookiePath)
 	if c.SessionCookiePath == "" {
 		c.SessionCookiePath = "/"
 	} else if !strings.HasPrefix(c.SessionCookiePath, "/") {
