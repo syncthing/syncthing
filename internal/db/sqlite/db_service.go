@@ -22,7 +22,6 @@ import (
 
 const (
 	internalMetaPrefix        = "dbsvc"
-	lastMaintKey              = "lastMaint"
 	lastSuccessfulGCSeqKey    = "lastSuccessfulGCSeq"
 	mainDBMaintenanceInterval = 24 * time.Hour
 	// initial and minimum target of prefix chunk size (among 2**32), this will increase to adapt to the DB speed
@@ -37,11 +36,13 @@ func (s *DB) Service(maintenanceInterval time.Duration) db.DBService {
 }
 
 type Service struct {
-	sdb                 *DB
-	maintenanceInterval time.Duration
+	sdb                   *DB
+	// This is the default maintenance Interval
+	// folders can increase or decrease it for their own needs
+	maintenanceInterval   time.Duration
 	nextMainDBMaintenance time.Time
-	internalMeta        *db.Typed
-	start               chan struct{}
+	internalMeta          *db.Typed
+	start                 chan struct{}
 }
 
 func (s *Service) String() string {
@@ -67,21 +68,9 @@ func (s *Service) StartMaintenance() {
 }
 
 func (s *Service) Serve(ctx context.Context) error {
-	// Run periodic maintenance
-	// Figure out when we last ran maintenance and schedule accordingly. If
-	// it was never, do it now.
-	lastMaint, _, _ := s.internalMeta.Time(lastMaintKey)
-	nextMaint := lastMaint.Add(s.maintenanceInterval)
-	wait := time.Until(nextMaint)
-	if wait < 0 {
-		wait = time.Minute
-	}
-	slog.DebugContext(ctx, "Next periodic run due", "after", wait)
-	timer := time.NewTimer(wait)
-
-	if s.maintenanceInterval == 0 {
-		timer.Stop()
-	}
+	// Start running periodic maintenance shortly after start
+	timer := time.NewTimer(10 * time.Second)
+	if s.maintenanceInterval == 0 { timer.Stop() }
 
 	for {
 		select {
@@ -92,27 +81,28 @@ func (s *Service) Serve(ctx context.Context) error {
 		}
 
 		if err := s.periodic(ctx); err != nil {
+			wait := time.Until(s.nextFolderMaintenance())
+			timer.Reset(wait)
+			slog.WarnContext(ctx, "Periodic run failed", "err", err)
 			return wrap(err)
 		}
 
 		if s.maintenanceInterval != 0 {
-			timer.Reset(s.maintenanceInterval)
-			slog.DebugContext(ctx, "Next periodic run due", "after", s.maintenanceInterval)
+			wait := time.Until(s.nextFolderMaintenance())
+			timer.Reset(wait)
+			slog.DebugContext(ctx, "Next periodic run due", "after", wait)
 		}
-
-		_ = s.internalMeta.PutTime(lastMaintKey, time.Now())
+		time.Sleep(5 * time.Second)
 	}
 }
 
 func (s *Service) periodic(ctx context.Context) error {
-	t0 := time.Now()
-	slog.DebugContext(ctx, "Periodic start")
-
-	defer func() { slog.DebugContext(ctx, "Periodic done", "duration", time.Since(t0)) }()
 
 	// We reuse the periodic maintenance of folders which is done at short intervals to trigger
 	// the main DB maintenance at long intervals (alternatively it could use its own Timer)
 	if s.nextMainDBMaintenance.Before(time.Now()) {
+		t0 := time.Now()
+		defer func() { slog.DebugContext(ctx, "Main DB maintenance done", "duration", time.Since(t0)) }()
 		// Triggers the truncate checkpoint on the main DB
 		// the main DB is very small it doesn't need frequent vacuum/checkpoints
 		s.sdb.updateLock.Lock()
@@ -123,6 +113,22 @@ func (s *Service) periodic(ctx context.Context) error {
 	}
 
 	return wrap(s.sdb.forEachFolder(func(fdb *folderDB) error {
+		// Don't process until it is our time
+		if fdb.nextCleanup.After(time.Now()) { return nil }
+
+		t0 := time.Now()
+		db_update_detected := false
+		work_done := false
+		// Adjust the cleanup frequency based on the expected work to be done
+		defer func() {
+			if db_update_detected || !fdb.cleanupsCaughtUp() {
+				fdb.cleanupIsUrgent(s)
+			} else {
+				fdb.cleanupAtNormalRate(s)
+			}
+			if work_done { slog.DebugContext(ctx, "Cleanups", "runtime", time.Since(t0)) }
+		}()
+
 		// Get the current device sequence, for comparison in the next step.
 		seq, err := fdb.GetDeviceSequence(protocol.LocalDeviceID)
 		if err != nil { return wrap(err) }
@@ -132,17 +138,15 @@ func (s *Service) periodic(ctx context.Context) error {
 		meta := db.NewTyped(fdb, internalMetaPrefix)
 		if prev, _, err := meta.Int64(lastSuccessfulGCSeqKey); err != nil {
 			return wrap(err)
-		} else if seq == prev {
+		} else if db_update_detected = (seq != prev); !db_update_detected {
 			// No change in DB, but incremental cleanups might have to finish their slow walk
-			if fdb.cleanupsCaughtUp() {
-				slog.DebugContext(ctx, "Skipping unnecessary GC", "folder", fdb.folderID,
-					          "fdb", fdb.baseName)
-			} else {
+			if !fdb.cleanupsCaughtUp() {
+				work_done = true
 				if !fdb.hashCleanupCaughtUp() {
 					slog.DebugContext(ctx, "Catching up on hash cleanups", "folder",
 						          fdb.folderID, "fdb", fdb.baseName)
 					if err := func() error {
-						fdb.updateLock.Lock()
+						db.updateLock.Lock()
 						defer fdb.updateLock.Unlock()
 
 						err := s.garbageCollectBlocklistsAndBlocksLocked(ctx, fdb, false)
@@ -184,6 +188,7 @@ func (s *Service) periodic(ctx context.Context) error {
 			fdb.updateLock.Lock()
 			defer fdb.updateLock.Unlock()
 
+			work_done = true
 			if err := garbageCollectOldDeletedLocked(ctx, fdb); err != nil {
 				return wrap(err)
 			}
@@ -196,9 +201,9 @@ func (s *Service) periodic(ctx context.Context) error {
 			if err := s.garbageCollectBlocklistsAndBlocksLocked(ctx, fdb, true); err != nil {
 				return wrap(err)
 			}
-			if fdb.nextCheckpoint.Before(time.Now()) {
+			if fdb.nextTruncate.Before(time.Now()) {
 				val := tidy(ctx, fdb.sql, fdb.baseName, true)
-				fdb.nextCheckpoint = time.Now().Add(fdb.checkpointInterval)
+				fdb.nextTruncate = time.Now().Add(fdb.truncateInterval)
 				return val
 			} else {
 				return tidy(ctx, fdb.sql, fdb.baseName, false)
@@ -210,6 +215,25 @@ func (s *Service) periodic(ctx context.Context) error {
 	}))
 }
 
+func (s *Service) nextFolderMaintenance() time.Time {
+	// Use a sensible max value in case a new Folder is created after this
+	earliestMaintenance := time.Now().Add(s.maintenanceInterval)
+	s.sdb.forEachFolder(func(fdb *folderDB) error {
+		nextCleanup := fdb.nextCleanup
+		if nextCleanup.Before(earliestMaintenance) {
+			earliestMaintenance = nextCleanup
+		}
+		return nil
+	})
+	return earliestMaintenance
+}
+
+func (fdb *folderDB) cleanupAtNormalRate(s *Service) {
+	fdb.nextCleanup = time.Now().Add(s.maintenanceInterval)
+}
+func (fdb *folderDB) cleanupIsUrgent(s *Service) {
+	fdb.nextCleanup = time.Now().Add(s.maintenanceInterval/10)
+}
 func (fdb *folderDB) cleanupsCaughtUp() bool {
 	return fdb.hashCleanupCaughtUp() && fdb.namesCleanupCaughtUp() && fdb.versionsCleanupCaughtUp()
 }

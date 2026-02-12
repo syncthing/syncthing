@@ -28,10 +28,12 @@ type folderDB struct {
 	// blocks and blocklists are incrementally processed to the GC must continue for them
 	// to complete a full scan
 	// 1 << 32 in these means the GC caught up
-	coverage_full_at      map[string]int64
+	coverage_full_at map[string]int64
 	// Avoid to many checkpoints
-	checkpointInterval    time.Duration
-	nextCheckpoint        time.Time
+	truncateInterval time.Duration
+	nextTruncate     time.Time
+	// Each folder decides its next cleanup Time and Service schedules it accordingly
+	nextCleanup      time.Time
 }
 
 func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB, error) {
@@ -88,8 +90,9 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 			"file_names":    1 << 62,
 			"file_versions": 1 << 62,
 		},
-		checkpointInterval: 24 * time.Hour, // tunable?
-		nextCheckpoint:     time.Now().Add(24 * time.Hour),
+		truncateInterval: 24 * time.Hour, // tunable?
+		nextTruncate:     time.Now().Add(24 * time.Hour),
+		nextCleanup:      time.Now(),
 	}
 
 	_ = fdb.PutKV("folderID", []byte(folder))
