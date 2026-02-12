@@ -41,6 +41,8 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 		"auto_vacuum = INCREMENTAL",
 		fmt.Sprintf("application_id = %d", applicationIDFolder),
 		"busy_timeout = 5000", // seems to facilitate checkpoint truncate
+		"cache_size = -16384", // testing for perf
+		"temp_store = MEMORY", // testing for perf
 	}
 	schemas := []string{
 		"sql/schema/common/*",
