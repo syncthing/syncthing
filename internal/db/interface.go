@@ -24,7 +24,7 @@ type DBService interface {
 
 	// Returns the last time database maintenance completed
 	// This will return time zero when database maintenance has never completed successfully.
-	LastMaintenanceTime() time.Time
+	// LastMaintenanceTime() time.Time
 }
 
 type DB interface {

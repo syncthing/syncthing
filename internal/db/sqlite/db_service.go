@@ -104,11 +104,6 @@ func (s *Service) Serve(ctx context.Context) error {
 	}
 }
 
-func (s *Service) LastMaintenanceTime() time.Time {
-	lastMaint, _, _ := s.internalMeta.Time(lastMaintKey)
-	return lastMaint
-}
-
 func (s *Service) periodic(ctx context.Context) error {
 
 	// We reuse the periodic maintenance of folders which is done at short intervals to trigger
