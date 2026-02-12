@@ -7,6 +7,7 @@
 package api
 
 import (
+	"math"
 	"net/http"
 	"slices"
 	"strings"
@@ -35,7 +36,7 @@ type tokenManager struct {
 	saveTimer *time.Timer
 }
 
-const noExpiryNano = int64(1<<63 - 1)
+const noExpiryNano int64 = math.MaxInt64
 
 func newTokenManager(key string, miscDB *db.Typed, lifetime time.Duration, maxItems int) *tokenManager {
 	var tokens apiproto.TokenSet
@@ -214,8 +215,9 @@ func (m *tokenCookieManager) createSession(username string, persistent bool, w h
 func (m *tokenCookieManager) sessionCookieMaxAge() int {
 	durationS := m.sessionCookieDurationSeconds()
 	if durationS < 0 {
-		// Use a very long max-age to effectively never expire.
-		return 2147483647
+		// this cookie is still only as safe as client storage;
+		// if stolen it remains valid until explicitly logged out.
+		return math.MaxInt32
 	}
 	return durationS
 }
@@ -228,10 +230,14 @@ func (m *tokenCookieManager) sessionCookieDurationSeconds() int {
 }
 
 func (m *tokenCookieManager) sessionCookiePath() string {
-	if m.guiCfg.SessionCookiePath == "" {
+	path := strings.TrimSpace(m.guiCfg.SessionCookiePath)
+	if path == "" {
 		return "/"
 	}
-	return m.guiCfg.SessionCookiePath
+	if !strings.HasPrefix(path, "/") {
+		return "/" + path
+	}
+	return path
 }
 
 func (m *tokenCookieManager) hasValidSession(r *http.Request) bool {
