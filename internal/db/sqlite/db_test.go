@@ -790,11 +790,23 @@ func TestDropAllFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	indexIDa := protocol.NewIndexID()
+	err = db.SetIndexID("a", protocol.DeviceID{1}, indexIDa)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// Device 1 folder B
 	err = db.Update("b", protocol.DeviceID{1}, []protocol.FileInfo{
 		genFile("test1", 1, 1),
 		genFile("test2", 2, 2),
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	indexIDb := protocol.NewIndexID()
+	err = db.SetIndexID("b", protocol.DeviceID{1}, indexIDb)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -815,6 +827,10 @@ func TestDropAllFiles(t *testing.T) {
 		t.Log(c)
 		t.Error("expected count to be zero")
 	}
+	if id, _ := db.GetIndexID("a", protocol.DeviceID{1}); id != 0 {
+		t.Log(id)
+		t.Error("expected zero or no index ID")
+	}
 	if _, ok, err := db.GetDeviceFile("b", protocol.DeviceID{1}, "test1"); err != nil || !ok {
 		t.Log(err, ok)
 		t.Error("expected to exist")
@@ -824,6 +840,9 @@ func TestDropAllFiles(t *testing.T) {
 	} else if c.Files != 2 {
 		t.Log(c)
 		t.Error("expected count to be two")
+	}
+	if id, _ := db.GetIndexID("b", protocol.DeviceID{1}); id != indexIDb {
+		t.Errorf("expected index ID %v, got %v", indexIDb, id)
 	}
 
 	// Drop things that don't exist
