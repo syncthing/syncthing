@@ -146,7 +146,7 @@ func (s *Service) periodic(ctx context.Context) error {
 					slog.DebugContext(ctx, "Catching up on hash cleanups", "folder",
 						          fdb.folderID, "fdb", fdb.baseName)
 					if err := func() error {
-						db.updateLock.Lock()
+						fdb.updateLock.Lock()
 						defer fdb.updateLock.Unlock()
 
 						err := s.garbageCollectBlocklistsAndBlocksLocked(ctx, fdb, false)
