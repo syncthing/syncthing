@@ -305,6 +305,7 @@ func garbageCollectNamesOrVersions(ctx context.Context, fdb *folderDB, table str
 		partialChunk = true
 	}
 	l.DebugContext(ctx, table + " chunk", "last idx", chunkEnd, "full chunk", !partialChunk)
+	t1 = time.Now()
 
 	if chunkEnd.Valid {
 		intChunkEnd = chunkEnd.Int64
