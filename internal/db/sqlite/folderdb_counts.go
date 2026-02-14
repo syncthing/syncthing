@@ -54,7 +54,7 @@ func (s *folderDB) CountReceiveOnlyChanged() (db.Counts, error) {
 	var res []countsRow
 	err := s.stmt(`
 		SELECT s.type, s.count, s.size, s.local_flags, s.deleted FROM counts s
-		WHERE local_flags & {{.FlagLocalReceiveOnly}} != 0
+		WHERE s.device_idx = {{.LocalDeviceIdx}} AND s.local_flags & {{.FlagLocalReceiveOnly}} != 0
 	`).Select(&res)
 	if err != nil {
 		return db.Counts{}, wrap(err)
