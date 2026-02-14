@@ -26,7 +26,7 @@ const (
 	mainDBMaintenanceInterval = 24 * time.Hour
 	// initial and minimum target of prefix chunk size (among 2**32), this will increase to adapt to the DB speed
 	gcMinChunkSize  = 128 // this is chosen to allow reaching 2**32 which is a full scan in 6 minutes
-	gcMaxChunkSize  = 1 << 32
+	gcMaxChunkSize  = hashPrefixCeiling
 	gcTargetRuntime = 250 * time.Millisecond // max time to spend on gc, per table, per run
 	vacuumPages     = 256 // pages are 4k with current SQLite this is 1M worth vaccumed
 )
@@ -246,13 +246,14 @@ func (fdb *folderDB) cleanupsCaughtUp() bool {
 	return fdb.hashCleanupCaughtUp() && fdb.namesCleanupCaughtUp() && fdb.versionsCleanupCaughtUp()
 }
 func (fdb *folderDB) hashCleanupCaughtUp() bool {
-	return (fdb.coverage_full_at["blocks"] == (1 << 32)) && (fdb.coverage_full_at["blocklists"] == (1 << 32))
+	return (fdb.coverage_full_at["blocks"] == hashPrefixCeiling) &&
+		(fdb.coverage_full_at["blocklists"] == hashPrefixCeiling)
 }
 func (fdb *folderDB) namesCleanupCaughtUp() bool {
-	return fdb.coverage_full_at["file_names"] == (1 << 62)
+	return fdb.coverage_full_at["file_names"] == sqliteInt64Ceiling
 }
 func (fdb *folderDB) versionsCleanupCaughtUp() bool {
-	return fdb.coverage_full_at["file_versions"] == (1 << 62)
+	return fdb.coverage_full_at["file_versions"] == sqliteInt64Ceiling
 }
 
 func tidy(ctx context.Context, db *sqlx.DB, name string, do_truncate_checkpoint bool) error {
@@ -344,7 +345,7 @@ func garbageCollectNamesOrVersions(ctx context.Context, fdb *folderDB, table str
 		// which idx do we target
 		full_at := fdb.coverage_full_at[table]
 		if (full_at >= chunkStart) && ((full_at <= intChunkEnd) || partialChunk) {
-			fdb.coverage_full_at[table] = 1 << 62
+			fdb.coverage_full_at[table] = sqliteInt64Ceiling
 		}
 	}
 	return nil
@@ -419,13 +420,13 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 		l := slog.With("folder/table", fdb.folderID + "/" + table, "prefix", nextPrefix, "chunksize", chunkSize,
 			"fdb", fdb.baseName)
 		// Shorter log when doing a full scan
-		if (nextPrefix == 0) && (chunkSize == (1 << 32)) {
+		if (nextPrefix == 0) && (chunkSize == hashPrefixCeiling) {
 			l = slog.With("FULLscan on folder/table", fdb.folderID + "/" + table, "fdb", fdb.baseName)
 		}
 
 		if !device_seq_changed {
 			// Did we caught up for this table
-			if fdb.coverage_full_at[table] == (1 << 32) {
+			if fdb.coverage_full_at[table] == hashPrefixCeiling {
 				l.DebugContext(ctx, "GC already completed")
 				break
 			}
@@ -478,7 +479,7 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 			// the seq didn't change we must advance until we completed a full scan of the prefixes
 			// which happens when a processed range covers our beginning recorded above
 			if br.include(int(fdb.coverage_full_at[table])) {
-				fdb.coverage_full_at[table] = 1 << 32
+				fdb.coverage_full_at[table] = hashPrefixCeiling
 			}
 		}
 	}
@@ -494,8 +495,8 @@ type blobRange struct {
 
 func (r blobRange) end() int {
 	stop := r.start + r.size
-	if stop >= (1 << 32) {
-		return (1 << 32)
+	if stop >= hashPrefixCeiling {
+		return hashPrefixCeiling
 	} else {
 		return stop
 	}
@@ -503,7 +504,7 @@ func (r blobRange) end() int {
 
 func (r blobRange) next(size int) blobRange {
 	start := r.end()
-	if start == (1 << 32) {
+	if start == hashPrefixCeiling {
 		start = 0
 	}
 	return blobRange{start, size}
@@ -519,7 +520,7 @@ func (r blobRange) include(position int) bool {
 
 // return the actual size being processed (the last chunk is usually shorter than chunkSize)
 func (r blobRange) actualChunkSize() int {
-	prefixesRemaining := (1 << 32) - r.start
+	prefixesRemaining := hashPrefixCeiling - r.start
 	if (r.size > prefixesRemaining) {
 		return prefixesRemaining
 	} else {
@@ -532,12 +533,12 @@ func (r blobRange) actualChunkSize() int {
 // AND is postfixed when needed for combination with next condition
 func (r blobRange) SQL(name string) string {
 	// Full range" no condition (no need for a postfixed AND either)
-	if (r.end() == (1 << 32)) && (r.start == 0) {
+	if (r.end() == hashPrefixCeiling) && (r.start == 0) {
 		return ""
 	}
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "%s >= x'%08X' AND ", name, r.start)
-	if r.end() != (1 << 32) {
+	if r.end() != hashPrefixCeiling {
 		fmt.Fprintf(&sb, "%s < x'%08X'", name, r.end())
 		sb.WriteString(" AND ")
 	}
@@ -559,7 +560,7 @@ func adaptChunkSize(chunkSize int, actualChunkSize int, process_duration time.Du
 		(chunkSize < gcMaxChunkSize) {
 		// Increase chunkSize based on the difference between max GC runtime and actual runtime
 		// target 3/4 of the max
-		// max speedup is 32 which makes allows reaching gcMaxChunkSize 1 << 32 in 6 passes
+		// max speedup is 32 which makes allows reaching gcMaxChunkSize in 6 passes
 		// 32 = 2 ** 5, gcMinChunkSize = 128 = 2 ** 7
 		speedup := min((3 * float64(gcTargetRuntime)) / (4 * float64(process_duration)), 32.0)
 		newChunkSize = min(int(float64(chunkSize) * speedup), gcMaxChunkSize)

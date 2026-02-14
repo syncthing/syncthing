@@ -13,6 +13,10 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
+// First values SQLite can't store, used by full coverage logic to store
+const sqliteInt64Ceiling = 1 << 62
+const hashPrefixCeiling = 1 << 32
+
 type folderDB struct {
 	*baseDB
 
@@ -86,10 +90,10 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 		// other values are target to reach to end a full pass on the table
 		// TODO: use constants for clarity
 		coverage_full_at: map[string]int64 {
-			"blocks":        1 << 32,
-			"blocklists":    1 << 32,
-			"file_names":    1 << 62,
-			"file_versions": 1 << 62,
+			"blocks":        hashPrefixCeiling,
+			"blocklists":    hashPrefixCeiling,
+			"file_names":    sqliteInt64Ceiling,
+			"file_versions": sqliteInt64Ceiling,
 		},
 		truncateInterval: 24 * time.Hour, // tunable?
 		nextTruncate:     time.Now().Add(24 * time.Hour),
