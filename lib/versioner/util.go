@@ -193,9 +193,12 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 }
 
 func dupDirTree(srcFs, dstFs fs.Filesystem, folderPath string) error {
-	// Return early if the folder already exists.
+	// If the folder already exists, ensure it's writable so we can create children later
 	_, err := dstFs.Stat(folderPath)
-	if err == nil || !fs.IsNotExist(err) {
+	if err == nil {
+		return ensureOwnerWritable(dstFs, folderPath)
+	}
+	if !fs.IsNotExist(err) {
 		return err
 	}
 	hadParent := true
@@ -206,6 +209,9 @@ func dupDirTree(srcFs, dstFs fs.Filesystem, folderPath string) error {
 			if hadParent {
 				_, err := dstFs.Stat(folderPath[:i])
 				if err == nil {
+					if err := ensureOwnerWritable(dstFs, folderPath[:i]); err != nil {
+						return err
+					}
 					continue
 				}
 				if !fs.IsNotExist(err) {
@@ -233,7 +239,24 @@ func dupDirWithPerms(srcFs, dstFs fs.Filesystem, folderPath string) error {
 	if err != nil {
 		return err
 	}
-	return dstFs.Chmod(folderPath, srcStat.Mode())
+	if err := dstFs.Chmod(folderPath, srcStat.Mode()); err != nil {
+		return err
+	}
+	return ensureOwnerWritable(dstFs, folderPath)
+}
+
+func ensureOwnerWritable(dstFs fs.Filesystem, folderPath string) error {
+	dstStat, err := dstFs.Stat(folderPath)
+	if err != nil {
+		return err
+	}
+
+	mode := dstStat.Mode() & fs.ModePerm
+	if mode&0o200 != 0 {
+		return nil
+	}
+
+	return dstFs.Chmod(folderPath, mode|0o200)
 }
 
 func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath string, versionTime time.Time, tagger fileTagger) error {
