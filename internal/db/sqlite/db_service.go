@@ -257,7 +257,8 @@ func (fdb *folderDB) versionsCleanupCaughtUp() bool {
 
 func tidy(ctx context.Context, db *sqlx.DB, name string, do_truncate_checkpoint bool) error {
 	t0 := time.Now()
-	defer func() { slog.DebugContext(ctx, "tidy", "database", name, "runtime", time.Since(t0)) }()
+	defer func() { slog.DebugContext(ctx, "tidy", "database", name, "runtime", time.Since(t0),
+		                        "truncate", do_truncate_checkpoint) }()
 
 	conn, err := db.Conn(ctx)
 	if err != nil { return wrap(err) }
