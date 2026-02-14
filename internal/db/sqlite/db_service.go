@@ -150,6 +150,18 @@ func (s *Service) periodic(ctx context.Context) error {
 			// No change in DB, but incremental cleanups might have to finish their slow walk
 			if !fdb.cleanupsCaughtUp() {
 				work_done = true
+				if !fdb.filesCleanupCaughtUp() {
+					slog.DebugContext(ctx, "Catching up on files cleanups", "folder",
+						          fdb.folderID, "fdb", fdb.baseName)
+					if err := func() error {
+						fdb.updateLock.Lock()
+						defer fdb.updateLock.Unlock()
+
+						err := garbageCollectOldDeletedLocked(ctx, fdb, false)
+						if err != nil {	return wrap(err) }
+						return nil
+					}(); err != nil { return wrap(err) }
+				}
 				if !fdb.hashCleanupCaughtUp() {
 					slog.DebugContext(ctx, "Catching up on hash cleanups", "folder",
 						          fdb.folderID, "fdb", fdb.baseName)
@@ -197,7 +209,7 @@ func (s *Service) periodic(ctx context.Context) error {
 			defer fdb.updateLock.Unlock()
 
 			work_done = true
-			if err := garbageCollectOldDeletedLocked(ctx, fdb); err != nil {
+			if err := garbageCollectOldDeletedLocked(ctx, fdb, true); err != nil {
 				return wrap(err)
 			}
 			if err := garbageCollectNamesOrVersions(ctx, fdb, "file_names", true); err != nil {
@@ -236,14 +248,21 @@ func (s *Service) nextFolderMaintenance() time.Time {
 	return earliestMaintenance
 }
 
+// experiment
 func (fdb *folderDB) cleanupAtNormalRate(s *Service) {
 	fdb.nextCleanup = time.Now().Add(s.maintenanceInterval)
 }
 func (fdb *folderDB) cleanupIsUrgent(s *Service) {
 	fdb.nextCleanup = time.Now().Add(s.maintenanceInterval/10)
 }
+
+
 func (fdb *folderDB) cleanupsCaughtUp() bool {
-	return fdb.hashCleanupCaughtUp() && fdb.namesCleanupCaughtUp() && fdb.versionsCleanupCaughtUp()
+	return (fdb.filesCleanupCaughtUp() && fdb.hashCleanupCaughtUp() && fdb.namesCleanupCaughtUp() &&
+		fdb.versionsCleanupCaughtUp())
+}
+func (fdb *folderDB) filesCleanupCaughtUp() bool {
+	return fdb.coverageFullAt["files"] == sqliteInt64CursorValueWhenDone
 }
 func (fdb *folderDB) hashCleanupCaughtUp() bool {
 	return (fdb.coverageFullAt["blocks"] == hashPrefixCeiling) &&
@@ -352,27 +371,85 @@ func garbageCollectNamesOrVersions(ctx context.Context, fdb *folderDB, table str
 	return nil
 }
 
-func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB) error {
+// TODO: factor code with GC for Names/Versions
+func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB, device_seq_changed bool) error {
 	l := slog.With("folder", fdb.folderID, "fdb", fdb.baseName, "retention", fdb.deleteRetention)
-	t0 := time.Now()
-	defer func() { l.DebugContext(ctx, "GC deleted files", "runtime", time.Since(t0)) }()
-
 	if fdb.deleteRetention <= 0 {
 		l.DebugContext(ctx, "Delete retention is infinite, skipping cleanup")
 		return nil
 	}
 
-	// Remove deleted files that are marked as not needed (we have processed
-	// them) and they were deleted more than MaxDeletedFileAge ago.
-	res, err := fdb.stmt(`
-		DELETE FROM files
-		WHERE deleted AND modified < ? AND local_flags & {{.FlagLocalNeeded}} == 0
-	`).Exec(time.Now().Add(-fdb.deleteRetention).UnixNano())
-	if err != nil {
-		return wrap(err)
+	t0 := time.Now()
+	t1 := time.Now()
+	defer func() {
+		l.DebugContext(ctx, "GC runtime for deleted files", "Total", time.Since(t0),
+			"Chunk limits fetch", t1.Sub(t0), "Delete", time.Since(t1))
+	}()
+	chunkStart := fdb.cursorValues["files"]
+	chunkSize := fdb.chunkSizes["files"]
+	partialChunk := false
+	intChunkEnd := int64(0) // set when we have a valid chunk end
+
+	var chunkEnd sql.NullInt64
+	// Try to fetch the end of a full chunk
+	_ = fdb.stmt(`SELECT sequence FROM files WHERE sequence >= ?
+                      ORDER BY sequence LIMIT 1 OFFSET ?`).Get(&chunkEnd, chunkStart, chunkSize - 1)
+	// Error err is normal (no rows in resultset expected)
+	if !chunkEnd.Valid {
+		// End not found, partial chunk or end already reached
+		// Find the end of the idx range to get a partial chunk
+		err := fdb.stmt(`SELECT MAX(sequence) FROM files`).Get(&chunkEnd)
+		if err != nil {
+			l.WarnContext(ctx, "files MAX(sequence) failed", "error", err)
+			return wrap(err, "files DELETE")
+		}
+		partialChunk = true
 	}
-	if aff, err := res.RowsAffected(); err == nil {
-		l.DebugContext(ctx, "files: removed old deleted records", "affected", aff)
+	l.DebugContext(ctx, "files chunk", "last seq", chunkEnd, "full chunk", !partialChunk)
+	t1 = time.Now()
+
+	if chunkEnd.Valid {
+		intChunkEnd = chunkEnd.Int64
+		// Next chunk start position
+		if partialChunk {
+			fdb.cursorValues["files"] = 0
+		} else {
+			fdb.cursorValues["files"] = intChunkEnd + 1
+		}
+
+		// Remove deleted files that are marked as not needed (we have processed
+		// them) and they were deleted more than MaxDeletedFileAge ago.
+		res, err := fdb.stmt(`
+		DELETE FROM files
+		WHERE deleted AND sequence >= ? AND sequence <= ? AND modified < ?
+                AND local_flags & {{.FlagLocalNeeded}} == 0
+	        `).Exec(chunkStart, intChunkEnd, time.Now().Add(-fdb.deleteRetention).UnixNano())
+		if err != nil {
+			l.WarnContext(ctx, "files delete failed", "error", err)
+			return wrap(err, "files DELETE")
+		}
+		if aff, err := res.RowsAffected(); err == nil {
+			l.DebugContext(ctx, "files DELETE", "affected", aff)
+		}
+
+		// Pass information about unknown chunk size (0) when needed
+		var actualChunkSize int
+		if partialChunk { actualChunkSize = 0 } else { actualChunkSize = chunkSize }
+		newChunkSize := adaptChunkSize(chunkSize, actualChunkSize, time.Since(t0), l, ctx)
+		if (newChunkSize != 0) { fdb.chunkSizes["files"] = newChunkSize }
+	}
+
+	// If the seq changed we record the end of the last processed range
+	if device_seq_changed {
+		if chunkEnd.Valid {
+			fdb.coverageFullAt["files"] = intChunkEnd
+		} // else no chunk processed, last end is still applicable
+	} else {
+		// which idx do we target
+		full_at := fdb.coverageFullAt["files"]
+		if (full_at >= chunkStart) && ((full_at <= intChunkEnd) || partialChunk) {
+			fdb.coverageFullAt["files"] = sqliteInt64CursorValueWhenDone
+		}
 	}
 	return nil
 }
