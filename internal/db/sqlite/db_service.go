@@ -246,14 +246,14 @@ func (fdb *folderDB) cleanupsCaughtUp() bool {
 	return fdb.hashCleanupCaughtUp() && fdb.namesCleanupCaughtUp() && fdb.versionsCleanupCaughtUp()
 }
 func (fdb *folderDB) hashCleanupCaughtUp() bool {
-	return (fdb.coverage_full_at["blocks"] == hashPrefixCeiling) &&
-		(fdb.coverage_full_at["blocklists"] == hashPrefixCeiling)
+	return (fdb.coverageFullAt["blocks"] == hashPrefixCeiling) &&
+		(fdb.coverageFullAt["blocklists"] == hashPrefixCeiling)
 }
 func (fdb *folderDB) namesCleanupCaughtUp() bool {
-	return fdb.coverage_full_at["file_names"] == sqliteInt64Ceiling
+	return fdb.coverageFullAt["file_names"] == sqliteInt64CursorValueWhenDone
 }
 func (fdb *folderDB) versionsCleanupCaughtUp() bool {
-	return fdb.coverage_full_at["file_versions"] == sqliteInt64Ceiling
+	return fdb.coverageFullAt["file_versions"] == sqliteInt64CursorValueWhenDone
 }
 
 func tidy(ctx context.Context, db *sqlx.DB, name string, do_truncate_checkpoint bool) error {
@@ -275,8 +275,8 @@ func tidy(ctx context.Context, db *sqlx.DB, name string, do_truncate_checkpoint 
 }
 
 func garbageCollectNamesOrVersions(ctx context.Context, fdb *folderDB, table string, device_seq_changed bool) error {
-	chunkStart := fdb.cursor_values[table]
-	chunkSize := fdb.chunk_sizes[table]
+	chunkStart := fdb.cursorValues[table]
+	chunkSize := fdb.chunkSizes[table]
 	partialChunk := false
 	intChunkEnd := int64(0) // will be set if chunkEnd.Valid
 
@@ -310,9 +310,9 @@ func garbageCollectNamesOrVersions(ctx context.Context, fdb *folderDB, table str
 		intChunkEnd = chunkEnd.Int64
 		// Next chunk start position
 		if partialChunk {
-			fdb.cursor_values[table] = 0
+			fdb.cursorValues[table] = 0
 		} else {
-			fdb.cursor_values[table] = intChunkEnd + 1
+			fdb.cursorValues[table] = intChunkEnd + 1
 		}
 
 		idx_column := "name_idx"
@@ -333,19 +333,19 @@ func garbageCollectNamesOrVersions(ctx context.Context, fdb *folderDB, table str
 		var actualChunkSize int
 		if partialChunk { actualChunkSize = 0 } else { actualChunkSize = chunkSize }
 		newChunkSize := adaptChunkSize(chunkSize, actualChunkSize, time.Since(t0), l, ctx)
-		if (newChunkSize != 0) { fdb.chunk_sizes[table] = newChunkSize }
+		if (newChunkSize != 0) { fdb.chunkSizes[table] = newChunkSize }
 	}
 
 	// If the seq changed we record the end of the last processed range
 	if device_seq_changed {
 		if chunkEnd.Valid {
-			fdb.coverage_full_at[table] = intChunkEnd
+			fdb.coverageFullAt[table] = intChunkEnd
 		} // else no chunk processed, last end is still applicable
 	} else {
 		// which idx do we target
-		full_at := fdb.coverage_full_at[table]
+		full_at := fdb.coverageFullAt[table]
 		if (full_at >= chunkStart) && ((full_at <= intChunkEnd) || partialChunk) {
-			fdb.coverage_full_at[table] = sqliteInt64Ceiling
+			fdb.coverageFullAt[table] = sqliteInt64CursorValueWhenDone
 		}
 	}
 	return nil
@@ -413,8 +413,8 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 	for _, table := range []string{"blocklists", "blocks"} {
 		// if not yet set, returns 0 which is what we need to init the process
 		// these are int32 values mapped to the first 32 bits of the blocklist_hash values
-		nextPrefix := int(fdb.cursor_values[table])
-		chunkSize := fdb.chunk_sizes[table]
+		nextPrefix := int(fdb.cursorValues[table])
+		chunkSize := fdb.chunkSizes[table]
 
 		// General case
 		l := slog.With("folder/table", fdb.folderID + "/" + table, "prefix", nextPrefix, "chunksize", chunkSize,
@@ -426,7 +426,7 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 
 		if !device_seq_changed {
 			// Did we caught up for this table
-			if fdb.coverage_full_at[table] == hashPrefixCeiling {
+			if fdb.coverageFullAt[table] == hashPrefixCeiling {
 				l.DebugContext(ctx, "GC already completed")
 				break
 			}
@@ -437,7 +437,7 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 
 		// The limit column must be an indexed column with a mostly random distribution of blobs.
 		// That's the blocklist_hash column for blocklists, and the hash column for blocks.
-		limitColumn := table + "." + fdb.cursor_columns[table]
+		limitColumn := table + "." + folderTableCursorColumns[table]
 		t0 := time.Now()
 		limitCondition := br.SQL(limitColumn)
 		// NOTE: the blocklists table is noticeably faster to process than the blocks table
@@ -469,17 +469,17 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 
 		// Store the next range
 		newbr := br.next(chunkSize)
-		fdb.cursor_values[table] = int64(newbr.start)
-		fdb.chunk_sizes[table] = newbr.size
+		fdb.cursorValues[table] = int64(newbr.start)
+		fdb.chunkSizes[table] = newbr.size
 
 		// If the seq changed we record the beginning ot the last processed range
 		if device_seq_changed {
-			fdb.coverage_full_at[table] = int64(nextPrefix)
+			fdb.coverageFullAt[table] = int64(nextPrefix)
 		} else {
 			// the seq didn't change we must advance until we completed a full scan of the prefixes
 			// which happens when a processed range covers our beginning recorded above
-			if br.include(int(fdb.coverage_full_at[table])) {
-				fdb.coverage_full_at[table] = hashPrefixCeiling
+			if br.include(int(fdb.coverageFullAt[table])) {
+				fdb.coverageFullAt[table] = hashPrefixCeiling
 			}
 		}
 	}

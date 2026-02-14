@@ -14,25 +14,29 @@ import (
 )
 
 // First values SQLite can't store, used by full coverage logic to store
-const sqliteInt64Ceiling = 1 << 62
+const sqliteInt64CursorValueWhenDone = -1
 const hashPrefixCeiling = 1 << 32
+// Maps can't be consts in Go but this isn't meant to be modified
+var folderTableCursorColumns = map[string]string{
+	"blocks":     "hash",
+	"blocklists": "blocklist_hash",
+	"files":      "sequence",
+}
 
 type folderDB struct {
 	*baseDB
 
 	folderID string
 
-	localDeviceIdx  int64
-	deleteRetention time.Duration
-	cursor_columns  map[string]string
-	cursor_values   map[string]int64
-	chunk_sizes     map[string]int
+	localDeviceIdx   int64
+	deleteRetention  time.Duration
+	cursorValues    map[string]int64
+	chunkSizes      map[string]int
 	// used to remember where in the hash cleanups we were during the last GC triggered
 	// because the device sequence changed
 	// blocks and blocklists are incrementally processed to the GC must continue for them
 	// to complete a full scan
-	// 1 << 32 in these means the GC caught up
-	coverage_full_at map[string]int64
+	coverageFullAt map[string]int64
 	// Avoid to many checkpoints
 	truncateInterval time.Duration
 	nextTruncate     time.Time
@@ -69,31 +73,30 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 		folderID:        folder,
 		baseDB:          base,
 		deleteRetention: deleteRetention,
-		// cursor* and chunk_sizes are used to incrementally process GC on some tables
-		cursor_columns:  map[string]string{
-			"blocks":     "hash",
-			"blocklists": "blocklist_hash",
-		},
-		cursor_values:   map[string]int64{
+		// *cursor*, chunkSizes and coverageFullAt are used to incrementally process GC on some tables
+		cursorValues:   map[string]int64{
 			"blocks":        0,
 			"blocklists":    0,
 			"file_names":    0,
 			"file_versions": 0,
+			"files":         0,
 		},
-		chunk_sizes: map[string]int{
+		chunkSizes: map[string]int{
 			"blocks":        gcMinChunkSize,
 			"blocklists":    gcMinChunkSize,
 			"file_names":    gcMinChunkSize,
 			"file_versions": gcMinChunkSize,
+			"files":         gcMinChunkSize,
 		},
 		// These values are arbitrary large for their usage and mean that the GC caught up
 		// other values are target to reach to end a full pass on the table
 		// TODO: use constants for clarity
-		coverage_full_at: map[string]int64 {
+		coverageFullAt: map[string]int64 {
 			"blocks":        hashPrefixCeiling,
 			"blocklists":    hashPrefixCeiling,
-			"file_names":    sqliteInt64Ceiling,
-			"file_versions": sqliteInt64Ceiling,
+			"file_names":    sqliteInt64CursorValueWhenDone,
+			"file_versions": sqliteInt64CursorValueWhenDone,
+			"files":         sqliteInt64CursorValueWhenDone,
 		},
 		truncateInterval: 24 * time.Hour, // tunable?
 		nextTruncate:     time.Now().Add(24 * time.Hour),
