@@ -704,6 +704,45 @@ func TestDropFolder(t *testing.T) {
 	}
 }
 
+func TestCountReceiveOnlyChangedIgnoresRemote(t *testing.T) {
+	t.Parallel()
+
+	sdb, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := sdb.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	local := genFile("local-ro", 2, 1)
+	local.LocalFlags = protocol.FlagLocalReceiveOnly
+	if err := sdb.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{local}); err != nil {
+		t.Fatal(err)
+	}
+
+	remote := genFile("remote-ro", 3, 2)
+	remote.LocalFlags = protocol.FlagLocalReceiveOnly
+	remote.Version = remote.Version.Update(42)
+	if err := sdb.Update(folderID, protocol.DeviceID{42}, []protocol.FileInfo{remote}); err != nil {
+		t.Fatal(err)
+	}
+
+	counts, err := sdb.CountReceiveOnlyChanged(folderID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if counts.Files != 1 {
+		t.Fatalf("expected one local receive-only-changed file, got %+v", counts)
+	}
+	if counts.Bytes != local.Size {
+		t.Fatalf("expected %d bytes from local receive-only-changed file, got %+v", local.Size, counts)
+	}
+}
+
 func TestDropDevice(t *testing.T) {
 	db, err := Open(t.TempDir())
 	if err != nil {
