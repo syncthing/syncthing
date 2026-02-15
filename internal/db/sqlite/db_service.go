@@ -26,7 +26,7 @@ const (
 	mainDBMaintenanceInterval = 24 * time.Hour
 	// initial and minimum target of prefix chunk size (among 2**32), this will increase to adapt to the DB speed
 	gcMinChunkSize  = 128 // this is chosen to allow reaching 2**32 which is a full scan in 6 minutes
-	gcMaxChunkSize  = hashPrefixCeiling
+	gcMaxChunkSize  = 1 << 32 // Should be able to cover all tables in a single pass
 	gcTargetRuntime = 250 * time.Millisecond // max time to spend on gc, per table, per run
 	vacuumPages     = 256 // pages are 4k with current SQLite this is 1M worth vaccumed
 )
@@ -70,7 +70,7 @@ func (s *Service) StartMaintenance() <-chan error {
 }
 
 func (s *Service) Serve(ctx context.Context) error {
-	// Start running periodic maintenance shortly after start
+	// Run periodic maintenance shortly after start
 	timer := time.NewTimer(10 * time.Second)
 	if s.maintenanceInterval == 0 { timer.Stop() }
 
@@ -88,15 +88,14 @@ func (s *Service) Serve(ctx context.Context) error {
 			finishChan <- err
 		}
 
+		wait := time.Until(s.nextFolderMaintenance())
 		if err != nil {
-			wait := time.Until(s.nextFolderMaintenance())
 			timer.Reset(wait)
 			slog.WarnContext(ctx, "Periodic run failed", "err", err)
 			return wrap(err)
 		}
 
 		if s.maintenanceInterval != 0 {
-			wait := time.Until(s.nextFolderMaintenance())
 			timer.Reset(wait)
 			slog.DebugContext(ctx, "Next periodic run due", "after", wait)
 		}
@@ -104,12 +103,11 @@ func (s *Service) Serve(ctx context.Context) error {
 }
 
 func (s *Service) periodic(ctx context.Context) error {
-
 	// We reuse the periodic maintenance of folders which is done at short intervals to trigger
 	// the main DB maintenance at long intervals (alternatively it could use its own Timer)
 	if s.nextMainDBMaintenance.Before(time.Now()) {
-		t0 := time.Now()
-		defer func() { slog.DebugContext(ctx, "Main DB maintenance done", "duration", time.Since(t0)) }()
+		// Log this to make clear the tidy debug logs are for the main DB
+		slog.DebugContext(ctx, "Main DB: VACCUUM and WAL TRUNCATE")
 		// Triggers the truncate checkpoint on the main DB
 		// the main DB is very small it doesn't need frequent vacuum/checkpoints
 		s.sdb.updateLock.Lock()
@@ -133,15 +131,21 @@ func (s *Service) periodic(ctx context.Context) error {
 			} else {
 				fdb.cleanupAtNormalRate(s)
 			}
-			if work_done { slog.DebugContext(ctx, "Cleanups", "runtime", time.Since(t0)) }
+			if work_done { slog.DebugContext(ctx, "Cleanups", "Total runtime", time.Since(t0)) }
 		}()
 
 		// Get the current device sequence, for comparison in the next step.
 		seq, err := fdb.GetDeviceSequence(protocol.LocalDeviceID)
 		if err != nil { return wrap(err) }
+		slog.DebugContext(ctx, fmt.Sprintf("## %s CLEANUPS ##", fdb.logID()))
+
 		// Get the last successful GC sequence. If it's the same as the
 		// current sequence, nothing has changed and we can skip the GC
 		// once all table rows have been processed
+		// NOTE: the coverage isn't perfect, on large installations deleted files can take time to be GC and
+		// the other tables are being processed before the hashes disappear. This is auto-corrected though
+		// and the missing cleanups should be limited to a small portion of hashes as the other tables are far
+		// costlier/longer to clean
 		meta := db.NewTyped(fdb, internalMetaPrefix)
 		if prev, _, err := meta.Int64(lastSuccessfulGCSeqKey); err != nil {
 			return wrap(err)
@@ -150,8 +154,7 @@ func (s *Service) periodic(ctx context.Context) error {
 			if !fdb.cleanupsCaughtUp() {
 				work_done = true
 				if !fdb.filesCleanupCaughtUp() {
-					slog.DebugContext(ctx, "Catching up on files cleanups", "folder",
-						          fdb.folderID, "fdb", fdb.baseName)
+					slog.DebugContext(ctx, "Catching up on files cleanups", "folder(db)", fdb.logID())
 					if err := func() error {
 						fdb.updateLock.Lock()
 						defer fdb.updateLock.Unlock()
@@ -162,8 +165,7 @@ func (s *Service) periodic(ctx context.Context) error {
 					}(); err != nil { return wrap(err) }
 				}
 				if !fdb.hashCleanupCaughtUp() {
-					slog.DebugContext(ctx, "Catching up on hash cleanups", "folder",
-						          fdb.folderID, "fdb", fdb.baseName)
+					slog.DebugContext(ctx, "Catching up on hash cleanups", "folder(db)", fdb.logID())
 					if err := func() error {
 						fdb.updateLock.Lock()
 						defer fdb.updateLock.Unlock()
@@ -174,8 +176,7 @@ func (s *Service) periodic(ctx context.Context) error {
 					}(); err != nil { return wrap(err) }
 				}
 				if !fdb.namesCleanupCaughtUp() {
-					slog.DebugContext(ctx, "Catching up on names cleanups", "folder",
-						          fdb.folderID, "fdb", fdb.baseName)
+					slog.DebugContext(ctx, "Catching up on names cleanups", "folder(db)", fdb.logID())
 					if err := func() error {
 						fdb.updateLock.Lock()
 						defer fdb.updateLock.Unlock()
@@ -186,8 +187,7 @@ func (s *Service) periodic(ctx context.Context) error {
 					}(); err != nil { return wrap(err) }
 				}
 				if !fdb.versionsCleanupCaughtUp() {
-					slog.DebugContext(ctx, "Catching up on versions cleanups", "folder",
-						          fdb.folderID, "fdb", fdb.baseName)
+					slog.DebugContext(ctx, "Catching up on versions cleanups", "folder(db)", fdb.logID())
 					if err := func() error {
 						fdb.updateLock.Lock()
 						defer fdb.updateLock.Unlock()
@@ -276,8 +276,15 @@ func (fdb *folderDB) versionsCleanupCaughtUp() bool {
 
 func tidy(ctx context.Context, db *sqlx.DB, name string, do_truncate_checkpoint bool) error {
 	t0 := time.Now()
-	defer func() { slog.DebugContext(ctx, "tidy", "database", name, "runtime", time.Since(t0),
-		                        "truncate", do_truncate_checkpoint) }()
+	t1 := time.Now()
+	defer func() {
+		if do_truncate_checkpoint {
+			slog.DebugContext(ctx, "tidy runtime", "database", name, "VACCUM", t1.Sub(t0),
+				"TRUNCATE", time.Since(t1))
+		} else {
+			slog.DebugContext(ctx, "tidy runtime", "database", name, "VACCUM", t1.Sub(t0))
+		}
+	}()
 
 	conn, err := db.Conn(ctx)
 	if err != nil { return wrap(err) }
@@ -285,10 +292,9 @@ func tidy(ctx context.Context, db *sqlx.DB, name string, do_truncate_checkpoint 
 
 	// Don't try to free too many pages at once by passing a maximum
 	_, _ = conn.ExecContext(ctx, fmt.Sprintf(`PRAGMA incremental_vacuum(%d)`, vacuumPages))
-	if do_truncate_checkpoint {
-		// This is potentially really slow on a folderDB and is called after taking the updateLock
-		_, _ = conn.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`)
-	}
+	t1 = time.Now()
+	// This is potentially really slow on a folderDB and is called after taking the updateLock
+	if do_truncate_checkpoint { _, _ = conn.ExecContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`) }
 	return nil
 }
 
@@ -296,14 +302,13 @@ func garbageCollectNamesOrVersions(ctx context.Context, fdb *folderDB, table str
 	chunkStart := fdb.cursorValues[table]
 	chunkSize := fdb.chunkSizes[table]
 	partialChunk := false
-	intChunkEnd := int64(0) // will be set if chunkEnd.Valid
 
-	l := slog.With("folder", fdb.folderID, "fdb", fdb.baseName, "table", table, "start", chunkStart, "chunk_size", chunkSize)
+	l := slog.With("folder(db)", fdb.logID(), "table", table, "start", chunkStart, "chunk_size", chunkSize)
 
 	t0 := time.Now()
 	t1 := time.Now()
 	defer func() {
-		l.DebugContext(ctx, "GC runtime for " + table, "Total", time.Since(t0), "Chunk limits fetch", t1.Sub(t0),
+		l.DebugContext(ctx, "GC runtime", "Total", time.Since(t0), "Chunk limits fetch", t1.Sub(t0),
 			"Delete", time.Since(t1) )
 	}()
 
@@ -317,16 +322,16 @@ func garbageCollectNamesOrVersions(ctx context.Context, fdb *folderDB, table str
 		// Find the end of the idx range to get a partial chunk
 		err := fdb.stmt(`SELECT MAX(idx) FROM ` + table).Get(&chunkEnd)
 		if err != nil {
-			l.WarnContext(ctx, table + "MAX(idx) failed", "error", err)
+			l.WarnContext(ctx, table + " MAX(idx) failed", "error", err)
 			return wrap(err, table + " DELETE")
 		}
 		partialChunk = true
 	}
-	l.DebugContext(ctx, table + " chunk", "last idx", chunkEnd, "full chunk", !partialChunk)
+	intChunkEnd := chunkEnd.Int64 // 0 unless valid
+	l.DebugContext(ctx, "chunk_end", "full chunk", !partialChunk, "last idx", intChunkEnd)
 	t1 = time.Now()
 
 	if chunkEnd.Valid {
-		intChunkEnd = chunkEnd.Int64
 		// Next chunk start position
 		if partialChunk {
 			fdb.cursorValues[table] = 0
@@ -341,11 +346,11 @@ func garbageCollectNamesOrVersions(ctx context.Context, fdb *folderDB, table str
                                       AND NOT EXISTS (SELECT 1 FROM files f WHERE f.` + idx_column + ` = idx)
 	                             `).Exec(chunkStart, intChunkEnd)
 		if err != nil {
-			l.WarnContext(ctx, table + "delete failed", "error", err)
+			l.WarnContext(ctx, "delete failed", "error", err)
 			return wrap(err, table + " DELETE")
 		}
 		if aff, err := res.RowsAffected(); err == nil {
-			l.DebugContext(ctx, table + " DELETE", "affected", aff)
+			l.DebugContext(ctx, "DELETE", "affected", aff)
 		}
 
 		// Pass information about unknown chunk size (0) when needed
@@ -372,7 +377,11 @@ func garbageCollectNamesOrVersions(ctx context.Context, fdb *folderDB, table str
 
 // TODO: factor code with GC for Names/Versions
 func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB, device_seq_changed bool) error {
-	l := slog.With("folder", fdb.folderID, "fdb", fdb.baseName, "retention", fdb.deleteRetention)
+	chunkStart := fdb.cursorValues["files"]
+	chunkSize := fdb.chunkSizes["files"]
+	partialChunk := false
+	l := slog.With("folder(db)", fdb.logID(), "table", "files", "start", chunkStart, "chunk_size", chunkSize,
+		"retention", fdb.deleteRetention)
 	if fdb.deleteRetention <= 0 {
 		l.DebugContext(ctx, "Delete retention is infinite, skipping cleanup")
 		return nil
@@ -384,10 +393,6 @@ func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB, device_s
 		l.DebugContext(ctx, "GC runtime for deleted files", "Total", time.Since(t0),
 			"Chunk limits fetch", t1.Sub(t0), "Delete", time.Since(t1))
 	}()
-	chunkStart := fdb.cursorValues["files"]
-	chunkSize := fdb.chunkSizes["files"]
-	partialChunk := false
-	intChunkEnd := int64(0) // set when we have a valid chunk end
 
 	var chunkEnd sql.NullInt64
 	// Try to fetch the end of a full chunk
@@ -399,12 +404,13 @@ func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB, device_s
 		// Find the end of the idx range to get a partial chunk
 		err := fdb.stmt(`SELECT MAX(sequence) FROM files`).Get(&chunkEnd)
 		if err != nil {
-			l.WarnContext(ctx, "files MAX(sequence) failed", "error", err)
-			return wrap(err, "files DELETE")
+			l.WarnContext(ctx, "MAX(sequence) failed", "error", err)
+			return wrap(err, "DELETE")
 		}
 		partialChunk = true
 	}
-	l.DebugContext(ctx, "files chunk", "last seq", chunkEnd, "full chunk", !partialChunk)
+	intChunkEnd := chunkEnd.Int64 // 0 unless valid
+	l.DebugContext(ctx, "chunk_end", "full chunk", !partialChunk, "last seq", intChunkEnd)
 	t1 = time.Now()
 
 	if chunkEnd.Valid {
@@ -424,7 +430,7 @@ func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB, device_s
                 AND local_flags & {{.FlagLocalNeeded}} == 0
 	        `).Exec(chunkStart, intChunkEnd, time.Now().Add(-fdb.deleteRetention).UnixNano())
 		if err != nil {
-			l.WarnContext(ctx, "files delete failed", "error", err)
+			l.WarnContext(ctx, "files DELETE failed", "error", err)
 			return wrap(err, "files DELETE")
 		}
 		if aff, err := res.RowsAffected(); err == nil {
@@ -494,11 +500,10 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 		chunkSize := fdb.chunkSizes[table]
 
 		// General case
-		l := slog.With("folder/table", fdb.folderID + "/" + table, "prefix", nextPrefix, "chunksize", chunkSize,
-			"fdb", fdb.baseName)
+		l := slog.With("folder(db)", fdb.logID(), "table", table, "prefix", nextPrefix, "chunksize", chunkSize)
 		// Shorter log when doing a full scan
 		if (nextPrefix == 0) && (chunkSize == hashPrefixCeiling) {
-			l = slog.With("FULLscan on folder/table", fdb.folderID + "/" + table, "fdb", fdb.baseName)
+			l = slog.With("FULL SCAN folder(db)", fdb.logID(), "table", table)
 		}
 
 		if !device_seq_changed {
@@ -531,11 +536,10 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 			l.DebugContext(ctx, "GC failed", "runtime", time.Since(t0), "error", err)
 			return wrap(err, "delete from "+table)
 		} else {
-			l.DebugContext(ctx, "GC query result", "runtime", time.Since(t0), "result", slogutil.Expensive(func() any {
+			l.DebugContext(ctx, "GC query result", "runtime", time.Since(t0), "result",
+				slogutil.Expensive(func() any {
 				rows, err := res.RowsAffected()
-				if err != nil {
-					return slogutil.Error(err)
-				}
+				if err != nil { return slogutil.Error(err) }
 				return slog.Int64("affected_rows", rows)
 			}))
 		}
@@ -632,7 +636,7 @@ func adaptChunkSize(chunkSize int, actualChunkSize int, process_duration time.Du
 	// Did we overshoot the target runtime ?
 	if process_duration > gcTargetRuntime {
 		newChunkSize = max(chunkSize / 2, gcMinChunkSize)
-		l.DebugContext(ctx, "GC too aggressive, reducing speed", "new_chunk_size", newChunkSize)
+		l.DebugContext(ctx, "GC too aggressive, slowing down", "new_chunk_size", newChunkSize)
 	} else if (process_duration < (gcTargetRuntime / 2)) && (actualChunkSize == chunkSize) &&
 		(chunkSize < gcMaxChunkSize) {
 		// Increase chunkSize based on the difference between max GC runtime and actual runtime
@@ -641,7 +645,7 @@ func adaptChunkSize(chunkSize int, actualChunkSize int, process_duration time.Du
 		// 32 = 2 ** 5, gcMinChunkSize = 128 = 2 ** 7
 		speedup := min((3 * float64(gcTargetRuntime)) / (4 * float64(process_duration)), 32.0)
 		newChunkSize = min(int(float64(chunkSize) * speedup), gcMaxChunkSize)
-		l.DebugContext(ctx, "GC slow, increasing speed", "new_chunk_size", newChunkSize)
+		l.DebugContext(ctx, "GC slow, speeding up", "new_chunk_size", newChunkSize)
 	}
 	return newChunkSize
 }

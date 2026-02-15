@@ -50,10 +50,18 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 		"optimize = 0x10002",
 		"auto_vacuum = INCREMENTAL",
 		fmt.Sprintf("application_id = %d", applicationIDFolder),
-		"busy_timeout = 5000", // seems to facilitate checkpoint truncate
-		"cache_size = -16384", // testing for perf
-		"temp_store = MEMORY", // testing for perf
+		// This avoids blocked writes to fail immediately and especially checkpoint(TRUNCATE),
+		// It depends on other connexions not locking the DB too long though
+		"busy_timeout = 5000",
+		// "cache_size = -16384", // will have to test for perf (default is ~2MiB)
+		// even on large folders the temp store doesn't seem used for large data, memory is faster
+		"temp_store = MEMORY",
+		// Don't fsync on each commit but only during checkpoints which guarantees the DB is consistent
+		// although last transactions might be missing (this is however OK for Synchting)
 		"synchronous = NORMAL",
+		// Note: this is a max target. SQLite checkpoints might fail to keep it below depending
+		// on concurrent activity
+		"journal_size_limit = 8388608",
 	}
 	schemas := []string{
 		"sql/schema/common/*",
@@ -104,9 +112,6 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 	}
 
 	_ = fdb.PutKV("folderID", []byte(folder))
-	// Note: this is a target. SQLite checkpoints might fail to keep it below depending
-	// on concurrent activity
-	_, _ = fdb.sql.Exec("PRAGMA journal_size_limit = 8388608")
 
 	// Touch device IDs that should always exist and have a low index
 	// numbers, and will never change
@@ -151,10 +156,10 @@ func openFolderDBForMigration(folder, path string, deleteRetention time.Duration
 	return fdb, nil
 }
 
-func (s *folderDB) deviceIdxLocked(deviceID protocol.DeviceID) (int64, error) {
+func (fdb *folderDB) deviceIdxLocked(deviceID protocol.DeviceID) (int64, error) {
 	devStr := deviceID.String()
 	var idx int64
-	if err := s.stmt(`
+	if err := fdb.stmt(`
 		INSERT INTO devices(device_id)
 		VALUES (?)
 		ON CONFLICT(device_id) DO UPDATE
@@ -165,4 +170,8 @@ func (s *folderDB) deviceIdxLocked(deviceID protocol.DeviceID) (int64, error) {
 	}
 
 	return idx, nil
+}
+
+func (fdb *folderDB) logID() string {
+	return fmt.Sprintf("%s(%s)", fdb.folderID, fdb.baseName)
 }
