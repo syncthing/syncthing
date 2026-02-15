@@ -183,3 +183,92 @@ func TestSetPlatformData(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestRecvOnlyDirEquivIgnoresInodeChange(t *testing.T) {
+	comp := protocol.FileInfoComparison{
+		ModTimeWindow:   0,
+		IgnorePerms:     false,
+		IgnoreBlocks:    true,
+		IgnoreFlags:     protocol.FlagLocalReceiveOnly,
+		IgnoreOwnership: false,
+		IgnoreXattrs:    true,
+	}
+
+	gf := protocol.FileInfo{
+		Name:          "dir",
+		Type:          protocol.FileInfoTypeDirectory,
+		Permissions:   0o755,
+		InodeChangeNs: 100,
+		Platform: protocol.PlatformData{
+			Unix: &protocol.UnixData{UID: 1000, GID: 1000},
+		},
+	}
+	fi := gf
+	fi.InodeChangeNs = 200
+
+	if !receiveOnlyEquivalent(gf, fi, comp) {
+		t.Fatal("expected receive-only directory equivalence for inode-change-only delta")
+	}
+}
+
+func TestRecvOnlyDirEquivChecksMetadata(t *testing.T) {
+	comp := protocol.FileInfoComparison{
+		ModTimeWindow:   0,
+		IgnorePerms:     false,
+		IgnoreBlocks:    true,
+		IgnoreFlags:     protocol.FlagLocalReceiveOnly,
+		IgnoreOwnership: false,
+		IgnoreXattrs:    false,
+	}
+
+	gf := protocol.FileInfo{
+		Name:          "dir",
+		Type:          protocol.FileInfoTypeDirectory,
+		Permissions:   0o755,
+		InodeChangeNs: 100,
+		Platform: protocol.PlatformData{
+			Unix:  &protocol.UnixData{UID: 1000, GID: 1000},
+			Linux: &protocol.XattrData{Xattrs: []protocol.Xattr{{Name: "user.foo", Value: []byte("bar")}}},
+		},
+	}
+	fi := gf
+	fi.InodeChangeNs = 200
+	fi.Platform = protocol.PlatformData{
+		Unix:  &protocol.UnixData{UID: 1000, GID: 1000},
+		Linux: &protocol.XattrData{Xattrs: []protocol.Xattr{{Name: "user.foo", Value: []byte("baz")}}},
+	}
+
+	if receiveOnlyEquivalent(gf, fi, comp) {
+		t.Fatal("expected receive-only directory mismatch when xattrs differ")
+	}
+}
+
+func TestRecvOnlyDirEquivAlreadyIgnoresMtime(t *testing.T) {
+	comp := protocol.FileInfoComparison{
+		ModTimeWindow:   0,
+		IgnorePerms:     false,
+		IgnoreBlocks:    true,
+		IgnoreFlags:     protocol.FlagLocalReceiveOnly,
+		IgnoreOwnership: false,
+		IgnoreXattrs:    true,
+	}
+
+	gf := protocol.FileInfo{
+		Name:          "dir",
+		Type:          protocol.FileInfoTypeDirectory,
+		Permissions:   0o755,
+		ModifiedS:     10,
+		ModifiedNs:    0,
+		InodeChangeNs: 100,
+		Platform: protocol.PlatformData{
+			Unix: &protocol.UnixData{UID: 1000, GID: 1000},
+		},
+	}
+	fi := gf
+	fi.ModifiedS = 20
+	fi.ModifiedNs = 123
+
+	if !receiveOnlyEquivalent(gf, fi, comp) {
+		t.Fatal("expected receive-only directory equivalence for mtime-only delta (directory equivalence ignores mtime)")
+	}
+}

@@ -617,6 +617,14 @@ func (b *scanBatch) Update(fi protocol.FileInfo) (bool, error) {
 	}
 	// Resolve receive-only items which are identical with the global state or
 	// the global item is our own receive-only item.
+	comp := protocol.FileInfoComparison{
+		ModTimeWindow:   b.f.modTimeWindow,
+		IgnorePerms:     b.f.IgnorePerms,
+		IgnoreBlocks:    true,
+		IgnoreFlags:     protocol.FlagLocalReceiveOnly,
+		IgnoreOwnership: !b.f.SyncOwnership && !b.f.SendOwnership,
+		IgnoreXattrs:    !b.f.SyncXattrs && !b.f.SendXattrs,
+	}
 	switch gf, ok, err := b.f.db.GetGlobalFile(b.f.folderID, fi.Name); {
 	case err != nil:
 		return false, err
@@ -630,20 +638,32 @@ func (b *scanBatch) Update(fi protocol.FileInfo) (bool, error) {
 			return true, nil
 		}
 	case (b.f.Type == config.FolderTypeReceiveOnly || b.f.Type == config.FolderTypeReceiveEncrypted) &&
-		gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
-			ModTimeWindow:   b.f.modTimeWindow,
-			IgnorePerms:     b.f.IgnorePerms,
-			IgnoreBlocks:    true,
-			IgnoreFlags:     protocol.FlagLocalReceiveOnly,
-			IgnoreOwnership: !b.f.SyncOwnership && !b.f.SendOwnership,
-			IgnoreXattrs:    !b.f.SyncXattrs && !b.f.SendXattrs,
-		}):
+		receiveOnlyEquivalent(gf, fi, comp):
 		// What we have locally is equivalent to the global file.
 		b.f.sl.Debug("Merging identical locally changed item with global", slogutil.FilePath(fi.Name))
 		fi = gf
 	}
 	b.updateBatch.Append(fi)
 	return true, nil
+}
+
+func receiveOnlyEquivalent(gf, fi protocol.FileInfo, comp protocol.FileInfoComparison) bool {
+	if gf.IsEquivalentOptional(fi, comp) {
+		return true
+	}
+
+	// Directory inode change times may advance as a side effect of receiving
+	// children, without representing an actual local change.
+	if !gf.IsDirectory() || !fi.IsDirectory() {
+		return false
+	}
+
+	// Directory equivalence already ignores mtime. We only need to
+	// normalize inode change time here.
+	gfNoInode, fiNoInode := gf, fi
+	gfNoInode.InodeChangeNs = 0
+	fiNoInode.InodeChangeNs = 0
+	return gfNoInode.IsEquivalentOptional(fiNoInode, comp)
 }
 
 func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string, batch *scanBatch) (int, error) {
