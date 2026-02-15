@@ -2174,7 +2174,6 @@ func (f *sendReceiveFolder) withLimiter(ctx context.Context, fn func() error) er
 	return fn()
 }
 
-
 // A []FileError is sent as part of an event and will be JSON serialized.
 type FileError struct {
 	Path string `json:"path"`
