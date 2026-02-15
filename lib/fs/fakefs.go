@@ -1025,6 +1025,3 @@ func (*fakeFileInfo) Sys() interface{} {
 	return nil
 }
 
-func (*fakeFileInfo) InodeChangeTime() time.Time {
-	return time.Time{}
-}

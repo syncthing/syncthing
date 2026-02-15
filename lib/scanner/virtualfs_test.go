@@ -125,8 +125,7 @@ func (f fakeInfo) IsRegular() bool          { return !f.IsDir() }
 func (fakeInfo) IsSymlink() bool            { return false }
 func (fakeInfo) Owner() int                 { return 0 }
 func (fakeInfo) Group() int                 { return 0 }
-func (fakeInfo) Sys() interface{}           { return nil }
-func (fakeInfo) InodeChangeTime() time.Time { return time.Time{} }
+func (fakeInfo) Sys() interface{} { return nil }
 
 type fakeFile struct {
 	name       string
