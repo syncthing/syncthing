@@ -1024,4 +1024,3 @@ func (f *fakeFileInfo) Group() int {
 func (*fakeFileInfo) Sys() interface{} {
 	return nil
 }
-
