@@ -100,7 +100,6 @@ func (s *Service) Serve(ctx context.Context) error {
 			timer.Reset(wait)
 			slog.DebugContext(ctx, "Next periodic run due", "after", wait)
 		}
-		time.Sleep(5 * time.Second)
 	}
 }
 
