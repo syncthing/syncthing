@@ -57,7 +57,6 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 		// This avoids blocked writes to fail immediately and especially checkpoint(TRUNCATE),
 		// It depends on other connexions not locking the DB too long though (TODO)
 		"busy_timeout = 5000",
-		// "cache_size = -16384", // will have to test for perf (default is ~2MiB)
 		// even on large folders the temp store doesn't seem used for large data, memory is faster
 		"temp_store = MEMORY",
 		// Don't fsync on each commit but only during checkpoints which guarantees the DB is consistent
@@ -66,6 +65,7 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 		// Note: this is a max target. SQLite checkpoints might fail to keep it below depending
 		// on concurrent activity
 		"journal_size_limit = 8388608",
+		"cache_spill = FALSE", // avoids locking the DB during transactions at the cost of memory use
 	}
 	schemas := []string{
 		"sql/schema/common/*",
