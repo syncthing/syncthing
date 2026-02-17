@@ -29,6 +29,12 @@ const (
 	gcMaxChunkSize  = 1 << 32 // Should be able to cover all tables in a single pass
 	gcTargetRuntime = 250 * time.Millisecond // max time to spend on gc, per table, per run
 	vacuumPages     = 256 // pages are 4k with current SQLite this is 1M worth vaccumed
+	// don't wait more than that to check if GC work is needed, useful when adding a new Folder
+	// do we need a larger period on Mobile to conserve battery ?
+	maxIncrementalGCPeriod = 5 * time.Minute
+	// gcTargetRuntime is 20 times less and used for 5 cleanups for each folder
+	minIncrementalGCPeriod = 5 * time.Second
+	rowCountsValidFor = time.Hour
 )
 
 func (s *DB) Service(maintenanceInterval time.Duration) db.DBService {
@@ -127,9 +133,9 @@ func (s *Service) periodic(ctx context.Context) error {
 		// Adjust the cleanup frequency based on the expected work to be done
 		defer func() {
 			if db_update_detected || !fdb.cleanupsCaughtUp() {
-				fdb.cleanupIsUrgent(s)
+				fdb.setNextCleanupFromConstraints(ctx, s)
 			} else {
-				fdb.cleanupAtNormalRate(s)
+				fdb.nextCleanup = time.Now().Add(maxIncrementalGCPeriod)
 			}
 			if work_done { slog.DebugContext(ctx, "Cleanups", "Total runtime", time.Since(t0)) }
 		}()
@@ -236,7 +242,7 @@ func (s *Service) periodic(ctx context.Context) error {
 
 func (s *Service) nextFolderMaintenance() time.Time {
 	// Use a sensible max value in case a new Folder is created after this
-	earliestMaintenance := time.Now().Add(s.maintenanceInterval)
+	earliestMaintenance := time.Now().Add(maxIncrementalGCPeriod)
 	s.sdb.forEachFolder(func(fdb *folderDB) error {
 		nextCleanup := fdb.nextCleanup
 		if nextCleanup.Before(earliestMaintenance) {
@@ -247,14 +253,54 @@ func (s *Service) nextFolderMaintenance() time.Time {
 	return earliestMaintenance
 }
 
-// experiment
-func (fdb *folderDB) cleanupAtNormalRate(s *Service) {
-	fdb.nextCleanup = time.Now().Add(s.maintenanceInterval)
-}
-func (fdb *folderDB) cleanupIsUrgent(s *Service) {
-	fdb.nextCleanup = time.Now().Add(s.maintenanceInterval/10)
+// Try to target a full cleanup in the configured maintenanceInterval
+// but not exceeding the max frequency set by minIncrementalGCPeriod
+// the computed chunk size for each table is used as the base of the computation
+// its value is computed to avoid incremental GC exceeding gcTargetRuntime
+func (fdb *folderDB) setNextCleanupFromConstraints(ctx context.Context, s *Service) {
+	fdb.updateCountWhenNeeded()
+	chunkInterval := maxIncrementalGCPeriod
+	interval_ms := s.maintenanceInterval.Milliseconds()
+	for _, table := range []string{"files", "file_names", "file_versions"} {
+		target_interval := fdb.chunkIntervalFor(table, interval_ms)
+		slog.DebugContext(ctx, "Interval for table", table, target_interval)
+		if (chunkInterval > target_interval) { chunkInterval = target_interval }
+	}
+	for _, table := range []string{"blocks", "blocklists"} {
+		target_interval := fdb.chunkIntervalFor(table, interval_ms)
+		slog.DebugContext(ctx, "Interval for table", table, target_interval)
+		if (chunkInterval > target_interval) { chunkInterval = target_interval }
+	}
+	// reduce the interval to account for the tables' cleanups
+	chunkInterval -= 5 * gcTargetRuntime
+	if chunkInterval < minIncrementalGCPeriod { chunkInterval = minIncrementalGCPeriod }
+	fdb.nextCleanup = time.Now().Add(chunkInterval)
+	slog.DebugContext(ctx, "Interval result", "interval", chunkInterval)
 }
 
+func (fdb *folderDB) chunkIntervalFor(table string, interval_ms int64) time.Duration {
+	total_range, ok := fdb.countEstimation[table]
+	// Exception for hash based ranges
+	if !ok { total_range = (1 << 32) }
+	// Avoid a divide by 0
+	if total_range == 0 { total_range = 1 }
+	return time.Duration(interval_ms * fdb.chunkSizes[table] / total_range)
+}
+
+func (fdb *folderDB) updateCountWhenNeeded() {
+	for _, table := range []string{"files", "file_names", "file_versions"} {
+		if !time.Now().After(fdb.countValidUntil[table]) { break }
+		var rows int64
+		query := fmt.Sprintf(`SELECT CAST(SUBSTR(stat, 1, INSTR(stat, ' ') - 1) AS INTEGER)"
+                                      FROM sqlite_stat1 WHERE tbl = '%s' LIMIT 1`, table)
+		err := fdb.stmt(query).Get(&rows, table);
+		if err != nil { return }
+		oldcount := fdb.countEstimation[table]
+		fdb.countEstimation[table] = rows
+		fdb.countValidUntil[table] = time.Now().Add(rowCountsValidFor)
+		slog.Debug("Table row count", table + "old", oldcount, "new", rows)
+	}
+}
 
 func (fdb *folderDB) cleanupsCaughtUp() bool {
 	return (fdb.filesCleanupCaughtUp() && fdb.hashCleanupCaughtUp() && fdb.namesCleanupCaughtUp() &&
@@ -354,7 +400,7 @@ func garbageCollectNamesOrVersions(ctx context.Context, fdb *folderDB, table str
 		}
 
 		// Pass information about unknown chunk size (0) when needed
-		var actualChunkSize int
+		var actualChunkSize int64
 		if partialChunk { actualChunkSize = 0 } else { actualChunkSize = chunkSize }
 		newChunkSize := adaptChunkSize(chunkSize, actualChunkSize, time.Since(t0), l, ctx)
 		if (newChunkSize != 0) { fdb.chunkSizes[table] = newChunkSize }
@@ -438,7 +484,7 @@ func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB, device_s
 		}
 
 		// Pass information about unknown chunk size (0) when needed
-		var actualChunkSize int
+		var actualChunkSize int64
 		if partialChunk { actualChunkSize = 0 } else { actualChunkSize = chunkSize }
 		newChunkSize := adaptChunkSize(chunkSize, actualChunkSize, time.Since(t0), l, ctx)
 		if (newChunkSize != 0) { fdb.chunkSizes["files"] = newChunkSize }
@@ -496,7 +542,7 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 	for _, table := range []string{"blocklists", "blocks"} {
 		// if not yet set, returns 0 which is what we need to init the process
 		// these are int32 values mapped to the first 32 bits of the blocklist_hash values
-		nextPrefix := int(fdb.cursorValues[table])
+		nextPrefix := fdb.cursorValues[table]
 		chunkSize := fdb.chunkSizes[table]
 
 		// General case
@@ -559,7 +605,7 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 		} else {
 			// the seq didn't change we must advance until we completed a full scan of the prefixes
 			// which happens when a processed range covers our beginning recorded above
-			if br.include(int(fdb.coverageFullAt[table])) {
+			if br.include(fdb.coverageFullAt[table]) {
 				fdb.coverageFullAt[table] = hashPrefixCeiling
 			}
 		}
@@ -571,10 +617,10 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 // blobRange defines a range for blob searching.
 // it is initialized with a chunk size and computes the appropriate end
 type blobRange struct {
-	start, size int
+	start, size int64
 }
 
-func (r blobRange) end() int {
+func (r blobRange) end() int64 {
 	stop := r.start + r.size
 	if stop >= hashPrefixCeiling {
 		return hashPrefixCeiling
@@ -583,7 +629,7 @@ func (r blobRange) end() int {
 	}
 }
 
-func (r blobRange) next(size int) blobRange {
+func (r blobRange) next(size int64) blobRange {
 	start := r.end()
 	if start == hashPrefixCeiling {
 		start = 0
@@ -591,7 +637,7 @@ func (r blobRange) next(size int) blobRange {
 	return blobRange{start, size}
 }
 
-func (r blobRange) include(position int) bool {
+func (r blobRange) include(position int64) bool {
 	if (position >= r.start) && (position < r.end()) {
 		return true
 	} else {
@@ -600,7 +646,7 @@ func (r blobRange) include(position int) bool {
 }
 
 // return the actual size being processed (the last chunk is usually shorter than chunkSize)
-func (r blobRange) actualChunkSize() int {
+func (r blobRange) actualChunkSize() int64 {
 	prefixesRemaining := hashPrefixCeiling - r.start
 	if (r.size > prefixesRemaining) {
 		return prefixesRemaining
@@ -630,9 +676,9 @@ func (r blobRange) SQL(name string) string {
 // max chunk size is hard coded to 1<<32 which is fine for pagination and needed for the iterations over hash values
 // returns 0 if no change is needed
 // if actualChunkSize < chunkSize don't speed up
-func adaptChunkSize(chunkSize int, actualChunkSize int, process_duration time.Duration, l *slog.Logger,
-	            ctx context.Context) int {
-	newChunkSize := 0
+func adaptChunkSize(chunkSize int64, actualChunkSize int64, process_duration time.Duration, l *slog.Logger,
+	            ctx context.Context) int64 {
+	newChunkSize := int64(0)
 	// Did we overshoot the target runtime ?
 	if process_duration > gcTargetRuntime {
 		newChunkSize = max(chunkSize / 2, gcMinChunkSize)
@@ -644,7 +690,7 @@ func adaptChunkSize(chunkSize int, actualChunkSize int, process_duration time.Du
 		// max speedup is 32 which makes allows reaching gcMaxChunkSize in 6 passes
 		// 32 = 2 ** 5, gcMinChunkSize = 128 = 2 ** 7
 		speedup := min((3 * float64(gcTargetRuntime)) / (4 * float64(process_duration)), 32.0)
-		newChunkSize = min(int(float64(chunkSize) * speedup), gcMaxChunkSize)
+		newChunkSize = min(int64(float64(chunkSize) * speedup), gcMaxChunkSize)
 		l.DebugContext(ctx, "GC slow, speeding up", "new_chunk_size", newChunkSize)
 	}
 	return newChunkSize

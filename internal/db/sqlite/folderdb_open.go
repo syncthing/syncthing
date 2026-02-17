@@ -31,12 +31,15 @@ type folderDB struct {
 	localDeviceIdx   int64
 	deleteRetention  time.Duration
 	cursorValues    map[string]int64
-	chunkSizes      map[string]int
+	chunkSizes      map[string]int64
 	// used to remember where in the hash cleanups we were during the last GC triggered
 	// because the device sequence changed
 	// blocks and blocklists are incrementally processed to the GC must continue for them
 	// to complete a full scan
 	coverageFullAt map[string]int64
+	// We need an approximation of the count per table to estimate the chunk processing interval
+	countEstimation map[string]int64
+	countValidUntil map[string]time.Time
 	// Avoid to many checkpoints
 	truncateInterval time.Duration
 	nextTruncate     time.Time
@@ -51,7 +54,7 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 		"auto_vacuum = INCREMENTAL",
 		fmt.Sprintf("application_id = %d", applicationIDFolder),
 		// This avoids blocked writes to fail immediately and especially checkpoint(TRUNCATE),
-		// It depends on other connexions not locking the DB too long though
+		// It depends on other connexions not locking the DB too long though (TODO)
 		"busy_timeout = 5000",
 		// "cache_size = -16384", // will have to test for perf (default is ~2MiB)
 		// even on large folders the temp store doesn't seem used for large data, memory is faster
@@ -89,7 +92,7 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 			"file_versions": 0,
 			"files":         0,
 		},
-		chunkSizes: map[string]int{
+		chunkSizes: map[string]int64{
 			"blocks":        gcMinChunkSize,
 			"blocklists":    gcMinChunkSize,
 			"file_names":    gcMinChunkSize,
@@ -105,6 +108,23 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 			"file_names":    sqliteInt64CursorValueWhenDone,
 			"file_versions": sqliteInt64CursorValueWhenDone,
 			"files":         sqliteInt64CursorValueWhenDone,
+		},
+		countEstimation: map[string]int64 {
+			"blocks":        hashPrefixCeiling,
+			"blocklists":    hashPrefixCeiling,
+			"file_names":    0,
+			"file_versions": 0,
+			"files":         0,
+		},
+		countValidUntil: map[string]time.Time {
+			// these 2 shouldn't expire as the total hash range doesn't change
+			// this is more than 100 years in the future
+			// TODO: remove entries if not needed
+			"blocks":        time.Now().Add(1000000 * time.Hour),
+			"blocklists":    time.Now().Add(1000000 * time.Hour),
+			"file_names":    time.Now().Add(-time.Hour),
+			"file_versions": time.Now().Add(-time.Hour),
+			"files":         time.Now().Add(-time.Hour),
 		},
 		truncateInterval: 24 * time.Hour, // tunable?
 		nextTruncate:     time.Now().Add(24 * time.Hour),
