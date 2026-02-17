@@ -35,6 +35,11 @@ const (
 	// gcTargetRuntime is 20 times less and used for 5 cleanups for each folder
 	minIncrementalGCPeriod = 5 * time.Second
 	rowCountsValidFor = time.Hour
+	// The SQLite cache_size value, actual value depends on the files indexes size and is tuned at connection time
+	// SQLite doesn't allocate the full cache_size but allocates it progressively as needed
+	// with the tunning done in openFolderDB, a folder needs to have more than 8000 files for the value to be raised
+	// above the default. 8GiB should be enough for 32_000_000 files
+	folderMaxCacheSize = 1 << 33 // Don't exceed 8GiB per folder
 )
 
 func (s *DB) Service(maintenanceInterval time.Duration) db.DBService {

@@ -9,6 +9,7 @@ package sqlite
 import (
 	"fmt"
 	"time"
+	"log/slog"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -137,6 +138,45 @@ func openFolderDB(folder, path string, deleteRetention time.Duration) (*folderDB
 	// numbers, and will never change
 	fdb.localDeviceIdx, _ = fdb.deviceIdxLocked(protocol.LocalDeviceID)
 	fdb.tplInput["LocalDeviceIdx"] = fdb.localDeviceIdx
+
+	// the files table is repeatedly scanned to find entries to garbage collect
+	// it uses conditions on name_idx, version_idx, deleted, sequence, modified and blocklist_hash
+	// all of those have indexes except modified
+	// This tunes the cache size according to these index sizes
+	// Note: the dbstat virtual table giving actual size on disk is too slow and maybe not appropriate as it includes
+	// unused space in pages. So we use an estimate of the rows count multiplied by an estimate of
+	// index space used by each row (64 bit for integers, bools and timestamps, 512 bit for hash :
+	// 832 bits rounded up to 1024 bits = 128 bytes
+	// we count the files and blocklists tables to have a more reliable number of files
+	// as files has been seen underevaluated by a large factor
+	count_query := `SELECT CAST(SUBSTR(stat, 1, INSTR(stat, ' ') - 1) AS INTEGER) FROM sqlite_stat1 WHERE tbl = '%s' LIMIT 1;`
+	count_estimate_files := int64(0)
+	count_estimate_blocklists := int64(0)
+	target_cache_size := int64(0)
+	// This is performance tuning, these are allowed to fail
+	err = fdb.baseDB.stmt(fmt.Sprintf(count_query, "files")).Get(&count_estimate_files)
+	if err != nil {
+		slog.Warn(fmt.Sprintf("%s: couldn't fetch files row count for cache tuning", fdb.logID()), "error", err)
+	}
+	err = fdb.baseDB.stmt(fmt.Sprintf(count_query, "blocklists")).Get(&count_estimate_files)
+	if err != nil {
+		slog.Warn(fmt.Sprintf("%s: couldn't fetch blocklists row count for cache tuning", fdb.logID()), "error", err)
+	}
+	count_estimate := max(count_estimate_files, count_estimate_blocklists)
+
+	// Leave room for the table to grow significantly and estimates to be off
+	target_cache_size = 128 * count_estimate * 2
+	target_cache_size = min(target_cache_size, folderMaxCacheSize)
+	// Actual size is in kB
+	target_cache_size /= 1000
+	if target_cache_size > 2000 {
+		// "-size" is used to indicate the cache size in bytes instead of pages
+		pragma := fmt.Sprintf("PRAGMA cache_size = -%d", target_cache_size)
+		slog.Info(fmt.Sprintf("%s cache tuned", fdb.logID()), "size", target_cache_size)
+		if _, err := fdb.baseDB.stmt(pragma).Exec(); err != nil {
+			slog.Warn(fmt.Sprintf("%s: couldn't set cache size", fdb.logID()), "error", err)
+		}
+	}
 
 	return fdb, nil
 }
