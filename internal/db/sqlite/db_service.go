@@ -515,33 +515,7 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 	defer func() { slog.DebugContext(ctx, "GC blocks/blocklists", "runtime", time.Since(tGlobal)) }()
 
 	// Remove all blocklists not referred to by any files and, by extension,
-	// any blocks not referred to by a blocklist. This is an expensive
-	// operation when run normally, especially if there are a lot of blocks
-	// to collect.
-	//
-	// We make this orders of magnitude faster by disabling foreign keys for
-	// the transaction and doing the cleanup manually. This requires using
-	// an explicit connection and disabling foreign keys before starting the
-	// transaction. We make sure to clean up on the way out.
-
-	conn, err := fdb.sql.Connx(ctx)
-	if err != nil {
-		return wrap(err)
-	}
-	defer conn.Close()
-
-	if _, err := conn.ExecContext(ctx, `PRAGMA foreign_keys = 0`); err != nil {
-		return wrap(err)
-	}
-	defer func() { //nolint:contextcheck
-		_, _ = conn.ExecContext(context.Background(), `PRAGMA foreign_keys = 1`)
-	}()
-
-	tx, err := conn.BeginTxx(ctx, nil)
-	if err != nil {
-		return wrap(err)
-	}
-	defer tx.Rollback() //nolint:errcheck
+	// any blocks not referred to by a blocklist.
 
 	// Both blocklists and blocks refer to blocklists_hash from the files table.
 	for _, table := range []string{"blocklists", "blocks"} {
@@ -583,11 +557,11 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 				)`, table, limitCondition, table)
 
 
-		if res, err := tx.ExecContext(ctx, q); err != nil {
+		if res, err := fdb.baseDB.stmt(q).Exec(); err != nil {
 			l.DebugContext(ctx, "GC failed", "runtime", time.Since(t0), "error", err)
 			return wrap(err, "delete from "+table)
 		} else {
-			l.DebugContext(ctx, "GC query result", "runtime", time.Since(t0), "result",
+			l.DebugContext(ctx, "GC result", "runtime", time.Since(t0), "result",
 				slogutil.Expensive(func() any {
 				rows, err := res.RowsAffected()
 				if err != nil { return slogutil.Error(err) }
@@ -616,7 +590,7 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 		}
 	}
 
-	return wrap(tx.Commit())
+	return nil
 }
 
 // blobRange defines a range for blob searching.
