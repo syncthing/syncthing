@@ -561,7 +561,7 @@ func (s *Service) garbageCollectBlocklistsAndBlocksLocked(ctx context.Context, f
 			// Did we caught up for this table
 			if fdb.coverageFullAt[table] == hashPrefixCeiling {
 				l.DebugContext(ctx, "GC already completed")
-				break
+				continue
 			}
 		}
 
