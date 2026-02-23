@@ -9,6 +9,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"os/user"
@@ -238,6 +239,14 @@ func (f *BasicFilesystem) DirNames(name string) ([]string, error) {
 	}
 
 	return names, nil
+}
+
+func (f *BasicFilesystem) ReadDir(name string) ([]fs.DirEntry, error) {
+	name, err := f.rooted(name)
+	if err != nil {
+		return nil, err
+	}
+	return os.ReadDir(name)
 }
 
 func (f *BasicFilesystem) Open(name string) (File, error) {

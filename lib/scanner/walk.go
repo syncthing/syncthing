@@ -468,6 +468,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 			IgnoreXattrs:    !w.ScanXattrs,
 		}) {
 			l.Debugln(w, "unchanged:", curFile)
+			// File already tracked above at function entry
 			return nil
 		}
 		if curFile.ShouldConflict() && !f.ShouldConflict() {
@@ -515,6 +516,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 			IgnoreXattrs:    !w.ScanXattrs,
 		}) {
 			l.Debugln(w, "unchanged:", curFile)
+			// Directory already tracked above at function entry
 			return nil
 		}
 		if curFile.ShouldConflict() && !f.ShouldConflict() {
@@ -567,6 +569,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 			IgnoreXattrs:    !w.ScanXattrs,
 		}) {
 			l.Debugln(w, "unchanged:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
+			// Symlink already tracked above at function entry
 			return nil
 		}
 		if curFile.ShouldConflict() && !f.ShouldConflict() {

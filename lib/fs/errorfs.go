@@ -8,6 +8,7 @@ package fs
 
 import (
 	"context"
+	stdfs "io/fs"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -27,6 +28,9 @@ func (fs *errorFilesystem) Chtimes(_ string, _ time.Time, _ time.Time) error {
 func (fs *errorFilesystem) Create(_ string) (File, error)       { return nil, fs.err }
 func (fs *errorFilesystem) CreateSymlink(_, _ string) error     { return fs.err }
 func (fs *errorFilesystem) DirNames(_ string) ([]string, error) { return nil, fs.err }
+func (fs *errorFilesystem) ReadDir(_ string) ([]stdfs.DirEntry, error) {
+	return nil, fs.err
+}
 func (fs *errorFilesystem) GetXattr(_ string, _ XattrFilter) ([]protocol.Xattr, error) {
 	return nil, fs.err
 }

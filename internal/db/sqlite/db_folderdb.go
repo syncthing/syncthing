@@ -177,6 +177,17 @@ func (s *DB) AllLocalFiles(folder string, device protocol.DeviceID) (iter.Seq[pr
 	return fdb.AllLocalFiles(device)
 }
 
+func (s *DB) AllLocalFilesOrdered(folder string, device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error) {
+	fdb, err := s.getFolderDB(folder, false)
+	if errors.Is(err, errNoSuchFolder) {
+		return func(yield func(protocol.FileInfo) bool) {}, func() error { return nil }
+	}
+	if err != nil {
+		return func(yield func(protocol.FileInfo) bool) {}, func() error { return err }
+	}
+	return fdb.AllLocalFilesOrdered(device)
+}
+
 func (s *DB) AllLocalFilesBySequence(folder string, device protocol.DeviceID, startSeq int64, limit int) (iter.Seq[protocol.FileInfo], func() error) {
 	fdb, err := s.getFolderDB(folder, false)
 	if errors.Is(err, errNoSuchFolder) {
