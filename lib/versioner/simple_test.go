@@ -7,6 +7,7 @@
 package versioner
 
 import (
+	stdfs "io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,25 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 )
+
+func makeTreeOwnerWritable(t *testing.T, root string) {
+	t.Helper()
+
+	_ = filepath.WalkDir(root, func(path string, d stdfs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		if info, err := d.Info(); err == nil {
+			_ = os.Chmod(path, info.Mode().Perm()|0o700)
+		} else {
+			_ = os.Chmod(path, 0o700)
+		}
+		return nil
+	})
+}
 
 func TestTaggedFilename(t *testing.T) {
 	cases := [][3]string{
@@ -165,6 +185,10 @@ func TestArchiveFoldersCreationPermission(t *testing.T) {
 	}
 	dir := t.TempDir()
 	versionsDir := t.TempDir()
+	t.Cleanup(func() {
+		makeTreeOwnerWritable(t, versionsDir)
+		makeTreeOwnerWritable(t, dir)
+	})
 
 	cfg := config.FolderConfiguration{
 		FilesystemType: config.FilesystemTypeBasic,
@@ -254,5 +278,150 @@ func TestArchiveFoldersCreationPermission(t *testing.T) {
 	}
 	if folder2VersionsInfo.Mode().Perm() != folder2Perms {
 		t.Errorf("földer2 permissions %v, want %v", folder2VersionsInfo.Mode(), folder2Perms)
+	}
+}
+
+func TestArchiveReadOnlyVersionsParent(t *testing.T) {
+	if build.IsWindows {
+		t.Skip("Skipping on Windows")
+		return
+	}
+
+	dir := t.TempDir()
+	versionsDir := t.TempDir()
+	t.Cleanup(func() {
+		makeTreeOwnerWritable(t, versionsDir)
+		makeTreeOwnerWritable(t, dir)
+	})
+
+	cfg := config.FolderConfiguration{
+		FilesystemType: config.FilesystemTypeBasic,
+		Path:           dir,
+		Versioning: config.VersioningConfiguration{
+			FSPath: versionsDir,
+			FSType: config.FilesystemTypeBasic,
+			Params: map[string]string{
+				"keep": "2",
+			},
+		},
+	}
+
+	vfs := cfg.Filesystem()
+	v := newSimple(cfg)
+
+	if err := os.MkdirAll(filepath.Join(dir, "a", "b", "c"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(versionsDir, "a", "b"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(filepath.Join(versionsDir, "a", "b"), 0o555); err != nil {
+		t.Fatal(err)
+	}
+
+	filePath := filepath.Join("a", "b", "c", "testFile")
+	f, err := vfs.Create(filePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	if err := v.Archive(filePath); err != nil {
+		t.Fatalf("archiving failed with read-only versions parent dir: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(versionsDir, "a", "b", "c")); err != nil {
+		t.Fatalf("expected nested versions directory to exist: %v", err)
+	}
+
+	if err := os.Chmod(filepath.Join(versionsDir, "a", "b", "c"), 0o555); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err = vfs.Create(filePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	if err := v.Archive(filePath); err != nil {
+		t.Fatalf("archiving failed with read-only versions target dir: %v", err)
+	}
+
+	info, err := os.Stat(filepath.Join(versionsDir, "a", "b"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o555 {
+		t.Fatalf("expected versions parent dir permissions restored to 0555, got %v", info.Mode())
+	}
+
+	info, err = os.Stat(filepath.Join(versionsDir, "a", "b", "c"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o555 {
+		t.Fatalf("expected versions target dir permissions restored to 0555, got %v", info.Mode())
+	}
+}
+
+func TestArchiveReadOnlySourceIntermediateDir(t *testing.T) {
+	if build.IsWindows {
+		t.Skip("Skipping on Windows")
+		return
+	}
+
+	dir := t.TempDir()
+	versionsDir := t.TempDir()
+	t.Cleanup(func() {
+		makeTreeOwnerWritable(t, versionsDir)
+		makeTreeOwnerWritable(t, dir)
+	})
+
+	cfg := config.FolderConfiguration{
+		FilesystemType: config.FilesystemTypeBasic,
+		Path:           dir,
+		Versioning: config.VersioningConfiguration{
+			FSPath: versionsDir,
+			FSType: config.FilesystemTypeBasic,
+			Params: map[string]string{
+				"keep": "2",
+			},
+		},
+	}
+
+	vfs := cfg.Filesystem()
+	v := newSimple(cfg)
+
+	if err := os.MkdirAll(filepath.Join(dir, "a", "b", "c"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	filePath := filepath.Join("a", "b", "c", "testFile")
+	f, err := vfs.Create(filePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	if err := os.Chmod(filepath.Join(dir, "a", "b"), 0o555); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := v.Archive(filePath); err != nil {
+		t.Fatalf("archiving failed with read-only source intermediate dir: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(versionsDir, "a", "b", "c")); err != nil {
+		t.Fatalf("expected nested versions directory to exist: %v", err)
+	}
+
+	info, err := os.Stat(filepath.Join(versionsDir, "a", "b"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o555 {
+		t.Fatalf("expected versions intermediate dir permissions preserved as 0555, got %v", info.Mode())
 	}
 }
