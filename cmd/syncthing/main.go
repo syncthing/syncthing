@@ -252,6 +252,44 @@ func helpHandler(options kong.HelpOptions, ctx *kong.Context) error {
 	return nil
 }
 
+func (c *serveCmd) runWithContext(ctx context.Context) {
+	internalCtx, internalCancel := context.WithCancel(context.Background())
+
+	go func() {
+		defer internalCancel()
+		c.runSyncthing(internalCtx)
+	}()
+
+	select {
+	case <-ctx.Done():
+		slog.Info("Windows service stopping...")
+		internalCancel()
+
+		select {
+		case <-internalCtx.Done():
+			slog.Info("Clean shutdown completed")
+		case <-time.After(30 * time.Second):
+			slog.Warn("Shutdown timeout - forcing exit")
+		}
+
+	case <-internalCtx.Done():
+		slog.Info("Application completed")
+	}
+}
+
+func (c *serveCmd) runSyncthing(ctx context.Context) {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		c.syncthingMain()
+	}()
+
+	select {
+	case <-ctx.Done():
+	case <-done:
+	}
+}
+
 // serveCmd.Run() is the entrypoint for `syncthing serve`
 func (c *serveCmd) Run() error {
 	if c.GUIAddress != "" {
@@ -265,6 +303,21 @@ func (c *serveCmd) Run() error {
 
 	if c.HideConsole {
 		osutil.HideConsole()
+	}
+
+	if build.IsWindows {
+		isService, err := osutil.IsWindowsService()
+		if err != nil {
+			slog.Warn("Failed to check Windows service status", slogutil.Error(err))
+		} else if isService {
+			serviceName := "syncthing"
+
+			serviceMain := func(ctx context.Context) {
+				c.runWithContext(ctx)
+			}
+
+			return osutil.RunService(serviceName, serviceMain)
+		}
 	}
 
 	// Customize the logging early
