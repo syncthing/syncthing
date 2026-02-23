@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-FAQ" "7" "Feb 12, 2026" "v2.0.0" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Feb 21, 2026" "v2.0.0" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .INDENT 0.0
@@ -694,7 +694,7 @@ separate file, i.e. you should run:
 .INDENT 3.5
 .sp
 .EX
-echo \(dqfs.inotify.max_user_watches=204800\(dq | sudo tee \-a /etc/sysctl.d/90\-override.conf
+echo \(dqfs.inotify.max_user_watches=204800\(dq | sudo tee \-a /etc/sysctl.d/90\-inotify\-max\-user\-watches.conf
 .EE
 .UNINDENT
 .UNINDENT
