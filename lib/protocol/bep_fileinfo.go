@@ -139,10 +139,6 @@ type FileInfo struct {
 	// the protocol.
 	LocalFlags FlagLocal
 
-	// The time when the inode was last changed (i.e., permissions, xattrs
-	// etc changed). This is host-local, not sent over the wire.
-	InodeChangeNs int64
-
 	// The size of the data appended to the encrypted file on disk. This is
 	// host-local, not sent over the wire.
 	EncryptionTrailerSize int
@@ -184,7 +180,6 @@ func (f *FileInfo) ToWire(withInternalFields bool) *bep.FileInfo {
 	}
 	if withInternalFields {
 		w.LocalFlags = uint32(f.LocalFlags)
-		w.InodeChangeNs = f.InodeChangeNs
 		w.EncryptionTrailerSize = int32(f.EncryptionTrailerSize)
 	}
 	return w
@@ -284,7 +279,6 @@ type FileInfoWithoutBlocks interface {
 	GetBlockSize() int32
 	GetPlatform() *bep.PlatformData
 	GetLocalFlags() uint32
-	GetInodeChangeNs() int64
 	GetEncryptionTrailerSize() int32
 	GetDeleted() bool
 	GetInvalid() bool
@@ -322,7 +316,6 @@ func fileInfoFromWireWithBlocks(w FileInfoWithoutBlocks, blocks []BlockInfo) Fil
 func FileInfoFromDB(w *bep.FileInfo) FileInfo {
 	f := FileInfoFromWire(w)
 	f.LocalFlags = FlagLocal(w.LocalFlags)
-	f.InodeChangeNs = w.InodeChangeNs
 	f.EncryptionTrailerSize = int(w.EncryptionTrailerSize)
 	return f
 }
@@ -330,7 +323,6 @@ func FileInfoFromDB(w *bep.FileInfo) FileInfo {
 func FileInfoFromDBTruncated(w FileInfoWithoutBlocks) FileInfo {
 	f := fileInfoFromWireWithBlocks(w, nil)
 	f.LocalFlags = FlagLocal(w.GetLocalFlags())
-	f.InodeChangeNs = w.GetInodeChangeNs()
 	f.EncryptionTrailerSize = int(w.GetEncryptionTrailerSize())
 	f.truncated = true
 	return f
@@ -339,14 +331,14 @@ func FileInfoFromDBTruncated(w FileInfoWithoutBlocks) FileInfo {
 func (f FileInfo) String() string {
 	switch f.Type {
 	case FileInfoTypeDirectory:
-		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, Platform:%v, InodeChangeTime:%v}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Deleted, f.IsInvalid(), f.LocalFlags, f.NoPermissions, f.Platform, f.InodeChangeTime())
+		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, Platform:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Deleted, f.IsInvalid(), f.LocalFlags, f.NoPermissions, f.Platform)
 	case FileInfoTypeFile:
-		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d, NumBlocks:%d, BlocksHash:%x, Platform:%v, InodeChangeTime:%v}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Size, f.Deleted, f.IsInvalid(), f.LocalFlags, f.NoPermissions, f.RawBlockSize, len(f.Blocks), f.BlocksHash, f.Platform, f.InodeChangeTime())
+		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d, NumBlocks:%d, BlocksHash:%x, Platform:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Size, f.Deleted, f.IsInvalid(), f.LocalFlags, f.NoPermissions, f.RawBlockSize, len(f.Blocks), f.BlocksHash, f.Platform)
 	case FileInfoTypeSymlink, FileInfoTypeSymlinkDirectory, FileInfoTypeSymlinkFile:
-		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q, Platform:%v, InodeChangeTime:%v}",
-			f.Name, f.Type, f.Sequence, f.Version, f.Deleted, f.IsInvalid(), f.LocalFlags, f.NoPermissions, f.SymlinkTarget, f.Platform, f.InodeChangeTime())
+		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q, Platform:%v}",
+			f.Name, f.Type, f.Sequence, f.Version, f.Deleted, f.IsInvalid(), f.LocalFlags, f.NoPermissions, f.SymlinkTarget, f.Platform)
 	default:
 		panic("mystery file type detected")
 	}
@@ -462,10 +454,6 @@ func (f FileInfo) PlatformData() PlatformData {
 	return f.Platform
 }
 
-func (f FileInfo) InodeChangeTime() time.Time {
-	return time.Unix(0, f.InodeChangeNs)
-}
-
 func (f FileInfo) FileBlocksHash() []byte {
 	return f.BlocksHash
 }
@@ -511,12 +499,6 @@ func (f FileInfo) isEquivalent(other FileInfo, comp FileInfoComparison) bool {
 		// These are per definition not equivalent because they don't
 		// represent a valid state, even if both happen to have the
 		// MustRescan bit set.
-		return false
-	}
-
-	// If we care about either ownership or xattrs, are recording inode change
-	// times and it changed, they are not equal.
-	if !(comp.IgnoreOwnership && comp.IgnoreXattrs) && f.InodeChangeNs != 0 && other.InodeChangeNs != 0 && f.InodeChangeNs != other.InodeChangeNs {
 		return false
 	}
 
