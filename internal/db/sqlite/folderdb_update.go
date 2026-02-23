@@ -10,24 +10,15 @@ import (
 	"cmp"
 	"context"
 	"fmt"
-	"log/slog"
 	"slices"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/internal/itererr"
-	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sliceutil"
 	"google.golang.org/protobuf/proto"
-)
-
-const (
-	// Arbitrarily chosen values for checkpoint frequency....
-	updatePointsPerFile   = 100
-	updatePointsPerBlock  = 1
-	updatePointsThreshold = 250_000
 )
 
 func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) error {
@@ -183,7 +174,7 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 		return wrap(err)
 	}
 
-	s.periodicCheckpointLocked(fs)
+	//s.periodicCheckpointLocked(fs)
 	return nil
 }
 
@@ -512,58 +503,4 @@ func (e fileRow) Compare(other fileRow) int {
 
 func (e fileRow) IsInvalid() bool {
 	return e.LocalFlags.IsInvalid()
-}
-
-func (s *folderDB) periodicCheckpointLocked(fs []protocol.FileInfo) {
-	// Induce periodic checkpoints. We add points for each file and block,
-	// and checkpoint when we've written more than a threshold of points.
-	// This ensures we do not go too long without a checkpoint, while also
-	// not doing it incessantly for every update.
-	s.updatePoints += updatePointsPerFile * len(fs)
-	for _, f := range fs {
-		s.updatePoints += len(f.Blocks) * updatePointsPerBlock
-	}
-	if s.updatePoints > updatePointsThreshold {
-		conn, err := s.sql.Conn(context.Background())
-		if err != nil {
-			slog.Debug("Connection error", slog.String("db", s.baseName), slogutil.Error(err))
-			return
-		}
-		defer conn.Close()
-		if _, err := conn.ExecContext(context.Background(), `PRAGMA journal_size_limit = 8388608`); err != nil {
-			slog.Debug("PRAGMA journal_size_limit error", slog.String("db", s.baseName), slogutil.Error(err))
-		}
-
-		// Every 50th checkpoint becomes a truncate, in an effort to bring
-		// down the size now and then.
-		checkpointType := "RESTART"
-		if s.checkpointsCount > 50 {
-			checkpointType = "TRUNCATE"
-		}
-		cmd := fmt.Sprintf(`PRAGMA wal_checkpoint(%s)`, checkpointType)
-		row := conn.QueryRowContext(context.Background(), cmd)
-
-		var res, modified, moved int
-		if row.Err() != nil {
-			slog.Debug("Command error", slog.String("db", s.baseName), slog.String("cmd", cmd), slogutil.Error(err))
-		} else if err := row.Scan(&res, &modified, &moved); err != nil {
-			slog.Debug("Command scan error", slog.String("db", s.baseName), slog.String("cmd", cmd), slogutil.Error(err))
-		} else {
-			slog.Debug("Checkpoint result", "db", s.baseName, "checkpointscount", s.checkpointsCount, "updatepoints", s.updatePoints, "res", res, "modified", modified, "moved", moved)
-		}
-
-		// Reset the truncate counter when a truncate succeeded. If it
-		// failed, we'll keep trying it until we succeed. Increase it faster
-		// when we fail to checkpoint, as it's more likely the WAL is
-		// growing and will need truncation when we get out of this state.
-		switch {
-		case res == 1:
-			s.checkpointsCount += 10
-		case res == 0 && checkpointType == "TRUNCATE":
-			s.checkpointsCount = 0
-		default:
-			s.checkpointsCount++
-		}
-		s.updatePoints = 0
-	}
 }
