@@ -346,10 +346,18 @@ ul.three-columns li, ul.two-columns li {
 }
 
 /*
+ * Folder Tree Ignores tweaks
+ */
+
+#folderGlobalTree .fancytree-container {
+    padding-left: 0;
+}
+
+/*
  * Restore Versions tweaks
  */
 
-#restoreTree-container {
+#restoreTree-container, #folderGlobalTree-container {
     overflow-y: scroll;
     resize: vertical;
     /* Limit height to prevent vertical screen overflow. */
@@ -357,11 +365,13 @@ ul.three-columns li, ul.two-columns li {
     /* Always fit at least one folder with dropdown open. */
     min-height: 136px;
 }
+
 @media (min-width: 768px) {
     #restoreTree-container {
         max-height: calc(100vh - 401px);
     }
 }
+
 @media (min-width: 992px) {
     #restoreTree-container {
         max-height: calc(100vh - 333px);
@@ -369,7 +379,7 @@ ul.three-columns li, ul.two-columns li {
 }
 
 /* Ignore fixed height when manually resized. */
-#restoreTree-container[style*="height"] {
+#restoreTree-container[style*="height"], #folderGlobalTree-container[style*="height"]  {
     max-height: none;
 }
 
@@ -538,8 +548,8 @@ ul.three-columns li, ul.two-columns li {
 
 /* Make a "well" look more like a readonly text input when grouped with a button */
 .input-group .well-sm {
-  padding-top: 6px;
-  padding-bottom: 6px;
+    padding-top: 6px;
+    padding-bottom: 6px;
 }
 
 /* CJK languages don't use italic at all, hence don't force it on them. */
