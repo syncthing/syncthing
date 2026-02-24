@@ -381,264 +381,269 @@
 
         <div class="col-md-6" aria-labelledby="folder_list" role="region" >
           <h3 id="folder_list"><span translate>Folders</span><span ng-if="folderList().length > 1"> ({{folderList().length}})</span></h3>
-          <div class="panel-group" id="folders">
-            <div class="panel panel-default" ng-repeat="folder in folderList()">
-              <button class="btn panel-heading" data-toggle="collapse" data-parent="#folders" data-target="#folder-{{$index}}" aria-expanded="false">
-                <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id) | percent}}"></div>
-                <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id) | percent}}"></div>
-                <h4 class="panel-title">
-                  <div class="panel-icon hidden-xs">
-                    <span ng-if="folder.type == 'sendreceive'" class="fas fa-fw fa-folder"></span>
-                    <span ng-if="folder.type == 'sendonly'" class="fas fa-fw fa-upload"></span>
-                    <span ng-if="folder.type == 'receiveonly'" class="fas fa-fw fa-download"></span>
-                    <span ng-if="folder.type == 'receiveencrypted'" class="fas fa-fw fa-lock"></span>
+          <div ng-repeat="(folderGroupKey, folderGroup) in folderGroups">
+            <h4>{{ folderGroup }} 
+              <span ng-if="folderListByGroup(folderGroup).length > 1 && folderGroup.length > 0"> ({{folderListByGroup(folderGroup).length}})</span>
+            </h4>
+            <div class="panel-group" id="folders{{ folderGroupKey }}">
+              <div class="panel panel-default" ng-repeat="folder in folderListByGroup(folderGroup)">
+                <button class="btn panel-heading" data-toggle="collapse" data-parent="#folders{{folderGroupKey}}" data-target="#folder-{{folderGroupKey}}-{{$index}}" aria-expanded="false">
+                  <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id) | percent}}"></div>
+                  <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id) | percent}}"></div>
+                  <h4 class="panel-title">
+                    <div class="panel-icon hidden-xs">
+                      <span ng-if="folder.type == 'sendreceive'" class="fas fa-fw fa-folder"></span>
+                      <span ng-if="folder.type == 'sendonly'" class="fas fa-fw fa-upload"></span>
+                      <span ng-if="folder.type == 'receiveonly'" class="fas fa-fw fa-download"></span>
+                      <span ng-if="folder.type == 'receiveencrypted'" class="fas fa-fw fa-lock"></span>
+                    </div>
+                    <div class="panel-status pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
+                      <span class="hidden-xs">{{folderStatusText(folder)}}</span>
+                      <span ng-switch-when="scanning" ng-if="scanPercentage(folder.id) != undefined">({{scanPercentage(folder.id) | percent}})</span>
+                      <span ng-switch-when="syncing">({{syncPercentage(folder.id) | percent}}, {{model[folder.id].needBytes | binary}}B)</span>
+                      <span class="inline-icon">
+                        <span class="visible-xs fa fa-fw {{folderStatusIcon(folder)}}" aria-label="{{folderStatusText(folder)}}"></span>
+                      </span>
+                    </div>
+                    <div class="panel-title-text">
+                      <span tooltip data-original-title="{{folder.label.length != 0 ? folder.id : ''}}">{{folder.label.length != 0 ? folder.label : folder.id}}</span>
+                    </div>
+                  </h4>
+                </button>
+                <div id="folder-{{folderGroupKey}}-{{$index}}" class="panel-collapse collapse">
+                  <div class="panel-body less-padding">
+                    <table class="table table-condensed table-striped table-auto">
+                      <tbody>
+                        <tr class="visible-xs">
+                          <th><span class="fa fa-fw {{folderStatusIcon(folder)}}"></span>&nbsp;<span translate>Folder Status</span></th>
+                          <td class="text-right">{{folderStatusText(folder)}}</td>
+                        </tr>
+                        <tr ng-show="folder.label != undefined && folder.label.length > 0">
+                          <th><span class="fas fa-fw fa-info-circle"></span>&nbsp;<span translate>Folder ID</span></th>
+                          <td class="text-right no-overflow-ellipse">{{folder.id}}</td>
+                        </tr>
+                        <tr>
+                          <th><span class="fas fa-fw fa-folder-open"></span>&nbsp;<span translate>Folder Path</span></th>
+                          <td class="text-right">
+                            <span tooltip data-original-title="{{folder.path}}">{{folder.path}}</span>
+                          </td>
+                        </tr>
+                        <tr ng-if="!folder.paused && (model[folder.id].invalid || model[folder.id].error)">
+                          <th><span class="fas fa-fw fa-exclamation-triangle"></span>&nbsp;<span translate>Error</span></th>
+                          <td class="text-right">
+                            <span tooltip data-original-title="{{model[folder.id].invalid || model[folder.id].error}}">{{model[folder.id].invalid || model[folder.id].error}}</span>
+                          </td>
+                        </tr>
+                        <tr ng-if="!folder.paused">
+                          <th><span class="fas fa-fw fa-globe"></span>&nbsp;<span translate>Global State</span></th>
+                          <td class="text-right">
+                            <span tooltip data-original-title="{{model[folder.id].globalFiles | alwaysNumber | localeNumber}} {{'files' | translate}}, {{model[folder.id].globalDirectories | alwaysNumber | localeNumber}} {{'directories' | translate}}, ~{{model[folder.id].globalBytes | binary}}B">
+                              <span class="far fa-copy"></span>&nbsp;{{model[folder.id].globalFiles | alwaysNumber | localeNumber}}&ensp;
+                              <span class="far fa-folder"></span>&nbsp;{{model[folder.id].globalDirectories | alwaysNumber | localeNumber}}&ensp;
+                              <span class="far fa-hdd"></span>&nbsp;~{{model[folder.id].globalBytes | binary}}B
+                            </span>
+                          </td>
+                        </tr>
+                        <tr ng-if="!folder.paused">
+                          <th><span class="fas fa-fw fa-home"></span>&nbsp;<span translate>Local State</span></th>
+                          <td class="text-right">
+                            <div>
+                              <span tooltip data-original-title="{{model[folder.id].localFiles | alwaysNumber | localeNumber}} {{'files' | translate}}, {{model[folder.id].localDirectories | alwaysNumber | localeNumber}} {{'directories' | translate}}, ~{{model[folder.id].localBytes | binary}}B">
+                                <span class="far fa-copy"></span>&nbsp;{{model[folder.id].localFiles | alwaysNumber | localeNumber}}&ensp;
+                                <span class="far fa-folder"></span>&nbsp;{{model[folder.id].localDirectories | alwaysNumber | localeNumber}}&ensp;
+                                <span class="far fa-hdd"></span>&nbsp;~{{model[folder.id].localBytes | binary}}B
+                              </span>
+                            </div>
+                            <div ng-if="model[folder.id].ignorePatterns">
+                              <a href="" ng-click="editFolderExisting(folder, '#folder-ignores')"><i class="small" translate>Reduced by ignore patterns</i></a>
+                            </div>
+                            <div ng-if="folder.ignoreDelete">
+                              <i class="small">
+                                <span translate>Altered by ignoring deletes.</span>
+                                <a href="{{docsURL('advanced/folder-ignoredelete')}}" target="_blank">
+                                  <span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span>
+                                </a>
+                              </i>
+                            </div>
+                          </td>
+                        </tr>
+                        <tr ng-if="model[folder.id].needTotalItems > 0">
+                          <th><span class="fas fa-fw fa-cloud-download-alt"></span>&nbsp;<span translate>Out of Sync Items</span></th>
+                          <td class="text-right">
+                            <a href="" ng-click="showNeed(folder.id)">{{model[folder.id].needTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
+                          </td>
+                        </tr>
+                        <tr ng-if="folderStatus(folder) === 'scanning' && scanRate(folder.id) > 0">
+                          <th><span class="fas fa-fw fa-hourglass-half"></span>&nbsp;<span translate>Scan Time Remaining</span></th>
+                          <td class="text-right">
+                            <span tooltip data-original-title="{{scanRate(folder.id) | binary}}B/s">~ {{scanRemaining(folder.id)}}</span>
+                          </td>
+                        </tr>
+                        <tr ng-if="hasFailedFiles(folder.id)">
+                          <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Failed Items</span></th>
+                          <!-- Show the number of failed items as a link to bring up the list. -->
+                          <td class="text-right">
+                            <a href="" ng-click="showFailed(folder.id)">{{model[folder.id].pullErrors | alwaysNumber | localeNumber}}&nbsp;<span translate>items</span></a>
+                          </td>
+                        </tr>
+                        <tr ng-if="hasReceiveOnlyChanged(folder)">
+                          <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Locally Changed Items</span></th>
+                          <td class="text-right">
+                            <a href="" ng-click="showLocalChanged(folder.id, folder.type)">{{model[folder.id].receiveOnlyTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyChangedBytes | binary}}B</a>
+                          </td>
+                        </tr>
+                        <tr>
+                          <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folder Type</span></th>
+                          <td class="text-right">
+                            <span ng-if="folder.type == 'sendreceive'" translate>Send &amp; Receive</span>
+                            <span ng-if="folder.type == 'sendonly'" translate>Send Only</span>
+                            <span ng-if="folder.type == 'receiveonly'" translate>Receive Only</span>
+                            <span ng-if="folder.type == 'receiveencrypted'" translate>Receive Encrypted</span>
+                          </td>
+                        </tr>
+                        <tr ng-if="folder.ignorePerms">
+                          <th><span class="far fa-fw fa-minus-square"></span>&nbsp;<span translate>Ignore Permissions</span></th>
+                          <td class="text-right">
+                            <span translate>Yes</span>
+                          </td>
+                        </tr>
+                        <tr>
+                          <th><span class="fas fa-fw fa-refresh"></span>&nbsp;<span translate>Rescans</span></th>
+                          <td class="text-right">
+                            <div ng-if="folder.rescanIntervalS > 0">
+                              <span ng-if="!folder.fsWatcherEnabled" tooltip data-original-title="{{'Periodic scanning at given interval and disabled watching for changes' | translate}}">
+                                <span class="far fa-clock"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
+                                <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Disabled</span>
+                              </span>
+                              <span ng-if="folder.fsWatcherEnabled && (!model[folder.id].watchError || folder.paused || folderStatus(folder) === 'stopped')" tooltip data-original-title="{{'Periodic scanning at given interval and enabled watching for changes' | translate}}">
+                                <span class="far fa-clock"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
+                                <span class="fas fa-eye"></span>&nbsp;<span translate>Enabled</span>
+                              </span>
+                              <span ng-if="folder.fsWatcherEnabled && !folder.paused && folderStatus(folder) !== 'stopped' && model[folder.id].watchError" tooltip data-original-title="{{'Periodic scanning at given interval and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
+                                <span class="far fa-clock"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
+                                <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Failed to set up, retrying</span>
+                              </span>
+                            </div>
+                            <div ng-if="folder.rescanIntervalS <= 0">
+                              <span ng-if="!folder.fsWatcherEnabled" tooltip data-original-title="{{'Disabled periodic scanning and disabled watching for changes' | translate}}">
+                                <span class="far fa-clock"></span>&nbsp;<span translate>Disabled</span>&ensp;
+                                <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Disabled</span>
+                              </span>
+                              <span ng-if="folder.fsWatcherEnabled && (!model[folder.id].watchError || folder.paused || folderStatus(folder) === 'stopped')" tooltip data-original-title="{{'Disabled periodic scanning and enabled watching for changes' | translate}}">
+                                <span class="far fa-clock"></span>&nbsp;<span translate>Disabled</span>&ensp;
+                                <span class="fas fa-eye"></span>&nbsp;<span translate>Enabled</span>
+                              </span>
+                              <span ng-if="folder.fsWatcherEnabled && !folder.paused && folderStatus(folder) !== 'stopped' && model[folder.id].watchError" tooltip data-original-title="{{'Disabled periodic scanning and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
+                                <span class="far fa-clock"></span>&nbsp;<span translate>Disabled</span>&ensp;
+                                <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Failed to set up, retrying</span>
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                        <tr ng-if="folder.type != 'sendonly'">
+                          <th><span class="fas fa-fw fa-sort"></span>&nbsp;<span translate>File Pull Order</span></th>
+                          <td class="text-right" ng-switch="folder.order">
+                            <span ng-switch-when="random" translate>Random</span>
+                            <span ng-switch-when="alphabetic" translate>Alphabetic</span>
+                            <span ng-switch-when="smallestFirst" translate>Smallest First</span>
+                            <span ng-switch-when="largestFirst" translate>Largest First</span>
+                            <span ng-switch-when="oldestFirst" translate>Oldest First</span>
+                            <span ng-switch-when="newestFirst" translate>Newest First</span>
+                          </td>
+                        </tr>
+                        <tr ng-if="folder.versioning.type">
+                          <th><span class="fa fa-fw fa-files-o"></span>&nbsp;<span translate>File Versioning</span></th>
+                          <td class="text-right">
+                            <span ng-switch="folder.versioning.type">
+                              <span ng-switch-when="trashcan" translate>Trash Can</span>
+                              <span ng-switch-when="simple" translate>Simple</span>
+                              <span ng-switch-when="staggered" translate>Staggered</span>
+                              <span ng-switch-when="external" tooltip data-original-title="{{folder.versioning.params.command}}" translate>External</span>
+                            </span>
+                            <span ng-if="folder.versioning.type != 'external'">
+                              <span ng-if="(folder.versioning.type == 'trashcan' || folder.versioning.type == 'simple')" tooltip data-original-title="{{'Clean out after' | translate}}">
+                                &ensp;<span class="fa fa-calendar"></span>&nbsp;<span ng-if="folder.versioning.params.cleanoutDays == 0" translate>Disabled</span><span ng-if="folder.versioning.params.cleanoutDays > 0">{{folder.versioning.params.cleanoutDays * 86400 | duration:"d"}}</span>
+                              </span>
+                              <span ng-if="folder.versioning.type == 'simple'" tooltip data-original-title="{{'Keep Versions' | translate}}">
+                                &ensp;<span class="fa fa-file-archive-o"></span>&nbsp;{{folder.versioning.params.keep}}
+                              </span>
+                              <span ng-if="folder.versioning.type == 'staggered'" tooltip data-original-title="{{'Maximum Age' | translate}}">
+                                &ensp;<span class="fa fa-calendar"></span>&nbsp;<span ng-if="folder.versioning.params.maxAge == 0" translate>Forever</span><span ng-if="folder.versioning.params.maxAge > 0">{{folder.versioning.params.maxAge | duration}}</span>
+                              </span>
+                              <span tooltip data-original-title="{{'Cleanup Interval' | translate}}">
+                                &ensp;<span class="fa fa-recycle"></span>&nbsp;<span ng-if="folder.versioning.cleanupIntervalS == 0" translate>Disabled</span><span ng-if="folder.versioning.cleanupIntervalS > 0">{{folder.versioning.cleanupIntervalS | duration}}</span>
+                              </span>
+                              <!-- Keep the path last, so that it truncates without pushing other information out of the screen. -->
+                              <span tooltip data-original-title="{{folder.versioning.fsPath === '' ? '.stversions' : folder.versioning.fsPath}}">
+                                &ensp;<span class="fa fa-folder-open-o"></span>&nbsp;{{folder.versioning.fsPath === '' ? '.stversions' : folder.versioning.fsPath}}
+                              </span>
+                            </span>
+                          </td>
+                        </tr>
+                        <tr>
+                          <th><span class="fas fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
+                          <td class="text-right no-overflow-ellipse overflow-break-word">
+                            <span ng-repeat="device in otherDevices(folder.devices)">
+                              <span ng-if="folder.type !== 'receiveencrypted' && device.encryptionPassword" class="text-nowrap">
+                                <span class="fa fa-lock"></span>&nbsp;<!-- Avoid stray space...
+                          --></span><!-- Avoid stray space...
+                          --><span ng-switch="completion[device.deviceID][folder.id].remoteState"><!-- Avoid stray space...
+                            --><a ng-switch-when="notSharing" href="" ng-click="editDeviceExisting(devices[device.deviceID])" data-original-title="{{'The remote device has not accepted sharing this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>1</sup></a><!-- Avoid stray space...
+                            --><a ng-switch-when="paused" href="" ng-click="editDeviceExisting(devices[device.deviceID])" data-original-title="{{'The remote device has paused this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>2</sup></a><!-- Avoid stray space...
+                            --><a ng-switch-default href="" ng-click="editDeviceExisting(devices[device.deviceID])">{{deviceName(devices[device.deviceID])}}</a><!-- Avoid stray space...
+                            --><span ng-if="!$last">,</span>
+                              </span>
+                            </span>
+                          </td>
+                        </tr>
+                        <tr ng-if="folderStats[folder.id].lastScan">
+                          <th><span class="far fa-fw fa-clock"></span>&nbsp;<span translate>Last Scan</span></th>
+                          <td translate ng-if="folderStats[folder.id].lastScanDays >= 365" class="text-right">Never</td>
+                          <td ng-if="folderStats[folder.id].lastScanDays < 365" class="text-right">
+                            <span>{{folderStats[folder.id].lastScan | date:'yyyy-MM-dd HH:mm:ss'}}</span>
+                          </td>
+                        </tr>
+                        <tr ng-if="folder.type != 'sendonly' && folder.type != 'receiveencrypted' && folderStats[folder.id].lastFile && folderStats[folder.id].lastFile.filename">
+                          <th><span class="fas fa-fw fa-exchange-alt"></span>&nbsp;<span translate>Latest Change</span></th>
+                          <td class="text-right">
+                            <span tooltip data-original-title="{{folderStats[folder.id].lastFile.filename}} @ {{folderStats[folder.id].lastFile.at | date:'yyyy-MM-dd HH:mm:ss'}}">
+                              <span translate translate-value-file="{{folderStats[folder.id].lastFile.filename | basename}}" ng-if="!folderStats[folder.id].lastFile.deleted">Updated {%file%}</span>
+                              <span translate translate-value-file="{{folderStats[folder.id].lastFile.filename | basename}}" ng-if="folderStats[folder.id].lastFile.deleted">Deleted {%file%}</span>
+                            </span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
-                  <div class="panel-status pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
-                    <span class="hidden-xs">{{folderStatusText(folder)}}</span>
-                    <span ng-switch-when="scanning" ng-if="scanPercentage(folder.id) != undefined">({{scanPercentage(folder.id) | percent}})</span>
-                    <span ng-switch-when="syncing">({{syncPercentage(folder.id) | percent}}, {{model[folder.id].needBytes | binary}}B)</span>
-                    <span class="inline-icon">
-                      <span class="visible-xs fa fa-fw {{folderStatusIcon(folder)}}" aria-label="{{folderStatusText(folder)}}"></span>
+                  <div class="panel-footer">
+                    <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('override', folder.id)" ng-if="folderStatus(folder) == 'outofsync' && folder.type == 'sendonly'">
+                      <span class="fas fa-arrow-circle-up"></span>&nbsp;<span translate>Override Changes</span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('revert', folder.id)" ng-if="hasReceiveOnlyChanged(folder) && ['outofsync', 'faileditems', 'localadditions'].indexOf(folderStatus(folder)) >= 0">
+                      <span class="fa fa-arrow-circle-down"></span>&nbsp;<span translate>Revert Local Changes</span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('deleteEnc', folder.id)" ng-if="hasReceiveEncryptedItems(folder) && ['outofsync', 'faileditems', 'localunencrypted'].indexOf(folderStatus(folder)) >= 0">
+                      <span class="fa fa-minus-circle"></span>&nbsp;<span translate>Delete Unexpected Items</span>
+                    </button>
+                    <span class="pull-right">
+                      <button ng-if="!folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, true)">
+                        <span class="fas fa-pause"></span>&nbsp;<span translate>Pause</span>
+                      </button>
+                      <button ng-if="folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, false)">
+                        <span class="fas fa-play"></span>&nbsp;<span translate>Resume</span>
+                      </button>
+                      <button type="button" class="btn btn-default btn-sm" ng-click="restoreVersions.show(folder.id)" ng-if="folder.versioning.type && folder.versioning.type != 'external'" ng-disabled="folder.paused">
+                        <span class="fas fa-undo"></span>&nbsp;<span translate>Versions</span>
+                      </button>
+                      <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-disabled="['idle', 'stopped', 'unshared', 'outofsync', 'faileditems', 'localadditions'].indexOf(folderStatus(folder)) < 0">
+                        <span class="fas fa-refresh"></span>&nbsp;<span translate>Rescan</span>
+                      </button>
+                      <button type="button" class="btn btn-sm btn-default" ng-click="editFolderExisting(folder)">
+                        <span class="fas fa-pencil-alt"></span>&nbsp;<span translate>Edit</span>
+                      </button>
                     </span>
+                    <div class="clearfix"></div>
                   </div>
-                  <div class="panel-title-text">
-                    <span tooltip data-original-title="{{folder.label.length != 0 ? folder.id : ''}}">{{folder.label.length != 0 ? folder.label : folder.id}}</span>
-                  </div>
-                </h4>
-              </button>
-              <div id="folder-{{$index}}" class="panel-collapse collapse">
-                <div class="panel-body less-padding">
-                  <table class="table table-condensed table-striped table-auto">
-                    <tbody>
-                      <tr class="visible-xs">
-                        <th><span class="fa fa-fw {{folderStatusIcon(folder)}}"></span>&nbsp;<span translate>Folder Status</span></th>
-                        <td class="text-right">{{folderStatusText(folder)}}</td>
-                      </tr>
-                      <tr ng-show="folder.label != undefined && folder.label.length > 0">
-                        <th><span class="fas fa-fw fa-info-circle"></span>&nbsp;<span translate>Folder ID</span></th>
-                        <td class="text-right no-overflow-ellipse">{{folder.id}}</td>
-                      </tr>
-                      <tr>
-                        <th><span class="fas fa-fw fa-folder-open"></span>&nbsp;<span translate>Folder Path</span></th>
-                        <td class="text-right">
-                          <span tooltip data-original-title="{{folder.path}}">{{folder.path}}</span>
-                        </td>
-                      </tr>
-                      <tr ng-if="!folder.paused && (model[folder.id].invalid || model[folder.id].error)">
-                        <th><span class="fas fa-fw fa-exclamation-triangle"></span>&nbsp;<span translate>Error</span></th>
-                        <td class="text-right">
-                          <span tooltip data-original-title="{{model[folder.id].invalid || model[folder.id].error}}">{{model[folder.id].invalid || model[folder.id].error}}</span>
-                        </td>
-                      </tr>
-                      <tr ng-if="!folder.paused">
-                        <th><span class="fas fa-fw fa-globe"></span>&nbsp;<span translate>Global State</span></th>
-                        <td class="text-right">
-                          <span tooltip data-original-title="{{model[folder.id].globalFiles | alwaysNumber | localeNumber}} {{'files' | translate}}, {{model[folder.id].globalDirectories | alwaysNumber | localeNumber}} {{'directories' | translate}}, ~{{model[folder.id].globalBytes | binary}}B">
-                            <span class="far fa-copy"></span>&nbsp;{{model[folder.id].globalFiles | alwaysNumber | localeNumber}}&ensp;
-                            <span class="far fa-folder"></span>&nbsp;{{model[folder.id].globalDirectories | alwaysNumber | localeNumber}}&ensp;
-                            <span class="far fa-hdd"></span>&nbsp;~{{model[folder.id].globalBytes | binary}}B
-                          </span>
-                        </td>
-                      </tr>
-                      <tr ng-if="!folder.paused">
-                        <th><span class="fas fa-fw fa-home"></span>&nbsp;<span translate>Local State</span></th>
-                        <td class="text-right">
-                          <div>
-                            <span tooltip data-original-title="{{model[folder.id].localFiles | alwaysNumber | localeNumber}} {{'files' | translate}}, {{model[folder.id].localDirectories | alwaysNumber | localeNumber}} {{'directories' | translate}}, ~{{model[folder.id].localBytes | binary}}B">
-                              <span class="far fa-copy"></span>&nbsp;{{model[folder.id].localFiles | alwaysNumber | localeNumber}}&ensp;
-                              <span class="far fa-folder"></span>&nbsp;{{model[folder.id].localDirectories | alwaysNumber | localeNumber}}&ensp;
-                              <span class="far fa-hdd"></span>&nbsp;~{{model[folder.id].localBytes | binary}}B
-                            </span>
-                          </div>
-                          <div ng-if="model[folder.id].ignorePatterns">
-                            <a href="" ng-click="editFolderExisting(folder, '#folder-ignores')"><i class="small" translate>Reduced by ignore patterns</i></a>
-                          </div>
-                          <div ng-if="folder.ignoreDelete">
-                            <i class="small">
-                              <span translate>Altered by ignoring deletes.</span>
-                              <a href="{{docsURL('advanced/folder-ignoredelete')}}" target="_blank">
-                                <span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span>
-                              </a>
-                            </i>
-                          </div>
-                        </td>
-                      </tr>
-                      <tr ng-if="model[folder.id].needTotalItems > 0">
-                        <th><span class="fas fa-fw fa-cloud-download-alt"></span>&nbsp;<span translate>Out of Sync Items</span></th>
-                        <td class="text-right">
-                          <a href="" ng-click="showNeed(folder.id)">{{model[folder.id].needTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
-                        </td>
-                      </tr>
-                      <tr ng-if="folderStatus(folder) === 'scanning' && scanRate(folder.id) > 0">
-                        <th><span class="fas fa-fw fa-hourglass-half"></span>&nbsp;<span translate>Scan Time Remaining</span></th>
-                        <td class="text-right">
-                          <span tooltip data-original-title="{{scanRate(folder.id) | binary}}B/s">~ {{scanRemaining(folder.id)}}</span>
-                        </td>
-                      </tr>
-                      <tr ng-if="hasFailedFiles(folder.id)">
-                        <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Failed Items</span></th>
-                        <!-- Show the number of failed items as a link to bring up the list. -->
-                        <td class="text-right">
-                          <a href="" ng-click="showFailed(folder.id)">{{model[folder.id].pullErrors | alwaysNumber | localeNumber}}&nbsp;<span translate>items</span></a>
-                        </td>
-                      </tr>
-                      <tr ng-if="hasReceiveOnlyChanged(folder)">
-                        <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Locally Changed Items</span></th>
-                        <td class="text-right">
-                          <a href="" ng-click="showLocalChanged(folder.id, folder.type)">{{model[folder.id].receiveOnlyTotalItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{model[folder.id].receiveOnlyChangedBytes | binary}}B</a>
-                        </td>
-                      </tr>
-                      <tr>
-                        <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folder Type</span></th>
-                        <td class="text-right">
-                          <span ng-if="folder.type == 'sendreceive'" translate>Send &amp; Receive</span>
-                          <span ng-if="folder.type == 'sendonly'" translate>Send Only</span>
-                          <span ng-if="folder.type == 'receiveonly'" translate>Receive Only</span>
-                          <span ng-if="folder.type == 'receiveencrypted'" translate>Receive Encrypted</span>
-                        </td>
-                      </tr>
-                      <tr ng-if="folder.ignorePerms">
-                        <th><span class="far fa-fw fa-minus-square"></span>&nbsp;<span translate>Ignore Permissions</span></th>
-                        <td class="text-right">
-                          <span translate>Yes</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <th><span class="fas fa-fw fa-refresh"></span>&nbsp;<span translate>Rescans</span></th>
-                        <td class="text-right">
-                          <div ng-if="folder.rescanIntervalS > 0">
-                            <span ng-if="!folder.fsWatcherEnabled" tooltip data-original-title="{{'Periodic scanning at given interval and disabled watching for changes' | translate}}">
-                              <span class="far fa-clock"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
-                              <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Disabled</span>
-                            </span>
-                            <span ng-if="folder.fsWatcherEnabled && (!model[folder.id].watchError || folder.paused || folderStatus(folder) === 'stopped')" tooltip data-original-title="{{'Periodic scanning at given interval and enabled watching for changes' | translate}}">
-                              <span class="far fa-clock"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
-                              <span class="fas fa-eye"></span>&nbsp;<span translate>Enabled</span>
-                            </span>
-                            <span ng-if="folder.fsWatcherEnabled && !folder.paused && folderStatus(folder) !== 'stopped' && model[folder.id].watchError" tooltip data-original-title="{{'Periodic scanning at given interval and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
-                              <span class="far fa-clock"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
-                              <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Failed to set up, retrying</span>
-                            </span>
-                          </div>
-                          <div ng-if="folder.rescanIntervalS <= 0">
-                            <span ng-if="!folder.fsWatcherEnabled" tooltip data-original-title="{{'Disabled periodic scanning and disabled watching for changes' | translate}}">
-                              <span class="far fa-clock"></span>&nbsp;<span translate>Disabled</span>&ensp;
-                              <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Disabled</span>
-                            </span>
-                            <span ng-if="folder.fsWatcherEnabled && (!model[folder.id].watchError || folder.paused || folderStatus(folder) === 'stopped')" tooltip data-original-title="{{'Disabled periodic scanning and enabled watching for changes' | translate}}">
-                              <span class="far fa-clock"></span>&nbsp;<span translate>Disabled</span>&ensp;
-                              <span class="fas fa-eye"></span>&nbsp;<span translate>Enabled</span>
-                            </span>
-                            <span ng-if="folder.fsWatcherEnabled && !folder.paused && folderStatus(folder) !== 'stopped' && model[folder.id].watchError" tooltip data-original-title="{{'Disabled periodic scanning and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
-                              <span class="far fa-clock"></span>&nbsp;<span translate>Disabled</span>&ensp;
-                              <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Failed to set up, retrying</span>
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                      <tr ng-if="folder.type != 'sendonly'">
-                        <th><span class="fas fa-fw fa-sort"></span>&nbsp;<span translate>File Pull Order</span></th>
-                        <td class="text-right" ng-switch="folder.order">
-                          <span ng-switch-when="random" translate>Random</span>
-                          <span ng-switch-when="alphabetic" translate>Alphabetic</span>
-                          <span ng-switch-when="smallestFirst" translate>Smallest First</span>
-                          <span ng-switch-when="largestFirst" translate>Largest First</span>
-                          <span ng-switch-when="oldestFirst" translate>Oldest First</span>
-                          <span ng-switch-when="newestFirst" translate>Newest First</span>
-                        </td>
-                      </tr>
-                      <tr ng-if="folder.versioning.type">
-                        <th><span class="fa fa-fw fa-files-o"></span>&nbsp;<span translate>File Versioning</span></th>
-                        <td class="text-right">
-                          <span ng-switch="folder.versioning.type">
-                            <span ng-switch-when="trashcan" translate>Trash Can</span>
-                            <span ng-switch-when="simple" translate>Simple</span>
-                            <span ng-switch-when="staggered" translate>Staggered</span>
-                            <span ng-switch-when="external" tooltip data-original-title="{{folder.versioning.params.command}}" translate>External</span>
-                          </span>
-                          <span ng-if="folder.versioning.type != 'external'">
-                            <span ng-if="(folder.versioning.type == 'trashcan' || folder.versioning.type == 'simple')" tooltip data-original-title="{{'Clean out after' | translate}}">
-                              &ensp;<span class="fa fa-calendar"></span>&nbsp;<span ng-if="folder.versioning.params.cleanoutDays == 0" translate>Disabled</span><span ng-if="folder.versioning.params.cleanoutDays > 0">{{folder.versioning.params.cleanoutDays * 86400 | duration:"d"}}</span>
-                            </span>
-                            <span ng-if="folder.versioning.type == 'simple'" tooltip data-original-title="{{'Keep Versions' | translate}}">
-                              &ensp;<span class="fa fa-file-archive-o"></span>&nbsp;{{folder.versioning.params.keep}}
-                            </span>
-                            <span ng-if="folder.versioning.type == 'staggered'" tooltip data-original-title="{{'Maximum Age' | translate}}">
-                              &ensp;<span class="fa fa-calendar"></span>&nbsp;<span ng-if="folder.versioning.params.maxAge == 0" translate>Forever</span><span ng-if="folder.versioning.params.maxAge > 0">{{folder.versioning.params.maxAge | duration}}</span>
-                            </span>
-                            <span tooltip data-original-title="{{'Cleanup Interval' | translate}}">
-                              &ensp;<span class="fa fa-recycle"></span>&nbsp;<span ng-if="folder.versioning.cleanupIntervalS == 0" translate>Disabled</span><span ng-if="folder.versioning.cleanupIntervalS > 0">{{folder.versioning.cleanupIntervalS | duration}}</span>
-                            </span>
-                            <!-- Keep the path last, so that it truncates without pushing other information out of the screen. -->
-                            <span tooltip data-original-title="{{folder.versioning.fsPath === '' ? '.stversions' : folder.versioning.fsPath}}">
-                              &ensp;<span class="fa fa-folder-open-o"></span>&nbsp;{{folder.versioning.fsPath === '' ? '.stversions' : folder.versioning.fsPath}}
-                            </span>
-                          </span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <th><span class="fas fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
-                        <td class="text-right no-overflow-ellipse overflow-break-word">
-                          <span ng-repeat="device in otherDevices(folder.devices)">
-                            <span ng-if="folder.type !== 'receiveencrypted' && device.encryptionPassword" class="text-nowrap">
-                              <span class="fa fa-lock"></span>&nbsp;<!-- Avoid stray space...
-                         --></span><!-- Avoid stray space...
-                         --><span ng-switch="completion[device.deviceID][folder.id].remoteState"><!-- Avoid stray space...
-                           --><a ng-switch-when="notSharing" href="" ng-click="editDeviceExisting(devices[device.deviceID])" data-original-title="{{'The remote device has not accepted sharing this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>1</sup></a><!-- Avoid stray space...
-                           --><a ng-switch-when="paused" href="" ng-click="editDeviceExisting(devices[device.deviceID])" data-original-title="{{'The remote device has paused this folder.' | translate}}" tooltip>{{deviceName(devices[device.deviceID])}}<sup>2</sup></a><!-- Avoid stray space...
-                           --><a ng-switch-default href="" ng-click="editDeviceExisting(devices[device.deviceID])">{{deviceName(devices[device.deviceID])}}</a><!-- Avoid stray space...
-                           --><span ng-if="!$last">,</span>
-                            </span>
-                          </span>
-                        </td>
-                      </tr>
-                      <tr ng-if="folderStats[folder.id].lastScan">
-                        <th><span class="far fa-fw fa-clock"></span>&nbsp;<span translate>Last Scan</span></th>
-                        <td translate ng-if="folderStats[folder.id].lastScanDays >= 365" class="text-right">Never</td>
-                        <td ng-if="folderStats[folder.id].lastScanDays < 365" class="text-right">
-                          <span>{{folderStats[folder.id].lastScan | date:'yyyy-MM-dd HH:mm:ss'}}</span>
-                        </td>
-                      </tr>
-                      <tr ng-if="folder.type != 'sendonly' && folder.type != 'receiveencrypted' && folderStats[folder.id].lastFile && folderStats[folder.id].lastFile.filename">
-                        <th><span class="fas fa-fw fa-exchange-alt"></span>&nbsp;<span translate>Latest Change</span></th>
-                        <td class="text-right">
-                          <span tooltip data-original-title="{{folderStats[folder.id].lastFile.filename}} @ {{folderStats[folder.id].lastFile.at | date:'yyyy-MM-dd HH:mm:ss'}}">
-                            <span translate translate-value-file="{{folderStats[folder.id].lastFile.filename | basename}}" ng-if="!folderStats[folder.id].lastFile.deleted">Updated {%file%}</span>
-                            <span translate translate-value-file="{{folderStats[folder.id].lastFile.filename | basename}}" ng-if="folderStats[folder.id].lastFile.deleted">Deleted {%file%}</span>
-                          </span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div class="panel-footer">
-                  <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('override', folder.id)" ng-if="folderStatus(folder) == 'outofsync' && folder.type == 'sendonly'">
-                    <span class="fas fa-arrow-circle-up"></span>&nbsp;<span translate>Override Changes</span>
-                  </button>
-                  <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('revert', folder.id)" ng-if="hasReceiveOnlyChanged(folder) && ['outofsync', 'faileditems', 'localadditions'].indexOf(folderStatus(folder)) >= 0">
-                    <span class="fa fa-arrow-circle-down"></span>&nbsp;<span translate>Revert Local Changes</span>
-                  </button>
-                  <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revertOverrideConfirmationModal('deleteEnc', folder.id)" ng-if="hasReceiveEncryptedItems(folder) && ['outofsync', 'faileditems', 'localunencrypted'].indexOf(folderStatus(folder)) >= 0">
-                    <span class="fa fa-minus-circle"></span>&nbsp;<span translate>Delete Unexpected Items</span>
-                  </button>
-                  <span class="pull-right">
-                    <button ng-if="!folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, true)">
-                      <span class="fas fa-pause"></span>&nbsp;<span translate>Pause</span>
-                    </button>
-                    <button ng-if="folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, false)">
-                      <span class="fas fa-play"></span>&nbsp;<span translate>Resume</span>
-                    </button>
-                    <button type="button" class="btn btn-default btn-sm" ng-click="restoreVersions.show(folder.id)" ng-if="folder.versioning.type && folder.versioning.type != 'external'" ng-disabled="folder.paused">
-                      <span class="fas fa-undo"></span>&nbsp;<span translate>Versions</span>
-                    </button>
-                    <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-disabled="['idle', 'stopped', 'unshared', 'outofsync', 'faileditems', 'localadditions'].indexOf(folderStatus(folder)) < 0">
-                      <span class="fas fa-refresh"></span>&nbsp;<span translate>Rescan</span>
-                    </button>
-                    <button type="button" class="btn btn-sm btn-default" ng-click="editFolderExisting(folder)">
-                      <span class="fas fa-pencil-alt"></span>&nbsp;<span translate>Edit</span>
-                    </button>
-                  </span>
-                  <div class="clearfix"></div>
                 </div>
               </div>
             </div>
