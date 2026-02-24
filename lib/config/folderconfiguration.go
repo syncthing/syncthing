@@ -87,6 +87,7 @@ type FolderConfiguration struct {
 	SyncXattrs              bool                        `json:"syncXattrs" xml:"syncXattrs"`
 	SendXattrs              bool                        `json:"sendXattrs" xml:"sendXattrs"`
 	XattrFilter             XattrFilter                 `json:"xattrFilter" xml:"xattrFilter"`
+	ConflictHandling        ConflictHandling            `json:"conflictHandling" xml:"conflictHandling"`
 	// Legacy deprecated
 	DeprecatedReadOnly       bool    `json:"-" xml:"ro,attr,omitempty"`        // Deprecated: Do not use.
 	DeprecatedMinDiskFreePct float64 `json:"-" xml:"minDiskFreePct,omitempty"` // Deprecated: Do not use.
@@ -109,6 +110,11 @@ type XattrFilter struct {
 type XattrFilterEntry struct {
 	Match  string `json:"match" xml:"match,attr"`
 	Permit bool   `json:"permit" xml:"permit,attr"`
+}
+
+type ConflictHandling struct {
+	ExternalMergeEnabled bool   `json:"externalMergeEnabled" xml:"externalMergeEnabled" default:"false"`
+	ExternalMergeCommand string `json:"externalMergeCommand" xml:"externalMergeCommand"`
 }
 
 func (f FolderConfiguration) Copy() FolderConfiguration {

@@ -10,16 +10,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/cmdutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
-
-	"github.com/kballard/go-shellquote"
 )
 
 func init() {
@@ -64,40 +62,17 @@ func (v external) Archive(filePath string) error {
 
 	l.Debugln("archiving", filePath)
 
-	if v.command == "" {
-		return errors.New("command is empty, please enter a valid command")
-	}
-
-	words, err := shellquote.Split(v.command)
-	if err != nil {
-		return fmt.Errorf("command is invalid: %w", err)
-	}
-
 	context := map[string]string{
 		"%FOLDER_FILESYSTEM%": string(v.filesystem.Type()),
 		"%FOLDER_PATH%":       v.filesystem.URI(),
 		"%FILE_PATH%":         filePath,
 	}
 
-	for i, word := range words {
-		for key, val := range context {
-			word = strings.ReplaceAll(word, key, val)
-		}
-
-		words[i] = word
+	cmd, err := cmdutil.FormattedCommand(v.command, context)
+	if err != nil {
+		return err
 	}
 
-	cmd := exec.Command(words[0], words[1:]...)
-	env := os.Environ()
-	// filter STGUIAUTH and STGUIAPIKEY from environment variables
-	var filteredEnv []string
-
-	for _, x := range env {
-		if !strings.HasPrefix(x, "STGUIAUTH=") && !strings.HasPrefix(x, "STGUIAPIKEY=") {
-			filteredEnv = append(filteredEnv, x)
-		}
-	}
-	cmd.Env = filteredEnv
 	combinedOutput, err := cmd.CombinedOutput()
 	l.Debugln("external command output:", string(combinedOutput))
 	if err != nil {
