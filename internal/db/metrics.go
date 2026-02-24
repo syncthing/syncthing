@@ -128,6 +128,11 @@ func (m metricsDB) DropAllFiles(folder string, device protocol.DeviceID) error {
 	return m.DB.DropAllFiles(folder, device)
 }
 
+func (m metricsDB) DropFolderDevice(folder string, device protocol.DeviceID) error {
+	defer m.account(folder, "DropFolderDevice")()
+	return m.DB.DropFolderDevice(folder, device)
+}
+
 func (m metricsDB) DropDevice(device protocol.DeviceID) error {
 	defer m.account("-", "DropDevice")()
 	return m.DB.DropDevice(device)
