@@ -84,7 +84,7 @@ func (s *DB) getFolderDB(folder string, create bool) (*folderDB, error) {
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(s.pathBase, dbName)
 	}
-	fdb, err := s.folderDBOpener(folder, path, s.deleteRetention)
+	fdb, err := s.folderDBOpener(folder, path, s.deleteRetention, s.cacheSizeMiB)
 	if err != nil {
 		return nil, wrap(err)
 	}

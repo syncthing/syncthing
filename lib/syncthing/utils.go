@@ -145,8 +145,8 @@ func copyFile(src, dst string) error {
 }
 
 // Opens a database
-func OpenDatabase(path string, deleteRetention time.Duration) (db.DB, error) {
-	sql, err := sqlite.Open(path, sqlite.WithDeleteRetention(deleteRetention))
+func OpenDatabase(path string, deleteRetention time.Duration, cacheSizeMiB int) (db.DB, error) {
+	sql, err := sqlite.Open(path, sqlite.WithDeleteRetention(deleteRetention), sqlite.WithCacheSizeMiB(cacheSizeMiB))
 	if err != nil {
 		return nil, err
 	}

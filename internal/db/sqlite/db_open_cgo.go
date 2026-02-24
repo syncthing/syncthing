@@ -9,6 +9,8 @@
 package sqlite
 
 import (
+	"fmt"
+
 	_ "github.com/mattn/go-sqlite3" // register sqlite3 database driver
 )
 
@@ -16,3 +18,7 @@ const (
 	dbDriver      = "sqlite3"
 	commonOptions = "_fk=true&_rt=true&_sync=1&_txlock=immediate"
 )
+
+func commonOptionsWithCache(sizeKiB int) string {
+	return fmt.Sprintf("%s&_cache_size=-%d", commonOptions, sizeKiB)
+}

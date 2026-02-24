@@ -151,27 +151,28 @@ func (c *CLI) AfterApply() error {
 type serveCmd struct {
 	buildSpecificOptions
 
-	AllowNewerConfig          bool          `help:"Allow loading newer than current config version" env:"STALLOWNEWERCONFIG"`
-	Audit                     bool          `help:"Write events to audit file" env:"STAUDIT"`
-	AuditFile                 string        `name:"auditfile" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)" placeholder:"PATH" env:"STAUDITFILE"`
-	DBMaintenanceInterval     time.Duration `help:"Database maintenance interval; set to zero to disable periodic maintenance" default:"8h" env:"STDBMAINTENANCEINTERVAL"`
-	DBDeleteRetentionInterval time.Duration `help:"Database deleted item retention interval" default:"10920h" env:"STDBDELETERETENTIONINTERVAL"`
-	GUIAddress                string        `name:"gui-address" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")" placeholder:"URL" env:"STGUIADDRESS"`
-	GUIAPIKey                 string        `name:"gui-apikey" help:"Override GUI API key" placeholder:"API-KEY" env:"STGUIAPIKEY"`
-	LogFile                   string        `name:"log-file" aliases:"logfile" help:"Log file name (see below)" default:"${logFile}" placeholder:"PATH" env:"STLOGFILE"`
-	LogFlags                  int           `name:"logflags" help:"Deprecated option that does nothing, kept for compatibility" hidden:""`
-	LogLevel                  slog.Level    `help:"Log level for all packages (DEBUG,INFO,WARN,ERROR)" env:"STLOGLEVEL" default:"INFO"`
-	LogMaxFiles               int           `name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)" default:"${logMaxFiles}" placeholder:"N" env:"STLOGMAXOLDFILES"`
-	LogMaxSize                int           `help:"Maximum size of any file (zero to disable log rotation)" default:"${logMaxSize}" placeholder:"BYTES" env:"STLOGMAXSIZE"`
-	LogFormatTimestamp        string        `name:"log-format-timestamp" help:"Format for timestamp, set to empty to disable timestamps" env:"STLOGFORMATTIMESTAMP" default:"${timestampFormat}"`
-	LogFormatLevelString      bool          `name:"log-format-level-string" help:"Whether to include level string in log line" env:"STLOGFORMATLEVELSTRING" default:"${levelString}" negatable:""`
-	LogFormatLevelSyslog      bool          `name:"log-format-level-syslog" help:"Whether to include level as syslog prefix in log line" env:"STLOGFORMATLEVELSYSLOG" default:"${levelSyslog}" negatable:""`
-	NoBrowser                 bool          `help:"Do not start browser" env:"STNOBROWSER"`
-	NoPortProbing             bool          `help:"Don't try to find free ports for GUI and listen addresses on first startup" env:"STNOPORTPROBING"`
-	NoRestart                 bool          `help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash" env:"STNORESTART"`
-	NoUpgrade                 bool          `help:"Disable automatic upgrades" env:"STNOUPGRADE"`
-	Paused                    bool          `help:"Start with all devices and folders paused" env:"STPAUSED"`
-	Unpaused                  bool          `help:"Start with all devices and folders unpaused" env:"STUNPAUSED"`
+	AllowNewerConfig           bool          `help:"Allow loading newer than current config version" env:"STALLOWNEWERCONFIG"`
+	Audit                      bool          `help:"Write events to audit file" env:"STAUDIT"`
+	AuditFile                  string        `name:"auditfile" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)" placeholder:"PATH" env:"STAUDITFILE"`
+	DBMaintenanceInterval      time.Duration `help:"Database maintenance interval; set to zero to disable periodic maintenance" default:"8h" env:"STDBMAINTENANCEINTERVAL"`
+	DBDeleteRetentionInterval  time.Duration `help:"Database deleted item retention interval" default:"10920h" env:"STDBDELETERETENTIONINTERVAL"`
+	DBPerFolderMaxCacheSizeMiB int           `help:"Maximum size of database memory cache per folder (MiB)" default:"32" env:"STDBPERFOLDERMAXCACHESIZEMIB"`
+	GUIAddress                 string        `name:"gui-address" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")" placeholder:"URL" env:"STGUIADDRESS"`
+	GUIAPIKey                  string        `name:"gui-apikey" help:"Override GUI API key" placeholder:"API-KEY" env:"STGUIAPIKEY"`
+	LogFile                    string        `name:"log-file" aliases:"logfile" help:"Log file name (see below)" default:"${logFile}" placeholder:"PATH" env:"STLOGFILE"`
+	LogFlags                   int           `name:"logflags" help:"Deprecated option that does nothing, kept for compatibility" hidden:""`
+	LogLevel                   slog.Level    `help:"Log level for all packages (DEBUG,INFO,WARN,ERROR)" env:"STLOGLEVEL" default:"INFO"`
+	LogMaxFiles                int           `name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)" default:"${logMaxFiles}" placeholder:"N" env:"STLOGMAXOLDFILES"`
+	LogMaxSize                 int           `help:"Maximum size of any file (zero to disable log rotation)" default:"${logMaxSize}" placeholder:"BYTES" env:"STLOGMAXSIZE"`
+	LogFormatTimestamp         string        `name:"log-format-timestamp" help:"Format for timestamp, set to empty to disable timestamps" env:"STLOGFORMATTIMESTAMP" default:"${timestampFormat}"`
+	LogFormatLevelString       bool          `name:"log-format-level-string" help:"Whether to include level string in log line" env:"STLOGFORMATLEVELSTRING" default:"${levelString}" negatable:""`
+	LogFormatLevelSyslog       bool          `name:"log-format-level-syslog" help:"Whether to include level as syslog prefix in log line" env:"STLOGFORMATLEVELSYSLOG" default:"${levelSyslog}" negatable:""`
+	NoBrowser                  bool          `help:"Do not start browser" env:"STNOBROWSER"`
+	NoPortProbing              bool          `help:"Don't try to find free ports for GUI and listen addresses on first startup" env:"STNOPORTPROBING"`
+	NoRestart                  bool          `help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash" env:"STNORESTART"`
+	NoUpgrade                  bool          `help:"Disable automatic upgrades" env:"STNOUPGRADE"`
+	Paused                     bool          `help:"Start with all devices and folders paused" env:"STPAUSED"`
+	Unpaused                   bool          `help:"Start with all devices and folders unpaused" env:"STUNPAUSED"`
 
 	// Debug options below
 	DebugGUIAssetsDir   string `help:"Directory to load GUI assets from" placeholder:"PATH" env:"STGUIASSETS"`
@@ -508,7 +509,7 @@ func (c *serveCmd) syncthingMain() {
 		os.Exit(1)
 	}
 
-	sdb, err := syncthing.OpenDatabase(locations.Get(locations.Database), c.DBDeleteRetentionInterval)
+	sdb, err := syncthing.OpenDatabase(locations.Get(locations.Database), c.DBDeleteRetentionInterval, c.DBPerFolderMaxCacheSizeMiB)
 	if err != nil {
 		slog.Error("Error opening database", slogutil.Error(err))
 		os.Exit(1)
