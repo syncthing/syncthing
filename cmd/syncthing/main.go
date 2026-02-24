@@ -142,8 +142,9 @@ type CLI struct {
 }
 
 func (c *CLI) AfterApply() error {
-	// Executed after parsing command line options but before running actual
-	// subcommands
+	// Executed after parsing command line options but before running actual subcommands
+	// Doesn't run on --help or invalid arguments
+
 	return setConfigDataLocationsFromFlags(c.HomeDir, c.ConfDir, c.DataDir)
 }
 
@@ -210,6 +211,12 @@ func defaultVars() kong.Vars {
 }
 
 func main() {
+	// Kong should be able to use a console if its already present
+	// if --help is used or arguments are invalid, creating a new console seems useless
+	// Creating a new console can be postponed until we got the kong parsings
+	// So we can use those to check if the user even wants a new console
+	consoleAttached := osutil.AttachConsole() == nil
+
 	// Create a parser with an overridden help function to print our extra
 	// help info.
 	var entrypoint CLI
@@ -229,7 +236,14 @@ func main() {
 
 	kongplete.Complete(parser)
 	ctx, err := parser.Parse(os.Args[1:])
+
 	parser.FatalIfErrorf(err)
+
+	if !consoleAttached && IsNewConsoleDesired(&entrypoint) {
+		if err := osutil.InitConsole(); err != nil {
+			slog.Error("Failed to initialize console", slogutil.Error(err))
+		}
+	}
 
 	if entrypoint.VersionFlag {
 		_ = versionCmd{}.Run()
@@ -261,10 +275,6 @@ func (c *serveCmd) Run() error {
 	if c.GUIAPIKey != "" {
 		// The config picks this up from the environment.
 		os.Setenv("STGUIAPIKEY", c.GUIAPIKey)
-	}
-
-	if c.HideConsole {
-		osutil.HideConsole()
 	}
 
 	// Customize the logging early
@@ -311,6 +321,27 @@ func (c *serveCmd) Run() error {
 		c.monitorMain()
 	}
 	return nil
+}
+
+func IsNewConsoleDesired(cli *CLI) bool {
+	// If this is an inner process (started by monitor) -> don't allocate console
+	// Parent provides all I/O through pipes
+	if cli.Serve.InternalInnerProcess {
+		return false
+	}
+
+	// User explicitly disabled console -> don't allocate console
+	if cli.Serve.HideConsole {
+		return false
+	}
+
+	// No command line arguments without parent (Main should have called AttachConsole already)
+	// means binary was probably double-clicked -> don't allocate console
+	if len(os.Args) <= 1 {
+		return false
+	}
+
+	return true
 }
 
 func openGUI() error {
