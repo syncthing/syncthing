@@ -55,6 +55,8 @@ type Config struct {
 	// Optional progress tick interval which defines how often FolderScanProgress
 	// events are emitted. Negative number means disabled.
 	ProgressTickIntervalS int
+	// Emit FolderScanProgress events if the number of files to hash is lower than this.
+	ScanProgressFileLimit int
 	// Local flags to set on scanned files
 	LocalFlags protocol.FlagLocal
 	// Modification time is to be considered unchanged if the difference is lower.
@@ -145,6 +147,13 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		w.ProgressTickIntervalS = 2
 	}
 
+	// The sizeof protocol.FileInfo is 288 bytes, 288*4096 = ~1 MiB,
+	// a reasonable default limit for the filesToHash array.
+	const defaultScanProgressFileLimit = 4096
+	if w.ScanProgressFileLimit <= 0 {
+		w.ScanProgressFileLimit = defaultScanProgressFileLimit
+	}
+
 	// We need to emit progress events, hence we create a routine which buffers
 	// the list of files to be hashed, counts the total number of
 	// bytes to hash, and once no more files need to be hashed (chan gets closed),
@@ -153,12 +162,23 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 	// Parallel hasher is stopped by this routine when we close the channel over
 	// which it receives the files we ask it to hash.
 	go func() {
-		var filesToHash []protocol.FileInfo
+		filesToHash := make(
+			[]protocol.FileInfo,
+			0,
+			min(
+				defaultScanProgressFileLimit,
+				w.ScanProgressFileLimit,
+			),
+		)
 		var total int64 = 1
 
 		for file := range toHashChan {
 			filesToHash = append(filesToHash, file)
 			total += file.Size
+			if len(filesToHash) > w.ScanProgressFileLimit {
+				total = -1
+				break
+			}
 		}
 
 		if len(filesToHash) == 0 {
@@ -167,43 +187,47 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		}
 
 		realToHashChan := make(chan protocol.FileInfo)
-		done := make(chan struct{})
-		progress := newByteCounter()
+		if total < 0 {
+			newParallelHasher(ctx, w.Folder, w.Filesystem, w.Hashers, finishedChan, realToHashChan, nil, nil)
+		} else {
+			done := make(chan struct{})
+			progress := newByteCounter()
 
-		newParallelHasher(ctx, w.Folder, w.Filesystem, w.Hashers, finishedChan, realToHashChan, progress, done)
+			newParallelHasher(ctx, w.Folder, w.Filesystem, w.Hashers, finishedChan, realToHashChan, progress, done)
 
-		// A routine which actually emits the FolderScanProgress events
-		// every w.ProgressTicker ticks, until the hasher routines terminate.
-		go func() {
-			defer progress.Close()
+			// A routine which actually emits the FolderScanProgress events
+			// every w.ProgressTicker ticks, until the hasher routines terminate.
+			go func() {
+				defer progress.Close()
 
-			emitProgressEvent := func() {
-				current := progress.Total()
-				rate := progress.Rate()
-				l.Debugf("%v: Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w, w.Folder, w.Subs, current, total, rate/1024/1024, current*100/total)
-				w.EventLogger.Log(events.FolderScanProgress, map[string]interface{}{
-					"folder":  w.Folder,
-					"current": current,
-					"total":   total,
-					"rate":    rate, // bytes per second
-				})
-			}
-
-			ticker := time.NewTicker(time.Duration(w.ProgressTickIntervalS) * time.Second)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-done:
-					emitProgressEvent()
-					l.Debugln(w, "Walk progress done", w.Folder, w.Subs, w.Matcher)
-					return
-				case <-ticker.C:
-					emitProgressEvent()
-				case <-ctx.Done():
-					return
+				emitProgressEvent := func() {
+					current := progress.Total()
+					rate := progress.Rate()
+					l.Debugf("%v: Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w, w.Folder, w.Subs, current, total, rate/1024/1024, current*100/total)
+					w.EventLogger.Log(events.FolderScanProgress, map[string]interface{}{
+						"folder":  w.Folder,
+						"current": current,
+						"total":   total,
+						"rate":    rate, // bytes per second
+					})
 				}
-			}
-		}()
+
+				ticker := time.NewTicker(time.Duration(w.ProgressTickIntervalS) * time.Second)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-done:
+						emitProgressEvent()
+						l.Debugln(w, "Walk progress done", w.Folder, w.Subs, w.Matcher)
+						return
+					case <-ticker.C:
+						emitProgressEvent()
+					case <-ctx.Done():
+						return
+					}
+				}
+			}()
+		}
 
 	loop:
 		for _, file := range filesToHash {
@@ -212,6 +236,15 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 			case realToHashChan <- file:
 			case <-ctx.Done():
 				break loop
+			}
+		}
+	loop2:
+		for file := range toHashChan {
+			l.Debugln(w, "real to hash:", file.Name)
+			select {
+			case realToHashChan <- file:
+			case <-ctx.Done():
+				break loop2
 			}
 		}
 		close(realToHashChan)

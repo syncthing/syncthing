@@ -68,6 +68,7 @@ type FolderConfiguration struct {
 	Order                   PullOrder                   `json:"order" xml:"order"`
 	IgnoreDelete            bool                        `json:"ignoreDelete" xml:"ignoreDelete"`
 	ScanProgressIntervalS   int                         `json:"scanProgressIntervalS" xml:"scanProgressIntervalS"`
+	ScanProgressFileLimit   int                         `json:"scanProgressFileLimit" xml:"scanProgressFileLimit"`
 	PullerPauseS            int                         `json:"pullerPauseS" xml:"pullerPauseS"`
 	PullerDelayS            float64                     `json:"pullerDelayS" xml:"pullerDelayS" default:"1"`
 	MaxConflicts            int                         `json:"maxConflicts" xml:"maxConflicts" default:"10"`
