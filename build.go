@@ -791,19 +791,19 @@ func buildRpm(target target, tags []string) {
 
 	// Add systemd scriptlets if service is defined
 	if target.systemdService != "" {
-		rpmpost, err := createRPMPostInstScript(target)
+		rpmpost, err := createRPMScript("rpm-post-inst", target)
 		if err != nil {
 			log.Fatal(err)
 		}
 		defer os.Remove(rpmpost)
 
-		rpmpreun, err := createRPMPreUnScript(target)
+		rpmpreun, err := createRPMScript("rpm-preun", target)
 		if err != nil {
 			log.Fatal(err)
 		}
 		defer os.Remove(rpmpreun)
 
-		rpmpostun, err := createRPMPostUnScript(target)
+		rpmpostun, err := createRPMScript("rpm-postun", target)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -822,63 +822,13 @@ func buildRpm(target target, tags []string) {
 	runPrint("fpm", args...)
 }
 
-func createRPMPostInstScript(target target) (string, error) {
-	scriptname := filepath.Join("script", "rpm-post-inst.template")
+func createRPMScript(templateName string, target target) (string, error) {
+	scriptname := filepath.Join("script", templateName+".template")
 	t, err := template.ParseFiles(scriptname)
 	if err != nil {
 		return "", err
 	}
-	outname := filepath.Join("script", "rpm-post-inst")
-	w, err := os.Create(outname)
-	if err != nil {
-		return "", err
-	}
-	defer w.Close()
-
-	data := struct {
-		Service string
-	}{
-		Service: target.systemdService,
-	}
-
-	if err = t.Execute(w, data); err != nil {
-		return "", err
-	}
-	return outname, nil
-}
-
-func createRPMPreUnScript(target target) (string, error) {
-	scriptname := filepath.Join("script", "rpm-preun.template")
-	t, err := template.ParseFiles(scriptname)
-	if err != nil {
-		return "", err
-	}
-	outname := filepath.Join("script", "rpm-preun")
-	w, err := os.Create(outname)
-	if err != nil {
-		return "", err
-	}
-	defer w.Close()
-
-	data := struct {
-		Service string
-	}{
-		Service: target.systemdService,
-	}
-
-	if err = t.Execute(w, data); err != nil {
-		return "", err
-	}
-	return outname, nil
-}
-
-func createRPMPostUnScript(target target) (string, error) {
-	scriptname := filepath.Join("script", "rpm-postun.template")
-	t, err := template.ParseFiles(scriptname)
-	if err != nil {
-		return "", err
-	}
-	outname := filepath.Join("script", "rpm-postun")
+	outname := filepath.Join("script", templateName)
 	w, err := os.Create(outname)
 	if err != nil {
 		return "", err
