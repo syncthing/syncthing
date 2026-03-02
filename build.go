@@ -738,27 +738,19 @@ func filterInstallationFilesForRPM(files []archiveFile) []archiveFile {
 func buildRpm(target target, tags []string) {
 	os.RemoveAll("rpm")
 
-	// "goarch" here may be set to RPM-style arch names. We convert to Go arch
-	// for building and keep the RPM arch for the package.
-	rpmarch := goarch
+	// "goarch" here is set to whatever the RPM packages expect. We correct
+	// it to what we actually know how to build and keep the RPM variant
+	// name in "rpmarch".
+	rpmarch := rpmArch(goarch)
 	switch goarch {
 	case "x86_64":
 		goarch = "amd64"
-		rpmarch = "x86_64"
 	case "i686", "i386":
 		goarch = "386"
-		rpmarch = "i686"
 	case "aarch64":
 		goarch = "arm64"
-		rpmarch = "aarch64"
-	case "armv7hl", "armhf":
+	case "armv7hl", "armhf", "armel", "armv6hl":
 		goarch = "arm"
-		rpmarch = "armv7hl"
-	case "armel", "armv6hl":
-		goarch = "arm"
-		rpmarch = "armv6hl"
-	default:
-		rpmarch = rpmArch(goarch)
 	}
 
 	build(target, append(tags, "noupgrade"))
