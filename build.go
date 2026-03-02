@@ -634,23 +634,12 @@ func buildDeb(target target, tags []string) {
 	}
 
 	maintainer := "Syncthing Release Management <release@syncthing.net>"
-	debver := version
-	if strings.HasPrefix(debver, "v") {
-		debver = debver[1:]
-		// Debian interprets dashes as separator between main version and
-		// Debian package version, and thus thinks 0.14.26-rc.1 is better
-		// than just 0.14.26. This rectifies that.
-		debver = strings.Replace(debver, "-", "~", -1)
-	}
-	if strings.Contains(debver, "_") {
-		debver = strings.Replace(debver, "_", "~", -1)
-	}
 	args := []string{
 		"-t", "deb",
 		"-s", "dir",
 		"-C", "deb",
 		"-n", target.debname,
-		"-v", debver,
+		"-v", packageVersion(version),
 		"-a", debarch,
 		"-m", maintainer,
 		"--vendor", maintainer,
@@ -715,19 +704,15 @@ func rpmArch(arch string) string {
 	}
 }
 
-// parseRPMVersion converts Syncthing version to RPM version and release.
-// Uses tilde versioning per Fedora guidelines so pre-releases sort correctly.
-// Examples:
-//
-//	v1.27.0      -> version=1.27.0, release=1
-//	v1.27.0-rc.1 -> version=1.27.0~rc.1, release=1
-func parseRPMVersion(ver string) (version, release string) {
+// packageVersion converts a Syncthing version string to a package-manager
+// friendly version. Both deb and rpm interpret dashes and underscores as
+// field separators, so we replace them with tildes which sort older:
+// 1.27.0~rc.1 < 1.27.0.
+func packageVersion(ver string) string {
 	ver = strings.TrimPrefix(ver, "v")
-	// Replace dashes with tildes for pre-releases (e.g., rc.1, beta.1)
-	// Tilde causes the version segment to sort older: 1.27.0~rc.1 < 1.27.0
-	version = strings.ReplaceAll(ver, "-", "~")
-	release = "1"
-	return
+	ver = strings.ReplaceAll(ver, "-", "~")
+	ver = strings.ReplaceAll(ver, "_", "~")
+	return ver
 }
 
 // filterInstallationFilesForRPM returns installation files with UFW entries removed
@@ -793,15 +778,13 @@ func buildRpm(target target, tags []string) {
 	}
 
 	maintainer := "Syncthing Release Management <release@syncthing.net>"
-	rpmver, rpmrel := parseRPMVersion(version)
 
 	args := []string{
 		"-t", "rpm",
 		"-s", "dir",
 		"-C", "rpm",
 		"-n", target.rpmname,
-		"-v", rpmver,
-		"--iteration", rpmrel,
+		"-v", packageVersion(version),
 		"-a", rpmarch,
 		"-m", maintainer,
 		"--vendor", "Syncthing Foundation",
