@@ -32,7 +32,7 @@ require (
 	github.com/quic-go/quic-go v0.59.0
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9
-	github.com/shirou/gopsutil/v4 v4.26.2 // https://github.com/shirou/gopsutil/issues/1898
+	github.com/shirou/gopsutil/v4 v4.26.2
 	github.com/syncthing/notify v0.0.0-20250528144937-c7027d4f7465
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d
 	github.com/thejerf/suture/v4 v4.0.6
@@ -108,7 +108,7 @@ require (
 replace github.com/gobwas/glob v0.2.3 => github.com/calmh/glob v0.0.0-20220615080505-1d823af5017b
 
 // https://github.com/mattn/go-sqlite3/pull/1338
-replace github.com/mattn/go-sqlite3 v1.14.31 => github.com/calmh/go-sqlite3 v1.14.32-0.20250812195006-80712c77b76a
+replace github.com/mattn/go-sqlite3 v1.14.34 => github.com/calmh/go-sqlite3 v1.14.32-0.20260303222015-6a03636c4bc9
 
 tool (
 	github.com/calmh/xdr/cmd/genxdr
