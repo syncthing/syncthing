@@ -115,3 +115,5 @@ tool (
 	github.com/maxbrunsfeld/counterfeiter/v6
 	golang.org/x/tools/cmd/goimports
 )
+
+replace github.com/jackpal/gateway => github.com/marbens-arch/gateway v1.1.2-0.20260306205115-a9e091223bd3
