@@ -304,7 +304,7 @@
     "Please set a GUI Authentication User and Password in the Settings dialog.": "Veuillez définir un nom d'utilisateur et un mot de passe dans la fenêtre de Configuration.",
     "Please wait": "Merci de patienter",
     "Prefix indicating that the file can be deleted if preventing directory removal": "Ce préfixe autorise la suppression des fichiers pour permettre la suppression de répertoires",
-    "Prefix indicating that the pattern should be matched without case sensitivity": "Ce préfixe, inutile sur Windows et Mac OS, indique que le masque d'exclusion est insensible à la casse",
+    "Prefix indicating that the pattern should be matched without case sensitivity": "Ce préfixe, utile même sur Windows et Mac OS, indique que le masque d'exclusion est insensible à la casse",
     "Preparing to Sync": "Préparation à la synchronisation",
     "Preview": "Aperçu",
     "Preview Usage Report": "Aperçu du rapport de statistiques d'utilisation",
