@@ -83,10 +83,23 @@ RestrictRealtime=true
 RestrictAddressFamilies=AF_INET AF_INET6 AF_NETLINK AF_UNIX
 # The lifetime limit of (superuser) capabilities that syncthing can acquire.
 # This option _restricts_ capabilities.
-CapabilityBoundingSet=
+#
+# NOTE: This is set to `CAP_CHOWN CAP_FOWNER` to avoid breaking users that have
+# set `AmbientCapabilities=CAP_CHOWN CAP_FOWNER` to enable the `syncOwnership`
+# option as described in:
+#   https://docs.syncthing.net/users/autostart.html#permissions
+#
+# If you do not use the `syncOwnership` option, you can set this to:
+#   CapabilityBoundingSet=
+CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER
 # Start with empty (superuser) capabilities.
 # This option _expands_ capabilities.
 # AmbientCapabilities should equal CapabilityBoundingSet.
+#
+# NOTE: IFF you wish to use the `syncOwnership` option, you must set this to:
+#   AmbientCapabilities=CAP_CHOWN CAP_FOWNER
+# in a systemd drop-in file. Be aware that this gives syncthing the ability to
+# change or ignore file ownership across the entire operating system.
 AmbientCapabilities=
 # Disables `personality` system call; it can be used for privilege escalation.
 LockPersonality=true
