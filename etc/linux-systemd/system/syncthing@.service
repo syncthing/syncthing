@@ -128,13 +128,6 @@ ProcSubset=pid
 # System call allow-list. `@system-service` is a systemd-provided category that
 # allows common syscalls needed for system services.
 SystemCallFilter=@system-service
-# Explicitly disallow @privileged syscalls. Syncthing fails to start if we also
-# disallow @resources (which `systemd-analyze` is unhappy about).
-# Also disallow io_uring syscalls which are as of 2025 a significant source of
-# kernel exploits.
-# We do not include io_uring_enter2 because it's just a wrapper for
-# io_uring_enter and systemd issues a warning.
-SystemCallFilter=~@privileged io_uring_enter io_uring_register io_uring_setup
 # Return EPERM when a disallowed syscall is made instead of killing the process.
 SystemCallErrorNumber=EPERM
 # Digits from left to right; disallow creation of files with:
