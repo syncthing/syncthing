@@ -786,6 +786,34 @@ func TestGUIConfigURL(t *testing.T) {
 	}
 }
 
+func TestGUISessionCookiePathPrepare(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		in   string
+		out  string
+	}{
+		{name: "default", in: "", out: "/"},
+		{name: "spaces", in: "   ", out: "/"},
+		{name: "already rooted", in: " /gui ", out: "/gui"},
+		{name: "needs slash", in: "gui", out: "/gui"},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			c := GUIConfiguration{SessionCookiePath: tc.in}
+			c.prepare()
+			if c.SessionCookiePath != tc.out {
+				t.Fatalf("unexpected path %q != %q", c.SessionCookiePath, tc.out)
+			}
+		})
+	}
+}
+
 func TestGUIPasswordHash(t *testing.T) {
 	var c GUIConfiguration
 
