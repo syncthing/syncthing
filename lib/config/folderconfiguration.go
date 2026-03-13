@@ -54,6 +54,7 @@ type FolderConfiguration struct {
 	Path                    string                      `json:"path" xml:"path,attr"`
 	Type                    FolderType                  `json:"type" xml:"type,attr"`
 	Devices                 []FolderDeviceConfiguration `json:"devices" xml:"device"`
+	Group                   string                      `json:"group" xml:"group,attr"`
 	RescanIntervalS         int                         `json:"rescanIntervalS" xml:"rescanIntervalS,attr" default:"3600"`
 	FSWatcherEnabled        bool                        `json:"fsWatcherEnabled" xml:"fsWatcherEnabled,attr" default:"true"`
 	FSWatcherDelayS         float64                     `json:"fsWatcherDelayS" xml:"fsWatcherDelayS,attr" default:"10"`

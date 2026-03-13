@@ -87,6 +87,7 @@ angular.module('syncthing.core')
         $scope.reportDataPreview = '';
         $scope.reportPreview = false;
         $scope.folders = {};
+        $scope.folderGroups = [];
         $scope.seenError = '';
         $scope.upgradeInfo = null;
         $scope.deviceStats = {};
@@ -567,11 +568,23 @@ angular.module('syncthing.core')
                 };
             };
             $scope.folders = folderMap($scope.config.folders);
+            $scope.folderGroups = [];
             Object.keys($scope.folders).forEach(function (folder) {
                 refreshFolder(folder);
                 $scope.folders[folder].devices.forEach(function (deviceCfg) {
                     refreshCompletion(deviceCfg.deviceID, folder);
                 });
+                
+                if (!$scope.folderGroups.includes($scope.folders[folder].group)) {
+                    $scope.folderGroups.push($scope.folders[folder].group);
+                }
+            });
+
+            // Sort with blank group first if any then alphabetically
+            $scope.folderGroups = $scope.folderGroups.sort((a, b) => {
+                if (a === "" && b !== "") return -1;
+                if (b === "" && a !== "") return 1;
+                return a.localeCompare(b);
             });
 
             refreshNoAuthWarning();
@@ -3725,6 +3738,13 @@ angular.module('syncthing.core')
                         previousModalID = '';
                     }).modal(modalState);
             }
+        };
+        
+        $scope.folderListByGroup = function (group) {
+            let folderListCache = $scope.folderList();
+            return folderListCache.filter(function (f) {
+                return group == f.group;
+            })
         };
     })
     .directive('shareTemplate', function () {
