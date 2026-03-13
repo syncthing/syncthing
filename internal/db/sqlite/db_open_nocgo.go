@@ -9,6 +9,8 @@
 package sqlite
 
 import (
+	"fmt"
+
 	"github.com/syncthing/syncthing/lib/build"
 	_ "modernc.org/sqlite" // register sqlite database driver
 )
@@ -20,4 +22,8 @@ const (
 
 func init() {
 	build.AddTag("modernc-sqlite")
+}
+
+func commonOptionsWithCache(sizeKiB int) string {
+	return fmt.Sprintf("%s&_pragma=cache_size(-%d)", commonOptions, sizeKiB)
 }

@@ -20,8 +20,9 @@ import (
 )
 
 const (
-	maxDBConns         = 16
-	minDeleteRetention = 24 * time.Hour
+	maxDBConns               = 8
+	minPerFolderCacheSizeMiB = 16 // 2 MiB per connection, the SQLite default
+	minDeleteRetention       = 24 * time.Hour
 )
 
 type DB struct {
@@ -29,10 +30,11 @@ type DB struct {
 
 	pathBase        string
 	deleteRetention time.Duration
+	cacheSizeMiB    int
 
 	folderDBsMut   sync.RWMutex
 	folderDBs      map[string]*folderDB
-	folderDBOpener func(folder, path string, deleteRetention time.Duration) (*folderDB, error)
+	folderDBOpener func(folder, path string, deleteRetention time.Duration, cacheSizeMiB int) (*folderDB, error)
 }
 
 var _ db.DB = (*DB)(nil)
@@ -46,6 +48,12 @@ func WithDeleteRetention(d time.Duration) Option {
 		} else {
 			s.deleteRetention = max(d, minDeleteRetention)
 		}
+	}
+}
+
+func WithCacheSizeMiB(v int) Option {
+	return func(s *DB) {
+		s.cacheSizeMiB = max(v, minPerFolderCacheSizeMiB)
 	}
 }
 
@@ -69,21 +77,22 @@ func Open(path string, opts ...Option) (*DB, error) {
 	initTmpDir(path)
 
 	mainPath := filepath.Join(path, "main.db")
-	mainBase, err := openBase(mainPath, maxDBConns, pragmas, schemas, migrations)
-	if err != nil {
-		return nil, err
-	}
-
 	db := &DB{
 		pathBase:       path,
-		baseDB:         mainBase,
 		folderDBs:      make(map[string]*folderDB),
 		folderDBOpener: openFolderDB,
+		cacheSizeMiB:   minPerFolderCacheSizeMiB,
 	}
 
 	for _, opt := range opts {
 		opt(db)
 	}
+
+	mainBase, err := openBase(mainPath, maxDBConns, db.cacheSizeMiB, pragmas, schemas, migrations)
+	if err != nil {
+		return nil, err
+	}
+	db.baseDB = mainBase
 
 	if err := db.cleanDroppedFolders(); err != nil {
 		slog.Warn("Failed to clean dropped folders", slogutil.Error(err))
@@ -120,17 +129,18 @@ func OpenForMigration(path string) (*DB, error) {
 	initTmpDir(path)
 
 	mainPath := filepath.Join(path, "main.db")
-	mainBase, err := openBase(mainPath, 1, pragmas, schemas, migrations)
+	db := &DB{
+		pathBase:       path,
+		folderDBs:      make(map[string]*folderDB),
+		folderDBOpener: openFolderDBForMigration,
+		cacheSizeMiB:   minPerFolderCacheSizeMiB,
+	}
+
+	mainBase, err := openBase(mainPath, 1, db.cacheSizeMiB, pragmas, schemas, migrations)
 	if err != nil {
 		return nil, err
 	}
-
-	db := &DB{
-		pathBase:       path,
-		baseDB:         mainBase,
-		folderDBs:      make(map[string]*folderDB),
-		folderDBOpener: openFolderDBForMigration,
-	}
+	db.baseDB = mainBase
 
 	if err := db.cleanDroppedFolders(); err != nil {
 		slog.Warn("Failed to clean dropped folders", slogutil.Error(err))
