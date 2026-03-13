@@ -178,6 +178,7 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 		return nil, wrap(err)
 	}
 
+	// NOTE: this seems to trigger the TRUNCATE at Syncthing start that seems unable to run under load
 	if appliedMigrations {
 		// We applied migrations and should take the opportunity to vaccuum
 		// the database.
