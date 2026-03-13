@@ -167,11 +167,12 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 
 	file := filepath.Base(filePath)
 	inFolderPath := filepath.Dir(filePath)
-	err = dupDirTree(srcFs, dstFs, inFolderPath)
+	restoreModes, err := dupDirTree(srcFs, dstFs, inFolderPath)
 	if err != nil {
 		l.Debugln("archiving", filePath, err)
 		return err
 	}
+	defer restoreDirModes(dstFs, restoreModes)
 
 	now := time.Now()
 
@@ -192,12 +193,23 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 	return err
 }
 
-func dupDirTree(srcFs, dstFs fs.Filesystem, folderPath string) error {
-	// Return early if the folder already exists.
-	_, err := dstFs.Stat(folderPath)
-	if err == nil || !fs.IsNotExist(err) {
-		return err
+func dupDirTree(srcFs, dstFs fs.Filesystem, folderPath string) (restoreModes []dirModeRestore, err error) {
+	defer func() {
+		if err != nil {
+			restoreDirModes(dstFs, restoreModes)
+			restoreModes = nil
+		}
+	}()
+
+	_, err = dstFs.Stat(folderPath)
+	if err == nil {
+		err = ensureOwnerWritableTemporarily(dstFs, folderPath, &restoreModes)
+		return restoreModes, err
 	}
+	if !fs.IsNotExist(err) {
+		return restoreModes, err
+	}
+
 	hadParent := true
 	for i := range folderPath {
 		if os.IsPathSeparator(folderPath[i]) {
@@ -206,20 +218,30 @@ func dupDirTree(srcFs, dstFs fs.Filesystem, folderPath string) error {
 			if hadParent {
 				_, err := dstFs.Stat(folderPath[:i])
 				if err == nil {
+					if err := ensureOwnerWritableTemporarily(dstFs, folderPath[:i], &restoreModes); err != nil {
+						return restoreModes, err
+					}
 					continue
 				}
 				if !fs.IsNotExist(err) {
-					return err
+					return restoreModes, err
 				}
 			}
 			hadParent = false
-			err := dupDirWithPerms(srcFs, dstFs, folderPath[:i])
-			if err != nil {
-				return err
+			if err := dupDirWithPerms(srcFs, dstFs, folderPath[:i]); err != nil {
+				return restoreModes, err
+			}
+			if err := ensureOwnerWritableTemporarily(dstFs, folderPath[:i], &restoreModes); err != nil {
+				return restoreModes, err
 			}
 		}
 	}
-	return dupDirWithPerms(srcFs, dstFs, folderPath)
+
+	if err := dupDirWithPerms(srcFs, dstFs, folderPath); err != nil {
+		return restoreModes, err
+	}
+	err = ensureOwnerWritableTemporarily(dstFs, folderPath, &restoreModes)
+	return restoreModes, err
 }
 
 func dupDirWithPerms(srcFs, dstFs fs.Filesystem, folderPath string) error {
@@ -233,7 +255,48 @@ func dupDirWithPerms(srcFs, dstFs fs.Filesystem, folderPath string) error {
 	if err != nil {
 		return err
 	}
-	return dstFs.Chmod(folderPath, srcStat.Mode())
+	if err := dstFs.Chmod(folderPath, srcStat.Mode()); err != nil {
+		return err
+	}
+	return nil
+}
+
+type dirModeRestore struct {
+	path string
+	mode fs.FileMode
+}
+
+func ensureOwnerWritableTemporarily(dstFs fs.Filesystem, folderPath string, restoreModes *[]dirModeRestore) error {
+	dstStat, err := dstFs.Stat(folderPath)
+	if err != nil {
+		return err
+	}
+
+	const permBits = fs.ModePerm | fs.ModeSetuid | fs.ModeSetgid | fs.ModeSticky
+	mode := dstStat.Mode() & permBits
+	if mode&0o200 != 0 {
+		return nil
+	}
+
+	// Temporarily add owner read, write, and execute permissions.
+	// Directories need execute permission for traversal and child creation.
+	if err := dstFs.Chmod(folderPath, mode|0o700); err != nil {
+		return err
+	}
+
+	*restoreModes = append(*restoreModes, dirModeRestore{
+		path: folderPath,
+		mode: mode,
+	})
+	return nil
+}
+
+func restoreDirModes(dstFs fs.Filesystem, restoreModes []dirModeRestore) {
+	for i := len(restoreModes) - 1; i >= 0; i-- {
+		if err := dstFs.Chmod(restoreModes[i].path, restoreModes[i].mode); err != nil && !fs.IsNotExist(err) {
+			slog.Warn("Failed to restore directory permissions after gaining write access", slogutil.FilePath(restoreModes[i].path), slogutil.Error(err))
+		}
+	}
 }
 
 func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath string, versionTime time.Time, tagger fileTagger) error {
