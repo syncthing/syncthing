@@ -110,6 +110,7 @@ func migrateToConfigV53(cfg *Configuration) {
 			cfg.Folders[i].FullBlockIndex = true
 		}
 	}
+	cfg.Defaults.Folder.FullBlockIndex = true
 }
 
 func migrateToConfigV52(cfg *Configuration) {

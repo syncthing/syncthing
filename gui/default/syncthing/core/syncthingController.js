@@ -2279,6 +2279,8 @@ angular.module('syncthing.core')
             } else {
                 $scope.currentFolder.fsWatcherEnabled = true;
             }
+            var type = $scope.currentFolder.type;
+            $scope.currentFolder.fullBlockIndex = (type === 'sendreceive' || type === 'receiveonly');
             $scope.setFSWatcherIntervalDefault();
         };
 
