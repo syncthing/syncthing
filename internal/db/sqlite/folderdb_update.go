@@ -304,6 +304,83 @@ func (s *folderDB) DropFilesNamed(device protocol.DeviceID, names []string) erro
 	return wrap(tx.Commit())
 }
 
+func (s *folderDB) blockIndexEmpty() (bool, error) {
+	var exists bool
+	err := s.sql.Get(&exists, `SELECT EXISTS (SELECT 1 FROM blocks LIMIT 1)`)
+	if err != nil {
+		return false, wrap(err)
+	}
+	return !exists, nil
+}
+
+func (s *folderDB) DropBlockIndex() error {
+	empty, err := s.blockIndexEmpty()
+	if err != nil || empty {
+		return err
+	}
+
+	s.updateLock.Lock()
+	defer s.updateLock.Unlock()
+
+	_, err = s.sql.Exec(`DELETE FROM blocks`)
+	return wrap(err)
+}
+
+func (s *folderDB) PopulateBlockIndex() error {
+	empty, err := s.blockIndexEmpty()
+	if err != nil || !empty {
+		return err
+	}
+
+	s.updateLock.Lock()
+	defer s.updateLock.Unlock()
+
+	tx, err := s.sql.BeginTxx(context.Background(), nil)
+	if err != nil {
+		return wrap(err)
+	}
+	defer tx.Rollback()
+	txp := &txPreparedStmts{Tx: tx}
+
+	// Iterate all local files that have a blocklist
+	rows, err := tx.Queryx(`
+		SELECT f.blocklist_hash, bl.blprotobuf FROM files f
+		INNER JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
+		WHERE f.device_idx = ? AND f.blocklist_hash IS NOT NULL
+	`, s.localDeviceIdx)
+	if err != nil {
+		return wrap(err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var blocklistHash []byte
+		var blProtobuf []byte
+		if err := rows.Scan(&blocklistHash, &blProtobuf); err != nil {
+			return wrap(err)
+		}
+
+		var bl dbproto.BlockList
+		if err := proto.Unmarshal(blProtobuf, &bl); err != nil {
+			return wrap(err, "unmarshal blocklist")
+		}
+
+		blocks := make([]protocol.BlockInfo, len(bl.Blocks))
+		for i, b := range bl.Blocks {
+			blocks[i] = protocol.BlockInfoFromWire(b)
+		}
+
+		if err := s.insertBlocksLocked(txp, blocklistHash, blocks); err != nil {
+			return wrap(err, "insert blocks")
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return wrap(err)
+	}
+
+	return wrap(tx.Commit())
+}
+
 func (*folderDB) insertBlocksLocked(tx *txPreparedStmts, blocklistHash []byte, blocks []protocol.BlockInfo) error {
 	if len(blocks) == 0 {
 		return nil

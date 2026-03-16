@@ -104,6 +104,25 @@ func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileI
 	return fdb.Update(device, fs, options)
 }
 
+func (s *DB) DropBlockIndex(folder string) error {
+	fdb, err := s.getFolderDB(folder, false)
+	if errors.Is(err, errNoSuchFolder) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return fdb.DropBlockIndex()
+}
+
+func (s *DB) PopulateBlockIndex(folder string) error {
+	fdb, err := s.getFolderDB(folder, true)
+	if err != nil {
+		return err
+	}
+	return fdb.PopulateBlockIndex()
+}
+
 func (s *DB) GetDeviceFile(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {
 	fdb, err := s.getFolderDB(folder, false)
 	if errors.Is(err, errNoSuchFolder) {

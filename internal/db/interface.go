@@ -73,6 +73,10 @@ type DB interface {
 	AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit, offset int) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocalBlocksWithHash(folder string, hash []byte) (iter.Seq[BlockMapEntry], func() error)
 
+	// Block index management
+	DropBlockIndex(folder string) error
+	PopulateBlockIndex(folder string) error
+
 	// Cleanup
 	DropAllFiles(folder string, device protocol.DeviceID) error
 	DropDevice(device protocol.DeviceID) error

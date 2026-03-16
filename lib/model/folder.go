@@ -159,6 +159,10 @@ func (f *folder) Serve(ctx context.Context) error {
 		f.setState(FolderIdle)
 	}()
 
+	if err := f.reconcileBlockIndex(ctx); err != nil {
+		return err
+	}
+
 	if f.FSWatcherEnabled && f.getHealthErrorAndLoadIgnores() == nil {
 		f.startWatch(ctx)
 	}
@@ -254,6 +258,15 @@ func (f *folder) Serve(ctx context.Context) error {
 			f.setError(ctx, err)
 		}
 	}
+}
+
+func (f *folder) reconcileBlockIndex(ctx context.Context) error {
+	if !f.FullBlockIndex {
+		f.sl.DebugContext(ctx, "Dropping block index (full block index disabled)")
+		return f.db.DropBlockIndex(f.folderID)
+	}
+	f.sl.DebugContext(ctx, "Populating block index if empty")
+	return f.db.PopulateBlockIndex(f.folderID)
 }
 
 func (*folder) BringToFront(string) {}
