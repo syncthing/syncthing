@@ -1166,6 +1166,7 @@ func (f *sendReceiveFolder) handleFile(ctx context.Context, file protocol.FileIn
 		blocks:            blocks,
 		have:              len(have),
 	}
+
 	copyChan <- cs
 	return nil
 }
@@ -1322,7 +1323,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 func (f *sendReceiveFolder) copierRoutine(ctx context.Context, in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
 	otherFolderFilesystems := make(map[string]fs.Filesystem)
 	for folder, cfg := range f.model.cfg.Folders() {
-		if folder == f.ID {
+		if folder == f.ID || !f.FullBlockIndex {
 			continue
 		}
 		otherFolderFilesystems[folder] = cfg.Filesystem()
@@ -1390,13 +1391,26 @@ func (f *sendReceiveFolder) copyBlock(ctx context.Context, block protocol.BlockI
 	buf := protocol.BufferPool.Get(block.Size)
 	defer protocol.BufferPool.Put(buf)
 
-	// Hope that it's usually in the same folder, so start with that
-	// one. Also possibly more efficient copy (same filesystem).
-	if f.copyBlockFromFolder(ctx, f.ID, block, state, f.mtimefs, buf) {
-		return true
+	// Check for the block in the current version of the file
+	if idx, ok := state.curFileBlocks[string(block.Hash)]; ok {
+		if f.copyBlockFromFile(ctx, state.file.Name, state.curFile.Blocks[idx].Offset, state, f.mtimefs, block, buf) {
+			state.copiedFromOrigin(block.Size)
+			return true
+		}
+		if state.failed() != nil {
+			return false
+		}
 	}
-	if state.failed() != nil {
-		return false
+
+	if f.folder.FullBlockIndex {
+		// Hope that it's usually in the same folder, so start with that
+		// one. Also possibly more efficient copy (same filesystem).
+		if f.copyBlockFromFolder(ctx, f.ID, block, state, f.mtimefs, buf) {
+			return true
+		}
+		if state.failed() != nil {
+			return false
+		}
 	}
 
 	for folderID, ffs := range otherFolderFilesystems {

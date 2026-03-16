@@ -30,6 +30,7 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
+		{53, migrateToConfigV53},
 		{52, migrateToConfigV52},
 		{51, migrateToConfigV51},
 		{50, migrateToConfigV50},
@@ -100,6 +101,15 @@ func (m migration) apply(cfg *Configuration) {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+}
+
+func migrateToConfigV53(cfg *Configuration) {
+	for i, f := range cfg.Folders {
+		switch f.Type {
+		case FolderTypeSendReceive, FolderTypeReceiveOnly:
+			cfg.Folders[i].FullBlockIndex = true
+		}
+	}
 }
 
 func migrateToConfigV52(cfg *Configuration) {

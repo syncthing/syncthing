@@ -1264,7 +1264,11 @@ func (f *folder) updateLocalsFromPulling(fs []protocol.FileInfo) error {
 }
 
 func (f *folder) updateLocals(fs []protocol.FileInfo) error {
-	if err := f.db.Update(f.folderID, protocol.LocalDeviceID, fs); err != nil {
+	var opts []db.UpdateOption
+	if !f.FullBlockIndex {
+		opts = append(opts, db.WithSkipBlockIndex())
+	}
+	if err := f.db.Update(f.folderID, protocol.LocalDeviceID, fs, opts...); err != nil {
 		return err
 	}
 

@@ -14,6 +14,7 @@ import (
 	"slices"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/internal/slogutil"
@@ -30,7 +31,7 @@ const (
 	updatePointsThreshold = 250_000
 )
 
-func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) error {
+func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo, options db.UpdateOptions) error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
 
@@ -151,7 +152,7 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 			}
 			if _, err := insertBlockListStmt.Exec(f.BlocksHash, bs); err != nil {
 				return wrap(err, "insert blocklist")
-			} else if device == protocol.LocalDeviceID {
+			} else if device == protocol.LocalDeviceID && !options.SkipBlockIndex {
 				// Insert all blocks
 				if err := s.insertBlocksLocked(txp, f.BlocksHash, f.Blocks); err != nil {
 					return wrap(err, "insert blocks")

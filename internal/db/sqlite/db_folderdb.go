@@ -92,12 +92,16 @@ func (s *DB) getFolderDB(folder string, create bool) (*folderDB, error) {
 	return fdb, nil
 }
 
-func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error {
+func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo, opts ...db.UpdateOption) error {
 	fdb, err := s.getFolderDB(folder, true)
 	if err != nil {
 		return err
 	}
-	return fdb.Update(device, fs)
+	var options db.UpdateOptions
+	for _, o := range opts {
+		o(&options)
+	}
+	return fdb.Update(device, fs, options)
 }
 
 func (s *DB) GetDeviceFile(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {

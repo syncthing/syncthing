@@ -27,13 +27,29 @@ type DBService interface {
 	LastMaintenanceTime() time.Time
 }
 
+// UpdateOption modifies the behavior of a DB Update call.
+type UpdateOption func(*UpdateOptions)
+
+// UpdateOptions holds options for a DB Update call.
+type UpdateOptions struct {
+	SkipBlockIndex bool
+}
+
+// WithSkipBlockIndex skips inserting individual blocks into the block
+// index (the "blocks" table). Blocklists are still stored.
+func WithSkipBlockIndex() UpdateOption {
+	return func(o *UpdateOptions) {
+		o.SkipBlockIndex = true
+	}
+}
+
 type DB interface {
 	// Create a service that performs database maintenance periodically (no
 	// more often than the requested interval)
 	Service(maintenanceInterval time.Duration) DBService
 
 	// Basics
-	Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error
+	Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo, opts ...UpdateOption) error
 	Close() error
 
 	// Single files
