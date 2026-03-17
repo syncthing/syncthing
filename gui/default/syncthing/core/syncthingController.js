@@ -1067,7 +1067,7 @@ angular.module('syncthing.core')
             if (status == 'paused') {
                 return 'default';
             }
-            if (status === 'syncing' || status === 'sync-preparing' || status === 'scanning' || status === 'cleaning') {
+            if (status === 'syncing' || status === 'sync-preparing' || status === 'scanning' || status === 'cleaning' || status === 'starting') {
                 return 'primary';
             }
             if (status === 'unknown') {
@@ -1265,6 +1265,7 @@ angular.module('syncthing.core')
                 case 'scan-waiting':
                 case 'sync-preparing':
                 case 'sync-waiting':
+                case 'starting':
                     return 'fa-hourglass-half';
                 case 'cleaning':
                     return 'fa-recycle';
@@ -1300,6 +1301,8 @@ angular.module('syncthing.core')
                     return $translate.instant('Failed Items');
                 case 'idle':
                     return $translate.instant('Up to Date');
+                case 'starting':
+                    return $translate.instant('Starting');
                 case 'localadditions':
                     return $translate.instant('Local Additions');
                 case 'localunencrypted':

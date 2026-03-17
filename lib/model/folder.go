@@ -153,6 +153,8 @@ func (f *folder) Serve(ctx context.Context) error {
 	f.sl.DebugContext(ctx, "Folder starting")
 	defer f.sl.DebugContext(ctx, "Folder exiting")
 
+	f.setState(FolderStarting)
+
 	defer func() {
 		f.scanTimer.Stop()
 		f.versionCleanupTimer.Stop()
