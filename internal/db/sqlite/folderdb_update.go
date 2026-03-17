@@ -322,8 +322,11 @@ func (s *folderDB) DropBlockIndex() error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
 
-	_, err = s.sql.Exec(`DELETE FROM blocks`)
-	return wrap(err)
+	if _, err := s.sql.Exec(`DELETE FROM blocks`); err != nil {
+		return wrap(err)
+	}
+
+	return s.vacuumAndOptimize()
 }
 
 func (s *folderDB) PopulateBlockIndex() error {
