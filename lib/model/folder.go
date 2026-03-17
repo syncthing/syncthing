@@ -181,6 +181,8 @@ func (f *folder) Serve(ctx context.Context) error {
 	pullTimer := time.NewTimer(0)
 	pullTimer.Stop()
 
+	f.setState(FolderIdle)
+
 	for {
 		var err error
 

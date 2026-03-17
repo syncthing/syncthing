@@ -1667,8 +1667,6 @@ func waitForState(t *testing.T, sub events.Subscription, folder, expected string
 				}
 				if err == expected {
 					return
-				} else {
-					t.Error(ev)
 				}
 			}
 		case <-timeout:
