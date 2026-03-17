@@ -1120,6 +1120,43 @@ angular.module('syncthing.core')
             return Math.floor(pct);
         }
 
+        // Returns a logarithmically scaled percentage for use as a progress
+        // bar width. This makes early progress more visible instead of the
+        // bar jumping from 0% to 100% for small-file syncs. The mapping
+        // preserves 0% -> 0% and 100% -> 100%.
+        // For example, 1% actual -> ~14% bar, 10% -> ~51%, 50% -> ~85%.
+        function progressBarPercentage(current, total) {
+            if (current === total) {
+                return 99;
+            }
+            var pct = 100 * current / total;
+            if (pct <= 0) {
+                return 0;
+            }
+            var x = pct / 100; // normalize to [0, 1]
+            return Math.floor(Math.log(1 + x * 99) / Math.log(100) * 100);
+        }
+
+        $scope.syncBarPercentage = function (folder) {
+            if (typeof $scope.model[folder] === 'undefined') {
+                return 100;
+            }
+            if ($scope.model[folder].needTotalItems === 0) {
+                return 100;
+            }
+            if (($scope.model[folder].needBytes == 0 && $scope.model[folder].needDeletes > 0) || $scope.model[folder].globalBytes == 0) {
+                return 95;
+            }
+            return progressBarPercentage($scope.model[folder].inSyncBytes, $scope.model[folder].globalBytes);
+        };
+
+        $scope.scanBarPercentage = function (folder) {
+            if (!$scope.scanProgress[folder]) {
+                return undefined;
+            }
+            return progressBarPercentage($scope.scanProgress[folder].current, $scope.scanProgress[folder].total);
+        };
+
         $scope.scanRate = function (folder) {
             if (!$scope.scanProgress[folder]) {
                 return 0;
