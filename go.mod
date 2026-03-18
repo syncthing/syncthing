@@ -32,7 +32,7 @@ require (
 	github.com/quic-go/quic-go v0.59.0
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9
-	github.com/shirou/gopsutil/v4 v4.26.1 // https://github.com/shirou/gopsutil/issues/1898
+	github.com/shirou/gopsutil/v4 v4.26.2
 	github.com/syncthing/notify v0.0.0-20250528144937-c7027d4f7465
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d
 	github.com/thejerf/suture/v4 v4.0.6
@@ -41,13 +41,13 @@ require (
 	github.com/willabides/kongplete v0.4.0
 	github.com/wlynxg/anet v0.0.5
 	golang.org/x/crypto v0.48.0
-	golang.org/x/exp v0.0.0-20260209203927-2842357ff358
-	golang.org/x/net v0.50.0
+	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa
+	golang.org/x/net v0.51.0
 	golang.org/x/sys v0.41.0
 	golang.org/x/text v0.34.0
 	golang.org/x/time v0.14.0
 	google.golang.org/protobuf v1.36.11
-	modernc.org/sqlite v1.45.0
+	modernc.org/sqlite v1.46.1
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -60,7 +60,7 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/ebitengine/purego v0.9.1 // indirect
+	github.com/ebitengine/purego v0.10.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -108,7 +108,7 @@ require (
 replace github.com/gobwas/glob v0.2.3 => github.com/calmh/glob v0.0.0-20220615080505-1d823af5017b
 
 // https://github.com/mattn/go-sqlite3/pull/1338
-replace github.com/mattn/go-sqlite3 v1.14.31 => github.com/calmh/go-sqlite3 v1.14.32-0.20250812195006-80712c77b76a
+replace github.com/mattn/go-sqlite3 v1.14.34 => github.com/calmh/go-sqlite3 v1.14.35-0.20260303222015-6a03636c4bc9
 
 tool (
 	github.com/calmh/xdr/cmd/genxdr
