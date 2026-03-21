@@ -127,6 +127,7 @@ type Report struct {
 		SyncXattrs              int            `json:"syncXattrs,omitempty" metric:"folder_feature{feature=SyncXattrs},summary" since:"3"`
 		SendOwnership           int            `json:"sendOwnership,omitempty" metric:"folder_feature{feature=SendOwnership},summary" since:"3"`
 		SyncOwnership           int            `json:"syncOwnership,omitempty" metric:"folder_feature{feature=SyncOwnership},summary" since:"3"`
+		FullBlockIndexChanged   int            `json:"fullBlockIndexChanged,omitempty" metric:"folder_feature{feature=FullBlockIndexChanged},summary" since:"3"`
 	} `json:"folderUsesV3,omitzero" since:"3"`
 
 	DeviceUsesV3 struct {

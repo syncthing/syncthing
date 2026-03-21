@@ -106,16 +106,7 @@ func (m migration) apply(cfg *Configuration) {
 func migrateToConfigV53(cfg *Configuration) {
 	for i := range cfg.Folders {
 		f := &cfg.Folders[i]
-		switch f.Type {
-		case FolderTypeSendReceive, FolderTypeReceiveOnly:
-			f.FullBlockIndex = true
-		case FolderTypeSendOnly:
-			// Folder may exist for indexing side effects only, if it's not
-			// shared with any other device. (One device will be ourselves.)
-			f.FullBlockIndex = len(f.Devices) < 2
-		default:
-			f.FullBlockIndex = false
-		}
+		f.FullBlockIndex = f.DefaultFullBlockIndex()
 	}
 	switch cfg.Defaults.Folder.Type {
 	case FolderTypeSendReceive, FolderTypeReceiveOnly:
