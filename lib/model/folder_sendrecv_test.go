@@ -647,9 +647,6 @@ func TestDeleteIgnorePerms(t *testing.T) {
 	fi, err := scanner.CreateFileInfo(stat, name, ffs, false, false, config.XattrFilter{})
 	must(t, err)
 	ffs.Chmod(name, 0o600)
-	if info, err := ffs.Stat(name); err == nil {
-		fi.InodeChangeNs = info.InodeChangeTime().UnixNano()
-	}
 	scanChan := make(chan string, 1)
 	err = f.checkToBeDeleted(fi, fi, true, scanChan)
 	must(t, err)
