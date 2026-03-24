@@ -1631,6 +1631,12 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 		return fmt.Errorf("setting metadata: %w", err)
 	}
 
+	// Set the correct mtime on the temp file before the rename, so that
+	// even if the post-rename Chtimes call fails (e.g. under low
+	// RLIMIT_NOFILE on kqueue systems), the file on disk has the correct
+	// mtime.
+	f.mtimefs.Chtimes(tempName, file.ModTime(), file.ModTime()) // never fails
+
 	if stat, err := f.mtimefs.Lstat(file.Name); err == nil {
 		// There is an old file or directory already in place. We need to
 		// handle that.
