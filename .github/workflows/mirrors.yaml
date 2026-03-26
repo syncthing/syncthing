@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - uses: yesolutions/mirror-action@master
+      - uses: yesolutions/mirror-action@662fce0eced8996f64d7fa264d76cddd84827f33 # master
         with:
           REMOTE: ssh://git@codeberg.org/${{ github.repository }}.git
           GIT_SSH_PRIVATE_KEY: ${{ secrets.CODEBERG_PUSH_KEY }}
