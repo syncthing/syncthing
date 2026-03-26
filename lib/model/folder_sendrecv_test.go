@@ -996,6 +996,44 @@ func TestPullCaseOnlyPerformFinish(t *testing.T) {
 	}
 }
 
+func TestPerformFinishMtime(t *testing.T) {
+	_, f := setupSendReceiveFolder(t)
+	ffs := f.Filesystem()
+
+	name := "mtimefile"
+	contents := []byte("mtime test contents")
+
+	// Write the temp file that performFinish will rename into place.
+	temp := fs.TempName(name)
+	writeFile(t, ffs, temp, contents)
+
+	// Use a specific mtime in the past to verify it gets applied.
+	mtime := time.Unix(1234567890, 0)
+
+	file := protocol.FileInfo{
+		Name:      name,
+		Version:   protocol.Vector{}.Update(device1.Short()),
+		ModifiedS: mtime.Unix(),
+		Size:      int64(len(contents)),
+	}
+
+	dbUpdateChan := make(chan dbUpdateJob, 1)
+	scanChan := make(chan string, 1)
+
+	if err := f.performFinish(file, protocol.FileInfo{}, false, temp, dbUpdateChan, scanChan); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify the final file has the correct mtime.
+	stat, err := ffs.Lstat(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := stat.ModTime().Truncate(time.Second); !got.Equal(mtime) {
+		t.Errorf("mtime mismatch: got %v, want %v", got, mtime)
+	}
+}
+
 func TestPullCaseOnlyDir(t *testing.T) {
 	testPullCaseOnlyDirOrSymlink(t, true)
 }
