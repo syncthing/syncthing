@@ -198,10 +198,10 @@ func (m metricsDB) SetIndexID(folder string, device protocol.DeviceID, id protoc
 	return m.DB.SetIndexID(folder, device, id)
 }
 
-func (m metricsDB) Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error {
+func (m metricsDB) Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo, opts ...UpdateOption) error {
 	defer m.account(folder, "Update")()
 	defer metricTotalFilesUpdatedCount.WithLabelValues(folder).Add(float64(len(fs)))
-	return m.DB.Update(folder, device, fs)
+	return m.DB.Update(folder, device, fs, opts...)
 }
 
 func (m metricsDB) GetKV(key string) ([]byte, error) {

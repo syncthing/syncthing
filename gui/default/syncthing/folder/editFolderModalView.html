@@ -342,6 +342,20 @@
             </div>
           </div>
 
+          <div class="row">
+            <div class="col-md-6 form-group">
+              <p>
+                <label translate>Block Index</label>
+              </p>
+              <label>
+                <input type="checkbox" ng-model="currentFolder.fullBlockIndex" /> <span translate>Full Block Index</span>
+              </label>
+              <p translate class="help-block">
+                Maintain an index of all blocks in the folder, enabling reuse of blocks from other files when syncing changes. Disable to reduce database size at the cost of not being able to reuse blocks across files.
+              </p>
+            </div>
+          </div>
+
           <div class="row" ng-if="currentFolder.syncXattrs || currentFolder.sendXattrs">
             <div class="col-md-12">
               <p>
