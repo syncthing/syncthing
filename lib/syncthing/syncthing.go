@@ -120,12 +120,6 @@ func (a *App) StartMaintenance() <-chan error {
 	return a.dbService.StartMaintenance()
 }
 
-// LastMaintenanceTime returns the last time database maintenance completed successfully
-// This will return time zero when database maintenance has never completed successfully.
-func (a *App) LastMaintenanceTime() time.Time {
-	return a.dbService.LastMaintenanceTime()
-}
-
 func (a *App) startup() error {
 	a.mainService.Add(ur.NewFailureHandler(a.cfg, a.evLogger))
 
