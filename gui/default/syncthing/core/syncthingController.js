@@ -2525,9 +2525,15 @@ angular.module('syncthing.core')
                 initShareEditing('folder');
                 $scope.currentSharing.unrelated = $scope.currentSharing.unrelated.concat($scope.currentSharing.shared);
                 $scope.currentSharing.shared = [];
-                // Ignores don't need to be initialized here, as that happens in
-                // a second step if the user indicates in the creation modal
-                // that they want to set ignores
+                
+                // Reset _addIgnores to false by default for each new folder
+                $scope.currentFolder._addIgnores = false;
+
+                if ($scope.config.defaults.ignores && $scope.config.defaults.ignores.lines) {
+                    // split("\n") always returns a minimum 1-length array even for no patterns
+                    if ($scope.config.defaults.ignores.lines.length > 0 && $scope.config.defaults.ignores.lines[0] !== "")
+                        $scope.currentFolder._addIgnores = true;
+                }
             }, $scope.emitHTTPError);
         }
 
