@@ -1789,19 +1789,6 @@ loop:
 				lastFile = job.file
 			}
 
-			if !job.file.IsDeleted() && !job.file.IsInvalid() {
-				// Now that the file is finalized, grab possibly updated
-				// inode change time from disk into the local FileInfo. We
-				// use this change time to check for changes to xattrs etc
-				// on next scan.
-				if err := f.updateFileInfoChangeTime(&job.file); err != nil {
-					// This means on next scan the likely incorrect change time
-					// (resp. whatever caused the error) will cause this file to
-					// change. Log at info level to leave a trace if a user
-					// notices, but no need to warn
-					f.sl.Warn("Failed to update metadata at database commit", slogutil.FilePath(job.file.Name), slogutil.Error(err))
-				}
-			}
 			job.file.Sequence = 0
 
 			batch.Append(job.file)
@@ -2185,22 +2172,6 @@ func (f *sendReceiveFolder) withLimiter(ctx context.Context, fn func() error) er
 	}
 	defer f.writeLimiter.Give(1)
 	return fn()
-}
-
-// updateFileInfoChangeTime updates the inode change time in the FileInfo,
-// because that depends on the current, new, state of the file on disk.
-func (f *sendReceiveFolder) updateFileInfoChangeTime(file *protocol.FileInfo) error {
-	info, err := f.mtimefs.Lstat(file.Name)
-	if err != nil {
-		return err
-	}
-
-	if ct := info.InodeChangeTime(); !ct.IsZero() {
-		file.InodeChangeNs = ct.UnixNano()
-	} else {
-		file.InodeChangeNs = 0
-	}
-	return nil
 }
 
 // A []FileError is sent as part of an event and will be JSON serialized.
