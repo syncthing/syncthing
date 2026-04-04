@@ -8,20 +8,15 @@ package cli
 
 import (
 	"bytes"
-	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"strings"
 
+	"github.com/syncthing/syncthing/cmd/syncthing/internal/guiclient"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/locations"
-	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type APIClient interface {
@@ -46,7 +41,7 @@ func (f *apiClientFactory) getClient() (APIClient, error) {
 	// try to rip it out of the config.
 	if f.cfg.RawAddress == "" && f.cfg.APIKey == "" {
 		var err error
-		f.cfg, err = loadGUIConfig()
+		f.cfg, err = guiclient.LoadGUIConfig()
 		if err != nil {
 			return nil, err
 		}
@@ -54,16 +49,7 @@ func (f *apiClientFactory) getClient() (APIClient, error) {
 		return nil, errors.New("Both --gui-address and --gui-apikey should be specified")
 	}
 
-	httpClient := http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial(f.cfg.Network(), f.cfg.Address())
-			},
-		},
-	}
+	httpClient := *guiclient.NewHTTPClient(f.cfg)
 	return &apiClient{
 		Client: httpClient,
 		cfg:    f.cfg,
@@ -71,46 +57,8 @@ func (f *apiClientFactory) getClient() (APIClient, error) {
 	}, nil
 }
 
-func loadGUIConfig() (config.GUIConfiguration, error) {
-	// Load the certs and get the ID
-	cert, err := tls.LoadX509KeyPair(
-		locations.Get(locations.CertFile),
-		locations.Get(locations.KeyFile),
-	)
-	if err != nil {
-		return config.GUIConfiguration{}, fmt.Errorf("reading device ID: %w", err)
-	}
-
-	myID := protocol.NewDeviceID(cert.Certificate[0])
-
-	// Load the config
-	cfg, _, err := config.Load(locations.Get(locations.ConfigFile), myID, events.NoopLogger)
-	if err != nil {
-		return config.GUIConfiguration{}, fmt.Errorf("loading config: %w", err)
-	}
-
-	guiCfg := cfg.GUI()
-
-	if guiCfg.Address() == "" {
-		return config.GUIConfiguration{}, errors.New("could not find GUI Address")
-	}
-
-	if guiCfg.APIKey == "" {
-		return config.GUIConfiguration{}, errors.New("could not find GUI API key")
-	}
-
-	return guiCfg, nil
-}
-
 func (c *apiClient) Endpoint() string {
-	if c.cfg.Network() == "unix" {
-		return "http://unix/"
-	}
-	url := c.cfg.URL()
-	if !strings.HasSuffix(url, "/") {
-		url += "/"
-	}
-	return url
+	return guiclient.BaseURL(c.cfg)
 }
 
 func (c *apiClient) Do(req *http.Request) (*http.Response, error) {
