@@ -1062,7 +1062,7 @@ jobs:
         run: |
           version=${VERSION#v}
           repo=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
-          ref="${{github.ref_name}}"
+          ref="${REF_NAME}"
           ref=${ref//\//-} # slashes to dashes
 
           # List of tags for ghcr.io
@@ -1081,6 +1081,8 @@ jobs:
           echo Pushing to $tags
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
 
+        env:
+          REF_NAME: ${{github.ref_name}}
       - name: Prepare context dir
         run: |
           mkdir ctx
