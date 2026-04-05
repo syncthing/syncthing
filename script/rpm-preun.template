@@ -1,0 +1,8 @@
+#!/bin/sh
+# RPM pre-uninstall script
+
+if [ $1 -eq 0 ] ; then
+    # Package removal (not upgrade)
+    systemctl stop '{{.Service}}' >/dev/null 2>&1 || :
+    systemctl disable '{{.Service}}' >/dev/null 2>&1 || :
+fi

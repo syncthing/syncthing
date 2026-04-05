@@ -1,9 +1,11 @@
 /syncthing
 /stdiscosrv
+/strelaysrv
 *.tar.gz
 *.zip
 *.asc
 *.deb
+*.rpm
 *.exe
 .jshintrc
 coverage.out
@@ -14,6 +16,7 @@ coverage.xml
 syncthing.sig
 RELEASE
 deb
+rpm
 *.bz2
 /repos
 /proto/scripts/protoc-gen-gosyncthing
