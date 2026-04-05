@@ -7,11 +7,17 @@
 package dialer
 
 import (
+	"bufio"
+	"context"
+	"crypto/tls"
+	"encoding/base64"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
 	"golang.org/x/net/proxy"
@@ -21,6 +27,8 @@ var noFallback = os.Getenv("ALL_PROXY_NO_FALLBACK") != ""
 
 func init() {
 	proxy.RegisterDialerType("socks", socksDialerFunction)
+	proxy.RegisterDialerType("http", httpDialerFunction)
+	proxy.RegisterDialerType("https", httpDialerFunction)
 
 	if proxyDialer := proxy.FromEnvironment(); proxyDialer != proxy.Direct {
 		http.DefaultTransport = &http.Transport{
@@ -57,6 +65,111 @@ func socksDialerFunction(u *url.URL, forward proxy.Dialer) (proxy.Dialer, error)
 	}
 
 	return proxy.SOCKS5("tcp", u.Host, auth, forward)
+}
+
+type httpProxyDialer struct {
+	proxyURL      *url.URL
+	forwardDialer proxy.Dialer
+}
+
+func httpDialerFunction(u *url.URL, forward proxy.Dialer) (proxy.Dialer, error) {
+	return &httpProxyDialer{
+		proxyURL:      u,
+		forwardDialer: forward,
+	}, nil
+}
+
+func (h *httpProxyDialer) Dial(network, addr string) (net.Conn, error) {
+	return h.DialContext(context.Background(), network, addr)
+}
+
+type bufferedConn struct {
+	net.Conn
+	*bufio.Reader
+}
+
+func (c *bufferedConn) Read(b []byte) (int, error) {
+	return c.Reader.Read(b)
+}
+
+var warnCleartextProxyAuthOnce sync.Once
+
+func (h *httpProxyDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	var conn net.Conn
+	var err error
+
+	if network != "tcp" && network != "tcp4" && network != "tcp6" {
+		return nil, fmt.Errorf("unsupported network for http proxy: %s", network)
+	}
+
+	if cd, ok := h.forwardDialer.(proxy.ContextDialer); ok {
+		conn, err = cd.DialContext(ctx, "tcp", h.proxyURL.Host)
+	} else {
+		conn, err = h.forwardDialer.Dial("tcp", h.proxyURL.Host)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if deadline, ok := ctx.Deadline(); ok {
+		conn.SetDeadline(deadline)
+		defer conn.SetDeadline(time.Time{})
+	}
+
+	if h.proxyURL.Scheme == "https" {
+		tlsConn := tls.Client(conn, &tls.Config{
+			ServerName: h.proxyURL.Hostname(),
+		})
+		if err := tlsConn.HandshakeContext(ctx); err != nil {
+			conn.Close()
+			return nil, err
+		}
+		conn = tlsConn
+	}
+
+	req := &http.Request{
+		Method: "CONNECT",
+		URL:    &url.URL{Host: addr},
+		Host:   addr,
+		Header: make(http.Header),
+	}
+	req = req.WithContext(ctx)
+
+	if u := h.proxyURL.User; u != nil {
+		if h.proxyURL.Scheme == "http" {
+			warnCleartextProxyAuthOnce.Do(func() {
+				slog.Warn(
+					"Using basic auth over cleartext HTTP proxy",
+					"proxy", h.proxyURL.Redacted(),
+				)
+			})
+		}
+		username := u.Username()
+		password, _ := u.Password()
+		auth := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
+		req.Header.Set("Proxy-Authorization", "Basic "+auth)
+	}
+
+	if err := req.Write(conn); err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	br := bufio.NewReader(conn)
+	resp, err := http.ReadResponse(br, req)
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		conn.Close()
+		return nil, fmt.Errorf("http proxy CONNECT failed: %s", resp.Status)
+	}
+
+	// wrapper to return whatever the server sent after CONNECT
+	return &bufferedConn{conn, br}, nil
 }
 
 // dialerConn is needed because proxy dialed connections have RemoteAddr() pointing at the proxy,
