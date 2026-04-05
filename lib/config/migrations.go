@@ -30,6 +30,7 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
+		{52, migrateToConfigV52},
 		{51, migrateToConfigV51},
 		{50, migrateToConfigV50},
 		{37, migrateToConfigV37},
@@ -99,6 +100,11 @@ func (m migration) apply(cfg *Configuration) {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+}
+
+func migrateToConfigV52(cfg *Configuration) {
+	oldQuicInterval := max(cfg.Options.ReconnectIntervalS/3, 10)
+	cfg.Options.ReconnectIntervalS = min(cfg.Options.ReconnectIntervalS, oldQuicInterval)
 }
 
 func migrateToConfigV51(cfg *Configuration) {
@@ -428,11 +434,12 @@ func migrateToConfigV12(cfg *Configuration) {
 	var newDiscoServers []string
 	var useDefault bool
 	for _, addr := range cfg.Options.RawGlobalAnnServers {
-		if addr == "udp4://announce.syncthing.net:22026" {
+		switch addr {
+		case "udp4://announce.syncthing.net:22026":
 			useDefault = true
-		} else if addr == "udp6://announce-v6.syncthing.net:22026" {
+		case "udp6://announce-v6.syncthing.net:22026":
 			useDefault = true
-		} else {
+		default:
 			newDiscoServers = append(newDiscoServers, addr)
 		}
 	}

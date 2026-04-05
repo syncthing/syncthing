@@ -7,6 +7,7 @@
 package slogutil
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,13 +23,22 @@ type Line struct {
 	Level   slog.Level `json:"level"`
 }
 
-func (l *Line) WriteTo(w io.Writer) (int64, error) {
-	n, err := fmt.Fprintf(w, "%s %s %s\n", l.timeStr(), l.levelStr(), l.Message)
-	return int64(n), err
-}
-
-func (l *Line) timeStr() string {
-	return l.When.Format("2006-01-02 15:04:05")
+func (l *Line) WriteTo(w io.Writer, f LineFormat) (int64, error) {
+	buf := new(bytes.Buffer)
+	if f.LevelSyslog {
+		_, _ = fmt.Fprintf(buf, "<%d>", l.syslogPriority())
+	}
+	if f.TimestampFormat != "" {
+		buf.WriteString(l.When.Format(f.TimestampFormat))
+		buf.WriteRune(' ')
+	}
+	if f.LevelString {
+		buf.WriteString(l.levelStr())
+		buf.WriteRune(' ')
+	}
+	buf.WriteString(l.Message)
+	buf.WriteRune('\n')
+	return buf.WriteTo(w)
 }
 
 func (l *Line) levelStr() string {
@@ -48,6 +58,19 @@ func (l *Line) levelStr() string {
 		return str("WRN", l.Level-slog.LevelWarn)
 	default:
 		return str("ERR", l.Level-slog.LevelError)
+	}
+}
+
+func (l *Line) syslogPriority() int {
+	switch {
+	case l.Level < slog.LevelInfo:
+		return 7
+	case l.Level < slog.LevelWarn:
+		return 6
+	case l.Level < slog.LevelError:
+		return 4
+	default:
+		return 3
 	}
 }
 

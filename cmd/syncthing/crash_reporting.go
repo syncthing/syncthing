@@ -31,7 +31,7 @@ const (
 // directory to the crash reporting server as urlBase. Uploads are attempted
 // with the newest log first.
 //
-// This can can block for a long time. The context can set a final deadline
+// This can block for a long time. The context can set a final deadline
 // for this.
 func uploadPanicLogs(ctx context.Context, urlBase, dir string) {
 	files, err := filepath.Glob(filepath.Join(dir, "panic-*.log"))

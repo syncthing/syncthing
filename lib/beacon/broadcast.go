@@ -8,11 +8,13 @@ package beacon
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/slogutil"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/netutil"
 )
 
@@ -63,6 +65,11 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 				continue
 			}
 
+			if build.IsAndroid && intf.Flags&net.FlagPointToPoint != 0 {
+				// skip  cellular interfaces
+				continue
+			}
+
 			addrs, err := netutil.InterfaceAddrsByInterface(&intf)
 			if err != nil {
 				l.Debugln("Failed to list interface addresses:", err)
@@ -74,6 +81,7 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 				if iaddr, ok := addr.(*net.IPNet); ok && len(iaddr.IP) >= 4 && iaddr.IP.IsGlobalUnicast() && iaddr.IP.To4() != nil {
 					baddr := bcast(iaddr)
 					dsts = append(dsts, baddr.IP)
+					slog.Debug("Added broadcast address", slogutil.Address(baddr), "intf", intf.Name, slog.String("intf_flags", intf.Flags.String()))
 				}
 			}
 		}
@@ -83,8 +91,6 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 			dsts = append(dsts, net.IP{0xff, 0xff, 0xff, 0xff})
 		}
 
-		l.Debugln("addresses:", dsts)
-
 		success := 0
 		for _, ip := range dsts {
 			dst := &net.UDPAddr{IP: ip, Port: port}
@@ -93,7 +99,8 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 			_, err = conn.WriteTo(bs, dst)
 			conn.SetWriteDeadline(time.Time{})
 
-			if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+			var nerr net.Error
+			if errors.As(err, &nerr) && nerr.Timeout() {
 				// Write timeouts should not happen. We treat it as a fatal
 				// error on the socket.
 				l.Debugln(err)

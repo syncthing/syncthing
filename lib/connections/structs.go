@@ -39,6 +39,7 @@ type tlsConn interface {
 // came from (type, priority).
 type internalConn struct {
 	tlsConn
+
 	connType      connType
 	isLocal       bool
 	priority      int

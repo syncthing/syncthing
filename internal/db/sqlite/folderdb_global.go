@@ -27,7 +27,8 @@ func (s *folderDB) GetGlobalFile(file string) (protocol.FileInfo, bool, error) {
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
 		INNER JOIN files f on fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
-		WHERE f.name = ? AND f.local_flags & {{.FlagLocalGlobal}} != 0
+		INNER JOIN file_names n ON f.name_idx = n.idx
+		WHERE n.name = ? AND f.local_flags & {{.FlagLocalGlobal}} != 0
 	`).Get(&ind, file)
 	if errors.Is(err, sql.ErrNoRows) {
 		return protocol.FileInfo{}, false, nil
@@ -49,8 +50,9 @@ func (s *folderDB) GetGlobalAvailability(file string) ([]protocol.DeviceID, erro
 	err := s.stmt(`
 		SELECT d.device_id FROM files f
 		INNER JOIN devices d ON d.idx = f.device_idx
-		INNER JOIN files g ON g.version = f.version AND g.name = f.name
-		WHERE g.name = ? AND g.local_flags & {{.FlagLocalGlobal}} != 0 AND f.device_idx != {{.LocalDeviceIdx}}
+		INNER JOIN files g ON g.version_idx = f.version_idx AND g.name_idx = f.name_idx
+		INNER JOIN file_names n ON f.name_idx = n.idx
+		WHERE n.name = ? AND g.local_flags & {{.FlagLocalGlobal}} != 0 AND f.device_idx != {{.LocalDeviceIdx}}
 		ORDER BY d.device_id
 	`).Select(&devStrs, file)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -74,9 +76,10 @@ func (s *folderDB) GetGlobalAvailability(file string) ([]protocol.DeviceID, erro
 
 func (s *folderDB) AllGlobalFiles() (iter.Seq[db.FileMetadata], func() error) {
 	it, errFn := iterStructs[db.FileMetadata](s.stmt(`
-		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.local_flags as localflags FROM files f
+		SELECT f.sequence, n.name, f.type, f.modified as modnanos, f.size, f.deleted, f.local_flags as localflags FROM files f
+		INNER JOIN file_names n ON f.name_idx = n.idx
 		WHERE f.local_flags & {{.FlagLocalGlobal}} != 0
-		ORDER BY f.name
+		ORDER BY n.name
 	`).Queryx())
 	return itererr.Map(it, errFn, func(m db.FileMetadata) (db.FileMetadata, error) {
 		m.Name = osutil.NativeFilename(m.Name)
@@ -93,9 +96,10 @@ func (s *folderDB) AllGlobalFilesPrefix(prefix string) (iter.Seq[db.FileMetadata
 	end := prefixEnd(prefix)
 
 	it, errFn := iterStructs[db.FileMetadata](s.stmt(`
-		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.local_flags as localflags FROM files f
-		WHERE f.name >= ? AND f.name < ? AND f.local_flags & {{.FlagLocalGlobal}} != 0
-		ORDER BY f.name
+		SELECT f.sequence, n.name, f.type, f.modified as modnanos, f.size, f.deleted, f.local_flags as localflags FROM files f
+		INNER JOIN file_names n ON f.name_idx = n.idx
+		WHERE n.name >= ? AND n.name < ? AND f.local_flags & {{.FlagLocalGlobal}} != 0
+		ORDER BY n.name
 	`).Queryx(prefix, end))
 	return itererr.Map(it, errFn, func(m db.FileMetadata) (db.FileMetadata, error) {
 		m.Name = osutil.NativeFilename(m.Name)
@@ -109,7 +113,7 @@ func (s *folderDB) AllNeededGlobalFiles(device protocol.DeviceID, order config.P
 	case config.PullOrderRandom:
 		selectOpts = "ORDER BY RANDOM()"
 	case config.PullOrderAlphabetic:
-		selectOpts = "ORDER BY g.name ASC"
+		selectOpts = "ORDER BY n.name ASC"
 	case config.PullOrderSmallestFirst:
 		selectOpts = "ORDER BY g.size ASC"
 	case config.PullOrderLargestFirst:
@@ -137,9 +141,10 @@ func (s *folderDB) AllNeededGlobalFiles(device protocol.DeviceID, order config.P
 func (s *folderDB) neededGlobalFilesLocal(selectOpts string) (iter.Seq[protocol.FileInfo], func() error) {
 	// Select all the non-ignored files with the need bit set.
 	it, errFn := iterStructs[indirectFI](s.stmt(`
-		SELECT fi.fiprotobuf, bl.blprotobuf, g.name, g.size, g.modified FROM fileinfos fi
+		SELECT fi.fiprotobuf, bl.blprotobuf, n.name, g.size, g.modified FROM fileinfos fi
 		INNER JOIN files g on fi.sequence = g.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = g.blocklist_hash
+		INNER JOIN file_names n ON g.name_idx = n.idx
 		WHERE g.local_flags & {{.FlagLocalIgnored}} = 0 AND g.local_flags & {{.FlagLocalNeeded}} != 0
 	` + selectOpts).Queryx())
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
@@ -155,24 +160,26 @@ func (s *folderDB) neededGlobalFilesRemote(device protocol.DeviceID, selectOpts 
 	//   non-deleted and valid remote file (of any version)
 
 	it, errFn := iterStructs[indirectFI](s.stmt(`
-		SELECT fi.fiprotobuf, bl.blprotobuf, g.name, g.size, g.modified FROM fileinfos fi
+		SELECT fi.fiprotobuf, bl.blprotobuf, n.name, g.size, g.modified FROM fileinfos fi
 		INNER JOIN files g on fi.sequence = g.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = g.blocklist_hash
+		INNER JOIN file_names n ON g.name_idx = n.idx
 		WHERE g.local_flags & {{.FlagLocalGlobal}} != 0 AND NOT g.deleted AND g.local_flags & {{.LocalInvalidFlags}} = 0 AND NOT EXISTS (
 			SELECT 1 FROM FILES f
 			INNER JOIN devices d ON d.idx = f.device_idx
-			WHERE f.name = g.name AND f.version = g.version AND d.device_id = ?
+			WHERE f.name_idx = g.name_idx AND f.version_idx = g.version_idx AND d.device_id = ?
 		)
 
 		UNION ALL
 
-		SELECT fi.fiprotobuf, bl.blprotobuf, g.name, g.size, g.modified FROM fileinfos fi
+		SELECT fi.fiprotobuf, bl.blprotobuf, n.name, g.size, g.modified FROM fileinfos fi
 		INNER JOIN files g on fi.sequence = g.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = g.blocklist_hash
+		INNER JOIN file_names n ON g.name_idx = n.idx
 		WHERE g.local_flags & {{.FlagLocalGlobal}} != 0 AND g.deleted AND g.local_flags & {{.LocalInvalidFlags}} = 0 AND EXISTS (
 			SELECT 1 FROM FILES f
 			INNER JOIN devices d ON d.idx = f.device_idx
-			WHERE f.name = g.name AND d.device_id = ? AND NOT f.deleted AND f.local_flags & {{.LocalInvalidFlags}} = 0 
+			WHERE f.name_idx = g.name_idx AND d.device_id = ? AND NOT f.deleted AND f.local_flags & {{.LocalInvalidFlags}} = 0
 		)
 	`+selectOpts).Queryx(
 		device.String(),

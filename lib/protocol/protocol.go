@@ -58,8 +58,6 @@ const (
 	compressionThreshold = 128
 )
 
-var errNotCompressible = errors.New("not compressible")
-
 const (
 	stateInitial = iota
 	stateReady
@@ -68,6 +66,7 @@ const (
 var (
 	ErrClosed             = errors.New("connection closed")
 	ErrTimeout            = errors.New("read timeout")
+	errNotCompressible    = errors.New("not compressible")
 	errUnknownMessage     = errors.New("unknown message")
 	errInvalidFilename    = errors.New("filename is invalid")
 	errUncleanFilename    = errors.New("filename not in canonical format")
@@ -406,7 +405,7 @@ func (c *rawConnection) readerLoop() {
 	for {
 		msg, err := c.readMessage(fourByteBuf)
 		if err != nil {
-			if err == errUnknownMessage {
+			if errors.Is(err, errUnknownMessage) {
 				// Unknown message types are skipped, for future extensibility.
 				continue
 			}
@@ -1073,7 +1072,13 @@ func lz4Compress(src, buf []byte) (int, error) {
 }
 
 func lz4Decompress(src []byte) ([]byte, error) {
+	if len(src) < 4 {
+		return nil, fmt.Errorf("compressed message len %d is too short", len(src))
+	}
 	size := binary.BigEndian.Uint32(src)
+	if size > MaxMessageLen {
+		return nil, fmt.Errorf("decompressed message len %d is too large", size)
+	}
 	buf := BufferPool.Get(int(size))
 
 	n, err := lz4.UncompressBlock(src[4:], buf)

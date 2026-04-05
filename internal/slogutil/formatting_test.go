@@ -17,8 +17,11 @@ import (
 func TestFormattingHandler(t *testing.T) {
 	buf := new(bytes.Buffer)
 	h := &formattingHandler{
-		out:          buf,
-		timeOverride: time.Unix(1234567890, 0).In(time.UTC),
+		opts: &formattingOptions{
+			LineFormat:   DefaultLineFormat,
+			out:          buf,
+			timeOverride: time.Unix(1234567890, 0).In(time.UTC),
+		},
 	}
 
 	l := slog.New(h).With("a", "a")

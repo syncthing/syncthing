@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -353,7 +354,7 @@ func hashPatterns(patterns []Pattern) string {
 		h.Write([]byte(pat.String()))
 		h.Write([]byte("\n"))
 	}
-	return fmt.Sprintf("%x", h.Sum(nil))
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func loadIgnoreFile(fs fs.Filesystem, file string) (fs.File, fs.FileInfo, error) {

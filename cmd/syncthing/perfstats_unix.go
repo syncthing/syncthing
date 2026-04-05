@@ -16,7 +16,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/locations"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/exp/constraints"
 )
@@ -48,14 +50,19 @@ func savePerfStats(file string) {
 		in, out := protocol.TotalInOut()
 		timeDiff := t.Sub(prevTime)
 
+		rss := curRus.Maxrss
+		if build.IsDarwin {
+			rss /= 1024
+		}
+
 		fmt.Fprintf(fd, "%.03f\t%f\t%d\t%d\t%.0f\t%.0f\t%d\n",
 			t.Sub(t0).Seconds(),
 			rate(cpusec(&prevRus), cpusec(&curRus), timeDiff, 1),
 			(curMem.Sys-curMem.HeapReleased)/1024,
-			curRus.Maxrss/1024,
+			rss,
 			rate(prevIn, in, timeDiff, 1e3),
 			rate(prevOut, out, timeDiff, 1e3),
-			dirsize(locations.Get(locations.Database))/1024,
+			osutil.DirSize(locations.Get(locations.Database))/1024,
 		)
 
 		prevTime = t
@@ -77,22 +84,4 @@ func rate[T number](prev, cur T, d time.Duration, div float64) float64 {
 	diff := cur - prev
 	rate := float64(diff) / d.Seconds() / div
 	return rate
-}
-
-func dirsize(location string) int64 {
-	entries, err := os.ReadDir(location)
-	if err != nil {
-		return 0
-	}
-
-	var size int64
-	for _, entry := range entries {
-		fi, err := entry.Info()
-		if err != nil {
-			continue
-		}
-		size += fi.Size()
-	}
-
-	return size
 }

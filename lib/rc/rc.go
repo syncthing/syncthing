@@ -144,7 +144,7 @@ func (p *Process) Stop() (*os.ProcessState, error) {
 	default:
 	}
 
-	if _, err := p.Post("/rest/system/shutdown", nil); err != nil && err != io.ErrUnexpectedEOF {
+	if _, err := p.Post("/rest/system/shutdown", nil); err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
 		// Unexpected EOF is somewhat expected here, as we may exit before
 		// returning something sensible.
 		return nil, err
@@ -173,12 +173,12 @@ func (p *Process) Get(path string) ([]byte, error) {
 	}
 
 	url := fmt.Sprintf("http://%s%s", p.addr, path)
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Add("X-API-Key", APIKey)
+	req.Header.Add("X-Api-Key", APIKey)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -198,12 +198,12 @@ func (p *Process) Post(path string, data io.Reader) ([]byte, error) {
 		},
 	}
 	url := fmt.Sprintf("http://%s%s", p.addr, path)
-	req, err := http.NewRequest("POST", url, data)
+	req, err := http.NewRequest(http.MethodPost, url, data)
 	if err != nil {
 		return nil, err
 	}
 
-	req.Header.Add("X-API-Key", APIKey)
+	req.Header.Add("X-Api-Key", APIKey)
 	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
@@ -397,7 +397,7 @@ func (*Process) readResponse(resp *http.Response) ([]byte, error) {
 	if err != nil {
 		return bs, err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return bs, errors.New(resp.Status)
 	}
 	return bs, nil

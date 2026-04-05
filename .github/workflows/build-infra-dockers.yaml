@@ -7,7 +7,7 @@ on:
       - infra-*
 
 env:
-  GO_VERSION: "~1.25.0"
+  GO_VERSION: "~1.26.0"
   CGO_ENABLED: "0"
   BUILD_USER: docker
   BUILD_HOST: github.syncthing.net
@@ -30,11 +30,11 @@ jobs:
           - stupgrades
           - ursrv
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
@@ -58,6 +58,9 @@ jobs:
             go run build.go -goos linux -goarch "$arch" build ${{ matrix.pkg }}
             mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-"$arch"
           done
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

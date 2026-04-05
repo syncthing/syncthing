@@ -7,6 +7,7 @@
 package sqlite
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -15,10 +16,11 @@ import (
 
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/slogutil"
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 const (
-	maxDBConns         = 16
+	maxDBConns         = 6
 	minDeleteRetention = 24 * time.Hour
 )
 
@@ -52,8 +54,7 @@ func Open(path string, opts ...Option) (*DB, error) {
 		"journal_mode = WAL",
 		"optimize = 0x10002",
 		"auto_vacuum = INCREMENTAL",
-		"default_temp_store = MEMORY",
-		"temp_store = MEMORY",
+		fmt.Sprintf("application_id = %d", applicationIDMain),
 	}
 	schemas := []string{
 		"sql/schema/common/*",
@@ -65,6 +66,8 @@ func Open(path string, opts ...Option) (*DB, error) {
 	}
 
 	_ = os.MkdirAll(path, 0o700)
+	initTmpDir(path)
+
 	mainPath := filepath.Join(path, "main.db")
 	mainBase, err := openBase(mainPath, maxDBConns, pragmas, schemas, migrations)
 	if err != nil {
@@ -99,11 +102,10 @@ func Open(path string, opts ...Option) (*DB, error) {
 func OpenForMigration(path string) (*DB, error) {
 	pragmas := []string{
 		"journal_mode = OFF",
-		"default_temp_store = MEMORY",
-		"temp_store = MEMORY",
 		"foreign_keys = 0",
 		"synchronous = 0",
 		"locking_mode = EXCLUSIVE",
+		fmt.Sprintf("application_id = %d", applicationIDMain),
 	}
 	schemas := []string{
 		"sql/schema/common/*",
@@ -115,6 +117,8 @@ func OpenForMigration(path string) (*DB, error) {
 	}
 
 	_ = os.MkdirAll(path, 0o700)
+	initTmpDir(path)
+
 	mainPath := filepath.Join(path, "main.db")
 	mainBase, err := openBase(mainPath, 1, pragmas, schemas, migrations)
 	if err != nil {
@@ -143,4 +147,25 @@ func (s *DB) Close() error {
 		delete(s.folderDBs, folder)
 	}
 	return wrap(s.baseDB.Close())
+}
+
+func initTmpDir(path string) {
+	if build.IsWindows || build.IsDarwin || os.Getenv("SQLITE_TMPDIR") != "" {
+		// Doesn't use SQLITE_TMPDIR, isn't likely to have a tiny
+		// ram-backed temp directory, or already set to something.
+		return
+	}
+
+	// Attempt to override the SQLite temporary directory by setting the
+	// env var prior to the (first) database being opened and hence
+	// SQLite becoming initialized. We set the temp dir to the same
+	// place we store the database, in the hope that there will be
+	// enough space there for the operations it needs to perform, as
+	// opposed to /tmp and similar, on some systems.
+	dbTmpDir := filepath.Join(path, ".tmp")
+	if err := os.MkdirAll(dbTmpDir, 0o700); err == nil {
+		os.Setenv("SQLITE_TMPDIR", dbTmpDir)
+	} else {
+		slog.Warn("Failed to create temp directory for SQLite", slogutil.FilePath(dbTmpDir), slogutil.Error(err))
+	}
 }

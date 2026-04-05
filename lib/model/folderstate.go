@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/events"
 )
 
@@ -125,11 +126,12 @@ func (s *stateTracker) setState(newState folderState) {
 		eventData["duration"] = time.Since(s.changed).Seconds()
 	}
 
+	slog.Debug("Folder changed state", "folder", s.folderID, "state", newState, "from", s.current)
+
 	s.current = newState
 	s.changed = time.Now().Truncate(time.Second)
 
 	s.evLogger.Log(events.StateChanged, eventData)
-	slog.Info("Folder changed state", "folder", s.folderID, "state", newState)
 }
 
 // getState returns the current state, the time when it last changed, and the
@@ -154,6 +156,12 @@ func (s *stateTracker) setError(err error) {
 	eventData := map[string]interface{}{
 		"folder": s.folderID,
 		"from":   s.current.String(),
+	}
+
+	if err != nil && s.current != FolderError {
+		slog.Warn("Folder is in error state", slog.String("folder", s.folderID), slogutil.Error(err))
+	} else if err == nil && s.current == FolderError {
+		slog.Info("Folder error state was cleared", slog.String("folder", s.folderID))
 	}
 
 	if err != nil {

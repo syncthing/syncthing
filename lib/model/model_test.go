@@ -77,9 +77,8 @@ func addFolderDevicesToClusterConfig(cc *protocol.ClusterConfig, remote protocol
 }
 
 func TestRequest(t *testing.T) {
-	wrapper, fcfg, cancel := newDefaultCfgWrapper()
+	wrapper, fcfg := newDefaultCfgWrapper(t)
 	ffs := fcfg.Filesystem()
-	defer cancel()
 	m := setupModel(t, wrapper)
 	defer cleanupModel(m)
 
@@ -164,8 +163,7 @@ func BenchmarkIndex_100(b *testing.B) {
 }
 
 func benchmarkIndex(b *testing.B, nfiles int) {
-	m, _, fcfg, wcfgCancel := setupModelWithConnection(b)
-	defer wcfgCancel()
+	m, _, fcfg := setupModelWithConnection(b)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	files := genFiles(nfiles)
@@ -191,8 +189,7 @@ func BenchmarkIndexUpdate_10000_1(b *testing.B) {
 }
 
 func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
-	m, _, fcfg, wcfgCancel := setupModelWithConnection(b)
-	defer wcfgCancel()
+	m, _, fcfg := setupModelWithConnection(b)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	files := genFiles(nfiles)
@@ -223,7 +220,7 @@ func BenchmarkRequestOut(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		data, err := m.RequestGlobal(context.Background(), device1, "default", files[i%n].Name, 0, 0, 32, nil, false)
+		data, err := m.RequestGlobal(b.Context(), device1, "default", files[i%n].Name, 0, 0, 32, nil, false)
 		if err != nil {
 			b.Error(err)
 		}
@@ -471,6 +468,84 @@ func TestClusterConfig(t *testing.T) {
 	}
 	if r.Devices[1].Introducer {
 		t.Error("Device2 should not be flagged as Introducer")
+	}
+}
+
+func TestClusterConfigEncrypted(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.New(device1)
+	cfg.Options.MinHomeDiskFree.Value = 0 // avoids unnecessary free space checks
+	cfg.Devices = []config.DeviceConfiguration{
+		{
+			DeviceID: device1,
+		},
+		{
+			DeviceID: device2,
+		},
+	}
+	cfg.Folders = []config.FolderConfiguration{
+		{
+			FilesystemType: config.FilesystemTypeFake,
+			ID:             "folder1",
+			Path:           "testdata1",
+			Devices: []config.FolderDeviceConfiguration{
+				{DeviceID: device1, EncryptionPassword: "trololol"}, // not included, untrusted
+				{DeviceID: device2},
+			},
+		},
+		{
+			FilesystemType: config.FilesystemTypeFake,
+			ID:             "folder2",
+			Path:           "testdata2",
+			Devices: []config.FolderDeviceConfiguration{
+				{DeviceID: device1, EncryptionPassword: "trololol"}, // not included, untrusted
+				{DeviceID: device2, EncryptionPassword: "trololol"}, // included, is destinationd device
+			},
+		},
+		{
+			FilesystemType: config.FilesystemTypeFake,
+			ID:             "folder3",
+			Path:           "testdata3",
+			Devices: []config.FolderDeviceConfiguration{
+				{DeviceID: device1},
+				// should not be included, does not include device2
+			},
+		},
+	}
+
+	wrapper, cancel := newConfigWrapper(cfg)
+	defer cancel()
+	m := newModel(t, wrapper, myID, nil)
+	m.ServeBackground()
+	defer cleanupModel(m)
+
+	cm, _ := m.generateClusterConfig(device2)
+
+	if l := len(cm.Folders); l != 2 {
+		t.Fatalf("Incorrect number of folders %d != 2", l)
+	}
+
+	r := cm.Folders[0]
+	if r.ID != "folder1" {
+		t.Errorf("Incorrect folder %q != folder1", r.ID)
+	}
+	if l := len(r.Devices); l != 1 {
+		t.Errorf("Incorrect number of devices %d != 1", l)
+	}
+	if id := r.Devices[0].ID; id != device2 {
+		t.Errorf("Incorrect device ID %s != %s", id, device2)
+	}
+
+	r = cm.Folders[1]
+	if r.ID != "folder2" {
+		t.Errorf("Incorrect folder %q != folder2", r.ID)
+	}
+	if l := len(r.Devices); l != 1 {
+		t.Errorf("Incorrect number of devices %d != 1", l)
+	}
+	if id := r.Devices[0].ID; id != device2 {
+		t.Errorf("Incorrect device ID %s != %s", id, device2)
 	}
 }
 
@@ -918,15 +993,13 @@ func TestIssue5063(t *testing.T) {
 		if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 			t.Error("expected shared", id)
 		}
-		wg.Done()
 	}
 
 	reps := 10
 	ids := make([]string, reps)
 	for i := 0; i < reps; i++ {
-		wg.Add(1)
 		ids[i] = srand.String(8)
-		go addAndVerify(ids[i])
+		wg.Go(func() { addAndVerify(ids[i]) })
 	}
 
 	finished := make(chan struct{})
@@ -1699,8 +1772,7 @@ func TestRWScanRecovery(t *testing.T) {
 }
 
 func TestGlobalDirectoryTree(t *testing.T) {
-	m, conn, fcfg, wCancel := setupModelWithConnection(t)
-	defer wCancel()
+	m, conn, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	var seq int64
@@ -2006,8 +2078,7 @@ func BenchmarkTree_100_10(b *testing.B) {
 }
 
 func benchmarkTree(b *testing.B, n1, n2 int) {
-	m, _, fcfg, wcfgCancel := setupModelWithConnection(b)
-	defer wcfgCancel()
+	m, _, fcfg := setupModelWithConnection(b)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	m.ScanFolder(fcfg.ID)
@@ -2264,8 +2335,7 @@ func TestIssue3829(t *testing.T) {
 
 // TestIssue4573 tests that contents of an unavailable dir aren't marked deleted
 func TestIssue4573(t *testing.T) {
-	w, fcfg, wCancel := newDefaultCfgWrapper()
-	defer wCancel()
+	w, fcfg := newDefaultCfgWrapper(t)
 	testFs := fcfg.Filesystem()
 	defer os.RemoveAll(testFs.URI())
 
@@ -2294,8 +2364,7 @@ func TestIssue4573(t *testing.T) {
 // TestInternalScan checks whether various fs operations are correctly represented
 // in the db after scanning.
 func TestInternalScan(t *testing.T) {
-	w, fcfg, wCancel := newDefaultCfgWrapper()
-	defer wCancel()
+	w, fcfg := newDefaultCfgWrapper(t)
 	testFs := fcfg.Filesystem()
 	defer os.RemoveAll(testFs.URI())
 
@@ -2394,8 +2463,7 @@ func TestCustomMarkerName(t *testing.T) {
 }
 
 func TestRemoveDirWithContent(t *testing.T) {
-	m, conn, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, conn, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -2455,8 +2523,7 @@ func TestRemoveDirWithContent(t *testing.T) {
 }
 
 func TestIssue4475(t *testing.T) {
-	m, conn, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, conn, fcfg := setupModelWithConnection(t)
 	defer cleanupModel(m)
 	testFs := fcfg.Filesystem()
 
@@ -2792,8 +2859,7 @@ func TestIssue4903(t *testing.T) {
 func TestIssue5002(t *testing.T) {
 	// recheckFile should not panic when given an index equal to the number of blocks
 
-	w, fcfg, wCancel := newDefaultCfgWrapper()
-	defer wCancel()
+	w, fcfg := newDefaultCfgWrapper(t)
 	ffs := fcfg.Filesystem()
 
 	fd, err := ffs.Create("foo")
@@ -2821,8 +2887,7 @@ func TestIssue5002(t *testing.T) {
 }
 
 func TestParentOfUnignored(t *testing.T) {
-	w, fcfg, wCancel := newDefaultCfgWrapper()
-	defer wCancel()
+	w, fcfg := newDefaultCfgWrapper(t)
 	ffs := fcfg.Filesystem()
 
 	must(t, ffs.Mkdir("bar", 0o755))
@@ -2878,16 +2943,14 @@ func TestFolderRestartZombies(t *testing.T) {
 	// for the commit to complete, but there are many of them.
 	var wg sync.WaitGroup
 	for i := 0; i < 25; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			t0 := time.Now()
 			for time.Since(t0) < time.Second {
 				fcfg := folderCfg.Copy()
 				fcfg.MaxConflicts = mrand.Int() // safe change that should cause a folder restart
 				setFolder(t, wrapper, fcfg)
 			}
-		}()
+		})
 	}
 
 	// Wait for the above to complete and check how many folders we have
@@ -2901,15 +2964,13 @@ func TestFolderRestartZombies(t *testing.T) {
 }
 
 func TestRequestLimit(t *testing.T) {
-	wrapper, fcfg, cancel := newDefaultCfgWrapper()
+	wrapper, fcfg := newDefaultCfgWrapper(t)
 	ffs := fcfg.Filesystem()
 
 	file := "tmpfile"
 	fd, err := ffs.Create(file)
 	must(t, err)
 	fd.Close()
-
-	defer cancel()
 	waiter, err := wrapper.Modify(func(cfg *config.Configuration) {
 		_, i, _ := cfg.Device(device1)
 		cfg.Devices[i].MaxRequestKiB = 1
@@ -2959,8 +3020,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 		protocol.CloseTimeout = oldCloseTimeout
 	}()
 
-	w, fcfg, wCancel := newDefaultCfgWrapper()
-	defer wCancel()
+	w, fcfg := newDefaultCfgWrapper(t)
 	m := setupModel(t, w)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
@@ -3001,8 +3061,7 @@ func TestConnCloseOnRestart(t *testing.T) {
 }
 
 func TestModTimeWindow(t *testing.T) {
-	w, fcfg, wCancel := newDefaultCfgWrapper()
-	defer wCancel()
+	w, fcfg := newDefaultCfgWrapper(t)
 	tfs := modtimeTruncatingFS{
 		trunc:      0,
 		Filesystem: fcfg.Filesystem(),
@@ -3063,8 +3122,7 @@ func TestModTimeWindow(t *testing.T) {
 }
 
 func TestDevicePause(t *testing.T) {
-	m, _, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, _, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	sub := m.evLogger.Subscribe(events.DevicePaused)
@@ -3093,8 +3151,7 @@ func TestDevicePause(t *testing.T) {
 }
 
 func TestDeviceWasSeen(t *testing.T) {
-	m, _, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, _, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	m.deviceWasSeen(device1)
@@ -3138,8 +3195,7 @@ func TestNewLimitedRequestResponse(t *testing.T) {
 }
 
 func TestSummaryPausedNoError(t *testing.T) {
-	wcfg, fcfg, wcfgCancel := newDefaultCfgWrapper()
-	defer wcfgCancel()
+	wcfg, fcfg := newDefaultCfgWrapper(t)
 	pauseFolder(t, wcfg, fcfg.ID, true)
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
@@ -3151,14 +3207,15 @@ func TestSummaryPausedNoError(t *testing.T) {
 }
 
 func TestFolderAPIErrors(t *testing.T) {
-	wcfg, fcfg, wcfgCancel := newDefaultCfgWrapper()
-	defer wcfgCancel()
+	wcfg, fcfg := newDefaultCfgWrapper(t)
 	pauseFolder(t, wcfg, fcfg.ID, true)
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
 
 	methods := []func(folder string) error{
-		m.ScanFolder,
+		func(folder string) error {
+			return m.ScanFolder(folder)
+		},
 		func(folder string) error {
 			return m.ScanFolderSubdirs(folder, nil)
 		},
@@ -3183,8 +3240,7 @@ func TestFolderAPIErrors(t *testing.T) {
 }
 
 func TestRenameSequenceOrder(t *testing.T) {
-	wcfg, fcfg, wcfgCancel := newDefaultCfgWrapper()
-	defer wcfgCancel()
+	wcfg, fcfg := newDefaultCfgWrapper(t)
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
 
@@ -3246,8 +3302,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 }
 
 func TestRenameSameFile(t *testing.T) {
-	wcfg, fcfg, wcfgCancel := newDefaultCfgWrapper()
-	defer wcfgCancel()
+	wcfg, fcfg := newDefaultCfgWrapper(t)
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
 
@@ -3290,8 +3345,7 @@ func TestRenameSameFile(t *testing.T) {
 }
 
 func TestBlockListMap(t *testing.T) {
-	wcfg, fcfg, wcfgCancel := newDefaultCfgWrapper()
-	defer wcfgCancel()
+	wcfg, fcfg := newDefaultCfgWrapper(t)
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
 
@@ -3359,8 +3413,7 @@ func TestBlockListMap(t *testing.T) {
 }
 
 func TestScanRenameCaseOnly(t *testing.T) {
-	wcfg, fcfg, wcfgCancel := newDefaultCfgWrapper()
-	defer wcfgCancel()
+	wcfg, fcfg := newDefaultCfgWrapper(t)
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
 
@@ -3480,9 +3533,8 @@ func TestAddFolderCompletion(t *testing.T) {
 }
 
 func TestScanDeletedROChangedOnSR(t *testing.T) {
-	m, conn, fcfg, wCancel := setupModelWithConnection(t)
+	m, conn, fcfg := setupModelWithConnection(t)
 	ffs := fcfg.Filesystem()
-	defer wCancel()
 	defer cleanupModelAndRemoveDir(m, ffs.URI())
 	fcfg.Type = config.FolderTypeReceiveOnly
 	setFolder(t, m.cfg, fcfg)
@@ -3522,8 +3574,7 @@ func TestScanDeletedROChangedOnSR(t *testing.T) {
 
 func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSecond bool, pre func(config.Wrapper), fn func(config.Wrapper)) {
 	t.Helper()
-	wcfg, _, wcfgCancel := newDefaultCfgWrapper()
-	defer wcfgCancel()
+	wcfg, _ := newDefaultCfgWrapper(t)
 	m := setupModel(t, wcfg)
 	defer cleanupModel(m)
 
@@ -3585,8 +3636,7 @@ func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSec
 // That then causes these files to be considered as needed, while they are not.
 // https://github.com/syncthing/syncthing/issues/6961
 func TestIssue6961(t *testing.T) {
-	wcfg, fcfg, wcfgCancel := newDefaultCfgWrapper()
-	defer wcfgCancel()
+	wcfg, fcfg := newDefaultCfgWrapper(t)
 	tfs := fcfg.Filesystem()
 	waiter, err := wcfg.Modify(func(cfg *config.Configuration) {
 		cfg.SetDevice(newDeviceConfiguration(cfg.Defaults.Device, device2, "device2"))
@@ -3650,8 +3700,7 @@ func TestIssue6961(t *testing.T) {
 }
 
 func TestCompletionEmptyGlobal(t *testing.T) {
-	m, conn, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, conn, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 	files := []protocol.FileInfo{{Name: "foo", Version: protocol.Vector{}.Update(myID.Short()), Sequence: 1}}
 	m.sdb.Update(fcfg.ID, protocol.LocalDeviceID, files)
@@ -3665,8 +3714,7 @@ func TestCompletionEmptyGlobal(t *testing.T) {
 }
 
 func TestNeedMetaAfterIndexReset(t *testing.T) {
-	w, fcfg, wCancel := newDefaultCfgWrapper()
-	defer wCancel()
+	w, fcfg := newDefaultCfgWrapper(t)
 	addDevice2(t, w, fcfg)
 	m := setupModel(t, w)
 	defer cleanupModelAndRemoveDir(m, fcfg.Path)
@@ -3708,8 +3756,7 @@ func TestCcCheckEncryption(t *testing.T) {
 		t.Skip("skipping on short testing - generating encryption tokens is slow")
 	}
 
-	w, fcfg, wCancel := newDefaultCfgWrapper()
-	defer wCancel()
+	w, fcfg := newDefaultCfgWrapper(t)
 	m := setupModel(t, w)
 	m.cancel()
 	defer cleanupModel(m)
@@ -3849,8 +3896,7 @@ func TestCcCheckEncryption(t *testing.T) {
 
 func TestCCFolderNotRunning(t *testing.T) {
 	// Create the folder, but don't start it.
-	w, fcfg, wCancel := newDefaultCfgWrapper()
-	defer wCancel()
+	w, fcfg := newDefaultCfgWrapper(t)
 	tfs := fcfg.Filesystem()
 	m := newModel(t, w, myID, nil)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
@@ -3877,8 +3923,7 @@ func TestCCFolderNotRunning(t *testing.T) {
 }
 
 func TestPendingFolder(t *testing.T) {
-	w, _, wCancel := newDefaultCfgWrapper()
-	defer wCancel()
+	w, _ := newDefaultCfgWrapper(t)
 	m := setupModel(t, w)
 	defer cleanupModel(m)
 
@@ -3957,11 +4002,10 @@ func TestDeletedNotLocallyChangedReceiveEncrypted(t *testing.T) {
 }
 
 func deletedNotLocallyChanged(t *testing.T, ft config.FolderType) {
-	w, fcfg, wCancel := newDefaultCfgWrapper()
+	w, fcfg := newDefaultCfgWrapper(t)
 	tfs := fcfg.Filesystem()
 	fcfg.Type = ft
 	setFolder(t, w, fcfg)
-	defer wCancel()
 	m := setupModel(t, w)
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 

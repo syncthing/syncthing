@@ -161,7 +161,7 @@ func TestFilter(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		res := expire(tc.a, time.Unix(0, 10))
+		res, _ := expire(tc.a, time.Unix(0, 10))
 		if fmt.Sprint(res) != fmt.Sprint(tc.b) {
 			t.Errorf("Incorrect result %v, expected %v", res, tc.b)
 		}

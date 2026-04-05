@@ -19,6 +19,7 @@ type database interface {
 
 type mtimeFS struct {
 	Filesystem
+
 	chtimes         func(string, time.Time, time.Time) error
 	db              database
 	folderID        string
@@ -170,6 +171,7 @@ func (f *mtimeFS) load(name string) (ondisk, virtual time.Time) {
 
 type mtimeFileInfo struct {
 	FileInfo
+
 	mtime time.Time
 }
 
@@ -179,6 +181,7 @@ func (m mtimeFileInfo) ModTime() time.Time {
 
 type mtimeFile struct {
 	File
+
 	fs *mtimeFS
 }
 

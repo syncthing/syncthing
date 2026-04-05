@@ -57,6 +57,7 @@ const (
 	ListenAddressesChanged
 	LoginAttempt
 	Failure
+	UpgradeRestartScheduled
 
 	AllEvents = (1 << iota) - 1
 )
@@ -134,6 +135,8 @@ func (t EventType) String() string {
 		return "FolderWatchStateChanged"
 	case Failure:
 		return "Failure"
+	case UpgradeRestartScheduled:
+		return "UpgradeRestartScheduled"
 	default:
 		return "Unknown"
 	}
@@ -221,6 +224,8 @@ func UnmarshalEventType(s string) EventType {
 		return FolderWatchStateChanged
 	case "Failure":
 		return Failure
+	case "UpgradeRestartScheduled":
+		return UpgradeRestartScheduled
 	default:
 		return 0
 	}
@@ -524,7 +529,7 @@ func (s *bufferedSubscription) Since(id int, into []Event, timeout time.Duration
 			into = append(into, s.buf[i])
 		}
 	}
-	for i := 0; i < s.next; i++ {
+	for i := range s.next {
 		if s.buf[i].SubscriptionID > id {
 			into = append(into, s.buf[i])
 		}

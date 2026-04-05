@@ -28,7 +28,6 @@ import (
 	"github.com/alecthomas/kong"
 	raven "github.com/getsentry/raven-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/ur"
 )
@@ -118,7 +117,7 @@ func handleFailureFn(dsn, failureDir string, ignore *ignorePatterns) func(w http
 		bs, err := io.ReadAll(lr)
 		req.Body.Close()
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -130,7 +129,7 @@ func handleFailureFn(dsn, failureDir string, ignore *ignorePatterns) func(w http
 		var reports []ur.FailureReport
 		err = json.Unmarshal(bs, &reports)
 		if err != nil {
-			http.Error(w, err.Error(), 400)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		if len(reports) == 0 {
@@ -141,7 +140,7 @@ func handleFailureFn(dsn, failureDir string, ignore *ignorePatterns) func(w http
 
 		version, err := build.ParseVersion(reports[0].Version)
 		if err != nil {
-			http.Error(w, err.Error(), 400)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		for _, r := range reports {

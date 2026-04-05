@@ -7,7 +7,6 @@
 package osutil
 
 import (
-	"fmt"
 	"path/filepath"
 
 	"github.com/syncthing/syncthing/lib/fs"
@@ -19,7 +18,7 @@ type TraversesSymlinkError struct {
 }
 
 func (e *TraversesSymlinkError) Error() string {
-	return fmt.Sprintf("traverses symlink: %s", e.path)
+	return "traverses symlink: " + e.path
 }
 
 // NotADirectoryError is an error indicating an expected path is not a directory
@@ -28,7 +27,7 @@ type NotADirectoryError struct {
 }
 
 func (e *NotADirectoryError) Error() string {
-	return fmt.Sprintf("not a directory: %s", e.path)
+	return "not a directory: " + e.path
 }
 
 // TraversesSymlink returns an error if any path component of name (including name

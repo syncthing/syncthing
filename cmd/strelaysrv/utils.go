@@ -10,7 +10,7 @@ import (
 func setTCPOptions(conn net.Conn) error {
 	tcpConn, ok := conn.(*net.TCPConn)
 	if !ok {
-		return errors.New("Not a TCP connection")
+		return errors.New("not a TCP connection")
 	}
 	if err := tcpConn.SetLinger(0); err != nil {
 		return err

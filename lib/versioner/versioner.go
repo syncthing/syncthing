@@ -55,6 +55,7 @@ func New(cfg config.FolderConfiguration) (Versioner, error) {
 
 type versionerWithErrorContext struct {
 	Versioner
+
 	vtype string
 }
 

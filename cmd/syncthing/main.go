@@ -42,7 +42,6 @@ import (
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/internal/slogutil"
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
@@ -155,7 +154,7 @@ type serveCmd struct {
 	AllowNewerConfig          bool          `help:"Allow loading newer than current config version" env:"STALLOWNEWERCONFIG"`
 	Audit                     bool          `help:"Write events to audit file" env:"STAUDIT"`
 	AuditFile                 string        `name:"auditfile" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)" placeholder:"PATH" env:"STAUDITFILE"`
-	DBMaintenanceInterval     time.Duration `help:"Database maintenance interval" default:"8h" env:"STDBMAINTENANCEINTERVAL"`
+	DBMaintenanceInterval     time.Duration `help:"Database maintenance interval; set to zero to disable periodic maintenance" default:"8h" env:"STDBMAINTENANCEINTERVAL"`
 	DBDeleteRetentionInterval time.Duration `help:"Database deleted item retention interval" default:"10920h" env:"STDBDELETERETENTIONINTERVAL"`
 	GUIAddress                string        `name:"gui-address" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")" placeholder:"URL" env:"STGUIADDRESS"`
 	GUIAPIKey                 string        `name:"gui-apikey" help:"Override GUI API key" placeholder:"API-KEY" env:"STGUIAPIKEY"`
@@ -164,6 +163,9 @@ type serveCmd struct {
 	LogLevel                  slog.Level    `help:"Log level for all packages (DEBUG,INFO,WARN,ERROR)" env:"STLOGLEVEL" default:"INFO"`
 	LogMaxFiles               int           `name:"log-max-old-files" help:"Number of old files to keep (zero to keep only current)" default:"${logMaxFiles}" placeholder:"N" env:"STLOGMAXOLDFILES"`
 	LogMaxSize                int           `help:"Maximum size of any file (zero to disable log rotation)" default:"${logMaxSize}" placeholder:"BYTES" env:"STLOGMAXSIZE"`
+	LogFormatTimestamp        string        `name:"log-format-timestamp" help:"Format for timestamp, set to empty to disable timestamps" env:"STLOGFORMATTIMESTAMP" default:"${timestampFormat}"`
+	LogFormatLevelString      bool          `name:"log-format-level-string" help:"Whether to include level string in log line" env:"STLOGFORMATLEVELSTRING" default:"${levelString}" negatable:""`
+	LogFormatLevelSyslog      bool          `name:"log-format-level-syslog" help:"Whether to include level as syslog prefix in log line" env:"STLOGFORMATLEVELSYSLOG" default:"${levelSyslog}" negatable:""`
 	NoBrowser                 bool          `help:"Do not start browser" env:"STNOBROWSER"`
 	NoPortProbing             bool          `help:"Don't try to find free ports for GUI and listen addresses on first startup" env:"STNOPORTPROBING"`
 	NoRestart                 bool          `help:"Do not restart Syncthing when exiting due to API/GUI command, upgrade, or crash" env:"STNORESTART"`
@@ -186,10 +188,13 @@ type serveCmd struct {
 }
 
 func defaultVars() kong.Vars {
-	vars := kong.Vars{}
-
-	vars["logMaxSize"] = strconv.Itoa(10 << 20) // 10 MiB
-	vars["logMaxFiles"] = "3"                   // plus the current one
+	vars := kong.Vars{
+		"logMaxSize":      strconv.Itoa(10 << 20), // 10 MiB
+		"logMaxFiles":     "3",                    // plus the current one
+		"levelString":     strconv.FormatBool(slogutil.DefaultLineFormat.LevelString),
+		"levelSyslog":     strconv.FormatBool(slogutil.DefaultLineFormat.LevelSyslog),
+		"timestampFormat": slogutil.DefaultLineFormat.TimestampFormat,
+	}
 
 	// On non-Windows, we explicitly default to "-" which means stdout. On
 	// Windows, the "default" options.logFile will later be replaced with the
@@ -262,8 +267,14 @@ func (c *serveCmd) Run() error {
 		osutil.HideConsole()
 	}
 
-	// The default log level for all packages
+	// Customize the logging early
+	slogutil.SetLineFormat(slogutil.LineFormat{
+		TimestampFormat: c.LogFormatTimestamp,
+		LevelString:     c.LogFormatLevelString,
+		LevelSyslog:     c.LogFormatLevelSyslog,
+	})
 	slogutil.SetDefaultLevel(c.LogLevel)
+	slogutil.SetLevelOverrides(os.Getenv("STTRACE"))
 
 	// Treat an explicitly empty log file name as no log file
 	if c.LogFile == "" {
@@ -376,8 +387,8 @@ func upgradeViaRest() error {
 	}
 	u.Path = path.Join(u.Path, "rest/system/upgrade")
 	target := u.String()
-	r, _ := http.NewRequest("POST", target, nil)
-	r.Header.Set("X-API-Key", cfg.GUI().APIKey)
+	r, _ := http.NewRequest(http.MethodPost, target, nil)
+	r.Header.Set("X-Api-Key", cfg.GUI().APIKey)
 
 	tr := &http.Transport{
 		DialContext:     dialer.DialContext,
@@ -395,7 +406,7 @@ func upgradeViaRest() error {
 
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		bs, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return err
@@ -517,7 +528,8 @@ func (c *serveCmd) syncthingMain() {
 			err = upgrade.To(release)
 		}
 		if err != nil {
-			if _, ok := err.(*errNoUpgrade); ok || err == errTooEarlyUpgradeCheck || err == errTooEarlyUpgrade {
+			var noUpgradeErr *errNoUpgrade
+			if errors.As(err, &noUpgradeErr) || errors.Is(err, errTooEarlyUpgradeCheck) || errors.Is(err, errTooEarlyUpgrade) {
 				slog.Debug("Initial automatic upgrade", slogutil.Error(err))
 			} else {
 				slog.Info("Initial automatic upgrade", slogutil.Error(err))
@@ -647,13 +659,14 @@ func auditWriter(auditFile string) io.Writer {
 	var auditDest string
 	var auditFlags int
 
-	if auditFile == "-" {
+	switch auditFile {
+	case "-":
 		fd = os.Stdout
 		auditDest = "stdout"
-	} else if auditFile == "--" {
+	case "--":
 		fd = os.Stderr
 		auditDest = "stderr"
-	} else {
+	default:
 		if auditFile == "" {
 			auditFile = locations.GetTimestamped(locations.AuditLog)
 			auditFlags = os.O_WRONLY | os.O_CREATE | os.O_EXCL
@@ -708,7 +721,7 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 
 		checkInterval := time.Duration(opts.AutoUpgradeIntervalH) * time.Hour
 		rel, err := upgrade.LatestRelease(opts.ReleasesURL, build.Version, opts.UpgradeToPreReleases)
-		if err == upgrade.ErrUpgradeUnsupported {
+		if errors.Is(err, upgrade.ErrUpgradeUnsupported) {
 			sub.Unsubscribe()
 			return
 		}
@@ -734,8 +747,13 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 			continue
 		}
 		sub.Unsubscribe()
+		restartDelay := time.Minute
+		evLogger.Log(events.UpgradeRestartScheduled, map[string]any{
+			"delayS":     int(restartDelay / time.Second),
+			"newVersion": rel.Tag,
+		})
 		slog.Error("Automatically upgraded, restarting in 1 minute", slog.String("newVersion", rel.Tag))
-		time.Sleep(time.Minute)
+		time.Sleep(restartDelay)
 		app.Stop(svcutil.ExitUpgrade)
 		return
 	}
@@ -769,40 +787,39 @@ func initialAutoUpgradeCheck(misc *db.Typed) (upgrade.Release, error) {
 // suitable time after they have gone out of fashion.
 func cleanConfigDirectory() {
 	patterns := map[string]time.Duration{
-		"panic-*.log":        7 * 24 * time.Hour,  // keep panic logs for a week
-		"audit-*.log":        7 * 24 * time.Hour,  // keep audit logs for a week
-		"index":              14 * 24 * time.Hour, // keep old index format for two weeks
-		"index-v0.11.0.db":   14 * 24 * time.Hour, // keep old index format for two weeks
-		"index-v0.13.0.db":   14 * 24 * time.Hour, // keep old index format for two weeks
-		"index*.converted":   14 * 24 * time.Hour, // keep old converted indexes for two weeks
-		"config.xml.v*":      30 * 24 * time.Hour, // old config versions for a month
-		"*.idx.gz":           30 * 24 * time.Hour, // these should for sure no longer exist
-		"backup-of-v0.8":     30 * 24 * time.Hour, // these neither
-		"tmp-index-sorter.*": time.Minute,         // these should never exist on startup
-		"support-bundle-*":   30 * 24 * time.Hour, // keep old support bundle zip or folder for a month
-		"csrftokens.txt":     0,                   // deprecated, remove immediately
+		"panic-*.log":               7 * 24 * time.Hour,  // keep panic logs for a week
+		"audit-*.log":               7 * 24 * time.Hour,  // keep audit logs for a week
+		"index-v0.14.0.db-migrated": 14 * 24 * time.Hour, // keep old index format for two weeks
+		"config.xml.v*":             30 * 24 * time.Hour, // old config versions for a month
+		"support-bundle-*":          30 * 24 * time.Hour, // keep old support bundle zip or folder for a month
 	}
 
-	for pat, dur := range patterns {
-		fs := fs.NewFilesystem(fs.FilesystemTypeBasic, locations.GetBaseDir(locations.ConfigBaseDir))
-		files, err := fs.Glob(pat)
-		if err != nil {
-			slog.Warn("Failed to clean config directory", slogutil.Error(err))
-			continue
-		}
-
-		for _, file := range files {
-			info, err := fs.Lstat(file)
+	locations := slices.Compact([]string{
+		locations.GetBaseDir(locations.ConfigBaseDir),
+		locations.GetBaseDir(locations.DataBaseDir),
+	})
+	for _, loc := range locations {
+		fs := fs.NewFilesystem(fs.FilesystemTypeBasic, loc)
+		for pat, dur := range patterns {
+			entries, err := fs.Glob(pat)
 			if err != nil {
 				slog.Warn("Failed to clean config directory", slogutil.Error(err))
 				continue
 			}
 
-			if time.Since(info.ModTime()) > dur {
-				if err = fs.RemoveAll(file); err != nil {
+			for _, entry := range entries {
+				info, err := fs.Lstat(entry)
+				if err != nil {
 					slog.Warn("Failed to clean config directory", slogutil.Error(err))
-				} else {
-					slog.Warn("Cleaned away old file", slogutil.FilePath(filepath.Base(file)))
+					continue
+				}
+
+				if time.Since(info.ModTime()) > dur {
+					if err = fs.RemoveAll(entry); err != nil {
+						slog.Warn("Failed to clean config directory", slogutil.Error(err))
+					} else {
+						slog.Warn("Cleaned away old file", slogutil.FilePath(filepath.Base(entry)))
+					}
 				}
 			}
 		}
@@ -825,7 +842,8 @@ func setPauseState(cfgWrapper config.Wrapper, paused bool) {
 }
 
 func exitCodeForUpgrade(err error) int {
-	if _, ok := err.(*errNoUpgrade); ok {
+	var noUpgradeErr *errNoUpgrade
+	if errors.As(err, &noUpgradeErr) {
 		return svcutil.ExitNoUpgradeAvailable.AsInt()
 	}
 	return svcutil.ExitError.AsInt()
@@ -1039,7 +1057,7 @@ func (m migratingAPI) Serve(ctx context.Context) error {
 			w.Header().Set("Content-Type", "text/plain")
 			w.Write([]byte("*** Database migration in progress ***\n\n"))
 			for _, line := range slogutil.GlobalRecorder.Since(time.Time{}) {
-				line.WriteTo(w)
+				_, _ = line.WriteTo(w, slogutil.DefaultLineFormat)
 			}
 		}),
 	}

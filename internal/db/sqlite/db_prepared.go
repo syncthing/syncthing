@@ -10,6 +10,7 @@ import "github.com/jmoiron/sqlx"
 
 type txPreparedStmts struct {
 	*sqlx.Tx
+
 	stmts map[string]*sqlx.Stmt
 }
 

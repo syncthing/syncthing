@@ -7,6 +7,8 @@
 package model
 
 import (
+	"context"
+
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -37,7 +39,7 @@ func (*sendOnlyFolder) PullErrors() []FileError {
 }
 
 // pull checks need for files that only differ by metadata (no changes on disk)
-func (f *sendOnlyFolder) pull() (bool, error) {
+func (f *sendOnlyFolder) pull(ctx context.Context) (bool, error) {
 	batch := NewFileInfoBatch(func(files []protocol.FileInfo) error {
 		f.updateLocalsFromPulling(files)
 		return nil
@@ -92,8 +94,8 @@ func (f *sendOnlyFolder) Override() {
 	f.doInSync(f.override)
 }
 
-func (f *sendOnlyFolder) override() error {
-	f.sl.Info("Overriding global state ")
+func (f *sendOnlyFolder) override(ctx context.Context) error {
+	f.sl.InfoContext(ctx, "Overriding global state ")
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)

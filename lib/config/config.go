@@ -33,7 +33,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 51
+	CurrentVersion       = 52
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -165,6 +165,7 @@ func (cfg *Configuration) ProbeFreePorts() error {
 
 type xmlConfiguration struct {
 	Configuration
+
 	XMLName xml.Name `xml:"configuration"`
 }
 
@@ -684,7 +685,7 @@ func copyMatchingTag(from interface{}, to interface{}, tag string, shouldCopy fu
 		panic(fmt.Sprintf("non equal types: %s != %s", fromType, toType))
 	}
 
-	for i := 0; i < toStruct.NumField(); i++ {
+	for i := range toStruct.NumField() {
 		fromField := fromStruct.Field(i)
 		toField := toStruct.Field(i)
 

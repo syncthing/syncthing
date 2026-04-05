@@ -203,7 +203,7 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 }
 
 func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Type", "application/json")
 	// Marshalling might fail, in which case we should return a 500 with the
 	// actual error.
 	bs, err := json.MarshalIndent(jsonObject, "", "  ")
@@ -455,7 +455,7 @@ func (s *service) Serve(ctx context.Context) error {
 	// due to a config change through the API, let that finish successfully.
 	timeout, cancel := context.WithTimeout(context.Background(), s.shutdownTimeout)
 	defer cancel()
-	if err := srv.Shutdown(timeout); err == timeout.Err() {
+	if err := srv.Shutdown(timeout); errors.Is(err, timeout.Err()) {
 		srv.Close()
 	}
 
@@ -546,7 +546,7 @@ func corsMiddleware(next http.Handler, allowFrameLoading bool) http.Handler {
 	// See https://www.w3.org/TR/cors/ for details.
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Process OPTIONS requests
-		if r.Method == "OPTIONS" {
+		if r.Method == http.MethodOptions {
 			// Add a generous access-control-allow-origin header for CORS requests
 			w.Header().Add("Access-Control-Allow-Origin", "*")
 			// Only GET/POST/OPTIONS Methods are supported
@@ -557,7 +557,7 @@ func corsMiddleware(next http.Handler, allowFrameLoading bool) http.Handler {
 			w.Header().Set("Access-Control-Max-Age", "600")
 
 			// Indicate that no content will be returned
-			w.WriteHeader(204)
+			w.WriteHeader(http.StatusNoContent)
 
 			return
 		}
@@ -1772,22 +1772,22 @@ func (f jsonFileInfo) MarshalJSON() ([]byte, error) {
 
 func fileIntfJSONMap(f protocol.FileInfo) map[string]interface{} {
 	out := map[string]interface{}{
-		"name":          f.FileName(),
-		"type":          f.FileType().String(),
-		"size":          f.FileSize(),
-		"deleted":       f.IsDeleted(),
-		"invalid":       f.IsInvalid(),
-		"ignored":       f.IsIgnored(),
-		"mustRescan":    f.MustRescan(),
-		"noPermissions": !f.HasPermissionBits(),
-		"modified":      f.ModTime(),
-		"modifiedBy":    f.FileModifiedBy().String(),
-		"sequence":      f.SequenceNo(),
-		"version":       jsonVersionVector(f.FileVersion()),
-		"localFlags":    f.FileLocalFlags(),
-		"platform":      f.PlatformData(),
-		"inodeChange":   f.InodeChangeTime(),
-		"blocksHash":    f.FileBlocksHash(),
+		"name":               f.FileName(),
+		"type":               f.FileType().String(),
+		"size":               f.FileSize(),
+		"deleted":            f.IsDeleted(),
+		"invalid":            f.IsInvalid(),
+		"ignored":            f.IsIgnored(),
+		"mustRescan":         f.MustRescan(),
+		"noPermissions":      !f.HasPermissionBits(),
+		"modified":           f.ModTime(),
+		"modifiedBy":         f.FileModifiedBy().String(),
+		"sequence":           f.SequenceNo(),
+		"version":            jsonVersionVector(f.FileVersion()),
+		"localFlags":         f.FileLocalFlags(),
+		"platform":           f.PlatformData(),
+		"blocksHash":         f.FileBlocksHash(),
+		"previousBlocksHash": f.PreviousBlocksHash,
 	}
 	if f.HasPermissionBits() {
 		out["permissions"] = fmt.Sprintf("%#o", f.FilePermissions())

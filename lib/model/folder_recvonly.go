@@ -7,6 +7,7 @@
 package model
 
 import (
+	"context"
 	"slices"
 	"strings"
 	"time"
@@ -69,14 +70,14 @@ func (f *receiveOnlyFolder) Revert() {
 	f.doInSync(f.revert)
 }
 
-func (f *receiveOnlyFolder) revert() error {
-	f.sl.Info("Reverting folder")
+func (f *receiveOnlyFolder) revert(ctx context.Context) error {
+	f.sl.InfoContext(ctx, "Reverting folder")
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)
 
 	scanChan := make(chan string)
-	go f.pullScannerRoutine(scanChan)
+	go f.pullScannerRoutine(ctx, scanChan)
 	defer close(scanChan)
 
 	delQueue := &deleteQueue{
@@ -155,7 +156,7 @@ func (f *receiveOnlyFolder) revert() error {
 	// Handle any queued directories
 	deleted, err := delQueue.flush()
 	if err != nil {
-		f.sl.Warn("Failed to revert directories", slogutil.Error(err))
+		f.sl.WarnContext(ctx, "Failed to revert directories", slogutil.Error(err))
 	}
 	now := time.Now()
 	for _, dir := range deleted {

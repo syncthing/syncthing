@@ -32,6 +32,7 @@ type Interface interface {
 
 type cast struct {
 	*suture.Supervisor
+
 	name    string
 	reader  svcutil.ServiceWithError
 	writer  svcutil.ServiceWithError

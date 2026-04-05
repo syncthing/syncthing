@@ -12,6 +12,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -50,13 +51,13 @@ func (resp *recordedResponse) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 		w.Header().Set("Content-Encoding", "gzip")
-		w.Header().Set("Content-Length", fmt.Sprint(len(resp.gzip)))
+		w.Header().Set("Content-Length", strconv.Itoa(len(resp.gzip)))
 		w.WriteHeader(resp.status)
 		_, _ = w.Write(resp.gzip)
 		return
 	}
 
-	w.Header().Set("Content-Length", fmt.Sprint(len(resp.data)))
+	w.Header().Set("Content-Length", strconv.Itoa(len(resp.data)))
 	w.WriteHeader(resp.status)
 	_, _ = w.Write(resp.data)
 }

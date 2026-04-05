@@ -9,6 +9,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -136,17 +137,8 @@ func (c *serveCmd) monitorMain() {
 
 		var wg sync.WaitGroup
 
-		wg.Add(1)
-		go func() {
-			copyStderr(stderr, dst)
-			wg.Done()
-		}()
-
-		wg.Add(1)
-		go func() {
-			copyStdout(stdout, dst)
-			wg.Done()
-		}()
+		wg.Go(func() { copyStderr(stderr, dst) })
+		wg.Go(func() { copyStdout(stdout, dst) })
 
 		exit := make(chan error)
 
@@ -176,7 +168,8 @@ func (c *serveCmd) monitorMain() {
 			os.Exit(svcutil.ExitSuccess.AsInt())
 		}
 
-		if exiterr, ok := err.(*exec.ExitError); ok {
+		exiterr := &exec.ExitError{}
+		if errors.As(err, &exiterr) {
 			exitCode := exiterr.ExitCode()
 			if stopped || c.NoRestart {
 				os.Exit(exitCode)

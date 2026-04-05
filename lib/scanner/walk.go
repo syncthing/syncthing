@@ -655,6 +655,7 @@ func (w *walker) updateFileInfo(dst, src protocol.FileInfo) protocol.FileInfo {
 	dst.Version = src.Version.Update(w.ShortID)
 	dst.ModifiedBy = w.ShortID
 	dst.LocalFlags = w.LocalFlags
+	dst.PreviousBlocksHash = src.BlocksHash
 
 	// Copy OS data from src to dst, unless it was already set on dst.
 	dst.Platform.MergeWith(&src.Platform)
@@ -680,9 +681,10 @@ func (w *walker) String() string {
 // A byteCounter gets bytes added to it via Update() and then provides the
 // Total() and one minute moving average Rate() in bytes per second.
 type byteCounter struct {
-	total atomic.Int64
 	metrics.EWMA
-	stop chan struct{}
+
+	total atomic.Int64
+	stop  chan struct{}
 }
 
 func newByteCounter() *byteCounter {
@@ -736,12 +738,6 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanO
 		} else {
 			return protocol.FileInfo{}, fmt.Errorf("reading platform data: %w", err)
 		}
-	}
-
-	if ct := fi.InodeChangeTime(); !ct.IsZero() {
-		f.InodeChangeNs = ct.UnixNano()
-	} else {
-		f.InodeChangeNs = 0
 	}
 
 	if fi.IsSymlink() {

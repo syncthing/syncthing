@@ -38,6 +38,7 @@ func NewClient(uri *url.URL, certs []tls.Certificate, timeout time.Duration) (Re
 
 type commonClient struct {
 	svcutil.ServiceWithError
+
 	invitations chan protocol.SessionInvitation
 }
 

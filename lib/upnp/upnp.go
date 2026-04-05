@@ -86,7 +86,7 @@ type UnsupportedDeviceTypeError struct {
 }
 
 func (e *UnsupportedDeviceTypeError) Error() string {
-	return fmt.Sprintf("Unsupported UPnP device of type %s", e.deviceType)
+	return "unsupported UPnP device of type " + e.deviceType
 }
 
 const (
@@ -123,28 +123,26 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 			continue
 		}
 
-		wg.Add(1)
 		// Discovery is done sequentially per interface because we discovered that
 		// FritzBox routers return a broken result sometimes if the IPv4 and IPv6
 		// request arrive at the same time.
-		go func(iface net.Interface) {
-			defer wg.Done()
-			hasGUA, err := interfaceHasGUAIPv6(iface)
+		wg.Go(func() {
+			hasGUA, err := interfaceHasGUAIPv6(intf)
 			if err != nil {
-				l.Debugf("Couldn't check for IPv6 GUAs on %s: %s", iface.Name, err)
+				l.Debugf("Couldn't check for IPv6 GUAs on %s: %s", intf.Name, err) //nolint:contextcheck
 			} else if hasGUA {
 				// Discover IPv6 gateways on interface. Only discover IGDv2, since IGDv1
 				// + IPv6 is not standardized and will lead to duplicates on routers.
 				// Only do this when a non-link-local IPv6 is available. if we can't
 				// enumerate the interface, the IPv6 code will not work anyway
-				discover(ctx, &iface, urnIgdV2, timeout, resultChan, true)
+				discover(ctx, &intf, urnIgdV2, timeout, resultChan, true)
 			}
 
 			// Discover IPv4 gateways on interface.
 			for _, deviceType := range []string{urnIgdV2, urnIgdV1} {
-				discover(ctx, &iface, deviceType, timeout, resultChan, false)
+				discover(ctx, &intf, deviceType, timeout, resultChan, false)
 			}
-		}(intf)
+		})
 	}
 
 	go func() {
@@ -229,7 +227,8 @@ USER-AGENT: syncthing/%s
 
 	_, err = socket.WriteTo(search, &ssdp)
 	if err != nil {
-		if e, ok := err.(net.Error); !ok || !e.Timeout() {
+		var e net.Error
+		if !errors.As(err, &e) || !e.Timeout() {
 			l.Debugln("UPnP discovery: sending search request:", err)
 		}
 		return
@@ -578,7 +577,7 @@ func soapRequestWithIP(ctx context.Context, url, service, function, message stri
 
 	body := fmt.Sprintf(template, message)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(body))
 	if err != nil {
 		return resp, err
 	}

@@ -101,7 +101,6 @@ type FileInfo interface {
 	IsSymlink() bool
 	Owner() int
 	Group() int
-	InodeChangeTime() time.Time // may be zero if not supported
 }
 
 // FileMode is similar to os.FileMode
@@ -140,12 +139,12 @@ func (evType EventType) Merge(other EventType) EventType {
 }
 
 func (evType EventType) String() string {
-	switch {
-	case evType == NonRemove:
+	switch evType {
+	case NonRemove:
 		return "non-remove"
-	case evType == Remove:
+	case Remove:
 		return "remove"
-	case evType == Mixed:
+	case Mixed:
 		return "mixed"
 	default:
 		panic("bug: Unknown event type")

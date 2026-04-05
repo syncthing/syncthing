@@ -14,5 +14,5 @@ import (
 
 const (
 	dbDriver      = "sqlite3"
-	commonOptions = "_fk=true&_rt=true&_cache_size=-65536&_sync=1&_txlock=immediate"
+	commonOptions = "_fk=true&_rt=true&_sync=1&_txlock=immediate"
 )

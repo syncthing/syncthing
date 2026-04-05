@@ -32,7 +32,8 @@ func (s *folderDB) GetDeviceFile(device protocol.DeviceID, file string) (protoco
 		INNER JOIN files f on fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN devices d ON f.device_idx = d.idx
-		WHERE d.device_id = ? AND f.name = ?
+		INNER JOIN file_names n ON f.name_idx = n.idx
+		WHERE d.device_id = ? AND n.name = ?
 	`).Get(&ind, device.String(), file)
 	if errors.Is(err, sql.ErrNoRows) {
 		return protocol.FileInfo{}, false, nil
@@ -87,14 +88,16 @@ func (s *folderDB) AllLocalFilesWithPrefix(device protocol.DeviceID, prefix stri
 		INNER JOIN files f on fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE d.device_id = ? AND f.name >= ? AND f.name < ?
+		INNER JOIN file_names n ON f.name_idx = n.idx
+		WHERE d.device_id = ? AND n.name >= ? AND n.name < ?
 	`, device.String(), prefix, end))
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 
 func (s *folderDB) AllLocalFilesWithBlocksHash(h []byte) (iter.Seq[db.FileMetadata], func() error) {
 	return iterStructs[db.FileMetadata](s.stmt(`
-		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.local_flags as localflags FROM files f
+		SELECT f.sequence, n.name, f.type, f.modified as modnanos, f.size, f.deleted, f.local_flags as localflags FROM files f
+		INNER JOIN file_names n ON f.name_idx = n.idx
 		WHERE f.device_idx = {{.LocalDeviceIdx}} AND f.blocklist_hash = ?
 	`).Queryx(h))
 }
@@ -104,7 +107,8 @@ func (s *folderDB) AllLocalBlocksWithHash(hash []byte) (iter.Seq[db.BlockMapEntr
 	// & blocklists is deferred (garbage collected) while the files list is
 	// not. This filters out blocks that are in fact deleted.
 	return iterStructs[db.BlockMapEntry](s.stmt(`
-		SELECT f.blocklist_hash as blocklisthash, b.idx as blockindex, b.offset, b.size, f.name as filename FROM files f
+		SELECT f.blocklist_hash as blocklisthash, b.idx as blockindex, b.offset, b.size, n.name as filename FROM files f
+		INNER JOIN file_names n ON f.name_idx = n.idx
 		LEFT JOIN blocks b ON f.blocklist_hash = b.blocklist_hash
 		WHERE f.device_idx = {{.LocalDeviceIdx}} AND b.hash = ?
 	`).Queryx(hash))
@@ -170,10 +174,12 @@ func (s *folderDB) DebugFilePattern(out io.Writer, name string) error {
 	}
 	name = "%" + name + "%"
 	res := itererr.Zip(iterStructs[hashFileMetadata](s.stmt(`
-		SELECT f.sequence, f.name, f.type, f.modified as modnanos, f.size, f.deleted, f.local_flags as localflags, f.version, f.blocklist_hash as blocklisthash, d.device_id as deviceid FROM files f
+		SELECT f.sequence, n.name, f.type, f.modified as modnanos, f.size, f.deleted, f.local_flags as localflags, v.version, f.blocklist_hash as blocklisthash, d.device_id as deviceid FROM files f
 		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE f.name LIKE ?
-		ORDER BY f.name, f.device_idx
+		INNER JOIN file_names n ON n.idx = f.name_idx
+		INNER JOIN file_versions v ON v.idx = f.version_idx
+		WHERE n.name LIKE ?
+		ORDER BY n.name, f.device_idx
 	`).Queryx(name)))
 
 	delMap := map[bool]string{

@@ -356,7 +356,7 @@ func (s *Service) tryNATDevice(ctx context.Context, natd Device, intAddr Address
 		l.Debugf("Error extending lease on %v (external port %d -> internal port %d): %v", natd.ID(), extPort, intAddr.Port, err)
 	}
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		select {
 		case <-ctx.Done():
 			return []Address{}, ctx.Err()

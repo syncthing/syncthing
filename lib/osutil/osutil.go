@@ -8,6 +8,7 @@
 package osutil
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -141,4 +142,22 @@ func IsDeleted(ffs fs.Filesystem, name string) bool {
 		return true
 	}
 	return false
+}
+
+func DirSize(location string) int64 {
+	entries, err := os.ReadDir(location)
+	if err != nil {
+		return 0
+	}
+
+	var size int64
+	for _, entry := range entries {
+		fi, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		size += fi.Size()
+	}
+
+	return size
 }

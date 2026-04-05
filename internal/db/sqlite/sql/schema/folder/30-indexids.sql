@@ -6,10 +6,9 @@
 
 -- indexids holds the index ID and maximum sequence for a given device and folder
 CREATE TABLE IF NOT EXISTS indexids (
-    device_idx INTEGER NOT NULL,
+    device_idx INTEGER NOT NULL PRIMARY KEY,
     index_id TEXT NOT NULL COLLATE BINARY,
     sequence INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY(device_idx),
     FOREIGN KEY(device_idx) REFERENCES devices(idx) ON DELETE CASCADE
 ) STRICT, WITHOUT ROWID
 ;

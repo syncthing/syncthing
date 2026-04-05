@@ -41,6 +41,7 @@ type Manager interface {
 
 type manager struct {
 	*suture.Supervisor
+
 	myID          protocol.DeviceID
 	cfg           config.Wrapper
 	cert          tls.Certificate

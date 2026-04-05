@@ -81,11 +81,12 @@ func (t *tcpListener) serve(ctx context.Context) error {
 	defer slog.InfoContext(ctx, "TCP listener shutting down", slogutil.Address(tcaddr))
 
 	var ipVersion nat.IPVersion
-	if t.uri.Scheme == "tcp4" {
+	switch t.uri.Scheme {
+	case "tcp4":
 		ipVersion = nat.IPv4Only
-	} else if t.uri.Scheme == "tcp6" {
+	case "tcp6":
 		ipVersion = nat.IPv6Only
-	} else {
+	default:
 		ipVersion = nat.IPvAny
 	}
 	mapping := t.natService.NewMapping(nat.TCP, ipVersion, tcaddr.IP, tcaddr.Port)

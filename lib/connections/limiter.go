@@ -225,8 +225,9 @@ func getRateLimiter(m map[protocol.DeviceID]*rate.Limiter, deviceID protocol.Dev
 
 // limitedReader is a rate limited io.Reader
 type limitedReader struct {
-	reader io.Reader
 	waiterHolder
+
+	reader io.Reader
 }
 
 func (r *limitedReader) Read(buf []byte) (int, error) {
@@ -239,8 +240,9 @@ func (r *limitedReader) Read(buf []byte) (int, error) {
 
 // limitedWriter is a rate limited io.Writer
 type limitedWriter struct {
-	writer io.Writer
 	waiterHolder
+
+	writer io.Writer
 }
 
 func (w *limitedWriter) Write(buf []byte) (int, error) {

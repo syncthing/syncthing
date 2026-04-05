@@ -397,10 +397,13 @@ func (f *caseFilesystem) checkCaseExisting(name string) error {
 type defaultRealCaser struct {
 	cache *caseCache
 	fs    Filesystem
-	mut   sync.Mutex
 }
 
-type caseCache = lru.TwoQueueCache[string, *caseNode]
+type caseCache struct {
+	*lru.TwoQueueCache[string, *caseNode]
+
+	mut sync.Mutex
+}
 
 func newCaseCache() *caseCache {
 	cache, err := lru.New2Q[string, *caseNode](caseCacheItemLimit)
@@ -408,7 +411,9 @@ func newCaseCache() *caseCache {
 	if err != nil {
 		panic(err)
 	}
-	return cache
+	return &caseCache{
+		TwoQueueCache: cache,
+	}
 }
 
 func (r *defaultRealCaser) realCase(name string) (string, error) {
@@ -418,7 +423,7 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 	}
 
 	for _, comp := range PathComponents(name) {
-		node := r.getExpireAdd(realName)
+		node := r.cache.getExpireAdd(realName, r.fs)
 
 		if node.err != nil {
 			return "", node.err
@@ -444,18 +449,18 @@ func (r *defaultRealCaser) dropCache() {
 
 // getExpireAdd gets an entry for the given key. If no entry exists, or it is
 // expired a new one is created and added to the cache.
-func (r *defaultRealCaser) getExpireAdd(key string) *caseNode {
-	r.mut.Lock()
-	defer r.mut.Unlock()
-	node, ok := r.cache.Get(key)
+func (c *caseCache) getExpireAdd(key string, fs Filesystem) *caseNode {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	node, ok := c.Get(key)
 	if !ok {
-		node := newCaseNode(key, r.fs)
-		r.cache.Add(key, node)
+		node := newCaseNode(key, fs)
+		c.Add(key, node)
 		return node
 	}
 	if node.expires.Before(time.Now()) {
-		node = newCaseNode(key, r.fs)
-		r.cache.Add(key, node)
+		node = newCaseNode(key, fs)
+		c.Add(key, node)
 	}
 	return node
 }

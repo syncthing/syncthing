@@ -27,7 +27,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/puzpuzpuz/xsync/v3"
 	"github.com/syncthing/syncthing/internal/blob"
-	"github.com/syncthing/syncthing/internal/blob/azureblob"
 	"github.com/syncthing/syncthing/internal/blob/s3"
 	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
@@ -49,10 +48,6 @@ type CLI struct {
 	S3Bucket      string `name:"s3-bucket" env:"UR_S3_BUCKET"`
 	S3AccessKeyID string `name:"s3-access-key-id" env:"UR_S3_ACCESS_KEY_ID"`
 	S3SecretKey   string `name:"s3-secret-key" env:"UR_S3_SECRET_KEY"`
-
-	AzureBlobAccount   string `name:"azure-blob-account" env:"UR_AZUREBLOB_ACCOUNT"`
-	AzureBlobKey       string `name:"azure-blob-key" env:"UR_AZUREBLOB_KEY"`
-	AzureBlobContainer string `name:"azure-blob-container" env:"UR_AZUREBLOB_CONTAINER"`
 }
 
 var (
@@ -79,7 +74,8 @@ var (
 		{regexp.MustCompile(`\svagrant@bullseye`), "F-Droid"},
 		{regexp.MustCompile(`\svagrant@bookworm`), "F-Droid"},
 
-		{regexp.MustCompile(`Anwender@NET2017`), "Syncthing-Fork (3rd party)"},
+		{regexp.MustCompile(`\sreproducible-build@Catfriend1-syncthing-android`), "Syncthing-Fork Catfriend1 (3rd party)"},
+		{regexp.MustCompile(`\sreproducible-build@nel0x-syncthing-android-gplay`), "Syncthing-Fork nel0x (3rd party)"},
 
 		{regexp.MustCompile(`\sbuilduser@(archlinux|svetlemodry)`), "Arch (3rd party)"},
 		{regexp.MustCompile(`\ssyncthing@archlinux`), "Arch (3rd party)"},
@@ -135,12 +131,6 @@ func (cli *CLI) Run() error {
 		blobs, err = s3.NewSession(cli.S3Endpoint, cli.S3Region, cli.S3Bucket, cli.S3AccessKeyID, cli.S3SecretKey)
 		if err != nil {
 			slog.Error("Failed to create S3 session", slogutil.Error(err))
-			return err
-		}
-	} else if cli.AzureBlobAccount != "" {
-		blobs, err = azureblob.NewBlobStore(cli.AzureBlobAccount, cli.AzureBlobKey, cli.AzureBlobContainer)
-		if err != nil {
-			slog.Error("Failed to create Azure blob store", slogutil.Error(err))
 			return err
 		}
 	}
