@@ -306,7 +306,7 @@ func (s *inMemoryStore) write() (err error) {
 	}
 
 	if err := bw.Flush(); err != nil {
-		_ = fd.Close
+		_ = fd.Close()
 		return err
 	}
 	if err := fd.Close(); err != nil {
