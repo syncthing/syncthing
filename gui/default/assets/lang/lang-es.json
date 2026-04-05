@@ -149,7 +149,7 @@
     "Enter comma separated (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Introduce direcciones separadas por comas (\"tcp://ip:port\", \"tcp://host:port\") o \"dynamic\" para realizar el descubrimiento automático de la dirección.",
     "Enter ignore patterns, one per line.": "Introduce patrones a ignorar, uno por línea.",
     "Enter up to three octal digits.": "Introduce hasta tres dígitos octales.",
-    "Error": "Fallo",
+    "Error": "Error",
     "Extended Attributes": "Atributos extendidos",
     "Extended Attributes Filter": "Filtro de atributos extendidos",
     "External": "Externo",
