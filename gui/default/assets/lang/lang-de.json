@@ -291,7 +291,7 @@
     "Path to the folder on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for": "Pfad zum Ordner auf dem lokalen Gerät. Ordner wird erzeugt, wenn er nicht existiert. Das Tilde-Zeichen (~) kann als Abkürzung verwendet werden für",
     "Path where versions should be stored (leave empty for the default .stversions directory in the shared folder).": "Pfad, in dem Versionen gespeichert werden sollen (leer lassen für den Standardordner .stversions im freigegebenen Ordner).",
     "Paths": "Pfade",
-    "Pause": "Pause",
+    "Pause": "Pausiert",
     "Pause All": "Alles pausieren",
     "Paused": "Pausiert",
     "Paused (Unused)": "Pausiert (nicht genutzt)",

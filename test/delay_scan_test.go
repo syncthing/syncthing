@@ -43,17 +43,14 @@ func TestRescanWithDelay(t *testing.T) {
 	var wg sync.WaitGroup
 	log.Println("Starting scans...")
 	for j := 0; j < 20; j++ {
-		j := j
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			err := st.RescanDelay("default", 1)
 			log.Println(j)
 			if err != nil {
 				log.Println(err)
 				t.Fatal(err)
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

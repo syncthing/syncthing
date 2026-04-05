@@ -123,28 +123,26 @@ func Discover(ctx context.Context, _, timeout time.Duration) []nat.Device {
 			continue
 		}
 
-		wg.Add(1)
 		// Discovery is done sequentially per interface because we discovered that
 		// FritzBox routers return a broken result sometimes if the IPv4 and IPv6
 		// request arrive at the same time.
-		go func(iface net.Interface) {
-			defer wg.Done()
-			hasGUA, err := interfaceHasGUAIPv6(iface)
+		wg.Go(func() {
+			hasGUA, err := interfaceHasGUAIPv6(intf)
 			if err != nil {
-				l.Debugf("Couldn't check for IPv6 GUAs on %s: %s", iface.Name, err)
+				l.Debugf("Couldn't check for IPv6 GUAs on %s: %s", intf.Name, err) //nolint:contextcheck
 			} else if hasGUA {
 				// Discover IPv6 gateways on interface. Only discover IGDv2, since IGDv1
 				// + IPv6 is not standardized and will lead to duplicates on routers.
 				// Only do this when a non-link-local IPv6 is available. if we can't
 				// enumerate the interface, the IPv6 code will not work anyway
-				discover(ctx, &iface, urnIgdV2, timeout, resultChan, true)
+				discover(ctx, &intf, urnIgdV2, timeout, resultChan, true)
 			}
 
 			// Discover IPv4 gateways on interface.
 			for _, deviceType := range []string{urnIgdV2, urnIgdV1} {
-				discover(ctx, &iface, deviceType, timeout, resultChan, false)
+				discover(ctx, &intf, deviceType, timeout, resultChan, false)
 			}
-		}(intf)
+		})
 	}
 
 	go func() {

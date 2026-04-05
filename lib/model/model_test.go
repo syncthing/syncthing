@@ -993,15 +993,13 @@ func TestIssue5063(t *testing.T) {
 		if fcfg, ok := m.cfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 			t.Error("expected shared", id)
 		}
-		wg.Done()
 	}
 
 	reps := 10
 	ids := make([]string, reps)
 	for i := 0; i < reps; i++ {
-		wg.Add(1)
 		ids[i] = srand.String(8)
-		go addAndVerify(ids[i])
+		wg.Go(func() { addAndVerify(ids[i]) })
 	}
 
 	finished := make(chan struct{})
@@ -2945,16 +2943,14 @@ func TestFolderRestartZombies(t *testing.T) {
 	// for the commit to complete, but there are many of them.
 	var wg sync.WaitGroup
 	for i := 0; i < 25; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			t0 := time.Now()
 			for time.Since(t0) < time.Second {
 				fcfg := folderCfg.Copy()
 				fcfg.MaxConflicts = mrand.Int() // safe change that should cause a folder restart
 				setFolder(t, wrapper, fcfg)
 			}
-		}()
+		})
 	}
 
 	// Wait for the above to complete and check how many folders we have

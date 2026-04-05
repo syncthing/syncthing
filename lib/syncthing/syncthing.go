@@ -72,6 +72,7 @@ type App struct {
 	stopOnce          sync.Once
 	mainServiceCancel context.CancelFunc
 	stopped           chan struct{}
+	dbService         db.DBService
 
 	// Access to internals for direct users of this package. Note that the interface in Internals is unstable!
 	Internals *Internals
@@ -114,10 +115,22 @@ func (a *App) Start() error {
 	return nil
 }
 
+// StartMaintenance asynchronously triggers database maintenance to start.
+func (a *App) StartMaintenance() <-chan error {
+	return a.dbService.StartMaintenance()
+}
+
+// LastMaintenanceTime returns the last time database maintenance completed successfully
+// This will return time zero when database maintenance has never completed successfully.
+func (a *App) LastMaintenanceTime() time.Time {
+	return a.dbService.LastMaintenanceTime()
+}
+
 func (a *App) startup() error {
 	a.mainService.Add(ur.NewFailureHandler(a.cfg, a.evLogger))
 
-	a.mainService.Add(a.sdb.Service(a.opts.DBMaintenanceInterval))
+	a.dbService = a.sdb.Service(a.opts.DBMaintenanceInterval)
+	a.mainService.Add(a.dbService)
 
 	if a.opts.AuditWriter != nil {
 		a.mainService.Add(newAuditService(a.opts.AuditWriter, a.evLogger))

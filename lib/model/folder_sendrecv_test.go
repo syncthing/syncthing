@@ -463,11 +463,9 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 
 	copyChan, copyWg := startCopier(t.Context(), f, pullChan, finisherBufferChan)
 	var pullWg sync.WaitGroup
-	pullWg.Add(1)
-	go func() {
+	pullWg.Go(func() {
 		f.pullerRoutine(t.Context(), pullChan, finisherBufferChan)
-		pullWg.Done()
-	}()
+	})
 	go f.finisherRoutine(t.Context(), finisherChan, dbUpdateChan, make(chan string))
 	defer func() {
 		// Unblock copier and puller
@@ -649,9 +647,6 @@ func TestDeleteIgnorePerms(t *testing.T) {
 	fi, err := scanner.CreateFileInfo(stat, name, ffs, false, false, config.XattrFilter{})
 	must(t, err)
 	ffs.Chmod(name, 0o600)
-	if info, err := ffs.Stat(name); err == nil {
-		fi.InodeChangeNs = info.InodeChangeTime().UnixNano()
-	}
 	scanChan := make(chan string, 1)
 	err = f.checkToBeDeleted(fi, fi, true, scanChan)
 	must(t, err)
@@ -1246,10 +1241,8 @@ func cleanupSharedPullerState(s *sharedPullerState) {
 func startCopier(ctx context.Context, f *sendReceiveFolder, pullChan chan<- pullBlockState, finisherChan chan<- *sharedPullerState) (chan copyBlocksState, *sync.WaitGroup) {
 	copyChan := make(chan copyBlocksState)
 	wg := new(sync.WaitGroup)
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		f.copierRoutine(ctx, copyChan, pullChan, finisherChan)
-		wg.Done()
-	}()
+	})
 	return copyChan, wg
 }

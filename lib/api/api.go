@@ -1786,7 +1786,6 @@ func fileIntfJSONMap(f protocol.FileInfo) map[string]interface{} {
 		"version":            jsonVersionVector(f.FileVersion()),
 		"localFlags":         f.FileLocalFlags(),
 		"platform":           f.PlatformData(),
-		"inodeChange":        f.InodeChangeTime(),
 		"blocksHash":         f.FileBlocksHash(),
 		"previousBlocksHash": f.PreviousBlocksHash,
 	}
