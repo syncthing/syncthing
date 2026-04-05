@@ -106,11 +106,11 @@ func (m migration) apply(cfg *Configuration) {
 func migrateToConfigV53(cfg *Configuration) {
 	for i := range cfg.Folders {
 		f := &cfg.Folders[i]
-		f.FullBlockIndex = f.DefaultFullBlockIndex()
+		f.BlockIndexing = f.DefaultBlockIndexing()
 	}
 	switch cfg.Defaults.Folder.Type {
 	case FolderTypeSendReceive, FolderTypeReceiveOnly:
-		cfg.Defaults.Folder.FullBlockIndex = true
+		cfg.Defaults.Folder.BlockIndexing = true
 	}
 }
 

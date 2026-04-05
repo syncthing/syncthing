@@ -196,7 +196,7 @@ func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration, fold
 	for _, folder := range ll.ListFolders() {
 		// Determine update options based on folder config
 		var updateOpts []db.UpdateOption
-		if fcfg, ok := folders[folder]; ok && !fcfg.FullBlockIndex {
+		if fcfg, ok := folders[folder]; ok && !fcfg.BlockIndexing {
 			updateOpts = append(updateOpts, db.WithSkipBlockIndex())
 		}
 

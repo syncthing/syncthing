@@ -280,8 +280,8 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 			if cfg.SyncOwnership {
 				report.FolderUsesV3.SyncOwnership++
 			}
-			if cfg.FullBlockIndex != cfg.DefaultFullBlockIndex() {
-				report.FolderUsesV3.FullBlockIndexChanged++
+			if cfg.BlockIndexing != cfg.DefaultBlockIndexing() {
+				report.FolderUsesV3.BlockIndexingChanged++
 			}
 		}
 		slices.Sort(report.FolderUsesV3.FsWatcherDelays)

@@ -265,8 +265,8 @@ func (f *folder) Serve(ctx context.Context) error {
 }
 
 func (f *folder) reconcileBlockIndex(ctx context.Context) error {
-	if !f.FullBlockIndex {
-		f.sl.DebugContext(ctx, "Dropping block index (full block index disabled)")
+	if !f.BlockIndexing {
+		f.sl.DebugContext(ctx, "Dropping block index (block indexing disabled)")
 		return f.db.DropBlockIndex(f.folderID)
 	}
 	f.sl.DebugContext(ctx, "Populating block index if empty")
@@ -1282,7 +1282,7 @@ func (f *folder) updateLocalsFromPulling(fs []protocol.FileInfo) error {
 
 func (f *folder) updateLocals(fs []protocol.FileInfo) error {
 	var opts []db.UpdateOption
-	if !f.FullBlockIndex {
+	if !f.BlockIndexing {
 		opts = append(opts, db.WithSkipBlockIndex())
 	}
 	if err := f.db.Update(f.folderID, protocol.LocalDeviceID, fs, opts...); err != nil {

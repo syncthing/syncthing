@@ -1323,7 +1323,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 func (f *sendReceiveFolder) copierRoutine(ctx context.Context, in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
 	otherFolderFilesystems := make(map[string]fs.Filesystem)
 	for folder, cfg := range f.model.cfg.Folders() {
-		if folder == f.ID || !f.FullBlockIndex {
+		if folder == f.ID || !f.BlockIndexing {
 			continue
 		}
 		otherFolderFilesystems[folder] = cfg.Filesystem()
@@ -1402,7 +1402,7 @@ func (f *sendReceiveFolder) copyBlock(ctx context.Context, block protocol.BlockI
 		}
 	}
 
-	if f.folder.FullBlockIndex {
+	if f.folder.BlockIndexing {
 		// Hope that it's usually in the same folder, so start with that
 		// one. Also possibly more efficient copy (same filesystem).
 		if f.copyBlockFromFolder(ctx, f.ID, block, state, f.mtimefs, buf) {

@@ -86,7 +86,7 @@ type FolderConfiguration struct {
 	SendOwnership           bool                        `json:"sendOwnership" xml:"sendOwnership"`
 	SyncXattrs              bool                        `json:"syncXattrs" xml:"syncXattrs"`
 	SendXattrs              bool                        `json:"sendXattrs" xml:"sendXattrs"`
-	FullBlockIndex          bool                        `json:"fullBlockIndex" xml:"fullBlockIndex"`
+	BlockIndexing           bool                        `json:"blockIndexing" xml:"blockIndexing"`
 	XattrFilter             XattrFilter                 `json:"xattrFilter" xml:"xattrFilter"`
 	// Legacy deprecated
 	DeprecatedReadOnly       bool    `json:"-" xml:"ro,attr,omitempty"`        // Deprecated: Do not use.
@@ -382,7 +382,7 @@ func (f *FolderConfiguration) CheckAvailableSpace(req uint64) error {
 	return nil
 }
 
-func (f *FolderConfiguration) DefaultFullBlockIndex() bool {
+func (f *FolderConfiguration) DefaultBlockIndexing() bool {
 	switch f.Type {
 	case FolderTypeSendReceive, FolderTypeReceiveOnly:
 		return true
