@@ -25,7 +25,6 @@ import (
 )
 
 const (
-	maxSessionLifetime  = 7 * 24 * time.Hour
 	maxActiveSessions   = 25
 	randomTokenLength   = 64
 	maxLoginRequestSize = 1 << 10 // one kibibyte for username+password
