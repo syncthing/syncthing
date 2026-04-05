@@ -13,16 +13,16 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/disk"
 
 	"github.com/syncthing/syncthing/lib/build"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/structutil"
@@ -37,8 +37,8 @@ var (
 const (
 	DefaultMarkerName          = ".stfolder"
 	EncryptionTokenName        = "syncthing-encryption_password_token" //nolint: gosec
-	maxConcurrentWritesDefault = 2
-	maxConcurrentWritesLimit   = 64
+	maxConcurrentWritesDefault = 16
+	maxConcurrentWritesLimit   = 256
 )
 
 type FolderDeviceConfiguration struct {
@@ -69,15 +69,14 @@ type FolderConfiguration struct {
 	IgnoreDelete            bool                        `json:"ignoreDelete" xml:"ignoreDelete"`
 	ScanProgressIntervalS   int                         `json:"scanProgressIntervalS" xml:"scanProgressIntervalS"`
 	PullerPauseS            int                         `json:"pullerPauseS" xml:"pullerPauseS"`
+	PullerDelayS            float64                     `json:"pullerDelayS" xml:"pullerDelayS" default:"1"`
 	MaxConflicts            int                         `json:"maxConflicts" xml:"maxConflicts" default:"10"`
 	DisableSparseFiles      bool                        `json:"disableSparseFiles" xml:"disableSparseFiles"`
-	DisableTempIndexes      bool                        `json:"disableTempIndexes" xml:"disableTempIndexes"`
 	Paused                  bool                        `json:"paused" xml:"paused"`
-	WeakHashThresholdPct    int                         `json:"weakHashThresholdPct" xml:"weakHashThresholdPct"`
 	MarkerName              string                      `json:"markerName" xml:"markerName"`
 	CopyOwnershipFromParent bool                        `json:"copyOwnershipFromParent" xml:"copyOwnershipFromParent"`
 	RawModTimeWindowS       int                         `json:"modTimeWindowS" xml:"modTimeWindowS"`
-	MaxConcurrentWrites     int                         `json:"maxConcurrentWrites" xml:"maxConcurrentWrites" default:"2"`
+	MaxConcurrentWrites     int                         `json:"maxConcurrentWrites" xml:"maxConcurrentWrites" default:"0"`
 	DisableFsync            bool                        `json:"disableFsync" xml:"disableFsync"`
 	BlockPullOrder          BlockPullOrder              `json:"blockPullOrder" xml:"blockPullOrder"`
 	CopyRangeMethod         CopyRangeMethod             `json:"copyRangeMethod" xml:"copyRangeMethod" default:"standard"`
@@ -123,26 +122,24 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 // Filesystem creates a filesystem for the path and options of this folder.
 // The fset parameter may be nil, in which case no mtime handling on top of
 // the filesystem is provided.
-func (f FolderConfiguration) Filesystem(fset *db.FileSet) fs.Filesystem {
+func (f FolderConfiguration) Filesystem(extraOpts ...fs.Option) fs.Filesystem {
 	// This is intentionally not a pointer method, because things like
 	// cfg.Folders["default"].Filesystem(nil) should be valid.
-	opts := make([]fs.Option, 0, 3)
+	var opts []fs.Option
 	if f.FilesystemType == FilesystemTypeBasic && f.JunctionsAsDirs {
 		opts = append(opts, new(fs.OptionJunctionsAsDirs))
 	}
 	if !f.CaseSensitiveFS {
 		opts = append(opts, new(fs.OptionDetectCaseConflicts))
 	}
-	if fset != nil {
-		opts = append(opts, fset.MtimeOption())
-	}
+	opts = append(opts, extraOpts...)
 	return fs.NewFilesystem(f.FilesystemType.ToFS(), f.Path, opts...)
 }
 
 func (f FolderConfiguration) ModTimeWindow() time.Duration {
 	dur := time.Duration(f.RawModTimeWindowS) * time.Second
 	if f.RawModTimeWindowS < 1 && build.IsAndroid {
-		if usage, err := disk.Usage(f.Filesystem(nil).URI()); err != nil {
+		if usage, err := disk.Usage(f.Filesystem().URI()); err != nil {
 			dur = 2 * time.Second
 			l.Debugf(`Detecting FS at "%v" on android: Setting mtime window to 2s: err == "%v"`, f.Path, err)
 		} else if strings.HasPrefix(strings.ToLower(usage.Fstype), "ext2") || strings.HasPrefix(strings.ToLower(usage.Fstype), "ext3") || strings.HasPrefix(strings.ToLower(usage.Fstype), "ext4") {
@@ -156,7 +153,7 @@ func (f FolderConfiguration) ModTimeWindow() time.Duration {
 }
 
 func (f *FolderConfiguration) CreateMarker() error {
-	if err := f.CheckPath(); err != ErrMarkerMissing {
+	if err := f.CheckPath(); !errors.Is(err, ErrMarkerMissing) {
 		return err
 	}
 	if f.MarkerName != DefaultMarkerName {
@@ -166,7 +163,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 		return nil
 	}
 
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 
 	// Create the marker as a directory
 	err := ffs.Mkdir(DefaultMarkerName, 0o755)
@@ -193,7 +190,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 }
 
 func (f *FolderConfiguration) RemoveMarker() error {
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 	_ = ffs.Remove(filepath.Join(DefaultMarkerName, f.markerFilename()))
 	return ffs.Remove(DefaultMarkerName)
 }
@@ -213,7 +210,7 @@ func (f *FolderConfiguration) markerContents() []byte {
 
 // CheckPath returns nil if the folder root exists and contains the marker file
 func (f *FolderConfiguration) CheckPath() error {
-	return f.checkFilesystemPath(f.Filesystem(nil), ".")
+	return f.checkFilesystemPath(f.Filesystem(), ".")
 }
 
 func (f *FolderConfiguration) checkFilesystemPath(ffs fs.Filesystem, path string) error {
@@ -256,7 +253,7 @@ func (f *FolderConfiguration) CreateRoot() (err error) {
 		permBits = 0o700
 	}
 
-	filesystem := f.Filesystem(nil)
+	filesystem := f.Filesystem()
 
 	if _, err = filesystem.Stat("."); fs.IsNotExist(err) {
 		err = filesystem.MkdirAll(".", permBits)
@@ -270,6 +267,13 @@ func (f FolderConfiguration) Description() string {
 		return f.ID
 	}
 	return fmt.Sprintf("%q (%s)", f.Label, f.ID)
+}
+
+func (f FolderConfiguration) LogAttr() slog.Attr {
+	if f.Label == "" || f.Label == f.ID {
+		return slog.Group("folder", slog.String("id", f.ID), slog.String("type", f.Type.String()))
+	}
+	return slog.Group("folder", slog.String("label", f.Label), slog.String("id", f.ID), slog.String("type", f.Type.String()))
 }
 
 func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
@@ -291,8 +295,8 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 	f.Devices = ensureDevicePresent(f.Devices, myID)
 	f.Devices = ensureNoUntrustedTrustingSharing(f, f.Devices, existingDevices)
 
-	sort.Slice(f.Devices, func(a, b int) bool {
-		return f.Devices[a].DeviceID.Compare(f.Devices[b].DeviceID) == -1
+	slices.SortFunc(f.Devices, func(a, b FolderDeviceConfiguration) int {
+		return a.DeviceID.Compare(b.DeviceID)
 	})
 
 	if f.RescanIntervalS > MaxRescanIntervalS {
@@ -314,10 +318,6 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 		f.Versioning.CleanupIntervalS = 0
 	}
 
-	if f.WeakHashThresholdPct == 0 {
-		f.WeakHashThresholdPct = 25
-	}
-
 	if f.MarkerName == "" {
 		f.MarkerName = DefaultMarkerName
 	}
@@ -329,7 +329,6 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 	}
 
 	if f.Type == FolderTypeReceiveEncrypted {
-		f.DisableTempIndexes = true
 		f.IgnorePerms = true
 	}
 }
@@ -371,7 +370,7 @@ func (f *FolderConfiguration) CheckAvailableSpace(req uint64) error {
 	if val <= 0 {
 		return nil
 	}
-	fs := f.Filesystem(nil)
+	fs := f.Filesystem()
 	usage, err := fs.Usage(".")
 	if err != nil {
 		return nil //nolint: nilerr

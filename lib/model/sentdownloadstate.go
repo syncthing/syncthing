@@ -97,7 +97,7 @@ func (s *sentFolderDownloadState) update(pullers []*sharedPullerState) []protoco
 			localFile.updated = pullerBlockIndexesUpdated
 			localFile.version = pullerVersion
 			localFile.created = pullerCreated
-			localFile.blockSize = int(pullerBlockSize)
+			localFile.blockSize = pullerBlockSize
 			continue
 		}
 

@@ -11,6 +11,8 @@ angular.module('syncthing.core')
         var navigatingAway = false;
         var online = false;
         var restarting = false;
+        var restartExpectedFrom = 0;
+        var restartExpectedUntil = 0;
 
         function initController() {
             LocaleService.autoConfigLocale();
@@ -31,6 +33,34 @@ angular.module('syncthing.core')
 
             setInterval($scope.refresh, 10000);
             Events.start();
+        }
+
+        function clearRestartExpectation() {
+            restartExpectedFrom = 0;
+            restartExpectedUntil = 0;
+        }
+
+        function setRestartExpectation(delayS) {
+            var delay = delayS > 0 ? delayS : 60;
+            var delayMs = delay * 1000;
+            var earlyMs = 5 * 1000;
+            var graceMs = 60 * 1000;
+            var now = Date.now();
+
+            restartExpectedFrom = now + Math.max(0, delayMs - earlyMs);
+            restartExpectedUntil = now + delayMs + graceMs;
+        }
+
+        function restartExpectedNow() {
+            if (!restartExpectedUntil) {
+                return false;
+            }
+            var now = Date.now();
+            if (now > restartExpectedUntil) {
+                clearRestartExpectation();
+                return false;
+            }
+            return now >= restartExpectedFrom;
         }
 
         // public/scope definitions
@@ -187,13 +217,14 @@ angular.module('syncthing.core')
                     $scope.version = data;
                 }).error($scope.emitHTTPError);
 
-                $http.get(urlbase + '/svc/report').success(function (data) {
-                    $scope.reportData = data;
-                    if ($scope.system && $scope.config.options.urAccepted > -1 && $scope.config.options.urSeen < $scope.system.urVersionMax && $scope.config.options.urAccepted < $scope.system.urVersionMax) {
-                        // Usage reporting format has changed, prompt the user to re-accept.
+                if ($scope.system && $scope.config.options.urAccepted > -1 && $scope.config.options.urSeen < $scope.system.urVersionMax && $scope.config.options.urAccepted < $scope.system.urVersionMax) {
+                    // Usage reporting decision has not been taken or format
+                    // has changed, prompt the user to (re-)accept.
+                    $http.get(urlbase + '/svc/report').success(function (data) {
+                        $scope.reportData = data;
                         showModal('#ur');
-                    }
-                }).error($scope.emitHTTPError);
+                    }).error($scope.emitHTTPError);
+                }
 
                 $http.get(urlbase + '/system/upgrade').success(function (data) {
                     $scope.upgradeInfo = data;
@@ -203,6 +234,7 @@ angular.module('syncthing.core')
 
                 online = true;
                 restarting = false;
+                clearRestartExpectation();
                 hideModal('#networkError');
                 hideModal('#restarting');
                 hideModal('#shutdown');
@@ -217,8 +249,24 @@ angular.module('syncthing.core')
             console.log('UIOffline');
             online = false;
             if (!restarting) {
-                showModal('#networkError');
+                if (restartExpectedNow()) {
+                    restarting = true;
+                    showModal('#restarting');
+                } else {
+                    showModal('#networkError');
+                }
             }
+        });
+
+        $scope.$on(Events.UPGRADE_RESTART_SCHEDULED, function (_event, arg) {
+            var delayS = 0;
+            if (arg && arg.data && arg.data.delayS !== undefined) {
+                delayS = parseInt(arg.data.delayS, 10);
+                if (isNaN(delayS) || delayS < 0) {
+                    delayS = 0;
+                }
+            }
+            setRestartExpectation(delayS);
         });
 
         $scope.$on('HTTPError', function (event, arg) {
@@ -1165,7 +1213,7 @@ angular.module('syncthing.core')
             }
 
             // Disconnected
-            if (!unused && $scope.deviceStats[deviceCfg.deviceID] && $scope.deviceStats[deviceCfg.deviceID].lastSeenDays && $scope.deviceStats[deviceCfg.deviceID].lastSeenDays >= 7) {
+            if (!unused && $scope.deviceStats[deviceCfg.deviceID] && (!$scope.deviceStats[deviceCfg.deviceID].lastSeenDays || $scope.deviceStats[deviceCfg.deviceID].lastSeenDays >= 7)) {
                 return status + 'disconnected-inactive';
             } else {
                 return status + 'disconnected';
@@ -1568,16 +1616,8 @@ angular.module('syncthing.core')
         $scope.logging = {
             facilities: {},
             refreshFacilities: function () {
-                $http.get(urlbase + '/system/debug').success(function (data) {
-                    var facilities = {};
-                    data.enabled = data.enabled || [];
-                    $.each(data.facilities, function (key, value) {
-                        facilities[key] = {
-                            description: value,
-                            enabled: data.enabled.indexOf(key) > -1
-                        }
-                    })
-                    $scope.logging.facilities = facilities;
+                $http.get(urlbase + '/system/loglevels').success(function (data) {
+                    $scope.logging.facilities = data;
                 }).error($scope.emitHTTPError);
             },
             show: function () {
@@ -1597,13 +1637,10 @@ angular.module('syncthing.core')
                 });
                 showModal('#logViewer');
             },
-            onFacilityChange: function (facility) {
-                var enabled = $scope.logging.facilities[facility].enabled;
-                // Disable checkboxes while we're in flight.
-                $.each($scope.logging.facilities, function (key) {
-                    $scope.logging.facilities[key].enabled = null;
-                })
-                $http.post(urlbase + '/system/debug?' + (enabled ? 'enable=' : 'disable=') + facility)
+            onFacilityChange: function () {
+                // Disable editing while we're in flight.
+                $scope.logging.facilities.updating = true;
+                $http.post(urlbase + '/system/loglevels', $scope.logging.facilities.levels)
                     .success($scope.logging.refreshFacilities)
                     .error($scope.emitHTTPError);
             },
@@ -1626,7 +1663,7 @@ angular.module('syncthing.core')
             content: function () {
                 var content = "";
                 $.each($scope.logging.entries, function (idx, entry) {
-                    content += entry.when.split('.')[0].replace('T', ' ') + ' ' + entry.message + "\n";
+                    content += entry.when.split('.')[0].replace('T', ' ') + ' ' + entry.level + ' ' + entry.message + "\n";
                 });
                 return content;
             },

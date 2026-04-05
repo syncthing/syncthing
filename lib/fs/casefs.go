@@ -24,16 +24,16 @@ const (
 	caseCacheItemLimit = 4 << 10
 )
 
-type ErrCaseConflict struct {
+type CaseConflictError struct {
 	Given, Real string
 }
 
-func (e *ErrCaseConflict) Error() string {
+func (e *CaseConflictError) Error() string {
 	return fmt.Sprintf(`remote "%v" uses different upper or lowercase characters than local "%v"; change the casing on either side to match the other`, e.Given, e.Real)
 }
 
 func IsErrCaseConflict(err error) bool {
-	e := &ErrCaseConflict{}
+	e := &CaseConflictError{}
 	return errors.As(err, &e)
 }
 
@@ -239,7 +239,7 @@ func (f *caseFilesystem) Rename(oldpath, newpath string) error {
 	}
 	if err := f.checkCase(newpath); err != nil {
 		// Case-only rename is ok
-		e := &ErrCaseConflict{}
+		e := &CaseConflictError{}
 		if !errors.As(err, &e) || e.Real != oldpath {
 			return err
 		}
@@ -357,10 +357,6 @@ func (f *caseFilesystem) underlying() (Filesystem, bool) {
 	return f.Filesystem, true
 }
 
-func (*caseFilesystem) wrapperType() filesystemWrapperType {
-	return filesystemWrapperTypeCase
-}
-
 func (f *caseFilesystem) checkCase(name string) error {
 	var err error
 	if name, err = Canonicalize(name); err != nil {
@@ -393,7 +389,7 @@ func (f *caseFilesystem) checkCaseExisting(name string) error {
 	// comparing, as we don't want to treat a normalization difference as a
 	// case conflict.
 	if norm.NFC.String(realName) != norm.NFC.String(name) {
-		return &ErrCaseConflict{name, realName}
+		return &CaseConflictError{name, realName}
 	}
 	return nil
 }
@@ -401,10 +397,13 @@ func (f *caseFilesystem) checkCaseExisting(name string) error {
 type defaultRealCaser struct {
 	cache *caseCache
 	fs    Filesystem
-	mut   sync.Mutex
 }
 
-type caseCache = lru.TwoQueueCache[string, *caseNode]
+type caseCache struct {
+	*lru.TwoQueueCache[string, *caseNode]
+
+	mut sync.Mutex
+}
 
 func newCaseCache() *caseCache {
 	cache, err := lru.New2Q[string, *caseNode](caseCacheItemLimit)
@@ -412,7 +411,9 @@ func newCaseCache() *caseCache {
 	if err != nil {
 		panic(err)
 	}
-	return cache
+	return &caseCache{
+		TwoQueueCache: cache,
+	}
 }
 
 func (r *defaultRealCaser) realCase(name string) (string, error) {
@@ -422,7 +423,7 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 	}
 
 	for _, comp := range PathComponents(name) {
-		node := r.getExpireAdd(realName)
+		node := r.cache.getExpireAdd(realName, r.fs)
 
 		if node.err != nil {
 			return "", node.err
@@ -448,18 +449,18 @@ func (r *defaultRealCaser) dropCache() {
 
 // getExpireAdd gets an entry for the given key. If no entry exists, or it is
 // expired a new one is created and added to the cache.
-func (r *defaultRealCaser) getExpireAdd(key string) *caseNode {
-	r.mut.Lock()
-	defer r.mut.Unlock()
-	node, ok := r.cache.Get(key)
+func (c *caseCache) getExpireAdd(key string, fs Filesystem) *caseNode {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	node, ok := c.Get(key)
 	if !ok {
-		node := newCaseNode(key, r.fs)
-		r.cache.Add(key, node)
+		node := newCaseNode(key, fs)
+		c.Add(key, node)
 		return node
 	}
 	if node.expires.Before(time.Now()) {
-		node = newCaseNode(key, r.fs)
-		r.cache.Add(key, node)
+		node = newCaseNode(key, fs)
+		c.Add(key, node)
 	}
 	return node
 }

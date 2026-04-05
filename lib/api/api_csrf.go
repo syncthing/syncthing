@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/internal/db"
 )
 
 const (
@@ -34,7 +34,7 @@ type apiKeyValidator interface {
 // Check for CSRF token on /rest/ URLs. If a correct one is not given, reject
 // the request with 403. For / and /index.html, set a new CSRF cookie if none
 // is currently set.
-func newCsrfManager(unique string, prefix string, apiKeyValidator apiKeyValidator, next http.Handler, miscDB *db.NamespacedKV) *csrfManager {
+func newCsrfManager(unique string, prefix string, apiKeyValidator apiKeyValidator, next http.Handler, miscDB *db.Typed) *csrfManager {
 	m := &csrfManager{
 		unique:          unique,
 		prefix:          prefix,
@@ -78,7 +78,7 @@ func (m *csrfManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if isNoAuthPath(r.URL.Path) {
+	if isNoAuthPath(r.URL.Path, false) {
 		// REST calls that don't require authentication also do not
 		// need a CSRF token.
 		m.next.ServeHTTP(w, r)

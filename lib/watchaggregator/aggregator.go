@@ -440,7 +440,7 @@ func (a *aggregator) updateConfig(folderCfg config.FolderConfiguration) {
 	if maxDelay := folderCfg.FSWatcherTimeoutS; maxDelay > 0 {
 		// FSWatcherTimeoutS is set explicitly so use that, but it also
 		// can't be lower than FSWatcherDelayS
-		a.notifyTimeout = time.Duration(max(maxDelay, folderCfg.FSWatcherDelayS)) * time.Second
+		a.notifyTimeout = time.Duration(max(maxDelay, folderCfg.FSWatcherDelayS) * float64(time.Second))
 	} else {
 		// Use the default FSWatcherTimeoutS calculation
 		a.notifyTimeout = notifyTimeout(folderCfg.FSWatcherDelayS)
@@ -449,10 +449,11 @@ func (a *aggregator) updateConfig(folderCfg config.FolderConfiguration) {
 }
 
 func updateInProgressSet(event events.Event, inProgress map[string]struct{}) {
-	if event.Type == events.ItemStarted {
+	switch event.Type {
+	case events.ItemStarted:
 		path := event.Data.(map[string]string)["item"]
 		inProgress[path] = struct{}{}
-	} else if event.Type == events.ItemFinished {
+	case events.ItemFinished:
 		path := event.Data.(map[string]interface{})["item"].(string)
 		delete(inProgress, path)
 	}
@@ -471,10 +472,10 @@ func notifyTimeout(eventDelayS float64) time.Duration {
 		longDelayTimeout        = time.Minute
 	)
 	if eventDelayS < shortDelayS {
-		return time.Duration(eventDelayS*shortDelayMultiplicator) * time.Second
+		return time.Duration(eventDelayS * shortDelayMultiplicator * float64(time.Second))
 	}
 	if eventDelayS < longDelayS {
 		return longDelayTimeout
 	}
-	return time.Duration(eventDelayS) * time.Second
+	return time.Duration(eventDelayS * float64(time.Second))
 }

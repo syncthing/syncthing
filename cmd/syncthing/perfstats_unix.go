@@ -16,7 +16,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/locations"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"golang.org/x/exp/constraints"
 )
 
 func startPerfStats() {
@@ -29,37 +33,55 @@ func savePerfStats(file string) {
 		panic(err)
 	}
 
-	var prevUsage int64
-	var prevTime int64
-	var rusage syscall.Rusage
-	var memstats runtime.MemStats
+	var prevTime time.Time
+	var curRus, prevRus syscall.Rusage
+	var curMem, prevMem runtime.MemStats
 	var prevIn, prevOut int64
 
 	t0 := time.Now()
+	syscall.Getrusage(syscall.RUSAGE_SELF, &prevRus)
+	runtime.ReadMemStats(&prevMem)
+
+	fmt.Fprintf(fd, "TIME_S\tCPU_S\tHEAP_KIB\tRSS_KIB\tNETIN_KBPS\tNETOUT_KBPS\tDBSIZE_KIB\n")
+
 	for t := range time.NewTicker(250 * time.Millisecond).C {
-		if err := syscall.Getrusage(syscall.RUSAGE_SELF, &rusage); err != nil {
-			continue
-		}
-
-		curTime := time.Now().UnixNano()
-		timeDiff := curTime - prevTime
-		curUsage := rusage.Utime.Nano() + rusage.Stime.Nano()
-		usageDiff := curUsage - prevUsage
-		cpuUsagePercent := 100 * float64(usageDiff) / float64(timeDiff)
-		prevTime = curTime
-		prevUsage = curUsage
+		syscall.Getrusage(syscall.RUSAGE_SELF, &curRus)
+		runtime.ReadMemStats(&curMem)
 		in, out := protocol.TotalInOut()
-		var inRate, outRate float64
-		if timeDiff > 0 {
-			inRate = float64(in-prevIn) / (float64(timeDiff) / 1e9)    // bytes per second
-			outRate = float64(out-prevOut) / (float64(timeDiff) / 1e9) // bytes per second
+		timeDiff := t.Sub(prevTime)
+
+		rss := curRus.Maxrss
+		if build.IsDarwin {
+			rss /= 1024
 		}
+
+		fmt.Fprintf(fd, "%.03f\t%f\t%d\t%d\t%.0f\t%.0f\t%d\n",
+			t.Sub(t0).Seconds(),
+			rate(cpusec(&prevRus), cpusec(&curRus), timeDiff, 1),
+			(curMem.Sys-curMem.HeapReleased)/1024,
+			rss,
+			rate(prevIn, in, timeDiff, 1e3),
+			rate(prevOut, out, timeDiff, 1e3),
+			osutil.DirSize(locations.Get(locations.Database))/1024,
+		)
+
+		prevTime = t
+		prevRus = curRus
+		prevMem = curMem
 		prevIn, prevOut = in, out
-
-		runtime.ReadMemStats(&memstats)
-
-		startms := int(t.Sub(t0).Seconds() * 1000)
-
-		fmt.Fprintf(fd, "%d\t%f\t%d\t%d\t%.0f\t%.0f\n", startms, cpuUsagePercent, memstats.Alloc, memstats.Sys-memstats.HeapReleased, inRate, outRate)
 	}
+}
+
+func cpusec(r *syscall.Rusage) float64 {
+	return float64(r.Utime.Nano()+r.Stime.Nano()) / float64(time.Second)
+}
+
+type number interface {
+	constraints.Float | constraints.Integer
+}
+
+func rate[T number](prev, cur T, d time.Duration, div float64) float64 {
+	diff := cur - prev
+	rate := float64(diff) / d.Seconds() / div
+	return rate
 }

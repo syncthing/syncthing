@@ -9,8 +9,12 @@ package beacon
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/netutil"
 
 	"golang.org/x/net/ipv6"
 )
@@ -59,7 +63,7 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 			return doneCtx.Err()
 		}
 
-		intfs, err := net.Interfaces()
+		intfs, err := netutil.Interfaces()
 		if err != nil {
 			l.Debugln(err)
 			return err
@@ -68,6 +72,11 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 		success := 0
 		for _, intf := range intfs {
 			if intf.Flags&net.FlagRunning == 0 || intf.Flags&net.FlagMulticast == 0 {
+				continue
+			}
+
+			if build.IsAndroid && intf.Flags&net.FlagPointToPoint != 0 {
+				// skip  cellular interfaces
 				continue
 			}
 
@@ -117,7 +126,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 		conn.Close()
 	}()
 
-	intfs, err := net.Interfaces()
+	intfs, err := netutil.Interfaces()
 	if err != nil {
 		l.Debugln(err)
 		return err
@@ -126,6 +135,15 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 	pconn := ipv6.NewPacketConn(conn)
 	joined := 0
 	for _, intf := range intfs {
+		if intf.Flags&net.FlagRunning == 0 || intf.Flags&net.FlagMulticast == 0 {
+			continue
+		}
+
+		if build.IsAndroid && intf.Flags&net.FlagPointToPoint != 0 {
+			// skip  cellular interfaces
+			continue
+		}
+
 		err := pconn.JoinGroup(&intf, &net.UDPAddr{IP: gaddr.IP})
 		if err != nil {
 			l.Debugln("IPv6 join", intf.Name, "failed:", err)
@@ -136,7 +154,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 	}
 
 	if joined == 0 {
-		l.Debugln("no multicast interfaces available")
+		slog.DebugContext(ctx, "No multicast interfaces available")
 		return errors.New("no multicast interfaces available")
 	}
 
@@ -159,7 +177,7 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 		select {
 		case outbox <- recv{c, addr}:
 		default:
-			l.Debugln("dropping message")
+			slog.DebugContext(ctx, "Dropping message")
 		}
 	}
 }

@@ -14,7 +14,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"sort"
+	"slices"
 	"testing"
 	"time"
 
@@ -369,8 +369,8 @@ func assertDir(t *testing.T, fs Filesystem, directory string, filenames []string
 	if path.Clean(directory) == "/" {
 		filenames = append(filenames, ".stfolder")
 	}
-	sort.Strings(filenames)
-	sort.Strings(got)
+	slices.Sort(filenames)
+	slices.Sort(got)
 
 	if len(filenames) != len(got) {
 		t.Errorf("want %s, got %s", filenames, got)

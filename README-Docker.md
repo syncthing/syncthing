@@ -23,52 +23,7 @@ example `UMASK=002`.
 **Docker cli**
 ```
 $ docker pull syncthing/syncthing
-$ docker run -p 8384:8384 -p 22000:22000/tcp -p 22000:22000/udp -p 21027:21027/udp \
-    -v /wherever/st-sync:/var/syncthing \
-    --hostname=my-syncthing \
-    syncthing/syncthing:latest
-```
-
-**Docker compose**
-```yml
----
-version: "3"
-services:
-  syncthing:
-    image: syncthing/syncthing
-    container_name: syncthing
-    hostname: my-syncthing
-    environment:
-      - PUID=1000
-      - PGID=1000
-    volumes:
-      - /wherever/st-sync:/var/syncthing
-    ports:
-      - 8384:8384 # Web UI
-      - 22000:22000/tcp # TCP file transfers
-      - 22000:22000/udp # QUIC file transfers
-      - 21027:21027/udp # Receive local discovery broadcasts
-    restart: unless-stopped
-    healthcheck:
-      test: curl -fkLsS -m 2 127.0.0.1:8384/rest/noauth/health | grep -o --color=never OK || exit 1
-      interval: 1m
-      timeout: 10s
-      retries: 3
-```
-
-## Discovery
-
-Note that Docker's default network mode prevents local IP addresses from
-being discovered, as Syncthing is only able to see the internal IP of the
-container on the `172.17.0.0/16` subnet. This will result in poor transfer rates
-if local device addresses are not manually configured.
-
-It is therefore advisable to use the [host network mode](https://docs.docker.com/network/host/) instead:
-
-**Docker cli**
-```
-$ docker pull syncthing/syncthing
-$ docker run --network=host \
+$ docker run --network=host  -e STGUIADDRESS= \
     -v /wherever/st-sync:/var/syncthing \
     syncthing/syncthing:latest
 ```
@@ -85,6 +40,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
+      - STGUIADDRESS=
     volumes:
       - /wherever/st-sync:/var/syncthing
     network_mode: host
@@ -96,27 +52,27 @@ services:
       retries: 3
 ```
 
+## Discovery
+
+Please note that Docker's default network mode prevents local IP addresses
+from being discovered, as Syncthing can only see the internal IP address of
+the container on the `172.17.0.0/16` subnet. This would likely break the ability
+for nodes to establish LAN connections properly, resulting in poor transfer
+rates unless local device addresses are configured manually.
+
+It is therefore strongly recommended to stick to the [host network mode](https://docs.docker.com/network/host/),
+as shown above.
+
 Be aware that syncthing alone is now in control of what interfaces and ports it
 listens on. You can edit the syncthing configuration to change the defaults if
 there are conflicts.
 
 ## GUI Security
 
-By default Syncthing inside the Docker image listens on 0.0.0.0:8384 to
-allow GUI connections via the Docker proxy. This is set by the
-`STGUIADDRESS` environment variable in the Dockerfile, as it differs from
-what Syncthing would otherwise use by default. This means you should set up
-authentication in the GUI, like for any other externally reachable Syncthing
-instance. If you do not require the GUI, or you use host networking, you can
-unset the `STGUIADDRESS` variable to have Syncthing fall back to listening
-on 127.0.0.1:
-
-```
-$ docker pull syncthing/syncthing
-$ docker run -e STGUIADDRESS= \
-    -v /wherever/st-sync:/var/syncthing \
-    syncthing/syncthing:latest
-```
-
-With the environment variable unset Syncthing will follow what is set in the
-configuration file / GUI settings dialog.
+By default Syncthing inside the Docker image listens on `0.0.0.0:8384`. This
+allows GUI connections when running without host network mode. The example
+above unsets the `STGUIADDRESS` environment variable to have Syncthing fall
+back to listening on what has been configured in the configuration file or the
+GUI settings dialog. By default this is the localhost IP address `127.0.0.1`.
+If you configure your GUI to be externally reachable, make sure you set up
+authentication and enable TLS.

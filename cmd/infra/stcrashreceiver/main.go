@@ -28,7 +28,6 @@ import (
 	"github.com/alecthomas/kong"
 	raven "github.com/getsentry/raven-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/ur"
 )
@@ -44,7 +43,7 @@ type cli struct {
 	SentryQueue    int    `help:"Maximum number of reports to queue for sending to Sentry" default:"64" env:"SENTRY_QUEUE"`
 	DiskQueue      int    `help:"Maximum number of reports to queue for writing to disk" default:"64" env:"DISK_QUEUE"`
 	MetricsListen  string `help:"HTTP listen address for metrics" default:":8081" env:"METRICS_LISTEN_ADDRESS"`
-	IngorePatterns string `help:"File containing ignore patterns (regexp)" env:"IGNORE_PATTERNS" type:"existingfile"`
+	IgnorePatterns string `help:"File containing ignore patterns (regexp)" env:"IGNORE_PATTERNS" type:"existingfile"`
 }
 
 func main() {
@@ -68,9 +67,9 @@ func main() {
 	go ss.Serve(context.Background())
 
 	var ip *ignorePatterns
-	if params.IngorePatterns != "" {
+	if params.IgnorePatterns != "" {
 		var err error
-		ip, err = loadIgnorePatterns(params.IngorePatterns)
+		ip, err = loadIgnorePatterns(params.IgnorePatterns)
 		if err != nil {
 			log.Fatalf("Failed to load ignore patterns: %v", err)
 		}
@@ -118,7 +117,7 @@ func handleFailureFn(dsn, failureDir string, ignore *ignorePatterns) func(w http
 		bs, err := io.ReadAll(lr)
 		req.Body.Close()
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -130,7 +129,7 @@ func handleFailureFn(dsn, failureDir string, ignore *ignorePatterns) func(w http
 		var reports []ur.FailureReport
 		err = json.Unmarshal(bs, &reports)
 		if err != nil {
-			http.Error(w, err.Error(), 400)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		if len(reports) == 0 {
@@ -141,7 +140,7 @@ func handleFailureFn(dsn, failureDir string, ignore *ignorePatterns) func(w http
 
 		version, err := build.ParseVersion(reports[0].Version)
 		if err != nil {
-			http.Error(w, err.Error(), 400)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		for _, r := range reports {

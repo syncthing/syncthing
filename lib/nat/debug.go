@@ -6,8 +6,6 @@
 
 package nat
 
-import (
-	"github.com/syncthing/syncthing/lib/logger"
-)
+import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = logger.DefaultLogger.NewFacility("nat", "NAT discovery and port mapping")
+var l = slogutil.NewAdapter("NAT discovery and port mapping")

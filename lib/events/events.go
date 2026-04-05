@@ -4,8 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:generate -command counterfeiter go run github.com/maxbrunsfeld/counterfeiter/v6
-//go:generate counterfeiter -o mocks/buffered_subscription.go --fake-name BufferedSubscription . BufferedSubscription
+//go:generate go tool counterfeiter -o mocks/buffered_subscription.go --fake-name BufferedSubscription . BufferedSubscription
 
 // Package events provides event subscription and polling functionality.
 package events
@@ -16,11 +15,11 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/syncutil"
 	"github.com/thejerf/suture/v4"
-
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type EventType int64
@@ -58,6 +57,7 @@ const (
 	ListenAddressesChanged
 	LoginAttempt
 	Failure
+	UpgradeRestartScheduled
 
 	AllEvents = (1 << iota) - 1
 )
@@ -135,6 +135,8 @@ func (t EventType) String() string {
 		return "FolderWatchStateChanged"
 	case Failure:
 		return "Failure"
+	case UpgradeRestartScheduled:
+		return "UpgradeRestartScheduled"
 	default:
 		return "Unknown"
 	}
@@ -222,6 +224,8 @@ func UnmarshalEventType(s string) EventType {
 		return FolderWatchStateChanged
 	case "Failure":
 		return Failure
+	case "UpgradeRestartScheduled":
+		return UpgradeRestartScheduled
 	default:
 		return 0
 	}
@@ -474,7 +478,7 @@ type bufferedSubscription struct {
 	next int
 	cur  int // Current SubscriptionID
 	mut  sync.Mutex
-	cond *sync.TimeoutCond
+	cond *syncutil.TimeoutCond
 }
 
 type BufferedSubscription interface {
@@ -486,9 +490,8 @@ func NewBufferedSubscription(s Subscription, size int) BufferedSubscription {
 	bs := &bufferedSubscription{
 		sub: s,
 		buf: make([]Event, size),
-		mut: sync.NewMutex(),
 	}
-	bs.cond = sync.NewTimeoutCond(bs.mut)
+	bs.cond = syncutil.NewTimeoutCond(&bs.mut)
 	go bs.pollingLoop()
 	return bs
 }
@@ -526,7 +529,7 @@ func (s *bufferedSubscription) Since(id int, into []Event, timeout time.Duration
 			into = append(into, s.buf[i])
 		}
 	}
-	for i := 0; i < s.next; i++ {
+	for i := range s.next {
 		if s.buf[i].SubscriptionID > id {
 			into = append(into, s.buf[i])
 		}

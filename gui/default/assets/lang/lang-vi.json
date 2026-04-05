@@ -161,7 +161,7 @@
     "Show QR": "Hiển thị QR",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Hiển thị thay cho ID th.bị trong trạng thái cụm. Sẽ được giới thiệu đến các th.bị khác như tên mặc định tuỳ chọn.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Hiển thị thay cho ID thiết bị trong trạng thái cụm. Nếu để trống sẽ được cập nhật thành tên mà thiết bị giới thiệu.",
-    "Shutdown": "Tắt",
+    "Shut Down": "Tắt",
     "Shutdown Complete": "Tắt hoàn tất",
     "Simple File Versioning": "Kiểu đơn giản",
     "Single level wildcard (matches within a directory only)": "Ký tự thay thế đơn cấp (phù hợp với chỉ một thư mục)",

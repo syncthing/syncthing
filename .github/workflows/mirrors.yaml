@@ -1,0 +1,18 @@
+name: Mirrors
+
+on: [push, delete]
+
+jobs:
+  codeberg:
+    name: Mirror to Codeberg
+    if: github.repository_owner == 'syncthing'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: yesolutions/mirror-action@master
+        with:
+          REMOTE: ssh://git@codeberg.org/${{ github.repository }}.git
+          GIT_SSH_PRIVATE_KEY: ${{ secrets.CODEBERG_PUSH_KEY }}
+          GIT_SSH_NO_VERIFY_HOST: "true"

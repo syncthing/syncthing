@@ -8,17 +8,18 @@
 package osutil
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // Try to keep this entire operation atomic-like. We shouldn't be doing this
 // often enough that there is any contention on this lock.
-var renameLock = sync.NewMutex()
+var renameLock sync.Mutex
 
 // RenameOrCopy renames a file, leaving source file intact in case of failure.
 // Tries hard to succeed on various systems by temporarily tweaking directory
@@ -141,4 +142,22 @@ func IsDeleted(ffs fs.Filesystem, name string) bool {
 		return true
 	}
 	return false
+}
+
+func DirSize(location string) int64 {
+	entries, err := os.ReadDir(location)
+	if err != nil {
+		return 0
+	}
+
+	var size int64
+	for _, entry := range entries {
+		fi, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		size += fi.Size()
+	}
+
+	return size
 }

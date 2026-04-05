@@ -26,10 +26,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/puzpuzpuz/xsync/v3"
+	"github.com/syncthing/syncthing/internal/blob"
+	"github.com/syncthing/syncthing/internal/blob/s3"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/geoip"
-	"github.com/syncthing/syncthing/lib/s3"
 	"github.com/syncthing/syncthing/lib/ur/contract"
+	"github.com/thejerf/suture/v4"
 )
 
 type CLI struct {
@@ -40,11 +43,11 @@ type CLI struct {
 	DumpFile        string        `env:"UR_DUMP_FILE" default:"reports.jsons.gz"`
 	DumpInterval    time.Duration `env:"UR_DUMP_INTERVAL" default:"5m"`
 
-	S3Endpoint    string `name:"s3-endpoint" hidden:"true" env:"UR_S3_ENDPOINT"`
-	S3Region      string `name:"s3-region" hidden:"true" env:"UR_S3_REGION"`
-	S3Bucket      string `name:"s3-bucket" hidden:"true" env:"UR_S3_BUCKET"`
-	S3AccessKeyID string `name:"s3-access-key-id" hidden:"true" env:"UR_S3_ACCESS_KEY_ID"`
-	S3SecretKey   string `name:"s3-secret-key" hidden:"true" env:"UR_S3_SECRET_KEY"`
+	S3Endpoint    string `name:"s3-endpoint" env:"UR_S3_ENDPOINT"`
+	S3Region      string `name:"s3-region" env:"UR_S3_REGION"`
+	S3Bucket      string `name:"s3-bucket" env:"UR_S3_BUCKET"`
+	S3AccessKeyID string `name:"s3-access-key-id" env:"UR_S3_ACCESS_KEY_ID"`
+	S3SecretKey   string `name:"s3-secret-key" env:"UR_S3_SECRET_KEY"`
 }
 
 var (
@@ -71,12 +74,14 @@ var (
 		{regexp.MustCompile(`\svagrant@bullseye`), "F-Droid"},
 		{regexp.MustCompile(`\svagrant@bookworm`), "F-Droid"},
 
-		{regexp.MustCompile(`Anwender@NET2017`), "Syncthing-Fork (3rd party)"},
+		{regexp.MustCompile(`\sreproducible-build@Catfriend1-syncthing-android`), "Syncthing-Fork Catfriend1 (3rd party)"},
+		{regexp.MustCompile(`\sreproducible-build@nel0x-syncthing-android-gplay`), "Syncthing-Fork nel0x (3rd party)"},
 
 		{regexp.MustCompile(`\sbuilduser@(archlinux|svetlemodry)`), "Arch (3rd party)"},
 		{regexp.MustCompile(`\ssyncthing@archlinux`), "Arch (3rd party)"},
 		{regexp.MustCompile(`@debian`), "Debian (3rd party)"},
 		{regexp.MustCompile(`@fedora`), "Fedora (3rd party)"},
+		{regexp.MustCompile(`@openSUSE`), "openSUSE (3rd party)"},
 		{regexp.MustCompile(`\sbrew@`), "Homebrew (3rd party)"},
 		{regexp.MustCompile(`\sroot@buildkitsandbox`), "LinuxServer.io (3rd party)"},
 		{regexp.MustCompile(`\sports@freebsd`), "FreeBSD (3rd party)"},
@@ -97,42 +102,42 @@ func (cli *CLI) Run() error {
 
 	urListener, err := net.Listen("tcp", cli.Listen)
 	if err != nil {
-		slog.Error("Failed to listen (usage reports)", "error", err)
+		slog.Error("Failed to listen (usage reports)", slogutil.Error(err))
 		return err
 	}
-	slog.Info("Listening (usage reports)", "address", urListener.Addr())
+	slog.Info("Listening (usage reports)", slogutil.Address(urListener.Addr()))
 
 	internalListener, err := net.Listen("tcp", cli.ListenInternal)
 	if err != nil {
-		slog.Error("Failed to listen (internal)", "error", err)
+		slog.Error("Failed to listen (internal)", slogutil.Error(err))
 		return err
 	}
-	slog.Info("Listening (internal)", "address", internalListener.Addr())
+	slog.Info("Listening (internal)", slogutil.Address(internalListener.Addr()))
 
 	var geo *geoip.Provider
 	if cli.GeoIPAccountID != 0 && cli.GeoIPLicenseKey != "" {
 		geo, err = geoip.NewGeoLite2CityProvider(context.Background(), cli.GeoIPAccountID, cli.GeoIPLicenseKey, os.TempDir())
 		if err != nil {
-			slog.Error("Failed to load GeoIP", "error", err)
+			slog.Error("Failed to load GeoIP", slogutil.Error(err))
 			return err
 		}
 		go geo.Serve(context.TODO())
 	}
 
-	// s3
+	// Blob storage
 
-	var s3sess *s3.Session
+	var blobs blob.Store
 	if cli.S3Endpoint != "" {
-		s3sess, err = s3.NewSession(cli.S3Endpoint, cli.S3Region, cli.S3Bucket, cli.S3AccessKeyID, cli.S3SecretKey)
+		blobs, err = s3.NewSession(cli.S3Endpoint, cli.S3Region, cli.S3Bucket, cli.S3AccessKeyID, cli.S3SecretKey)
 		if err != nil {
-			slog.Error("Failed to create S3 session", "error", err)
+			slog.Error("Failed to create S3 session", slogutil.Error(err))
 			return err
 		}
 	}
 
-	if _, err := os.Stat(cli.DumpFile); err != nil && s3sess != nil {
-		if err := cli.downloadDumpFile(s3sess); err != nil {
-			slog.Error("Failed to download dump file", "error", err)
+	if _, err := os.Stat(cli.DumpFile); err != nil && blobs != nil {
+		if err := cli.downloadDumpFile(blobs); err != nil {
+			slog.Error("Failed to download dump file", slogutil.Error(err))
 		}
 	}
 
@@ -153,8 +158,8 @@ func (cli *CLI) Run() error {
 
 	go func() {
 		for range time.Tick(cli.DumpInterval) {
-			if err := cli.saveDumpFile(srv, s3sess); err != nil {
-				slog.Error("Failed to write dump file", "error", err)
+			if err := cli.saveDumpFile(srv, blobs); err != nil {
+				slog.Error("Failed to write dump file", slogutil.Error(err))
 			}
 		}
 	}()
@@ -173,7 +178,12 @@ func (cli *CLI) Run() error {
 	// New external metrics endpoint accepts reports from clients and serves
 	// aggregated usage reporting metrics.
 
+	main := suture.NewSimple("main")
+	main.ServeBackground(context.Background())
+
 	ms := newMetricsSet(srv)
+	main.Add(ms)
+
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(ms)
 
@@ -184,7 +194,7 @@ func (cli *CLI) Run() error {
 
 	metricsSrv := http.Server{
 		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		WriteTimeout: 60 * time.Second,
 		Handler:      mux,
 	}
 
@@ -192,8 +202,8 @@ func (cli *CLI) Run() error {
 	return metricsSrv.Serve(urListener)
 }
 
-func (cli *CLI) downloadDumpFile(s3sess *s3.Session) error {
-	latestKey, err := s3sess.LatestKey()
+func (cli *CLI) downloadDumpFile(blobs blob.Store) error {
+	latestKey, err := blobs.LatestKey(context.Background())
 	if err != nil {
 		return fmt.Errorf("list latest S3 key: %w", err)
 	}
@@ -201,7 +211,7 @@ func (cli *CLI) downloadDumpFile(s3sess *s3.Session) error {
 	if err != nil {
 		return fmt.Errorf("create dump file: %w", err)
 	}
-	if err := s3sess.Download(fd, latestKey); err != nil {
+	if err := blobs.Download(context.Background(), latestKey, fd); err != nil {
 		_ = fd.Close()
 		return fmt.Errorf("download dump file: %w", err)
 	}
@@ -212,7 +222,12 @@ func (cli *CLI) downloadDumpFile(s3sess *s3.Session) error {
 	return nil
 }
 
-func (cli *CLI) saveDumpFile(srv *server, s3sess *s3.Session) error {
+func (cli *CLI) saveDumpFile(srv *server, blobs blob.Store) error {
+	t0 := time.Now()
+	defer func() {
+		metricsWriteSecondsLast.Set(float64(time.Since(t0)))
+	}()
+
 	fd, err := os.Create(cli.DumpFile + ".tmp")
 	if err != nil {
 		return fmt.Errorf("creating dump file: %w", err)
@@ -231,19 +246,20 @@ func (cli *CLI) saveDumpFile(srv *server, s3sess *s3.Session) error {
 	if err := os.Rename(cli.DumpFile+".tmp", cli.DumpFile); err != nil {
 		return fmt.Errorf("renaming dump file: %w", err)
 	}
-	slog.Info("Dump file saved")
+	slog.Info("Dump file saved", "d", time.Since(t0).String())
 
-	if s3sess != nil {
+	if blobs != nil {
+		t1 := time.Now()
 		key := fmt.Sprintf("reports-%s.jsons.gz", time.Now().UTC().Format("2006-01-02"))
 		fd, err := os.Open(cli.DumpFile)
 		if err != nil {
 			return fmt.Errorf("opening dump file: %w", err)
 		}
-		if err := s3sess.Upload(fd, key); err != nil {
+		if err := blobs.Upload(context.Background(), key, fd); err != nil {
 			return fmt.Errorf("uploading dump file: %w", err)
 		}
 		_ = fd.Close()
-		slog.Info("Dump file uploaded")
+		slog.Info("Dump file uploaded", "d", time.Since(t1).String())
 	}
 
 	return nil
@@ -294,7 +310,7 @@ func (s *server) handleNewData(w http.ResponseWriter, r *http.Request) {
 	lr := &io.LimitedReader{R: r.Body, N: 40 * 1024}
 	bs, _ := io.ReadAll(lr)
 	if err := json.Unmarshal(bs, &rep); err != nil {
-		log.Error("Failed to decode JSON", "error", err)
+		log.Error("Failed to decode JSON", slogutil.Error(err))
 		http.Error(w, "JSON Decode Error", http.StatusInternalServerError)
 		return
 	}
@@ -304,7 +320,7 @@ func (s *server) handleNewData(w http.ResponseWriter, r *http.Request) {
 	rep.Address = addr
 
 	if err := rep.Validate(); err != nil {
-		log.Error("Failed to validate report", "error", err)
+		log.Error("Failed to validate report", slogutil.Error(err))
 		http.Error(w, "Validation Error", http.StatusInternalServerError)
 		return
 	}
@@ -351,6 +367,16 @@ func (s *server) addReport(rep *contract.Report) bool {
 			break
 		}
 	}
+	rep.DistDist = rep.Distribution
+	rep.DistOS = rep.OS
+	rep.DistArch = rep.Arch
+
+	if strings.HasPrefix(rep.Version, "v2.") {
+		rep.Database.ModernCSQLite = strings.Contains(rep.LongVersion, "modernc-sqlite")
+		rep.Database.MattnSQLite = !rep.Database.ModernCSQLite
+	} else {
+		rep.Database.LevelDB = true
+	}
 
 	_, loaded := s.reports.LoadAndStore(rep.UniqueID, rep)
 	return loaded
@@ -371,6 +397,7 @@ func (s *server) save(w io.Writer) error {
 }
 
 func (s *server) load(r io.Reader) {
+	t0 := time.Now()
 	dec := json.NewDecoder(r)
 	s.reports.Clear()
 	for {
@@ -378,12 +405,12 @@ func (s *server) load(r io.Reader) {
 		if err := dec.Decode(&rep); errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
-			slog.Error("Failed to load record", "error", err)
+			slog.Error("Failed to load record", slogutil.Error(err))
 			break
 		}
 		s.addReport(&rep)
 	}
-	slog.Info("Loaded reports", "count", s.reports.Size())
+	slog.Info("Loaded reports", "count", s.reports.Size(), "d", time.Since(t0).String())
 }
 
 var (

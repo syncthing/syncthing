@@ -1,0 +1,60 @@
+name: Release Syncthing
+
+on:
+  push:
+    branches:
+      - release
+      - release-rc*
+
+permissions:
+  contents: write
+
+jobs:
+  create-release-tag:
+    name: Create release tag
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
+          token: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+
+      - name: Determine version to release
+        run: |
+          if [[ "$GITHUB_REF_NAME" == "release" ]] ; then
+            next=$(go run ./script/next-version.go)
+          else
+            next=$(go run ./script/next-version.go --pre)
+          fi
+          echo "NEXT=$next" >> $GITHUB_ENV
+          echo "Next version is $next"
+
+          prev=$(git describe --exclude "*-*" --abbrev=0)
+          echo "PREV=$prev" >> $GITHUB_ENV
+          echo "Previous version is $prev"
+
+      - name: Determine release notes
+        run: |
+          go run ./script/relnotes.go --new-ver "$NEXT" --branch "$GITHUB_REF_NAME" --prev-ver "$PREV" > notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
+
+      - name: Create and push tag
+        run: |
+          git config --global user.name 'Syncthing Release Automation'
+          git config --global user.email 'release@syncthing.net'
+          git tag -a -F notes.md --cleanup=whitespace "$NEXT"
+          git push origin "$NEXT"
+
+      - name: Trigger the build
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: build-syncthing.yaml
+          ref: refs/tags/${{ env.NEXT }}
+          token: ${{ secrets.ACTIONS_GITHUB_TOKEN }}

@@ -9,10 +9,12 @@ package api
 import (
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/structutil"
@@ -20,6 +22,7 @@ import (
 
 type configMuxBuilder struct {
 	*httprouter.Router
+
 	id  protocol.DeviceID
 	cfg config.Wrapper
 }
@@ -311,7 +314,7 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 	to, err := config.ReadJSON(r.Body, c.id)
 	r.Body.Close()
 	if err != nil {
-		l.Warnln("Decoding posted config:", err)
+		slog.Error("Failed to decode posted config", slogutil.Error(err))
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -415,7 +418,7 @@ func (c *configMuxBuilder) adjustGUI(w http.ResponseWriter, r *http.Request, gui
 func (c *configMuxBuilder) postAdjustGui(from *config.GUIConfiguration, to *config.GUIConfiguration) error {
 	if to.Password != from.Password {
 		if err := to.SetPassword(to.Password); err != nil {
-			l.Warnln("hashing password:", err)
+			slog.Error("Failed to hash password", slogutil.Error(err))
 			return err
 		}
 	}
@@ -456,7 +459,7 @@ func unmarshalToRawMessages(body io.ReadCloser) ([]json.RawMessage, error) {
 func (c *configMuxBuilder) finish(w http.ResponseWriter, waiter config.Waiter) {
 	waiter.Wait()
 	if err := c.cfg.Save(); err != nil {
-		l.Warnln("Saving config:", err)
+		slog.Error("Failed to save config", slogutil.Error(err))
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

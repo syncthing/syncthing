@@ -4,25 +4,25 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:generate -command counterfeiter go run github.com/maxbrunsfeld/counterfeiter/v6
-//go:generate counterfeiter -o mocks/folderSummaryService.go --fake-name FolderSummaryService . FolderSummaryService
+//go:generate go tool counterfeiter -o mocks/folderSummaryService.go --fake-name FolderSummaryService . FolderSummaryService
 
 package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type FolderSummaryService interface {
@@ -48,14 +48,13 @@ type folderSummaryService struct {
 
 func NewFolderSummaryService(cfg config.Wrapper, m Model, id protocol.DeviceID, evLogger events.Logger) FolderSummaryService {
 	service := &folderSummaryService{
-		Supervisor: suture.New("folderSummaryService", svcutil.SpecWithDebugLogger(l)),
+		Supervisor: suture.New("folderSummaryService", svcutil.SpecWithDebugLogger()),
 		cfg:        cfg,
 		model:      m,
 		id:         id,
 		evLogger:   evLogger,
 		immediate:  make(chan string),
 		folders:    make(map[string]struct{}),
-		foldersMut: sync.NewMutex(),
 	}
 
 	service.Add(svcutil.AsService(service.listenForUpdates, fmt.Sprintf("%s/listenForUpdates", service)))
@@ -125,28 +124,24 @@ func (c *folderSummaryService) Summary(folder string) (*FolderSummary, error) {
 	var local, global, need, ro db.Counts
 	var ourSeq int64
 	var remoteSeq map[protocol.DeviceID]int64
-	errors, err := c.model.FolderErrors(folder)
+	errs, err := c.model.FolderErrors(folder)
 	if err == nil {
-		var snap *db.Snapshot
-		if snap, err = c.model.DBSnapshot(folder); err == nil {
-			global = snap.GlobalSize()
-			local = snap.LocalSize()
-			need = snap.NeedSize(protocol.LocalDeviceID)
-			ro = snap.ReceiveOnlyChangedSize()
-			ourSeq = snap.Sequence(protocol.LocalDeviceID)
-			remoteSeq = snap.RemoteSequences()
-			snap.Release()
-		}
+		global, _ = c.model.GlobalSize(folder)
+		local, _ = c.model.LocalSize(folder, protocol.LocalDeviceID)
+		need, _ = c.model.NeedSize(folder, protocol.LocalDeviceID)
+		ro, _ = c.model.ReceiveOnlySize(folder)
+		ourSeq, _ = c.model.Sequence(folder, protocol.LocalDeviceID)
+		remoteSeq, _ = c.model.RemoteSequences(folder)
 	}
 	// For API backwards compatibility (SyncTrayzor needs it) an empty folder
 	// summary is returned for not running folders, an error might actually be
 	// more appropriate
-	if err != nil && err != ErrFolderPaused && err != ErrFolderNotRunning {
+	if err != nil && !errors.Is(err, ErrFolderPaused) && !errors.Is(err, ErrFolderNotRunning) {
 		return nil, err
 	}
 
-	res.Errors = len(errors)
-	res.PullErrors = len(errors) // deprecated
+	res.Errors = len(errs)
+	res.PullErrors = len(errs) // deprecated
 
 	res.Invalid = "" // Deprecated, retains external API for now
 

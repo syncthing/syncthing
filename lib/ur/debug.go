@@ -6,8 +6,6 @@
 
 package ur
 
-import (
-	"github.com/syncthing/syncthing/lib/logger"
-)
+import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = logger.DefaultLogger.NewFacility("ur", "Usage reporting")
+func init() { slogutil.RegisterPackage("Usage reporting") }

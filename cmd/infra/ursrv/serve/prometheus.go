@@ -7,6 +7,9 @@
 package serve
 
 import (
+	"context"
+	"fmt"
+	"log/slog"
 	"reflect"
 	"slices"
 	"strconv"
@@ -28,7 +31,7 @@ type metricsSet struct {
 	gaugeVecLabels map[string][]string
 	summaries      map[string]*metricSummary
 
-	collectMut    sync.Mutex
+	collectMut    sync.RWMutex
 	collectCutoff time.Duration
 }
 
@@ -44,7 +47,7 @@ func newMetricsSet(srv *server) *metricsSet {
 
 	var initForType func(reflect.Type)
 	initForType = func(t reflect.Type) {
-		for i := 0; i < t.NumField(); i++ {
+		for i := range t.NumField() {
 			field := t.Field(i)
 			if field.Type.Kind() == reflect.Struct {
 				initForType(field.Type)
@@ -108,6 +111,60 @@ func nameConstLabels(name string) (string, prometheus.Labels) {
 	return name, m
 }
 
+func (s *metricsSet) Serve(ctx context.Context) error {
+	s.recalc()
+
+	const recalcInterval = 5 * time.Minute
+	next := time.Until(time.Now().Truncate(recalcInterval).Add(recalcInterval))
+	recalcTimer := time.NewTimer(next)
+	defer recalcTimer.Stop()
+
+	for {
+		select {
+		case <-recalcTimer.C:
+			s.recalc()
+			next := time.Until(time.Now().Truncate(recalcInterval).Add(recalcInterval))
+			recalcTimer.Reset(next)
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (s *metricsSet) recalc() {
+	s.collectMut.Lock()
+	defer s.collectMut.Unlock()
+
+	t0 := time.Now()
+	defer func() {
+		dur := time.Since(t0)
+		slog.Info("Metrics recalculated", "d", dur.String())
+		metricsRecalcSecondsLast.Set(dur.Seconds())
+		metricsRecalcSecondsTotal.Add(dur.Seconds())
+		metricsRecalcsTotal.Inc()
+	}()
+
+	for _, g := range s.gauges {
+		g.Set(0)
+	}
+	for _, g := range s.gaugeVecs {
+		g.Reset()
+	}
+	for _, g := range s.summaries {
+		g.Reset()
+	}
+
+	cutoff := time.Now().Add(s.collectCutoff)
+	s.srv.reports.Range(func(key string, r *contract.Report) bool {
+		if s.collectCutoff < 0 && r.Received.Before(cutoff) {
+			s.srv.reports.Delete(key)
+			return true
+		}
+		s.addReport(r)
+		return true
+	})
+}
+
 func (s *metricsSet) addReport(r *contract.Report) {
 	gaugeVecs := make(map[string][]string)
 	s.addReportStruct(reflect.ValueOf(r).Elem(), gaugeVecs)
@@ -118,7 +175,7 @@ func (s *metricsSet) addReport(r *contract.Report) {
 
 func (s *metricsSet) addReportStruct(v reflect.Value, gaugeVecs map[string][]string) {
 	t := v.Type()
-	for i := 0; i < v.NumField(); i++ {
+	for i := range v.NumField() {
 		field := v.Field(i)
 		if field.Kind() == reflect.Struct {
 			s.addReportStruct(field, gaugeVecs)
@@ -198,8 +255,8 @@ func (s *metricsSet) Describe(c chan<- *prometheus.Desc) {
 }
 
 func (s *metricsSet) Collect(c chan<- prometheus.Metric) {
-	s.collectMut.Lock()
-	defer s.collectMut.Unlock()
+	s.collectMut.RLock()
+	defer s.collectMut.RUnlock()
 
 	t0 := time.Now()
 	defer func() {
@@ -208,26 +265,6 @@ func (s *metricsSet) Collect(c chan<- prometheus.Metric) {
 		metricsCollectSecondsTotal.Add(dur)
 		metricsCollectsTotal.Inc()
 	}()
-
-	for _, g := range s.gauges {
-		g.Set(0)
-	}
-	for _, g := range s.gaugeVecs {
-		g.Reset()
-	}
-	for _, g := range s.summaries {
-		g.Reset()
-	}
-
-	cutoff := time.Now().Add(s.collectCutoff)
-	s.srv.reports.Range(func(key string, r *contract.Report) bool {
-		if s.collectCutoff < 0 && r.Received.Before(cutoff) {
-			s.srv.reports.Delete(key)
-			return true
-		}
-		s.addReport(r)
-		return true
-	})
 
 	for _, g := range s.gauges {
 		c <- g
@@ -299,12 +336,12 @@ func (q *metricSummary) Collect(c chan<- prometheus.Metric) {
 		}
 
 		slices.Sort(vs)
-		c <- prometheus.MustNewConstMetric(q.qDesc, prometheus.GaugeValue, vs[0], append(labelVals, "0")...)
-		c <- prometheus.MustNewConstMetric(q.qDesc, prometheus.GaugeValue, vs[len(vs)*5/100], append(labelVals, "0.05")...)
-		c <- prometheus.MustNewConstMetric(q.qDesc, prometheus.GaugeValue, vs[len(vs)/2], append(labelVals, "0.5")...)
-		c <- prometheus.MustNewConstMetric(q.qDesc, prometheus.GaugeValue, vs[len(vs)*9/10], append(labelVals, "0.9")...)
-		c <- prometheus.MustNewConstMetric(q.qDesc, prometheus.GaugeValue, vs[len(vs)*95/100], append(labelVals, "0.95")...)
-		c <- prometheus.MustNewConstMetric(q.qDesc, prometheus.GaugeValue, vs[len(vs)-1], append(labelVals, "1")...)
+
+		pctiles := []float64{0, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.975, 0.99, 1}
+		for _, pct := range pctiles {
+			idx := int(float64(len(vs)-1) * pct)
+			c <- prometheus.MustNewConstMetric(q.qDesc, prometheus.GaugeValue, vs[idx], append(labelVals, fmt.Sprint(pct))...)
+		}
 	}
 }
 

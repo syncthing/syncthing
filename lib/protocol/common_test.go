@@ -17,7 +17,6 @@ type TestModel struct {
 	offset        int64
 	size          int32
 	hash          []byte
-	weakHash      uint32
 	fromTemporary bool
 	indexFn       func(string, []FileInfo)
 	ccFn          func(*ClusterConfig)
@@ -48,7 +47,6 @@ func (t *TestModel) Request(_ Connection, req *Request) (RequestResponse, error)
 	t.offset = req.Offset
 	t.size = int32(req.Size)
 	t.hash = req.Hash
-	t.weakHash = req.WeakHash
 	t.fromTemporary = req.FromTemporary
 	buf := make([]byte, len(t.data))
 	copy(buf, t.data)

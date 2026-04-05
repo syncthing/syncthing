@@ -7,21 +7,22 @@
 package fs
 
 import (
-	"errors"
 	"time"
 )
 
 // The database is where we store the virtual mtimes
 type database interface {
-	Bytes(key string) (data []byte, ok bool, err error)
-	PutBytes(key string, data []byte) error
-	Delete(key string) error
+	GetMtime(folder, name string) (ondisk, virtual time.Time)
+	PutMtime(folder, name string, ondisk, virtual time.Time) error
+	DeleteMtime(folder, name string) error
 }
 
 type mtimeFS struct {
 	Filesystem
+
 	chtimes         func(string, time.Time, time.Time) error
 	db              database
+	folderID        string
 	caseInsensitive bool
 }
 
@@ -34,16 +35,18 @@ func WithCaseInsensitivity(v bool) MtimeFSOption {
 }
 
 type optionMtime struct {
-	db      database
-	options []MtimeFSOption
+	db       database
+	folderID string
+	options  []MtimeFSOption
 }
 
 // NewMtimeOption makes any filesystem provide nanosecond mtime precision,
 // regardless of what shenanigans the underlying filesystem gets up to.
-func NewMtimeOption(db database, options ...MtimeFSOption) Option {
+func NewMtimeOption(db database, folderID string, options ...MtimeFSOption) Option {
 	return &optionMtime{
-		db:      db,
-		options: options,
+		db:       db,
+		folderID: folderID,
+		options:  options,
 	}
 }
 
@@ -52,6 +55,7 @@ func (o *optionMtime) apply(fs Filesystem) Filesystem {
 		Filesystem: fs,
 		chtimes:    fs.Chtimes, // for mocking it out in the tests
 		db:         o.db,
+		folderID:   o.folderID,
 	}
 	for _, opt := range o.options {
 		opt(f)
@@ -65,7 +69,7 @@ func (*optionMtime) String() string {
 
 func (f *mtimeFS) Chtimes(name string, atime, mtime time.Time) error {
 	// Do a normal Chtimes call, don't care if it succeeds or not.
-	f.chtimes(name, atime, mtime)
+	_ = f.chtimes(name, atime, mtime)
 
 	// Stat the file to see what happened. Here we *do* return an error,
 	// because it might be "does not exist" or similar.
@@ -84,14 +88,11 @@ func (f *mtimeFS) Stat(name string) (FileInfo, error) {
 		return nil, err
 	}
 
-	mtimeMapping, err := f.load(name)
-	if err != nil {
-		return nil, err
-	}
-	if mtimeMapping.Real.Equal(info.ModTime()) {
+	ondisk, virtual := f.load(name)
+	if ondisk.Equal(info.ModTime()) {
 		info = mtimeFileInfo{
 			FileInfo: info,
-			mtime:    mtimeMapping.Virtual,
+			mtime:    virtual,
 		}
 	}
 
@@ -104,14 +105,11 @@ func (f *mtimeFS) Lstat(name string) (FileInfo, error) {
 		return nil, err
 	}
 
-	mtimeMapping, err := f.load(name)
-	if err != nil {
-		return nil, err
-	}
-	if mtimeMapping.Real.Equal(info.ModTime()) {
+	ondisk, virtual := f.load(name)
+	if ondisk.Equal(info.ModTime()) {
 		info = mtimeFileInfo{
 			FileInfo: info,
-			mtime:    mtimeMapping.Virtual,
+			mtime:    virtual,
 		}
 	}
 
@@ -146,53 +144,34 @@ func (f *mtimeFS) underlying() (Filesystem, bool) {
 	return f.Filesystem, true
 }
 
-func (*mtimeFS) wrapperType() filesystemWrapperType {
-	return filesystemWrapperTypeMtime
-}
-
-func (f *mtimeFS) save(name string, real, virtual time.Time) {
+func (f *mtimeFS) save(name string, ondisk, virtual time.Time) {
 	if f.caseInsensitive {
 		name = UnicodeLowercaseNormalized(name)
 	}
 
-	if real.Equal(virtual) {
+	if ondisk.Equal(virtual) {
 		// If the virtual time and the real on disk time are equal we don't
 		// need to store anything.
-		f.db.Delete(name)
+		_ = f.db.DeleteMtime(f.folderID, name)
 		return
 	}
 
-	mtime := MtimeMapping{
-		Real:    real,
-		Virtual: virtual,
-	}
-	bs, _ := mtime.Marshal() // Can't fail
-	f.db.PutBytes(name, bs)
+	_ = f.db.PutMtime(f.folderID, name, ondisk, virtual)
 }
 
-func (f *mtimeFS) load(name string) (MtimeMapping, error) {
+func (f *mtimeFS) load(name string) (ondisk, virtual time.Time) {
 	if f.caseInsensitive {
 		name = UnicodeLowercaseNormalized(name)
 	}
 
-	data, exists, err := f.db.Bytes(name)
-	if err != nil {
-		return MtimeMapping{}, err
-	} else if !exists {
-		return MtimeMapping{}, nil
-	}
-
-	var mtime MtimeMapping
-	if err := mtime.Unmarshal(data); err != nil {
-		return MtimeMapping{}, err
-	}
-	return mtime, nil
+	return f.db.GetMtime(f.folderID, name)
 }
 
 // The mtimeFileInfo is an os.FileInfo that lies about the ModTime().
 
 type mtimeFileInfo struct {
 	FileInfo
+
 	mtime time.Time
 }
 
@@ -202,6 +181,7 @@ func (m mtimeFileInfo) ModTime() time.Time {
 
 type mtimeFile struct {
 	File
+
 	fs *mtimeFS
 }
 
@@ -211,14 +191,11 @@ func (f mtimeFile) Stat() (FileInfo, error) {
 		return nil, err
 	}
 
-	mtimeMapping, err := f.fs.load(f.Name())
-	if err != nil {
-		return nil, err
-	}
-	if mtimeMapping.Real.Equal(info.ModTime()) {
+	ondisk, virtual := f.fs.load(f.Name())
+	if ondisk.Equal(info.ModTime()) {
 		info = mtimeFileInfo{
 			FileInfo: info,
-			mtime:    mtimeMapping.Virtual,
+			mtime:    virtual,
 		}
 	}
 
@@ -230,38 +207,14 @@ func (f mtimeFile) unwrap() File {
 	return f.File
 }
 
-// MtimeMapping represents the mapping as stored in the database
-type MtimeMapping struct {
-	// "Real" is the on disk timestamp
-	Real time.Time `json:"real"`
-	// "Virtual" is what want the timestamp to be
-	Virtual time.Time `json:"virtual"`
-}
-
-func (t *MtimeMapping) Marshal() ([]byte, error) {
-	bs0, _ := t.Real.MarshalBinary()
-	bs1, _ := t.Virtual.MarshalBinary()
-	return append(bs0, bs1...), nil
-}
-
-func (t *MtimeMapping) Unmarshal(bs []byte) error {
-	if err := t.Real.UnmarshalBinary(bs[:len(bs)/2]); err != nil {
-		return err
-	}
-	if err := t.Virtual.UnmarshalBinary(bs[len(bs)/2:]); err != nil {
-		return err
-	}
-	return nil
-}
-
-func GetMtimeMapping(fs Filesystem, file string) (MtimeMapping, error) {
-	fs, ok := unwrapFilesystem(fs, filesystemWrapperTypeMtime)
+func GetMtimeMapping(fs Filesystem, file string) (ondisk, virtual time.Time) {
+	fs, ok := unwrapFilesystem[*mtimeFS](fs)
 	if !ok {
-		return MtimeMapping{}, errors.New("failed to unwrap")
+		return time.Time{}, time.Time{}
 	}
 	mtimeFs, ok := fs.(*mtimeFS)
 	if !ok {
-		return MtimeMapping{}, errors.New("unwrapping failed")
+		return time.Time{}, time.Time{}
 	}
 	return mtimeFs.load(file)
 }

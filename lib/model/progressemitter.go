@@ -9,12 +9,13 @@ package model
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type ProgressEmitter struct {
@@ -53,7 +54,6 @@ func NewProgressEmitter(cfg config.Wrapper, evLogger events.Logger) *ProgressEmi
 		connections:        make(map[protocol.DeviceID]protocol.Connection),
 		foldersByConns:     make(map[protocol.DeviceID][]string),
 		evLogger:           evLogger,
-		mut:                sync.NewMutex(),
 	}
 
 	t.CommitConfiguration(config.Configuration{}, cfg.RawCopy())
@@ -72,11 +72,10 @@ func (t *ProgressEmitter) Serve(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			l.Debugln("progress emitter: stopping")
+			slog.Debug("Progress emitter: stopping")
 			return nil
 		case <-t.timer.C:
 			t.mut.Lock()
-			l.Debugln("progress emitter: timer - looking after", len(t.registry))
 
 			newLastUpdated := lastUpdate
 			newCount = t.lenRegistryLocked()
@@ -94,8 +93,6 @@ func (t *ProgressEmitter) Serve(ctx context.Context) error {
 				lastCount = newCount
 				t.sendDownloadProgressEventLocked()
 				progressUpdates = t.computeProgressUpdates()
-			} else {
-				l.Debugln("progress emitter: nothing new")
 			}
 
 			if newCount != 0 {
@@ -221,16 +218,16 @@ func (t *ProgressEmitter) CommitConfiguration(_, to config.Configuration) bool {
 	if newInterval > 0 {
 		if t.disabled {
 			t.disabled = false
-			l.Debugln("progress emitter: enabled")
+			slog.Debug("Progress emitter: enabled")
 		}
 		if t.interval != newInterval {
 			t.interval = newInterval
-			l.Debugln("progress emitter: updated interval", t.interval)
+			l.Debugln("Progress emitter: updated interval", t.interval)
 		}
 	} else if !t.disabled {
 		t.clearLocked()
 		t.disabled = true
-		l.Debugln("progress emitter: disabled")
+		slog.Debug("Progress emitter: disabled")
 	}
 	t.minBlocks = to.Options.TempIndexMinBlocks
 	if t.interval < time.Second {
@@ -247,7 +244,6 @@ func (t *ProgressEmitter) Register(s *sharedPullerState) {
 	t.mut.Lock()
 	defer t.mut.Unlock()
 	if t.disabled {
-		l.Debugln("progress emitter: disabled, skip registering")
 		return
 	}
 	l.Debugln("progress emitter: registering", s.folder, s.file.Name)
@@ -266,7 +262,6 @@ func (t *ProgressEmitter) Deregister(s *sharedPullerState) {
 	defer t.mut.Unlock()
 
 	if t.disabled {
-		l.Debugln("progress emitter: disabled, skip deregistering")
 		return
 	}
 

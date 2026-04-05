@@ -7,6 +7,7 @@
 package fs
 
 import (
+	"errors"
 	"io"
 )
 
@@ -28,7 +29,7 @@ func copyRangeStandard(src, dst File, srcOffset, dstOffset, size int64) error {
 		}
 		n, err := src.ReadAt(buf, srcOffset)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return io.ErrUnexpectedEOF
 			}
 			return err

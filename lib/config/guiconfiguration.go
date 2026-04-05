@@ -25,11 +25,11 @@ type GUIConfiguration struct {
 	User                      string   `json:"user" xml:"user,omitempty"`
 	Password                  string   `json:"password" xml:"password,omitempty"`
 	AuthMode                  AuthMode `json:"authMode" xml:"authMode,omitempty"`
+	MetricsWithoutAuth        bool     `json:"metricsWithoutAuth" xml:"metricsWithoutAuth" default:"false"`
 	RawUseTLS                 bool     `json:"useTLS" xml:"tls,attr"`
 	APIKey                    string   `json:"apiKey" xml:"apikey,omitempty"`
 	InsecureAdminAccess       bool     `json:"insecureAdminAccess" xml:"insecureAdminAccess,omitempty"`
 	Theme                     string   `json:"theme" xml:"theme" default:"default"`
-	Debugging                 bool     `json:"debugging" xml:"debugging,attr"`
 	InsecureSkipHostCheck     bool     `json:"insecureSkipHostcheck" xml:"insecureSkipHostcheck,omitempty"`
 	InsecureAllowFrameLoading bool     `json:"insecureAllowFrameLoading" xml:"insecureAllowFrameLoading,omitempty"`
 	SendBasicAuthPrompt       bool     `json:"sendBasicAuthPrompt" xml:"sendBasicAuthPrompt,attr"`

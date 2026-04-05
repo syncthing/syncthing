@@ -16,11 +16,16 @@
         <label translate>Available debug logging facilities:</label>
         <table class="table table-condensed table-striped">
           <tbody>
-            <tr ng-repeat="(name, data) in logging.facilities">
-              <td>
-                <input type="checkbox" ng-model="data.enabled" ng-change="logging.onFacilityChange(name)" ng-disabled="data.enabled == null"> <span>{{ name }}</span>
+            <tr ng-repeat="(key, level) in logging.facilities.levels">
+              <td>{{ logging.facilities.packages[key] }} (<code>{{ key }}</code>)</td>
+              <td class="form-group">
+                <select class="form-control" ng-model="logging.facilities.levels[key]" ng-change="logging.onFacilityChange()" ng-disabled="logging.facilities.updating">
+                  <option value="DEBUG" translate>Debug</option>
+                  <option value="INFO" translate>Info</option>
+                  <option value="WARN" translate>Warning</option>
+                  <option value="ERROR" translate>Error</option>
+                </select>
               </td>
-              <td>{{ data.description }}</td>
             </tr>
           </tbody>
         </table>

@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"net/http"
 	"path/filepath"
 
 	"github.com/alecthomas/kong"
@@ -63,7 +64,7 @@ func (f *folderOverrideCommand) Run(ctx Context) error {
 			if err != nil {
 				return err
 			}
-			if response.StatusCode != 200 {
+			if response.StatusCode != http.StatusOK {
 				errStr := fmt.Sprint("Failed to override changes\nStatus code: ", response.StatusCode)
 				bytes, err := responseToBArray(response)
 				if err != nil {

@@ -8,13 +8,13 @@ package model
 
 import (
 	"slices"
+	"sync"
 
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // deviceFolderFileDownloadState holds current download state of a file that
-// a remote device has advertised. blockIndexes represends indexes within
+// a remote device has advertised. blockIndexes represents indexes within
 // FileInfo.Blocks that the remote device already has, and version represents
 // the version of the file that the remote device is downloading.
 type deviceFolderFileDownloadState struct {
@@ -56,17 +56,18 @@ func (p *deviceFolderDownloadState) Update(updates []protocol.FileDownloadProgre
 		if update.UpdateType == protocol.FileDownloadProgressUpdateTypeForget && ok && local.version.Equal(update.Version) {
 			delete(p.files, update.Name)
 		} else if update.UpdateType == protocol.FileDownloadProgressUpdateTypeAppend {
-			if !ok {
+			switch {
+			case !ok:
 				local = deviceFolderFileDownloadState{
 					blockIndexes: update.BlockIndexes,
 					version:      update.Version,
-					blockSize:    int(update.BlockSize),
+					blockSize:    update.BlockSize,
 				}
-			} else if !local.version.Equal(update.Version) {
+			case !local.version.Equal(update.Version):
 				local.blockIndexes = append(local.blockIndexes[:0], update.BlockIndexes...)
 				local.version = update.Version
-				local.blockSize = int(update.BlockSize)
-			} else {
+				local.blockSize = update.BlockSize
+			default:
 				local.blockIndexes = append(local.blockIndexes, update.BlockIndexes...)
 			}
 			p.files[update.Name] = local
@@ -121,7 +122,6 @@ func (t *deviceDownloadState) Update(folder string, updates []protocol.FileDownl
 
 	if !ok {
 		f = &deviceFolderDownloadState{
-			mut:   sync.NewRWMutex(),
 			files: make(map[string]deviceFolderFileDownloadState),
 		}
 		t.mut.Lock()
@@ -185,7 +185,6 @@ func (t *deviceDownloadState) BytesDownloaded(folder string) int64 {
 
 func newDeviceDownloadState() *deviceDownloadState {
 	return &deviceDownloadState{
-		mut:     sync.NewRWMutex(),
 		folders: make(map[string]*deviceFolderDownloadState),
 	}
 }

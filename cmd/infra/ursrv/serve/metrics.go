@@ -32,6 +32,21 @@ var (
 		Subsystem: "ursrv_v2",
 		Name:      "collect_seconds_last",
 	})
+	metricsRecalcsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "syncthing",
+		Subsystem: "ursrv_v2",
+		Name:      "recalcs_total",
+	})
+	metricsRecalcSecondsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "syncthing",
+		Subsystem: "ursrv_v2",
+		Name:      "recalc_seconds_total",
+	})
+	metricsRecalcSecondsLast = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "syncthing",
+		Subsystem: "ursrv_v2",
+		Name:      "recalc_seconds_last",
+	})
 	metricsWriteSecondsLast = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: "syncthing",
 		Subsystem: "ursrv_v2",

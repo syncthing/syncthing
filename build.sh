@@ -23,6 +23,7 @@ case "${1:-default}" in
 
 	prerelease)
 		script authors
+		script copyrights
 		build weblate
 		pushd man ; ./refresh.sh ; popd
 		git add -A gui man AUTHORS

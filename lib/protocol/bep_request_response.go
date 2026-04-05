@@ -25,7 +25,6 @@ type Request struct {
 	Size          int
 	Hash          []byte
 	FromTemporary bool
-	WeakHash      uint32
 	BlockNo       int
 }
 
@@ -38,7 +37,6 @@ func (r *Request) toWire() *bep.Request {
 		Size:          int32(r.Size),
 		Hash:          r.Hash,
 		FromTemporary: r.FromTemporary,
-		WeakHash:      r.WeakHash,
 		BlockNo:       int32(r.BlockNo),
 	}
 }
@@ -52,7 +50,6 @@ func requestFromWire(w *bep.Request) *Request {
 		Size:          int(w.Size),
 		Hash:          w.Hash,
 		FromTemporary: w.FromTemporary,
-		WeakHash:      w.WeakHash,
 		BlockNo:       int(w.BlockNo),
 	}
 }

@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/logging"
 
 	"github.com/syncthing/syncthing/lib/osutil"
 )
@@ -40,15 +39,16 @@ func quicNetwork(uri *url.URL) string {
 }
 
 type quicTlsConn struct {
-	quic.Connection
-	quic.Stream
+	*quic.Conn
+	*quic.Stream
+
 	// If we created this connection, we should be the ones closing it.
 	createdConn net.PacketConn
 }
 
 func (q *quicTlsConn) Close() error {
 	sterr := q.Stream.Close()
-	seerr := q.Connection.CloseWithError(0, "closing")
+	seerr := q.Conn.CloseWithError(0, "closing")
 	var pcerr error
 	if q.createdConn != nil {
 		pcerr = q.createdConn.Close()
@@ -63,7 +63,7 @@ func (q *quicTlsConn) Close() error {
 }
 
 func (q *quicTlsConn) ConnectionState() tls.ConnectionState {
-	return q.Connection.ConnectionState().TLS
+	return q.Conn.ConnectionState().TLS
 }
 
 func transportConnUnspecified(conn any) bool {
@@ -74,25 +74,6 @@ func transportConnUnspecified(conn any) bool {
 	addr := tran.Conn.LocalAddr()
 	ip, err := osutil.IPFromAddr(addr)
 	return err == nil && ip.IsUnspecified()
-}
-
-type writeTrackingTracer struct {
-	lastWrite atomic.Int64 // unix nanos
-}
-
-func (t *writeTrackingTracer) loggingTracer() *logging.Tracer {
-	return &logging.Tracer{
-		SentPacket: func(net.Addr, *logging.Header, logging.ByteCount, []logging.Frame) {
-			t.lastWrite.Store(time.Now().UnixNano())
-		},
-		SentVersionNegotiationPacket: func(net.Addr, logging.ArbitraryLenConnectionID, logging.ArbitraryLenConnectionID, []logging.Version) {
-			t.lastWrite.Store(time.Now().UnixNano())
-		},
-	}
-}
-
-func (t *writeTrackingTracer) LastWrite() time.Time {
-	return time.Unix(0, t.lastWrite.Load())
 }
 
 // A transportPacketConn is a net.PacketConn that uses a quic.Transport.

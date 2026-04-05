@@ -17,7 +17,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 
@@ -62,7 +62,7 @@ func TestDefaultValues(t *testing.T) {
 			LocalAnnMCAddr:            "[ff12::8384]:21027",
 			MaxSendKbps:               0,
 			MaxRecvKbps:               0,
-			ReconnectIntervalS:        60,
+			ReconnectIntervalS:        20,
 			RelaysEnabled:             true,
 			RelayReconnectIntervalM:   10,
 			StartBrowser:              true,
@@ -92,6 +92,8 @@ func TestDefaultValues(t *testing.T) {
 			RawStunServers:            []string{"default"},
 			AnnounceLANAddresses:      true,
 			FeatureFlags:              []string{},
+			AuditEnabled:              false,
+			AuditFile:                 "",
 			ConnectionPriorityTCPLAN:  10,
 			ConnectionPriorityQUICLAN: 20,
 			ConnectionPriorityTCPWAN:  30,
@@ -108,6 +110,7 @@ func TestDefaultValues(t *testing.T) {
 				FSWatcherEnabled: true,
 				FSWatcherDelayS:  10,
 				IgnorePerms:      false,
+				PullerDelayS:     1,
 				AutoNormalize:    true,
 				MinDiskFree:      size,
 				Versioning: VersioningConfiguration{
@@ -115,10 +118,9 @@ func TestDefaultValues(t *testing.T) {
 					CleanupIntervalS: 3600,
 					Params:           map[string]string{},
 				},
-				MaxConflicts:         10,
-				WeakHashThresholdPct: 25,
-				MarkerName:           ".stfolder",
-				MaxConcurrentWrites:  2,
+				MaxConflicts:        10,
+				MarkerName:          ".stfolder",
+				MaxConcurrentWrites: maxConcurrentWritesDefault,
 				XattrFilter: XattrFilter{
 					Entries:            []XattrFilterEntry{},
 					MaxSingleEntrySize: 1024,
@@ -185,6 +187,7 @@ func TestDeviceConfig(t *testing.T) {
 				FSWatcherDelayS:  10,
 				Copiers:          0,
 				Hashers:          0,
+				PullerDelayS:     1,
 				AutoNormalize:    true,
 				MinDiskFree:      Size{1, "%"},
 				MaxConflicts:     -1,
@@ -193,10 +196,9 @@ func TestDeviceConfig(t *testing.T) {
 					FSType:           FilesystemTypeBasic,
 					Params:           map[string]string{},
 				},
-				WeakHashThresholdPct: 25,
-				MarkerName:           DefaultMarkerName,
-				JunctionsAsDirs:      true,
-				MaxConcurrentWrites:  maxConcurrentWritesDefault,
+				MarkerName:          DefaultMarkerName,
+				JunctionsAsDirs:     true,
+				MaxConcurrentWrites: maxConcurrentWritesDefault,
 				XattrFilter: XattrFilter{
 					MaxSingleEntrySize: 1024,
 					MaxTotalSize:       4096,
@@ -295,6 +297,8 @@ func TestOverriddenValues(t *testing.T) {
 		StunKeepaliveMinS:         900,
 		RawStunServers:            []string{"foo"},
 		FeatureFlags:              []string{"feature"},
+		AuditEnabled:              true,
+		AuditFile:                 "nggyu",
 		ConnectionPriorityTCPLAN:  40,
 		ConnectionPriorityQUICLAN: 45,
 		ConnectionPriorityTCPWAN:  50,
@@ -491,7 +495,7 @@ func TestIssue1262(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	actual := cfg.Folders()["test"].Filesystem(nil).URI()
+	actual := cfg.Folders()["test"].Filesystem().URI()
 	expected := `e:\`
 
 	if actual != expected {
@@ -529,7 +533,7 @@ func TestFolderPath(t *testing.T) {
 		Path:           "~/tmp",
 	}
 
-	realPath := folder.Filesystem(nil).URI()
+	realPath := folder.Filesystem().URI()
 	if !filepath.IsAbs(realPath) {
 		t.Error(realPath, "should be absolute")
 	}
@@ -907,7 +911,7 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 			t.Error("Configuration was not converted")
 		}
 
-		sort.Strings(tc[2])
+		slices.Sort(tc[2])
 		if !reflect.DeepEqual(cfg.Options.RawListenAddresses, tc[2]) {
 			t.Errorf("Migration error; actual %#v != expected %#v", cfg.Options.RawListenAddresses, tc[2])
 		}
@@ -1449,11 +1453,10 @@ func TestReceiveEncryptedFolderFixed(t *testing.T) {
 	cfg := Configuration{
 		Folders: []FolderConfiguration{
 			{
-				ID:                 "foo",
-				Path:               "testdata",
-				Type:               FolderTypeReceiveEncrypted,
-				DisableTempIndexes: false,
-				IgnorePerms:        false,
+				ID:          "foo",
+				Path:        "testdata",
+				Type:        FolderTypeReceiveEncrypted,
+				IgnorePerms: false,
 			},
 		},
 	}
@@ -1464,9 +1467,6 @@ func TestReceiveEncryptedFolderFixed(t *testing.T) {
 		t.Fatal("Expected one folder")
 	}
 	f := cfg.Folders[0]
-	if !f.DisableTempIndexes {
-		t.Error("DisableTempIndexes should be true")
-	}
 	if !f.IgnorePerms {
 		t.Error("IgnorePerms should be true")
 	}

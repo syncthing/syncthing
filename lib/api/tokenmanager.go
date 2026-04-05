@@ -10,21 +10,21 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/gen/apiproto"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type tokenManager struct {
 	key      string
-	miscDB   *db.NamespacedKV
+	miscDB   *db.Typed
 	lifetime time.Duration
 	maxItems int
 
@@ -35,7 +35,7 @@ type tokenManager struct {
 	saveTimer *time.Timer
 }
 
-func newTokenManager(key string, miscDB *db.NamespacedKV, lifetime time.Duration, maxItems int) *tokenManager {
+func newTokenManager(key string, miscDB *db.Typed, lifetime time.Duration, maxItems int) *tokenManager {
 	var tokens apiproto.TokenSet
 	if bs, ok, _ := miscDB.Bytes(key); ok {
 		_ = proto.Unmarshal(bs, &tokens) // best effort
@@ -49,7 +49,6 @@ func newTokenManager(key string, miscDB *db.NamespacedKV, lifetime time.Duration
 		lifetime: lifetime,
 		maxItems: maxItems,
 		timeNow:  time.Now,
-		mut:      sync.NewMutex(),
 		tokens:   &tokens,
 	}
 }
@@ -117,8 +116,8 @@ func (m *tokenManager) saveLocked() {
 		for token, expiry := range m.tokens.Tokens {
 			tokens = append(tokens, tokenExpiry{token, expiry})
 		}
-		slices.SortFunc(tokens, func(i, j tokenExpiry) int {
-			return int(i.expiry - j.expiry)
+		slices.SortFunc(tokens, func(a, b tokenExpiry) int {
+			return int(a.expiry - b.expiry)
 		})
 		// Remove the oldest tokens.
 		for _, token := range tokens[:len(tokens)-m.maxItems] {
@@ -152,7 +151,7 @@ type tokenCookieManager struct {
 	tokens     *tokenManager
 }
 
-func newTokenCookieManager(shortID string, guiCfg config.GUIConfiguration, evLogger events.Logger, miscDB *db.NamespacedKV) *tokenCookieManager {
+func newTokenCookieManager(shortID string, guiCfg config.GUIConfiguration, evLogger events.Logger, miscDB *db.Typed) *tokenCookieManager {
 	return &tokenCookieManager{
 		cookieName: "sessionid-" + shortID,
 		shortID:    shortID,
@@ -169,8 +168,8 @@ func (m *tokenCookieManager) createSession(username string, persistent bool, w h
 	// either directly to us, or as used by the client towards a reverse
 	// proxy who sends us headers.
 	connectionIsHTTPS := r.TLS != nil ||
-		strings.ToLower(r.Header.Get("x-forwarded-proto")) == "https" ||
-		strings.Contains(strings.ToLower(r.Header.Get("forwarded")), "proto=https")
+		strings.ToLower(r.Header.Get("X-Forwarded-Proto")) == "https" ||
+		strings.Contains(strings.ToLower(r.Header.Get("Forwarded")), "proto=https")
 	// If the connection is HTTPS, or *should* be HTTPS, set the Secure
 	// bit in cookies.
 	useSecureCookie := connectionIsHTTPS || m.guiCfg.UseTLS()
@@ -189,7 +188,7 @@ func (m *tokenCookieManager) createSession(username string, persistent bool, w h
 		Path:   "/",
 	})
 
-	emitLoginAttempt(true, username, r.RemoteAddr, m.evLogger)
+	emitLoginAttempt(true, username, r, m.evLogger)
 }
 
 func (m *tokenCookieManager) hasValidSession(r *http.Request) bool {

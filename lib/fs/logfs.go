@@ -16,6 +16,7 @@ import (
 
 type logFilesystem struct {
 	Filesystem
+
 	// Number of filesystem layers on top of logFilesystem to skip when looking
 	// for the true caller of the filesystem
 	layers int
@@ -176,8 +177,4 @@ func (fs *logFilesystem) Usage(name string) (Usage, error) {
 
 func (fs *logFilesystem) underlying() (Filesystem, bool) {
 	return fs.Filesystem, true
-}
-
-func (*logFilesystem) wrapperType() filesystemWrapperType {
-	return filesystemWrapperTypeLog
 }

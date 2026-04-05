@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -28,7 +29,7 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	m, f, wcfgCancel := setupROFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 	defer cleanupModel(m)
 	conn := addFakeConn(m, device1, f.ID)
 
@@ -46,9 +47,11 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	// Send and index update for the known stuff
 
 	must(t, m.Index(conn, &protocol.Index{Folder: "ro", Files: knownFiles}))
-	f.updateLocalsFromScanning(knownFiles)
+	if err := f.updateLocalsFromScanning(knownFiles); err != nil {
+		t.Fatal(err)
+	}
 
-	size := globalSize(t, m, "ro")
+	size := mustV(m.GlobalSize("ro"))
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
 	}
@@ -59,15 +62,15 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	// We should now have two files and two directories, with global state unchanged.
 
-	size = globalSize(t, m, "ro")
+	size = mustV(m.GlobalSize("ro"))
 	if size.Files != 1 || size.Directories != 1 {
-		t.Fatalf("Global: expected 2 files and 2 directories: %+v", size)
+		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
 	}
-	size = localSize(t, m, "ro")
+	size = mustV(m.LocalSize("ro", protocol.LocalDeviceID))
 	if size.Files != 2 || size.Directories != 2 {
 		t.Fatalf("Local: expected 2 files and 2 directories: %+v", size)
 	}
-	size = receiveOnlyChangedSize(t, m, "ro")
+	size = mustV(m.ReceiveOnlySize("ro"))
 	if size.Files+size.Directories == 0 {
 		t.Fatalf("ROChanged: expected something: %+v", size)
 	}
@@ -92,11 +95,11 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 
 	// We should now have one file and directory again.
 
-	size = globalSize(t, m, "ro")
+	size = mustV(m.GlobalSize("ro"))
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Global: expected 1 files and 1 directories: %+v", size)
 	}
-	size = localSize(t, m, "ro")
+	size = mustV(m.LocalSize("ro", protocol.LocalDeviceID))
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Local: expected 1 files and 1 directories: %+v", size)
 	}
@@ -110,7 +113,7 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	m, f, wcfgCancel := setupROFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 	defer cleanupModel(m)
 	conn := addFakeConn(m, device1, f.ID)
 
@@ -131,19 +134,19 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	// Everything should be in sync.
 
-	size := globalSize(t, m, "ro")
+	size := mustV(m.GlobalSize("ro"))
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
 	}
-	size = localSize(t, m, "ro")
+	size = mustV(m.LocalSize("ro", protocol.LocalDeviceID))
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Local: expected 1 file and 1 directory: %+v", size)
 	}
-	size = needSizeLocal(t, m, "ro")
+	size = mustV(m.NeedSize("ro", protocol.LocalDeviceID))
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("Need: expected nothing: %+v", size)
 	}
-	size = receiveOnlyChangedSize(t, m, "ro")
+	size = mustV(m.ReceiveOnlySize("ro"))
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("ROChanged: expected nothing: %+v", size)
 	}
@@ -159,20 +162,20 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	// We now have a newer file than the rest of the cluster. Global state should reflect this.
 
-	size = globalSize(t, m, "ro")
+	size = mustV(m.GlobalSize("ro"))
 	const sizeOfDir = 128
 	if size.Files != 1 || size.Bytes != sizeOfDir+int64(len(oldData)) {
 		t.Fatalf("Global: expected no change due to the new file: %+v", size)
 	}
-	size = localSize(t, m, "ro")
+	size = mustV(m.LocalSize("ro", protocol.LocalDeviceID))
 	if size.Files != 1 || size.Bytes != sizeOfDir+int64(len(newData)) {
 		t.Fatalf("Local: expected the new file to be reflected: %+v", size)
 	}
-	size = needSizeLocal(t, m, "ro")
+	size = mustV(m.NeedSize("ro", protocol.LocalDeviceID))
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("Need: expected nothing: %+v", size)
 	}
-	size = receiveOnlyChangedSize(t, m, "ro")
+	size = mustV(m.ReceiveOnlySize("ro"))
 	if size.Files+size.Directories == 0 {
 		t.Fatalf("ROChanged: expected something: %+v", size)
 	}
@@ -181,15 +184,15 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 
 	m.Revert("ro")
 
-	size = globalSize(t, m, "ro")
+	size = mustV(m.GlobalSize("ro"))
 	if size.Files != 1 || size.Bytes != sizeOfDir+int64(len(oldData)) {
 		t.Fatalf("Global: expected the global size to revert: %+v", size)
 	}
-	size = localSize(t, m, "ro")
+	size = mustV(m.LocalSize("ro", protocol.LocalDeviceID))
 	if size.Files != 1 || size.Bytes != sizeOfDir+int64(len(newData)) {
 		t.Fatalf("Local: expected the local size to remain: %+v", size)
 	}
-	size = needSizeLocal(t, m, "ro")
+	size = mustV(m.NeedSize("ro", protocol.LocalDeviceID))
 	if size.Files != 1 || size.Bytes != int64(len(oldData)) {
 		t.Fatalf("Local: expected to need the old file data: %+v", size)
 	}
@@ -200,7 +203,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	m, f, wcfgCancel := setupROFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 	defer cleanupModel(m)
 	conn := addFakeConn(m, device1, f.ID)
 
@@ -221,19 +224,19 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	// Everything should be in sync.
 
-	size := globalSize(t, m, "ro")
+	size := mustV(m.GlobalSize("ro"))
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
 	}
-	size = localSize(t, m, "ro")
+	size = mustV(m.LocalSize("ro", protocol.LocalDeviceID))
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Local: expected 1 file and 1 directory: %+v", size)
 	}
-	size = needSizeLocal(t, m, "ro")
+	size = mustV(m.NeedSize("ro", protocol.LocalDeviceID))
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("Need: expected nothing: %+v", size)
 	}
-	size = receiveOnlyChangedSize(t, m, "ro")
+	size = mustV(m.ReceiveOnlySize("ro"))
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("ROChanged: expected nothing: %+v", size)
 	}
@@ -246,7 +249,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	must(t, m.ScanFolder("ro"))
 
-	size = receiveOnlyChangedSize(t, m, "ro")
+	size = mustV(m.ReceiveOnlySize("ro"))
 	if size.Files != 2 {
 		t.Fatalf("Receive only: expected 2 files: %+v", size)
 	}
@@ -259,7 +262,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	must(t, m.ScanFolder("ro"))
 
-	size = receiveOnlyChangedSize(t, m, "ro")
+	size = mustV(m.ReceiveOnlySize("ro"))
 	if size.Files+size.Directories+size.Deleted != 0 {
 		t.Fatalf("Receive only: expected all zero: %+v", size)
 	}
@@ -270,7 +273,7 @@ func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
 
 	m, f, wcfgCancel := setupROFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 	defer cleanupModel(m)
 	conn := addFakeConn(m, device1, f.ID)
 
@@ -291,19 +294,19 @@ func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
 
 	// Everything should be in sync.
 
-	size := globalSize(t, m, "ro")
+	size := mustV(m.GlobalSize("ro"))
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
 	}
-	size = localSize(t, m, "ro")
+	size = mustV(m.LocalSize("ro", protocol.LocalDeviceID))
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Local: expected 1 file and 1 directory: %+v", size)
 	}
-	size = needSizeLocal(t, m, "ro")
+	size = mustV(m.NeedSize("ro", protocol.LocalDeviceID))
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("Need: expected nothing: %+v", size)
 	}
-	size = receiveOnlyChangedSize(t, m, "ro")
+	size = mustV(m.ReceiveOnlySize("ro"))
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("ROChanged: expected nothing: %+v", size)
 	}
@@ -314,17 +317,17 @@ func TestRecvOnlyDeletedRemoteDrop(t *testing.T) {
 
 	must(t, m.ScanFolder("ro"))
 
-	size = receiveOnlyChangedSize(t, m, "ro")
+	size = mustV(m.ReceiveOnlySize("ro"))
 	if size.Deleted != 1 {
 		t.Fatalf("Receive only: expected 1 deleted: %+v", size)
 	}
 
 	// Drop the remote
 
-	f.fset.Drop(device1)
+	f.db.DropAllFiles("ro", device1)
 	must(t, m.ScanFolder("ro"))
 
-	size = receiveOnlyChangedSize(t, m, "ro")
+	size = mustV(m.ReceiveOnlySize("ro"))
 	if size.Deleted != 0 {
 		t.Fatalf("Receive only: expected no deleted: %+v", size)
 	}
@@ -335,7 +338,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 
 	m, f, wcfgCancel := setupROFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 	defer cleanupModel(m)
 	conn := addFakeConn(m, device1, f.ID)
 
@@ -356,19 +359,19 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 
 	// Everything should be in sync.
 
-	size := globalSize(t, m, "ro")
+	size := mustV(m.GlobalSize("ro"))
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
 	}
-	size = localSize(t, m, "ro")
+	size = mustV(m.LocalSize("ro", protocol.LocalDeviceID))
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Local: expected 1 file and 1 directory: %+v", size)
 	}
-	size = needSizeLocal(t, m, "ro")
+	size = mustV(m.NeedSize("ro", protocol.LocalDeviceID))
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("Need: expected nothing: %+v", size)
 	}
-	size = receiveOnlyChangedSize(t, m, "ro")
+	size = mustV(m.ReceiveOnlySize("ro"))
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("ROChanged: expected nothing: %+v", size)
 	}
@@ -382,7 +385,7 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 
 	must(t, m.ScanFolder("ro"))
 
-	size = receiveOnlyChangedSize(t, m, "ro")
+	size = mustV(m.ReceiveOnlySize("ro"))
 	if size.Files != 2 {
 		t.Fatalf("Receive only: expected 2 files: %+v", size)
 	}
@@ -390,26 +393,29 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 	// Do the same changes on the remote
 
 	files := make([]protocol.FileInfo, 0, 2)
-	snap := fsetSnapshot(t, f.fset)
-	snap.WithHave(protocol.LocalDeviceID, func(f protocol.FileInfo) bool {
+	for f, err := range itererr.Zip(f.db.AllLocalFiles("ro", protocol.LocalDeviceID)) {
+		if err != nil {
+			t.Fatal(err)
+		}
 		if f.Name != file && f.Name != knownFile {
-			return true
+			continue
 		}
 		f.LocalFlags = 0
 		f.Version = protocol.Vector{}.Update(device1.Short())
 		files = append(files, f)
-		return true
-	})
-	snap.Release()
+	}
 	must(t, m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: "ro", Files: files}))
 
 	// Ensure the pull to resolve conflicts (content identical) happened
-	must(t, f.doInSync(func() error {
-		f.pull()
+	must(t, f.doInSync(func(ctx context.Context) error {
+		f.pull(ctx)
 		return nil
 	}))
 
-	size = receiveOnlyChangedSize(t, m, "ro")
+	size, err := m.ReceiveOnlySize("ro")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if size.Files+size.Directories+size.Deleted != 0 {
 		t.Fatalf("Receive only: expected all zero: %+v", size)
 	}
@@ -424,7 +430,7 @@ func TestRecvOnlyRevertOwnID(t *testing.T) {
 
 	m, f, wcfgCancel := setupROFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 	defer cleanupModel(m)
 	conn := addFakeConn(m, device1, f.ID)
 
@@ -450,9 +456,10 @@ func TestRecvOnlyRevertOwnID(t *testing.T) {
 	// Monitor the outcome
 	sub := f.evLogger.Subscribe(events.LocalIndexUpdated)
 	defer sub.Unsubscribe()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	go func() {
+		defer cancel()
 		for {
 			select {
 			case <-ctx.Done():
@@ -460,9 +467,9 @@ func TestRecvOnlyRevertOwnID(t *testing.T) {
 			case <-sub.C():
 				if file, _ := m.testCurrentFolderFile(f.ID, name); file.Deleted {
 					t.Error("local file was deleted")
-					cancel()
+					return
 				} else if file.IsEquivalent(fi, f.modTimeWindow) {
-					cancel() // That's what we are waiting for
+					return // That's what we are waiting for
 				}
 			}
 		}
@@ -484,7 +491,7 @@ func TestRecvOnlyLocalChangeDoesNotCauseConflict(t *testing.T) {
 
 	m, f, wcfgCancel := setupROFolder(t)
 	defer wcfgCancel()
-	ffs := f.Filesystem(nil)
+	ffs := f.Filesystem()
 	defer cleanupModel(m)
 	conn := addFakeConn(m, device1, f.ID)
 
@@ -505,19 +512,19 @@ func TestRecvOnlyLocalChangeDoesNotCauseConflict(t *testing.T) {
 
 	// Everything should be in sync.
 
-	size := globalSize(t, m, "ro")
+	size := mustV(m.GlobalSize("ro"))
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Global: expected 1 file and 1 directory: %+v", size)
 	}
-	size = localSize(t, m, "ro")
+	size = mustV(m.LocalSize("ro", protocol.LocalDeviceID))
 	if size.Files != 1 || size.Directories != 1 {
 		t.Fatalf("Local: expected 1 file and 1 directory: %+v", size)
 	}
-	size = needSizeLocal(t, m, "ro")
+	size = mustV(m.NeedSize("ro", protocol.LocalDeviceID))
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("Need: expected nothing: %+v", size)
 	}
-	size = receiveOnlyChangedSize(t, m, "ro")
+	size = mustV(m.ReceiveOnlySize("ro"))
 	if size.Files+size.Directories > 0 {
 		t.Fatalf("ROChanged: expected nothing: %+v", size)
 	}
@@ -528,7 +535,7 @@ func TestRecvOnlyLocalChangeDoesNotCauseConflict(t *testing.T) {
 
 	must(t, m.ScanFolder("ro"))
 
-	size = receiveOnlyChangedSize(t, m, "ro")
+	size = mustV(m.ReceiveOnlySize("ro"))
 	if size.Files != 1 {
 		t.Fatalf("Receive only: expected 1 file: %+v", size)
 	}
@@ -541,7 +548,7 @@ func TestRecvOnlyLocalChangeDoesNotCauseConflict(t *testing.T) {
 
 	must(t, m.ScanFolder("ro"))
 
-	size = needSizeLocal(t, m, "ro")
+	size = mustV(m.NeedSize("ro", protocol.LocalDeviceID))
 	if size.Files != 0 {
 		t.Fatalf("Need: expected nothing: %+v", size)
 	}
@@ -560,7 +567,7 @@ func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.Fi
 	if err != nil {
 		t.Fatal(err)
 	}
-	blocks, _ := scanner.Blocks(context.TODO(), bytes.NewReader(data), protocol.BlockSize(int64(len(data))), int64(len(data)), nil, true)
+	blocks, _ := scanner.Blocks(t.Context(), bytes.NewReader(data), protocol.BlockSize(int64(len(data))), int64(len(data)), nil)
 	knownFiles := []protocol.FileInfo{
 		{
 			Name:        "knownDir",
@@ -577,7 +584,7 @@ func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.Fi
 			ModifiedS:   fi.ModTime().Unix(),
 			ModifiedNs:  int32(fi.ModTime().Nanosecond()),
 			Version:     protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 42}}},
-			Sequence:    42,
+			Sequence:    43,
 			Blocks:      blocks,
 		},
 	}

@@ -6,12 +6,10 @@
 
 package syncthing
 
-import (
-	"github.com/syncthing/syncthing/lib/logger"
-)
+import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = logger.DefaultLogger.NewFacility("app", "Main run facility")
+var l = slogutil.NewAdapter("Main run facility")
 
 func shouldDebug() bool {
-	return l.ShouldDebug("app")
+	return l.ShouldDebug("syncthing")
 }

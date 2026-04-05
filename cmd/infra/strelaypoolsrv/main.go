@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -26,11 +27,10 @@ import (
 
 	"github.com/syncthing/syncthing/cmd/infra/strelaypoolsrv/auto"
 	"github.com/syncthing/syncthing/lib/assets"
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/geoip"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/relay/client"
-	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 )
 
@@ -110,10 +110,11 @@ var (
 	requestProcessors = 8
 	geoipLicenseKey   = os.Getenv("GEOIP_LICENSE_KEY")
 	geoipAccountID, _ = strconv.Atoi(os.Getenv("GEOIP_ACCOUNT_ID"))
+	maxRelaysReturned = 100
 
 	requests chan request
 
-	mut             = sync.NewRWMutex()
+	mut             sync.RWMutex
 	knownRelays     = make([]*relay, 0)
 	permanentRelays = make([]*relay, 0)
 	evictionTimers  = make(map[string]*time.Timer)
@@ -141,6 +142,7 @@ func main() {
 	flag.IntVar(&requestQueueLen, "request-queue", requestQueueLen, "Queue length for incoming test requests")
 	flag.IntVar(&requestProcessors, "request-processors", requestProcessors, "Number of request processor routines")
 	flag.StringVar(&geoipLicenseKey, "geoip-license-key", geoipLicenseKey, "License key for GeoIP database")
+	flag.IntVar(&maxRelaysReturned, "max-relays-returned", maxRelaysReturned, "Maximum number of relays returned for a normal endpoint query")
 
 	flag.Parse()
 
@@ -159,7 +161,7 @@ func main() {
 
 	testCert = createTestCertificate()
 
-	for i := 0; i < requestProcessors; i++ {
+	for range requestProcessors {
 		go requestProcessor(geoip)
 	}
 
@@ -177,7 +179,7 @@ func main() {
 				relayTestsTotal.WithLabelValues("success").Inc()
 			}
 		}
-		// Run the the stats refresher once the relays are loaded.
+		// Run the stats refresher once the relays are loaded.
 		statsRefresher(statsRefresh)
 	}()
 
@@ -331,6 +333,10 @@ func handleEndpointShort(rw http.ResponseWriter, r *http.Request) {
 		relays = append(relays, relayShort{URL: slimURL(r.URL)})
 	}
 	mut.RUnlock()
+	if len(relays) > maxRelaysReturned {
+		rand.Shuffle(relays)
+		relays = relays[:maxRelaysReturned]
+	}
 
 	_ = json.NewEncoder(rw).Encode(map[string][]relayShort{
 		"relays": relays,
@@ -613,7 +619,7 @@ func createTestCertificate() tls.Certificate {
 	}
 
 	certFile, keyFile := filepath.Join(tmpDir, "cert.pem"), filepath.Join(tmpDir, "key.pem")
-	cert, err := tlsutil.NewCertificate(certFile, keyFile, "relaypoolsrv", 20*365)
+	cert, err := tlsutil.NewCertificate(certFile, keyFile, "relaypoolsrv", 20*365, false)
 	if err != nil {
 		log.Fatalln("Failed to create test X509 key pair:", err)
 	}
@@ -646,6 +652,7 @@ func getLocation(host string, geoip *geoip.Provider) location {
 
 type loggingResponseWriter struct {
 	http.ResponseWriter
+
 	statusCode int
 }
 

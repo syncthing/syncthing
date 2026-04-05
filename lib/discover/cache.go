@@ -7,7 +7,7 @@
 package discover
 
 import (
-	stdsync "sync"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -17,6 +17,7 @@ import (
 // A cachedFinder is a Finder with associated cache timeouts.
 type cachedFinder struct {
 	Finder
+
 	cacheTime    time.Duration
 	negCacheTime time.Duration
 	cache        *cache
@@ -34,7 +35,7 @@ type cachedError interface {
 
 type cache struct {
 	entries map[protocol.DeviceID]CacheEntry
-	mut     stdsync.Mutex
+	mut     sync.Mutex
 }
 
 func newCache() *cache {

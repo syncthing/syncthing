@@ -7,14 +7,17 @@
 package config
 
 import (
+	"cmp"
+	"log/slog"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/netutil"
@@ -27,6 +30,9 @@ import (
 // put the newest on top for readability.
 var (
 	migrations = migrationSet{
+		{52, migrateToConfigV52},
+		{51, migrateToConfigV51},
+		{50, migrateToConfigV50},
 		{37, migrateToConfigV37},
 		{36, migrateToConfigV36},
 		{35, migrateToConfigV35},
@@ -65,8 +71,8 @@ type migrationSet []migration
 func (ms migrationSet) apply(cfg *Configuration) {
 	// Make sure we apply the migrations in target version order regardless
 	// of how it was defined.
-	sort.Slice(ms, func(a, b int) bool {
-		return ms[a].targetVersion < ms[b].targetVersion
+	slices.SortFunc(ms, func(a, b migration) int {
+		return cmp.Compare(a.targetVersion, b.targetVersion)
 	})
 
 	// Apply all migrations.
@@ -94,6 +100,27 @@ func (m migration) apply(cfg *Configuration) {
 		m.convert(cfg)
 	}
 	cfg.Version = m.targetVersion
+}
+
+func migrateToConfigV52(cfg *Configuration) {
+	oldQuicInterval := max(cfg.Options.ReconnectIntervalS/3, 10)
+	cfg.Options.ReconnectIntervalS = min(cfg.Options.ReconnectIntervalS, oldQuicInterval)
+}
+
+func migrateToConfigV51(cfg *Configuration) {
+	oldDefault := 2
+	for i, fcfg := range cfg.Folders {
+		if fcfg.MaxConcurrentWrites == oldDefault {
+			cfg.Folders[i].MaxConcurrentWrites = maxConcurrentWritesDefault
+		}
+	}
+	if cfg.Defaults.Folder.MaxConcurrentWrites == oldDefault {
+		cfg.Defaults.Folder.MaxConcurrentWrites = maxConcurrentWritesDefault
+	}
+}
+
+func migrateToConfigV50(cfg *Configuration) {
+	// v50 is Syncthing 2.0
 }
 
 func migrateToConfigV37(cfg *Configuration) {
@@ -208,7 +235,7 @@ func migrateToConfigV23(cfg *Configuration) {
 	// marker name in later versions.
 
 	for i := range cfg.Folders {
-		fs := cfg.Folders[i].Filesystem(nil)
+		fs := cfg.Folders[i].Filesystem()
 		// Invalid config posted, or tests.
 		if fs == nil {
 			continue
@@ -220,7 +247,7 @@ func migrateToConfigV23(cfg *Configuration) {
 				fs.Hide(DefaultMarkerName) // ignore error
 			}
 			if err != nil {
-				l.Infoln("Failed to upgrade folder marker:", err)
+				slog.Warn("Failed to upgrade folder marker", slogutil.Error(err))
 			}
 		}
 	}
@@ -244,18 +271,18 @@ func migrateToConfigV21(cfg *Configuration) {
 		switch folder.Versioning.Type {
 		case "simple", "trashcan":
 			// Clean out symlinks in the known place
-			cleanSymlinks(folder.Filesystem(nil), ".stversions")
+			cleanSymlinks(folder.Filesystem(), ".stversions")
 		case "staggered":
 			versionDir := folder.Versioning.Params["versionsPath"]
 			if versionDir == "" {
 				// default place
-				cleanSymlinks(folder.Filesystem(nil), ".stversions")
+				cleanSymlinks(folder.Filesystem(), ".stversions")
 			} else if filepath.IsAbs(versionDir) {
 				// absolute
 				cleanSymlinks(fs.NewFilesystem(fs.FilesystemTypeBasic, versionDir), ".")
 			} else {
 				// relative to folder
-				cleanSymlinks(folder.Filesystem(nil), versionDir)
+				cleanSymlinks(folder.Filesystem(), versionDir)
 			}
 		}
 	}
@@ -349,7 +376,7 @@ func migrateToConfigV14(cfg *Configuration) {
 	cfg.Options.DeprecatedRelayServers = nil
 
 	// For consistency
-	sort.Strings(cfg.Options.RawListenAddresses)
+	slices.Sort(cfg.Options.RawListenAddresses)
 
 	var newAddrs []string
 	for _, addr := range cfg.Options.RawGlobalAnnServers {
@@ -407,11 +434,12 @@ func migrateToConfigV12(cfg *Configuration) {
 	var newDiscoServers []string
 	var useDefault bool
 	for _, addr := range cfg.Options.RawGlobalAnnServers {
-		if addr == "udp4://announce.syncthing.net:22026" {
+		switch addr {
+		case "udp4://announce.syncthing.net:22026":
 			useDefault = true
-		} else if addr == "udp6://announce-v6.syncthing.net:22026" {
+		case "udp6://announce-v6.syncthing.net:22026":
 			useDefault = true
-		} else {
+		default:
 			newDiscoServers = append(newDiscoServers, addr)
 		}
 	}

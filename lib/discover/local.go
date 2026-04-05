@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/url"
 	"strconv"
@@ -23,6 +24,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/syncthing/syncthing/internal/gen/discoproto"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/beacon"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -32,6 +34,8 @@ import (
 
 type localClient struct {
 	*suture.Supervisor
+	*cache
+
 	myID     protocol.DeviceID
 	addrList AddressLister
 	name     string
@@ -41,8 +45,6 @@ type localClient struct {
 	localBcastStart time.Time
 	localBcastTick  <-chan time.Time
 	forcedBcastTick chan time.Time
-
-	*cache
 }
 
 const (
@@ -54,7 +56,7 @@ const (
 
 func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, evLogger events.Logger) (FinderService, error) {
 	c := &localClient{
-		Supervisor:      suture.New("local", svcutil.SpecWithDebugLogger(l)),
+		Supervisor:      suture.New("local", svcutil.SpecWithDebugLogger()),
 		myID:            id,
 		addrList:        addrList,
 		evLogger:        evLogger,
@@ -176,7 +178,7 @@ func (c *localClient) recvAnnouncements(ctx context.Context) error {
 			continue
 		}
 		if len(buf) < 4 {
-			l.Debugf("discover: short packet from %s", addr.String())
+			slog.DebugContext(ctx, "received short packet", "address", addr.String())
 			continue
 		}
 
@@ -188,25 +190,25 @@ func (c *localClient) recvAnnouncements(ctx context.Context) error {
 		case v13Magic:
 			// Old version
 			if !warnedAbout[addr.String()] {
-				l.Warnf("Incompatible (v0.13) local discovery packet from %v - upgrade that device to connect", addr)
+				slog.ErrorContext(ctx, "Incompatible (v0.13) local discovery packet - upgrade that device to connect", slogutil.Address(addr))
 				warnedAbout[addr.String()] = true
 			}
 			continue
 
 		default:
-			l.Debugf("discover: Incorrect magic %x from %s", magic, addr)
+			slog.DebugContext(ctx, "Incorrect magic", "magic", magic, "address", addr)
 			continue
 		}
 
 		var pkt discoproto.Announce
 		err := proto.Unmarshal(buf[4:], &pkt)
 		if err != nil && !errors.Is(err, io.EOF) {
-			l.Debugf("discover: Failed to unmarshal local announcement from %s (%s):\n%s", addr, err, hex.Dump(buf[4:]))
+			slog.DebugContext(ctx, "Failed to unmarshal local announcement", "address", addr, slogutil.Error(err), "packet", hex.Dump(buf[4:]))
 			continue
 		}
 
 		id, _ := protocol.DeviceIDFromBytes(pkt.Id)
-		l.Debugf("discover: Received local announcement from %s for %s", addr, id)
+		slog.DebugContext(ctx, "Received local announcement", "address", addr, "device", id)
 
 		var newDevice bool
 		if !bytes.Equal(pkt.Id, c.myID[:]) {

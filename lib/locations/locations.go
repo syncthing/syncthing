@@ -22,17 +22,19 @@ type LocationEnum string
 // Use strings as keys to make printout and serialization of the locations map
 // more meaningful.
 const (
-	ConfigFile    LocationEnum = "config"
-	CertFile      LocationEnum = "certFile"
-	KeyFile       LocationEnum = "keyFile"
-	HTTPSCertFile LocationEnum = "httpsCertFile"
-	HTTPSKeyFile  LocationEnum = "httpsKeyFile"
-	Database      LocationEnum = "database"
-	LogFile       LocationEnum = "logFile"
-	PanicLog      LocationEnum = "panicLog"
-	AuditLog      LocationEnum = "auditLog"
-	GUIAssets     LocationEnum = "guiAssets"
-	DefFolder     LocationEnum = "defFolder"
+	ConfigFile     LocationEnum = "config"
+	CertFile       LocationEnum = "certFile"
+	KeyFile        LocationEnum = "keyFile"
+	HTTPSCertFile  LocationEnum = "httpsCertFile"
+	HTTPSKeyFile   LocationEnum = "httpsKeyFile"
+	LegacyDatabase LocationEnum = "legacyDatabase"
+	Database       LocationEnum = "database"
+	LogFile        LocationEnum = "logFile"
+	PanicLog       LocationEnum = "panicLog"
+	AuditLog       LocationEnum = "auditLog"
+	GUIAssets      LocationEnum = "guiAssets"
+	DefFolder      LocationEnum = "defFolder"
+	LockFile       LocationEnum = "lockFile"
 )
 
 type BaseDirEnum string
@@ -46,14 +48,15 @@ const (
 	// User's home directory, *not* --home flag
 	UserHomeBaseDir BaseDirEnum = "userHome"
 
-	LevelDBDir          = "index-v0.14.0.db"
+	levelDBDir          = "index-v0.14.0.db"
+	databaseName        = "index-v2"
 	configFileName      = "config.xml"
 	defaultStateDir     = ".local/state/syncthing"
 	oldDefaultConfigDir = ".config/syncthing"
 )
 
 // Platform dependent directories
-var baseDirs = make(map[BaseDirEnum]string, 3)
+var baseDirs = make(map[BaseDirEnum]string)
 
 func init() {
 	userHome := userHomeDir()
@@ -113,17 +116,19 @@ func GetBaseDir(baseDir BaseDirEnum) string {
 
 // Use the variables from baseDirs here
 var locationTemplates = map[LocationEnum]string{
-	ConfigFile:    "${config}/config.xml",
-	CertFile:      "${config}/cert.pem",
-	KeyFile:       "${config}/key.pem",
-	HTTPSCertFile: "${config}/https-cert.pem",
-	HTTPSKeyFile:  "${config}/https-key.pem",
-	Database:      "${data}/" + LevelDBDir,
-	LogFile:       "${data}/syncthing.log", // --logfile on Windows
-	PanicLog:      "${data}/panic-%{timestamp}.log",
-	AuditLog:      "${data}/audit-%{timestamp}.log",
-	GUIAssets:     "${config}/gui",
-	DefFolder:     "${userHome}/Sync",
+	ConfigFile:     "${config}/config.xml",
+	CertFile:       "${config}/cert.pem",
+	KeyFile:        "${config}/key.pem",
+	HTTPSCertFile:  "${config}/https-cert.pem",
+	HTTPSKeyFile:   "${config}/https-key.pem",
+	LegacyDatabase: "${data}/" + levelDBDir,
+	Database:       "${data}/" + databaseName,
+	LogFile:        "${data}/syncthing.log", // --logfile on Windows
+	PanicLog:       "${data}/panic-%{timestamp}.log",
+	AuditLog:       "${data}/audit-%{timestamp}.log",
+	GUIAssets:      "${config}/gui",
+	DefFolder:      "${userHome}/Sync",
+	LockFile:       "${data}/syncthing.lock",
 }
 
 var locations = make(map[LocationEnum]string)
@@ -242,7 +247,8 @@ func unixDataDir(userHome, configDir, xdgDataHome, xdgStateHome string, fileExis
 	// If a database exists at the config location, use that. This is the
 	// most common case for both legacy (~/.config/syncthing) and current
 	// (~/.local/state/syncthing) setups.
-	if fileExists(filepath.Join(configDir, LevelDBDir)) {
+	if fileExists(filepath.Join(configDir, databaseName)) ||
+		fileExists(filepath.Join(configDir, levelDBDir)) {
 		return configDir
 	}
 
@@ -251,14 +257,16 @@ func unixDataDir(userHome, configDir, xdgDataHome, xdgStateHome string, fileExis
 	// but that's not what we did previously, so we retain the old behavior.
 	if xdgDataHome != "" {
 		candidate := filepath.Join(xdgDataHome, "syncthing")
-		if fileExists(filepath.Join(candidate, LevelDBDir)) {
+		if fileExists(filepath.Join(candidate, databaseName)) ||
+			fileExists(filepath.Join(candidate, levelDBDir)) {
 			return candidate
 		}
 	}
 
 	// Legacy: if a database exists under ~/.config/syncthing, use that
 	candidate := filepath.Join(userHome, oldDefaultConfigDir)
-	if fileExists(filepath.Join(candidate, LevelDBDir)) {
+	if fileExists(filepath.Join(candidate, databaseName)) ||
+		fileExists(filepath.Join(candidate, levelDBDir)) {
 		return candidate
 	}
 

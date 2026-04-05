@@ -50,10 +50,10 @@ type encryptedModel struct {
 	keyGen     *KeyGenerator
 }
 
-func newEncryptedModel(model rawModel, folderKeys *folderKeyRegistry, keyGen *KeyGenerator) encryptedModel {
+func newEncryptedModel(model rawModel, keyGen *KeyGenerator) encryptedModel {
 	return encryptedModel{
 		model:      model,
-		folderKeys: folderKeys,
+		folderKeys: newFolderKeyRegistry(),
 		keyGen:     keyGen,
 	}
 }
@@ -153,7 +153,9 @@ func (e encryptedModel) DownloadProgress(p *DownloadProgress) error {
 		return e.model.DownloadProgress(p)
 	}
 
-	// Encrypted devices shouldn't send these - ignore them.
+	// We currently ignore these, though we could in principle translate
+	// them and use partially downloaded encrypted files like we do normal
+	// files.
 	return nil
 }
 
@@ -169,6 +171,7 @@ func (e encryptedModel) Closed(err error) {
 // encrypts outgoing metadata and decrypts incoming responses.
 type encryptedConnection struct {
 	ConnectionInfo
+
 	conn       *rawConnection
 	folderKeys *folderKeyRegistry
 	keyGen     *KeyGenerator
@@ -185,10 +188,6 @@ func newEncryptedConnection(ci ConnectionInfo, conn *rawConnection, folderKeys *
 
 func (e encryptedConnection) Start() {
 	e.conn.Start()
-}
-
-func (e encryptedConnection) SetFolderPasswords(passwords map[string]string) {
-	e.folderKeys.setPasswords(passwords)
 }
 
 func (e encryptedConnection) DeviceID() DeviceID {
@@ -262,8 +261,9 @@ func (e encryptedConnection) DownloadProgress(ctx context.Context, dp *DownloadP
 	// No need to send these
 }
 
-func (e encryptedConnection) ClusterConfig(config *ClusterConfig) {
-	e.conn.ClusterConfig(config)
+func (e encryptedConnection) ClusterConfig(config *ClusterConfig, passwords map[string]string) {
+	e.folderKeys.setPasswords(e.keyGen, passwords)
+	e.conn.ClusterConfig(config, passwords)
 }
 
 func (e encryptedConnection) Close(err error) {
@@ -360,10 +360,12 @@ func encryptFileInfo(keyGen *KeyGenerator, fi FileInfo, folderKey *[keySize]byte
 		Permissions: 0o644,
 		ModifiedS:   1234567890, // Sat Feb 14 00:31:30 CET 2009
 		Deleted:     fi.Deleted,
-		RawInvalid:  fi.IsInvalid(),
 		Version:     version,
 		Sequence:    fi.Sequence,
 		Encrypted:   encryptedFI,
+	}
+	if fi.IsInvalid() {
+		enc.LocalFlags = FlagLocalRemoteInvalid
 	}
 	if typ == FileInfoTypeFile {
 		enc.Size = offset // new total file size
@@ -680,15 +682,13 @@ func IsEncryptedParent(pathComponents []string) bool {
 }
 
 type folderKeyRegistry struct {
-	keyGen *KeyGenerator
-	keys   map[string]*[keySize]byte // folder ID -> key
-	mut    sync.RWMutex
+	keys map[string]*[keySize]byte // folder ID -> key
+	mut  sync.RWMutex
 }
 
-func newFolderKeyRegistry(keyGen *KeyGenerator, passwords map[string]string) *folderKeyRegistry {
+func newFolderKeyRegistry() *folderKeyRegistry {
 	return &folderKeyRegistry{
-		keyGen: keyGen,
-		keys:   keysFromPasswords(keyGen, passwords),
+		keys: make(map[string]*[keySize]byte),
 	}
 }
 
@@ -699,8 +699,8 @@ func (r *folderKeyRegistry) get(folder string) (*[keySize]byte, bool) {
 	return key, ok
 }
 
-func (r *folderKeyRegistry) setPasswords(passwords map[string]string) {
+func (r *folderKeyRegistry) setPasswords(keyGen *KeyGenerator, passwords map[string]string) {
 	r.mut.Lock()
-	r.keys = keysFromPasswords(r.keyGen, passwords)
+	r.keys = keysFromPasswords(keyGen, passwords)
 	r.mut.Unlock()
 }

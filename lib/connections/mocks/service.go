@@ -403,18 +403,6 @@ func (fake *Service) ServeReturnsOnCall(i int, result1 error) {
 func (fake *Service) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.allAddressesMutex.RLock()
-	defer fake.allAddressesMutex.RUnlock()
-	fake.connectionStatusMutex.RLock()
-	defer fake.connectionStatusMutex.RUnlock()
-	fake.externalAddressesMutex.RLock()
-	defer fake.externalAddressesMutex.RUnlock()
-	fake.listenerStatusMutex.RLock()
-	defer fake.listenerStatusMutex.RUnlock()
-	fake.nATTypeMutex.RLock()
-	defer fake.nATTypeMutex.RUnlock()
-	fake.serveMutex.RLock()
-	defer fake.serveMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

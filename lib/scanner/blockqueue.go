@@ -9,14 +9,14 @@ package scanner
 import (
 	"context"
 	"errors"
+	"sync"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // HashFile hashes the files and returns a list of blocks representing the file.
-func HashFile(ctx context.Context, folderID string, fs fs.Filesystem, path string, blockSize int, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
+func HashFile(ctx context.Context, folderID string, fs fs.Filesystem, path string, blockSize int, counter Counter) ([]protocol.BlockInfo, error) {
 	fd, err := fs.Open(path)
 	if err != nil {
 		l.Debugln("open:", err)
@@ -36,7 +36,7 @@ func HashFile(ctx context.Context, folderID string, fs fs.Filesystem, path strin
 
 	// Hash the file. This may take a while for large files.
 
-	blocks, err := Blocks(ctx, fd, blockSize, size, counter, useWeakHashes)
+	blocks, err := Blocks(ctx, fd, blockSize, size, counter)
 	if err != nil {
 		l.Debugln("blocks:", err)
 		return nil, err
@@ -81,11 +81,10 @@ func newParallelHasher(ctx context.Context, folderID string, fs fs.Filesystem, w
 		inbox:    inbox,
 		counter:  counter,
 		done:     done,
-		wg:       sync.NewWaitGroup(),
 	}
 
 	ph.wg.Add(workers)
-	for i := 0; i < workers; i++ {
+	for range workers {
 		go ph.hashFiles(ctx)
 	}
 
@@ -108,7 +107,7 @@ func (ph *parallelHasher) hashFiles(ctx context.Context) {
 				panic("Bug. Asked to hash a directory or a deleted file.")
 			}
 
-			blocks, err := HashFile(ctx, ph.folderID, ph.fs, f.Name, f.BlockSize(), ph.counter, true)
+			blocks, err := HashFile(ctx, ph.folderID, ph.fs, f.Name, f.BlockSize(), ph.counter)
 			if err != nil {
 				handleError(ctx, "hashing", f.Name, err, ph.outbox)
 				continue

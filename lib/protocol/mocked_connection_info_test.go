@@ -582,24 +582,6 @@ func (fake *mockedConnectionInfo) TypeReturnsOnCall(i int, result1 string) {
 func (fake *mockedConnectionInfo) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.connectionIDMutex.RLock()
-	defer fake.connectionIDMutex.RUnlock()
-	fake.cryptoMutex.RLock()
-	defer fake.cryptoMutex.RUnlock()
-	fake.establishedAtMutex.RLock()
-	defer fake.establishedAtMutex.RUnlock()
-	fake.isLocalMutex.RLock()
-	defer fake.isLocalMutex.RUnlock()
-	fake.priorityMutex.RLock()
-	defer fake.priorityMutex.RUnlock()
-	fake.remoteAddrMutex.RLock()
-	defer fake.remoteAddrMutex.RUnlock()
-	fake.stringMutex.RLock()
-	defer fake.stringMutex.RUnlock()
-	fake.transportMutex.RLock()
-	defer fake.transportMutex.RUnlock()
-	fake.typeMutex.RLock()
-	defer fake.typeMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

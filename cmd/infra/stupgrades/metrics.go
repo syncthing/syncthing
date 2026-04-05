@@ -27,4 +27,10 @@ var (
 		Subsystem: "upgrade",
 		Name:      "http_requests",
 	}, []string{"target", "result"})
+	metricLatestReleaseInfo = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "syncthing",
+		Subsystem: "upgrade",
+		Name:      "latest_release_info",
+		Help:      "Release information",
+	}, []string{"latest_release", "latest_pre"})
 )

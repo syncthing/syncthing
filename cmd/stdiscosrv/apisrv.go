@@ -18,6 +18,7 @@ import (
 	"fmt"
 	io "io"
 	"log"
+	"log/slog"
 	"math/rand"
 	"net"
 	"net/http"
@@ -66,7 +67,7 @@ type contextKey int
 
 const idKey contextKey = iota
 
-func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, useHTTP, compression bool) *apiSrv {
+func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, useHTTP, compression bool, desiredNotFoundRate float64) *apiSrv {
 	return &apiSrv{
 		addr:        addr,
 		cert:        cert,
@@ -77,13 +78,13 @@ func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, 
 		seenTracker: &retryAfterTracker{
 			name:         "seenTracker",
 			bucketStarts: time.Now(),
-			desiredRate:  250,
+			desiredRate:  desiredNotFoundRate / 2,
 			currentDelay: notFoundRetryUnknownMinSeconds,
 		},
 		notSeenTracker: &retryAfterTracker{
 			name:         "notSeenTracker",
 			bucketStarts: time.Now(),
-			desiredRate:  250,
+			desiredRate:  desiredNotFoundRate / 2,
 			currentDelay: notFoundRetryUnknownMaxSeconds / 2,
 		},
 	}
@@ -93,7 +94,7 @@ func (s *apiSrv) Serve(ctx context.Context) error {
 	if s.useHTTP {
 		listener, err := net.Listen("tcp", s.addr)
 		if err != nil {
-			log.Println("Listen:", err)
+			slog.ErrorContext(ctx, "Failed to listen", "error", err)
 			return err
 		}
 		s.listener = listener
@@ -107,7 +108,7 @@ func (s *apiSrv) Serve(ctx context.Context) error {
 
 		tlsListener, err := tls.Listen("tcp", s.addr, tlsCfg)
 		if err != nil {
-			log.Println("Listen:", err)
+			slog.ErrorContext(ctx, "Failed to listen", "error", err)
 			return err
 		}
 		s.listener = tlsListener
@@ -132,7 +133,7 @@ func (s *apiSrv) Serve(ctx context.Context) error {
 
 	err := srv.Serve(s.listener)
 	if err != nil {
-		log.Println("Serve:", err)
+		slog.ErrorContext(ctx, "Failed to serve", "error", err)
 	}
 	return err
 }
@@ -151,9 +152,7 @@ func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 	reqID := requestID(rand.Int63())
 	req = req.WithContext(context.WithValue(req.Context(), idKey, reqID))
 
-	if debug {
-		log.Println(reqID, req.Method, req.URL, req.Proto)
-	}
+	slog.Debug("Handling request", "id", reqID, "method", req.Method, "url", req.URL, "proto", req.Proto)
 
 	remoteAddr := &net.TCPAddr{
 		IP:   nil,
@@ -174,7 +173,7 @@ func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 		var err error
 		remoteAddr, err = net.ResolveTCPAddr("tcp", req.RemoteAddr)
 		if err != nil {
-			log.Println("remoteAddr:", err)
+			slog.Warn("Failed to resolve remote address", "address", req.RemoteAddr, "error", err)
 			lw.Header().Set("Retry-After", errorRetryAfterString())
 			http.Error(lw, "Internal Server Error", http.StatusInternalServerError)
 			apiRequestsTotal.WithLabelValues("no_remote_addr").Inc()
@@ -197,9 +196,7 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 
 	deviceID, err := protocol.DeviceIDFromString(req.URL.Query().Get("device"))
 	if err != nil {
-		if debug {
-			log.Println(reqID, "bad device param:", err)
-		}
+		slog.Debug("Request with bad device param", "id", reqID, "error", err)
 		lookupRequestsTotal.WithLabelValues("bad_request").Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
 		http.Error(w, "Bad Request", http.StatusBadRequest)
@@ -259,9 +256,7 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 
 	rawCert, err := certificateBytes(req)
 	if err != nil {
-		if debug {
-			log.Println(reqID, "no certificates:", err)
-		}
+		slog.Debug("Request without certificates", "id", reqID, "error", err)
 		announceRequestsTotal.WithLabelValues("no_certificate").Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
 		http.Error(w, "Forbidden", http.StatusForbidden)
@@ -270,9 +265,7 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 
 	var ann announcement
 	if err := json.NewDecoder(req.Body).Decode(&ann); err != nil {
-		if debug {
-			log.Println(reqID, "decode:", err)
-		}
+		slog.Debug("Failed to decode request", "id", reqID, "error", err)
 		announceRequestsTotal.WithLabelValues("bad_request").Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
 		http.Error(w, "Bad Request", http.StatusBadRequest)
@@ -283,9 +276,7 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 
 	addresses := fixupAddresses(remoteAddr, ann.Addresses)
 	if len(addresses) == 0 {
-		if debug {
-			log.Println(reqID, "no addresses")
-		}
+		slog.Debug("Request without addresses", "id", reqID, "error", err)
 		announceRequestsTotal.WithLabelValues("bad_request").Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
 		http.Error(w, "Bad Request", http.StatusBadRequest)
@@ -293,9 +284,7 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 	}
 
 	if err := s.handleAnnounce(deviceID, addresses); err != nil {
-		if debug {
-			log.Println(reqID, "handle:", err)
-		}
+		slog.Debug("Failed to handle request", "id", reqID, "error", err)
 		announceRequestsTotal.WithLabelValues("internal_error").Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -306,9 +295,7 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 
 	w.Header().Set("Reannounce-After", reannounceAfterString())
 	w.WriteHeader(http.StatusNoContent)
-	if debug {
-		log.Println(reqID, "announced", deviceID, addresses)
-	}
+	slog.Debug("Device announced", "id", reqID, "device", deviceID, "addresses", addresses)
 }
 
 func (s *apiSrv) Stop() {
@@ -350,7 +337,7 @@ func certificateBytes(req *http.Request) ([]byte, error) {
 
 	var bs []byte
 
-	if hdr := req.Header.Get("X-SSL-Cert"); hdr != "" {
+	if hdr := req.Header.Get("X-Ssl-Cert"); hdr != "" {
 		if strings.Contains(hdr, "%") {
 			// Nginx using $ssl_client_escaped_cert
 			// The certificate is in PEM format with url encoding.
@@ -513,6 +500,7 @@ func fixupAddresses(remote *net.TCPAddr, addresses []string) []string {
 
 type loggingResponseWriter struct {
 	http.ResponseWriter
+
 	statusCode int
 }
 

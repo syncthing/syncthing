@@ -12,13 +12,13 @@ import (
 	"os"
 	"regexp"
 	"runtime"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 )
 
-const Codename = "Gold Grasshopper"
+const Codename = "Hafnium Hornet"
 
 var (
 	// Injected by build script
@@ -27,6 +27,9 @@ var (
 	User    = "unknown"
 	Stamp   = "0"
 	Tags    = ""
+
+	// Added to by other packages
+	extraTags []string
 
 	// Set by init()
 	Date        time.Time
@@ -42,6 +45,12 @@ var (
 		"STGUIASSETS",
 		"STNORESTART",
 		"STNOUPGRADE",
+	}
+	replaceTags = map[string]string{
+		"sqlite_omit_load_extension": "",
+		"sqlite_dbstat":              "",
+		"netgo":                      "",
+		"osusergo":                   "",
 	}
 )
 
@@ -108,8 +117,24 @@ func TagsList() []string {
 	if Extra != "" {
 		tags = append(tags, Extra)
 	}
+	tags = append(tags, extraTags...)
 
-	sort.Strings(tags)
+	// Replace any tag values we want to have more user friendly versions,
+	// or be removed
+	for i, tag := range tags {
+		if repl, ok := replaceTags[tag]; ok {
+			tags[i] = repl
+		}
+	}
+
+	slices.Sort(tags)
+
+	// Remove any empty tags, which will be at the front of the list now
+	for len(tags) > 0 && tags[0] == "" {
+		tags = tags[1:]
+	}
+
+	tags = slices.Compact(tags)
 	return tags
 }
 
@@ -123,4 +148,9 @@ func filterString(s, allowedChars string) string {
 		}
 	}
 	return res.String()
+}
+
+func AddTag(tag string) {
+	extraTags = append(extraTags, tag)
+	LongVersion = LongVersionFor("syncthing")
 }

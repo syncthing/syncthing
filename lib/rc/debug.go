@@ -6,8 +6,6 @@
 
 package rc
 
-import (
-	"github.com/syncthing/syncthing/lib/logger"
-)
+import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = logger.DefaultLogger.NewFacility("rc", "Remote control package")
+var l = slogutil.NewAdapter("Remote control package")

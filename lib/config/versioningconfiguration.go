@@ -9,7 +9,8 @@ package config
 import (
 	"encoding/json"
 	"encoding/xml"
-	"sort"
+	"slices"
+	"strings"
 
 	"github.com/syncthing/syncthing/lib/structutil"
 )
@@ -84,8 +85,8 @@ func (c *VersioningConfiguration) toInternal() internalVersioningConfiguration {
 	for k, v := range c.Params {
 		tmp.Params = append(tmp.Params, internalParam{k, v})
 	}
-	sort.Slice(tmp.Params, func(a, b int) bool {
-		return tmp.Params[a].Key < tmp.Params[b].Key
+	slices.SortFunc(tmp.Params, func(a, b internalParam) int {
+		return strings.Compare(a.Key, b.Key)
 	})
 	return tmp
 }

@@ -6,8 +6,6 @@
 
 package watchaggregator
 
-import (
-	"github.com/syncthing/syncthing/lib/logger"
-)
+import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = logger.DefaultLogger.NewFacility("watchaggregator", "Filesystem event watcher")
+var l = slogutil.NewAdapter("Filesystem event watcher")

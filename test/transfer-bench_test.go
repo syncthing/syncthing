@@ -75,7 +75,7 @@ func setupAndBenchmarkTransfer(t *testing.T, files, sizeExp int) {
 }
 
 // TestBenchmarkTransferSameFiles doesn't actually transfer anything, but tests
-// how fast two devicees get in sync if they have the same data locally.
+// how fast two devices get in sync if they have the same data locally.
 func TestBenchmarkTransferSameFiles(t *testing.T) {
 	cleanBenchmarkTransfer(t)
 

@@ -8,11 +8,12 @@ on:
 jobs:
 
   trigger-nightly:
+    if: github.repository_owner == 'syncthing'
     runs-on: ubuntu-latest
     name: Push to release-nightly to trigger build
     steps:
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           token: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
           fetch-depth: 0

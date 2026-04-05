@@ -14,8 +14,8 @@ func TestWinsConflict(t *testing.T) {
 	testcases := [][2]FileInfo{
 		// The first should always win over the second
 		{{ModifiedS: 42}, {ModifiedS: 41}},
-		{{ModifiedS: 41}, {ModifiedS: 42, Deleted: true}},
-		{{Deleted: true}, {ModifiedS: 10, RawInvalid: true}},
+		{{ModifiedS: 42, Deleted: true}, {ModifiedS: 41}},
+		{{Deleted: true}, {ModifiedS: 10, LocalFlags: FlagLocalRemoteInvalid}},
 		{{ModifiedS: 41, Version: Vector{Counters: []Counter{{ID: 42, Value: 2}, {ID: 43, Value: 1}}}}, {ModifiedS: 41, Version: Vector{Counters: []Counter{{ID: 42, Value: 1}, {ID: 43, Value: 2}}}}},
 	}
 

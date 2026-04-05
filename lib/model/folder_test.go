@@ -8,6 +8,7 @@ package model
 
 import (
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/d4l3k/messagediff"
@@ -117,20 +118,11 @@ func unifySubsCases() []unifySubsCase {
 	return cases
 }
 
-func unifyExists(f string, tc unifySubsCase) bool {
-	for _, e := range tc.exists {
-		if f == e {
-			return true
-		}
-	}
-	return false
-}
-
 func TestUnifySubs(t *testing.T) {
 	cases := unifySubsCases()
 	for i, tc := range cases {
 		exists := func(f string) bool {
-			return unifyExists(f, tc)
+			return slices.Contains(tc.exists, f)
 		}
 		out := unifySubs(tc.in, exists)
 		if diff, equal := messagediff.PrettyDiff(tc.out, out); !equal {
@@ -146,7 +138,7 @@ func BenchmarkUnifySubs(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for _, tc := range cases {
 			exists := func(f string) bool {
-				return unifyExists(f, tc)
+				return slices.Contains(tc.exists, f)
 			}
 			unifySubs(tc.in, exists)
 		}
@@ -179,7 +171,7 @@ func TestSetPlatformData(t *testing.T) {
 
 	// Minimum required to support setPlatformData
 	sr := &sendReceiveFolder{
-		folder: folder{
+		folder: &folder{
 			FolderConfiguration: config.FolderConfiguration{
 				SyncXattrs: true,
 			},

@@ -1,4 +1,4 @@
-Copyright 2008-2021 Martin Wendt,
+Copyright 2008-2023 Martin Wendt,
 https://wwWendt.de/
 
 Permission is hereby granted, free of charge, to any person obtaining

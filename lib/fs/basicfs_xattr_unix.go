@@ -69,7 +69,7 @@ var xattrBufPool = sync.Pool{
 }
 
 func getXattr(path, name string) ([]byte, error) {
-	buf := xattrBufPool.Get().([]byte)
+	buf := xattrBufPool.Get().([]byte) //nolint:forcetypeassert
 	defer func() {
 		// Put the buffer back in the pool, or not if we're not supposed to
 		// (we returned it to the caller).

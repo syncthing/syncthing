@@ -34,7 +34,7 @@ angular.module('syncthing.core')
             middleCol = Math.ceil(size / 2) - 1;
 
             if (value) {
-                value = value.toString().replace(/[\W_]/i, '');
+                value = value.toString().replace(/[\W_]/g, '');
 
                 for (row = 0; row < size; ++row) {
                     for (col = middleCol; col > -1; --col) {
