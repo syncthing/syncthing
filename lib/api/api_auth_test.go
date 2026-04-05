@@ -234,18 +234,15 @@ func TestSessionCookieMaxAgeNoExpiry(t *testing.T) {
 	}
 }
 
-func TestSessionCookiePathNormalization(t *testing.T) {
+func TestSessionCookiePathUsesPreparedConfigValue(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
 		name string
-		in   string
-		out  string
+		path string
 	}{
-		{name: "default", in: "", out: "/"},
-		{name: "whitespace default", in: "   ", out: "/"},
-		{name: "already rooted", in: " /st ", out: "/st"},
-		{name: "prefix root", in: "st", out: "/st"},
+		{name: "default", path: "/"},
+		{name: "subpath", path: "/st"},
 	}
 
 	for _, tc := range cases {
@@ -255,11 +252,11 @@ func TestSessionCookiePathNormalization(t *testing.T) {
 
 			m := tokenCookieManager{
 				guiCfg: config.GUIConfiguration{
-					SessionCookiePath: tc.in,
+					SessionCookiePath: tc.path,
 				},
 			}
-			if got := m.sessionCookiePath(); got != tc.out {
-				t.Fatalf("unexpected path %q != %q", got, tc.out)
+			if got := m.sessionCookiePath(); got != tc.path {
+				t.Fatalf("unexpected path %q != %q", got, tc.path)
 			}
 		})
 	}

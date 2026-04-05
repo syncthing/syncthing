@@ -36,7 +36,10 @@ type tokenManager struct {
 	saveTimer *time.Timer
 }
 
-const noExpiryNano int64 = math.MaxInt64
+const (
+	noExpiryNano                  int64 = math.MaxInt64
+	defaultSessionCookieDurationS       = 7 * 24 * 60 * 60
+)
 
 func newTokenManager(key string, miscDB *db.Typed, lifetime time.Duration, maxItems int) *tokenManager {
 	var tokens apiproto.TokenSet
@@ -166,8 +169,6 @@ type tokenCookieManager struct {
 	tokens     *tokenManager
 }
 
-const defaultSessionCookieDurationS = 7 * 24 * 60 * 60
-
 func newTokenCookieManager(shortID string, guiCfg config.GUIConfiguration, evLogger events.Logger, miscDB *db.Typed) *tokenCookieManager {
 	sessionLifetimeS := guiCfg.SessionCookieDurationS
 	if sessionLifetimeS == 0 {
@@ -230,14 +231,7 @@ func (m *tokenCookieManager) sessionCookieDurationSeconds() int {
 }
 
 func (m *tokenCookieManager) sessionCookiePath() string {
-	path := strings.TrimSpace(m.guiCfg.SessionCookiePath)
-	if path == "" {
-		return "/"
-	}
-	if !strings.HasPrefix(path, "/") {
-		return "/" + path
-	}
-	return path
+	return m.guiCfg.SessionCookiePath
 }
 
 func (m *tokenCookieManager) hasValidSession(r *http.Request) bool {
