@@ -158,7 +158,7 @@ func OpenDatabase(path string, deleteRetention time.Duration) (db.DB, error) {
 
 // Attempts migration of the old (LevelDB-based) database type to the new (SQLite-based) type
 // This will attempt to provide a temporary API server during the migration, if `apiAddr` is not empty.
-func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration) error {
+func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration, folders map[string]config.FolderConfiguration) error {
 	oldDBDir := locations.Get(locations.LegacyDatabase)
 	if _, err := os.Lstat(oldDBDir); err != nil {
 		// No old database
@@ -194,6 +194,12 @@ func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration) erro
 
 	totFiles, totBlocks := 0, 0
 	for _, folder := range ll.ListFolders() {
+		// Determine update options based on folder config
+		var updateOpts []db.UpdateOption
+		if fcfg, ok := folders[folder]; ok && !fcfg.BlockIndexing {
+			updateOpts = append(updateOpts, db.WithSkipBlockIndex())
+		}
+
 		// Start a writer routine
 		fis := make(chan protocol.FileInfo, 50)
 		var writeErr error
@@ -216,7 +222,7 @@ func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration) erro
 				files++
 				blocks += len(fi.Blocks)
 				if len(batch) == 1000 {
-					writeErr = sdb.Update(folder, protocol.LocalDeviceID, batch)
+					writeErr = sdb.Update(folder, protocol.LocalDeviceID, batch, updateOpts...)
 					if writeErr != nil {
 						slog.Error("Failed database write", slogutil.Error(writeErr))
 						return
@@ -230,7 +236,7 @@ func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration) erro
 				}
 			}
 			if len(batch) > 0 {
-				writeErr = sdb.Update(folder, protocol.LocalDeviceID, batch)
+				writeErr = sdb.Update(folder, protocol.LocalDeviceID, batch, updateOpts...)
 			}
 			d := time.Since(t0) + 1
 			slog.Info("Migrated folder", "folder", folder, "files", files, "blocks", blocks, "duration", d.Truncate(time.Second), "filesrate", float64(files)/d.Seconds())

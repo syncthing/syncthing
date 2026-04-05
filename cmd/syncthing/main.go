@@ -503,7 +503,7 @@ func (c *serveCmd) syncthingMain() {
 		go api.Serve(migratingAPICtx)
 	}
 
-	if err := syncthing.TryMigrateDatabase(ctx, c.DBDeleteRetentionInterval); err != nil {
+	if err := syncthing.TryMigrateDatabase(ctx, c.DBDeleteRetentionInterval, cfgWrapper.Folders()); err != nil {
 		slog.Error("Failed to migrate old-style database", slogutil.Error(err))
 		os.Exit(1)
 	}

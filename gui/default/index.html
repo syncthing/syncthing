@@ -497,6 +497,12 @@
                           <span ng-if="folder.type == 'receiveencrypted'" translate>Receive Encrypted</span>
                         </td>
                       </tr>
+                      <tr ng-if="folder.blockIndexing">
+                        <th><span class="far fa-fw fa-book"></span>&nbsp;<span translate>Block Indexing</span></th>
+                        <td class="text-right">
+                          <span translate>Yes</span>
+                        </td>
+                      </tr>
                       <tr ng-if="folder.ignorePerms">
                         <th><span class="far fa-fw fa-minus-square"></span>&nbsp;<span translate>Ignore Permissions</span></th>
                         <td class="text-right">
@@ -631,7 +637,7 @@
                     <button type="button" class="btn btn-default btn-sm" ng-click="restoreVersions.show(folder.id)" ng-if="folder.versioning.type && folder.versioning.type != 'external'" ng-disabled="folder.paused">
                       <span class="fas fa-undo"></span>&nbsp;<span translate>Versions</span>
                     </button>
-                    <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-disabled="['idle', 'stopped', 'unshared', 'outofsync', 'faileditems', 'localadditions'].indexOf(folderStatus(folder)) < 0">
+                    <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-disabled="['idle', 'starting', 'stopped', 'unshared', 'outofsync', 'faileditems', 'localadditions'].indexOf(folderStatus(folder)) < 0">
                       <span class="fas fa-refresh"></span>&nbsp;<span translate>Rescan</span>
                     </button>
                     <button type="button" class="btn btn-sm btn-default" ng-click="editFolderExisting(folder)">
