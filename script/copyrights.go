@@ -59,8 +59,7 @@ var copyrightMap = map[string]string{
 }
 
 var urlMap = map[string]string{
-	"fontawesome.io":           "https://github.com/FortAwesome/Font-Awesome",
-	"go.uber.org/automaxprocs": "https://github.com/uber-go/automaxprocs",
+	"fontawesome.io": "https://github.com/FortAwesome/Font-Awesome",
 	// "go.uber.org/mock":           "https://github.com/uber-go/mock",
 	"google.golang.org/protobuf": "https://github.com/protocolbuffers/protobuf-go",
 	// "gopkg.in/yaml.v2":           "", // ignore, as gopkg.in/yaml.v3 supersedes

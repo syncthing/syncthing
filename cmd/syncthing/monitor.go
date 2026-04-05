@@ -137,17 +137,8 @@ func (c *serveCmd) monitorMain() {
 
 		var wg sync.WaitGroup
 
-		wg.Add(1)
-		go func() {
-			copyStderr(stderr, dst)
-			wg.Done()
-		}()
-
-		wg.Add(1)
-		go func() {
-			copyStdout(stdout, dst)
-			wg.Done()
-		}()
+		wg.Go(func() { copyStderr(stderr, dst) })
+		wg.Go(func() { copyStdout(stdout, dst) })
 
 		exit := make(chan error)
 

@@ -62,7 +62,7 @@ func TestDefaultValues(t *testing.T) {
 			LocalAnnMCAddr:            "[ff12::8384]:21027",
 			MaxSendKbps:               0,
 			MaxRecvKbps:               0,
-			ReconnectIntervalS:        60,
+			ReconnectIntervalS:        20,
 			RelaysEnabled:             true,
 			RelayReconnectIntervalM:   10,
 			StartBrowser:              true,

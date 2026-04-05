@@ -27,7 +27,6 @@ import (
 
 	"github.com/syncthing/syncthing/cmd/infra/strelaypoolsrv/auto"
 	"github.com/syncthing/syncthing/lib/assets"
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/geoip"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"

@@ -329,12 +329,10 @@ func (w *wrapper) replaceLocked(to Configuration) (Waiter, error) {
 
 func (w *wrapper) notifyListeners(from, to Configuration) Waiter {
 	wg := new(sync.WaitGroup)
-	wg.Add(len(w.subs))
 	for _, sub := range w.subs {
-		go func(committer Committer) {
-			w.notifyListener(committer, from, to)
-			wg.Done()
-		}(sub)
+		wg.Go(func() {
+			w.notifyListener(sub, from, to)
+		})
 	}
 	return wg
 }

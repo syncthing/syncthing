@@ -9,6 +9,9 @@ on:
 permissions:
   contents: write
   packages: write
+  artifact-metadata: write
+  attestations: write
+  id-token: write
 
 jobs:
   build-syncthing:
