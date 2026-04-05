@@ -59,6 +59,81 @@ func (s *folderDB) AllLocalFiles(device protocol.DeviceID) (iter.Seq[protocol.Fi
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 
+// AllLocalFilesOrdered returns an iterator over local files in lexicographic order.
+// This is used for parallel scanning where the walk order must match DB order.
+//
+// IMPORTANT: Uses chunked pagination to avoid long-running transactions that block
+// WAL checkpointing. Each chunk (10K files) is a separate short transaction.
+// Memory usage is O(chunkSize) per chunk, not O(n) for all files.
+// Blocks are excluded since scanner uses IgnoreBlocks:true in comparisons.
+const localFilesChunkSize = 10_000
+
+func (s *folderDB) AllLocalFilesOrdered(device protocol.DeviceID) (iter.Seq[protocol.FileInfo], func() error) {
+	var retErr error
+	return func(yield func(protocol.FileInfo) bool) {
+		lastName := ""
+		for {
+			// Query one chunk - short transaction that releases quickly
+			chunk, err := s.queryLocalFilesChunk(device, lastName, localFilesChunkSize)
+			if err != nil {
+				retErr = err
+				return
+			}
+			if len(chunk) == 0 {
+				break // No more files
+			}
+
+			// Yield all files in this chunk
+			for _, fi := range chunk {
+				if !yield(fi) {
+					return
+				}
+			}
+
+			// Move cursor to last seen name for next chunk
+			lastName = chunk[len(chunk)-1].Name
+
+			// If we got fewer than chunkSize, we're done
+			if len(chunk) < localFilesChunkSize {
+				break
+			}
+			// Transaction released here - checkpoint can run between chunks
+		}
+	}, func() error { return retErr }
+}
+
+// queryLocalFilesChunk fetches a single chunk of files after lastName.
+// Each call is a separate short-lived transaction.
+func (s *folderDB) queryLocalFilesChunk(device protocol.DeviceID, afterName string, limit int) ([]protocol.FileInfo, error) {
+	rows, err := s.stmt(`
+		SELECT fi.fiprotobuf, NULL as blprotobuf FROM fileinfos fi
+		INNER JOIN files f on fi.sequence = f.sequence
+		INNER JOIN devices d ON d.idx = f.device_idx
+		INNER JOIN file_names n ON f.name_idx = n.idx
+		WHERE d.device_id = ? AND n.name > ?
+		ORDER BY n.name
+		LIMIT ?
+	`).Queryx(device.String(), afterName, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]protocol.FileInfo, 0, limit)
+	for rows.Next() {
+		var ifi indirectFI
+		if err := rows.StructScan(&ifi); err != nil {
+			return nil, err
+		}
+		fi, err := ifi.FileInfo()
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, fi)
+	}
+	return result, rows.Err()
+}
+
 func (s *folderDB) AllLocalFilesBySequence(device protocol.DeviceID, startSeq int64, limit int) (iter.Seq[protocol.FileInfo], func() error) {
 	var limitStr string
 	if limit > 0 {
