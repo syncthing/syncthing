@@ -436,7 +436,7 @@ func (w *wrapper) LDAP() LDAPConfiguration {
 func (w *wrapper) GUI() GUIConfiguration {
 	w.mut.Lock()
 	defer w.mut.Unlock()
-	return w.cfg.GUI.Copy()
+	return w.cfg.GUI.PreparedCopy()
 }
 
 // DefaultIgnores returns the list of ignore patterns to be used by default on folders.

@@ -486,13 +486,16 @@ func (*service) VerifyConfiguration(_, to config.Configuration) error {
 }
 
 func (s *service) CommitConfiguration(from, to config.Configuration) bool {
-	if to.GUI == from.GUI {
+	fromGUI := from.GUI.PreparedCopy()
+	toGUI := to.GUI.PreparedCopy()
+
+	if toGUI == fromGUI {
 		// No GUI changes, we're done here.
 		return true
 	}
 
-	if to.GUI.Theme != from.GUI.Theme {
-		s.statics.setTheme(to.GUI.Theme)
+	if toGUI.Theme != fromGUI.Theme {
+		s.statics.setTheme(toGUI.Theme)
 	}
 
 	// Tell the serve loop to restart

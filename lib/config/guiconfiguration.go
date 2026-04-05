@@ -184,6 +184,11 @@ func (c *GUIConfiguration) prepare() {
 	}
 }
 
+func (c GUIConfiguration) PreparedCopy() GUIConfiguration {
+	c.prepare()
+	return c
+}
+
 func (c GUIConfiguration) Copy() GUIConfiguration {
 	return c
 }
