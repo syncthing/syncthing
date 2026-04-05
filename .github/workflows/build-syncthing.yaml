@@ -13,7 +13,7 @@ env:
   # The go version to use for builds. We set check-latest to true when
   # installing, so we get the latest patch version that matches the
   # expression.
-  GO_VERSION: "~1.25.0"
+  GO_VERSION: "~1.26.0"
 
   # Optimize compatibility on the slow architectures.
   GOMIPS: softfloat
@@ -103,7 +103,7 @@ jobs:
         runner: ["windows-latest", "ubuntu-latest", "macos-latest"]
         # The oldest version in this list should match what we have in our go.mod.
         # Variables don't seem to be supported here, or we could have done something nice.
-        go: ["~1.24.0", "~1.25.0"]
+        go: ["~1.25.0", "~1.26.0"]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Set git to use LF
@@ -187,7 +187,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: ${{ needs.facts.outputs.go-version }}
+          go-version: "~1.25.7" # temporarily stay on Go 1.25 due to linker error on Go 1.26
           cache: false
 
       - uses: mlugg/setup-zig@v2

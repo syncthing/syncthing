@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"os"
 
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 )

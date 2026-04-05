@@ -42,7 +42,6 @@ import (
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/internal/slogutil"
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
@@ -748,8 +747,13 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 			continue
 		}
 		sub.Unsubscribe()
+		restartDelay := time.Minute
+		evLogger.Log(events.UpgradeRestartScheduled, map[string]any{
+			"delayS":     int(restartDelay / time.Second),
+			"newVersion": rel.Tag,
+		})
 		slog.Error("Automatically upgraded, restarting in 1 minute", slog.String("newVersion", rel.Tag))
-		time.Sleep(time.Minute)
+		time.Sleep(restartDelay)
 		app.Stop(svcutil.ExitUpgrade)
 		return
 	}
