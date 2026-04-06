@@ -216,8 +216,11 @@ func (m *tokenCookieManager) createSession(username string, persistent bool, w h
 func (m *tokenCookieManager) sessionCookieMaxAge() int {
 	durationS := m.sessionCookieDurationSeconds()
 	if durationS < 0 {
-		// this cookie is still only as safe as client storage;
-		// if stolen it remains valid until explicitly logged out.
+		// If the value is negative, it means "never expire the cookie".
+		// We therefore use a very large Max-Age to indicate a long cookie
+		// persistence time. This only makes the browser keep the cookie for a
+		// long time; a stolen cookie is still usable until the session is
+		// explicitly logged out.
 		return math.MaxInt32
 	}
 	return durationS
