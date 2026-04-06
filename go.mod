@@ -107,6 +107,9 @@ require (
 // https://github.com/gobwas/glob/pull/55
 replace github.com/gobwas/glob v0.2.3 => github.com/calmh/glob v0.0.0-20220615080505-1d823af5017b
 
+// https://github.com/jackpal/gateway/pull/49
+replace github.com/jackpal/gateway v1.1.1 => github.com/marbens-arch/gateway v1.1.2-0.20260308173556-c567cc04e7d4
+
 // https://github.com/mattn/go-sqlite3/pull/1338
 replace github.com/mattn/go-sqlite3 v1.14.34 => github.com/calmh/go-sqlite3 v1.14.35-0.20260303222015-6a03636c4bc9
 
