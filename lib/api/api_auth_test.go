@@ -255,7 +255,7 @@ func TestSessionCookiePathUsesPreparedConfigValue(t *testing.T) {
 					SessionCookiePath: tc.path,
 				},
 			}
-			if got := m.sessionCookiePath(); got != tc.path {
+			if got := m.guiCfg.SessionCookiePath; got != tc.path {
 				t.Fatalf("unexpected path %q != %q", got, tc.path)
 			}
 		})

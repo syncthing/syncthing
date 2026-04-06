@@ -37,7 +37,7 @@ type tokenManager struct {
 }
 
 const (
-	noExpiryNano                  int64 = math.MaxInt64
+	noExpiryNano                  int64 = 0
 	defaultSessionCookieDurationS       = 7 * 24 * 60 * 60
 )
 
@@ -207,7 +207,7 @@ func (m *tokenCookieManager) createSession(username string, persistent bool, w h
 		// but in http.Cookie MaxAge = 0 means unspecified (session) and MaxAge < 0 means delete immediately
 		MaxAge: maxAge,
 		Secure: useSecureCookie,
-		Path:   m.sessionCookiePath(),
+		Path:   m.guiCfg.SessionCookiePath,
 	})
 
 	emitLoginAttempt(true, username, r, m.evLogger)
@@ -231,10 +231,6 @@ func (m *tokenCookieManager) sessionCookieDurationSeconds() int {
 		return defaultSessionCookieDurationS
 	}
 	return m.guiCfg.SessionCookieDurationS
-}
-
-func (m *tokenCookieManager) sessionCookiePath() string {
-	return m.guiCfg.SessionCookiePath
 }
 
 func (m *tokenCookieManager) hasValidSession(r *http.Request) bool {
