@@ -81,14 +81,14 @@ angular.module('syncthing.core')
         $scope.model = {};
         $scope.myID = '';
         $scope.devices = {};
-        $scope.deviceGroups = [];
+        $scope.devicesGrouped = {};
         $scope.discoveryCache = {};
         $scope.protocolChanged = false;
         $scope.reportData = {};
         $scope.reportDataPreview = '';
         $scope.reportPreview = false;
         $scope.folders = {};
-        $scope.folderGroups = [];
+        $scope.foldersGrouped = {};
         $scope.seenError = '';
         $scope.upgradeInfo = null;
         $scope.deviceStats = {};
@@ -561,7 +561,7 @@ angular.module('syncthing.core')
             $scope.config.options._urAcceptedStr = "" + $scope.config.options.urAccepted;
 
             $scope.devices = deviceMap($scope.config.devices);
-            $scope.deviceGroups = [];
+            $scope.devicesGrouped = {};
             for (var id in $scope.devices) {
                 $scope.completion[id] = {
                     _total: 100,
@@ -569,34 +569,35 @@ angular.module('syncthing.core')
                     _needItems: 0
                 };
 
-                if (!$scope.deviceGroups.includes($scope.devices[id].group)) {
-                    $scope.deviceGroups.push($scope.devices[id].group);
+                if ($scope.devicesGrouped[$scope.devices[id].group] === undefined) {
+                    $scope.devicesGrouped[$scope.devices[id].group] = []; 
                 }
+                $scope.devicesGrouped[$scope.devices[id].group].push($scope.devices[id]);
             };
-            console.log("HELLO!!!");
-            console.log($scope.deviceGroups);
+
             $scope.folders = folderMap($scope.config.folders);
-            $scope.folderGroups = [];
+            $scope.foldersGrouped = {};
             Object.keys($scope.folders).forEach(function (folder) {
                 refreshFolder(folder);
                 $scope.folders[folder].devices.forEach(function (deviceCfg) {
                     refreshCompletion(deviceCfg.deviceID, folder);
                 });
                 
-                if (!$scope.folderGroups.includes($scope.folders[folder].group)) {
-                    $scope.folderGroups.push($scope.folders[folder].group);
+                if ($scope.foldersGrouped[$scope.folders[folder].group] === undefined) {
+                    $scope.foldersGrouped[$scope.folders[folder].group] = [];
                 }
+                $scope.foldersGrouped[$scope.folders[folder].group].push($scope.folders[folder]);
             });
 
             // Sort with blank group first if any then alphabetically
             const blankSort = (a, b) => {
-                if (a === "" && b !== "") return -1;
-                if (b === "" && a !== "") return 1;
-                return a.localeCompare(b);
+                if (a[0] === "" && b[0] !== "") return -1;
+                if (b[0] === "" && a[0] !== "") return 1;
+                return a[0].localeCompare(b[0]);
             };
 
-            $scope.folderGroups = $scope.folderGroups.sort(blankSort);
-            $scope.deviceGroups = $scope.deviceGroups.sort(blankSort);
+            $scope.foldersGrouped = Object.fromEntries(Object.entries($scope.foldersGrouped).sort(blankSort));
+            $scope.devicesGrouped = Object.fromEntries(Object.entries($scope.devicesGrouped).sort(blankSort));
 
             refreshNoAuthWarning();
             setDefaultTheme();
@@ -3749,20 +3750,6 @@ angular.module('syncthing.core')
                         previousModalID = '';
                     }).modal(modalState);
             }
-        };
-        
-        $scope.folderListByGroup = function (group) {
-            let folderListCache = $scope.folderList();
-            return folderListCache.filter(function (f) {
-                return group == f.group;
-            })
-        };
-
-        $scope.deviceListByGroup = function (group) {
-            let deviceListCache = $scope.otherDevices();
-            return deviceListCache.filter(function (f) {
-                return group == f.group;
-            })
         };
     })
     .directive('shareTemplate', function () {

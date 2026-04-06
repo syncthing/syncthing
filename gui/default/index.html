@@ -381,13 +381,13 @@
 
         <div class="col-md-6" aria-labelledby="folder_list" role="region" >
           <h3 id="folder_list"><span translate>Folders</span><span ng-if="folderList().length > 1"> ({{folderList().length}})</span></h3>
-          <div ng-repeat="(folderGroupKey, folderGroup) in folderGroups">
-            <h4>{{ folderGroup }} 
-              <span ng-if="folderListByGroup(folderGroup).length > 1 && folderGroup.length > 0"> ({{folderListByGroup(folderGroup).length}})</span>
+          <div ng-repeat="(folderGroupName, folders) in foldersGrouped">
+            <h4 ng-if="folderGroupName !== ''">{{ folderGroupName }} 
+              <span ng-if="folders.length > 1 && folders.length > 0"> ({{folders.length}})</span>
             </h4>
-            <div class="panel-group" id="folders{{ folderGroupKey }}">
-              <div class="panel panel-default" ng-repeat="folder in folderListByGroup(folderGroup)">
-                <button class="btn panel-heading" data-toggle="collapse" data-parent="#folders{{folderGroupKey}}" data-target="#folder-{{folderGroupKey}}-{{$index}}" aria-expanded="false">
+            <div class="panel-group" id="folders-{{ $index }}">
+              <div class="panel panel-default" ng-repeat="folder in folders"> 
+                <button class="btn panel-heading" data-toggle="collapse" data-parent="#folders-{{$index}}" data-target="#folder-{{$parent.$index}}-{{$index}}" aria-expanded="false">
                   <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id) | percent}}"></div>
                   <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id) | percent}}"></div>
                   <h4 class="panel-title">
@@ -410,7 +410,7 @@
                     </div>
                   </h4>
                 </button>
-                <div id="folder-{{folderGroupKey}}-{{$index}}" class="panel-collapse collapse">
+                <div id="folder-{{$parent.$index}}-{{$index}}" class="panel-collapse collapse">
                   <div class="panel-body less-padding">
                     <table class="table table-condensed table-striped table-auto">
                       <tbody>
@@ -775,13 +775,13 @@
 
           <!-- Remote devices -->
           <h3><span translate>Remote Devices</span> <span ng-if="otherDevices().length > 1"> ({{otherDevices().length}})</span></h3>
-          <div ng-repeat="(deviceGroupKey, deviceGroup) in deviceGroups">
-            <h4>{{ deviceGroup }} 
-              <span ng-if="deviceListByGroup(deviceGroup).length > 1 && deviceGroup.length > 0"> ({{deviceListByGroup(deviceGroup).length}})</span>
+          <div ng-repeat="(deviceGroupName, devices) in devicesGrouped">
+            <h4 ng-if="deviceGroupName !== ''">{{ deviceGroupName }} 
+              <span ng-if="devices.length > 1 && deviceGroupName.length > 0"> ({{devices.length}})</span>
             </h4>
-            <div class="panel-group" id="devices{{ deviceGroupKey }}">
-                <div class="panel panel-default" ng-repeat="deviceCfg in deviceListByGroup(deviceGroup)">
-                  <button class="btn panel-heading" data-toggle="collapse" data-parent="#devices{{deviceGroupKey}}" data-target="#device-{{deviceGroupKey}}-{{$index}}" aria-expanded="false">
+            <div class="panel-group" id="devices-{{ $index }}">
+                <div class="panel panel-default" ng-repeat="deviceCfg in devices">
+                  <button class="btn panel-heading" data-toggle="collapse" data-parent="#devices-{{ $parent.$index }}" data-target="#device-{{$parent.$index}}-{{$index}}" aria-expanded="false">
                     <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.deviceID]._total | percent}}"></div>
                     <h4 class="panel-title">
                       <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
@@ -798,7 +798,7 @@
                       <div class="panel-title-text">{{deviceName(deviceCfg)}}</div>
                     </h4>
                   </button>
-                  <div id="device-{{deviceGroupKey}}-{{$index}}" class="panel-collapse collapse">
+                  <div id="device-{{$parent.$index}}-{{$index}}" class="panel-collapse collapse">
                     <div class="panel-body less-padding">
                       <table class="table table-condensed table-striped table-auto">
                         <tbody>
