@@ -75,7 +75,7 @@ type FolderConfiguration struct {
 	ExternalMergeEnabled                 bool                        `json:"externalMergeEnabled" xml:"externalMergeEnabled" default:"false"`
 	ExternalMergeCommand                 string                      `json:"externalMergeCommand" xml:"externalMergeCommand"`
 	ExternalMergeDeleteConflictOnFail    bool                        `json:"externalMergeDeleteConflictOnFail" xml:"externalMergeDeleteConflictOnFail" default:"false"`
-	ExternalMergeDeleteConflictOnSuccess bool                        `json:"externalMergeDeleteConflictOnSuccess" xml:"externalMergeDeleteConflictoNSuccess" default:"true"`
+	ExternalMergeDeleteConflictOnSuccess bool                        `json:"externalMergeDeleteConflictOnSuccess" xml:"externalMergeDeleteConflictOnSuccess" default:"true"`
 	DisableSparseFiles                   bool                        `json:"disableSparseFiles" xml:"disableSparseFiles"`
 	Paused                               bool                        `json:"paused" xml:"paused"`
 	MarkerName                           string                      `json:"markerName" xml:"markerName"`
