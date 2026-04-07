@@ -24,6 +24,7 @@ import (
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/cmdutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -599,9 +600,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 			// archiving.
 			// Symlinks aren't checked for conflicts.
 
-			err = f.inWritableDir(func(name string) error {
-				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
-			}, curFile.Name)
+			err = f.handleConflict(curFile.Name, file.Name, file.ModifiedBy.String(), scanChan)
 		} else {
 			err = f.deleteItemOnDisk(curFile, scanChan)
 		}
@@ -797,9 +796,7 @@ func (f *sendReceiveFolder) handleSymlinkCheckExisting(file protocol.FileInfo, s
 		// archiving.
 		// Directories and symlinks aren't checked for conflicts.
 
-		return f.inWritableDir(func(name string) error {
-			return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
-		}, curFile.Name)
+		return f.handleConflict(curFile.Name, file.Name, file.ModifiedBy.String(), scanChan)
 	} else {
 		return f.deleteItemOnDisk(curFile, scanChan)
 	}
@@ -1645,14 +1642,12 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 			// archiving.
 			// Directories and symlinks aren't checked for conflicts.
 
-			err = f.inWritableDir(func(name string) error {
-				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
-			}, curFile.Name)
+			err = f.handleConflict(file.Name, tempName, file.ModifiedBy.String(), scanChan)
 		} else {
 			err = f.deleteItemOnDisk(curFile, scanChan)
 		}
 		if err != nil {
-			return fmt.Errorf("moving for conflict: %w", err)
+			return fmt.Errorf("handling conflict: %w", err)
 		}
 	} else if !fs.IsNotExist(err) {
 		return fmt.Errorf("checking existing file: %w", err)
@@ -2172,6 +2167,52 @@ func (f *sendReceiveFolder) withLimiter(ctx context.Context, fn func() error) er
 	}
 	defer f.writeLimiter.Give(1)
 	return fn()
+}
+
+func (f *sendReceiveFolder) mergeConflict(conflictName, fileName string) ([]byte, error) {
+	keywords := map[string]string{
+		"%FOLDER_PATH%":   f.mtimefs.URI(),
+		"%CONFLICT_PATH%": conflictName,
+		"%FILE_PATH%":     fileName,
+	}
+
+	cmd, err := cmdutil.FormattedCommand(f.ExternalMergeCommand, keywords)
+	if err != nil {
+		return nil, err
+	}
+
+	output, err := cmd.CombinedOutput()
+
+	return output, err
+}
+
+func (f *sendReceiveFolder) handleConflict(conflictName, fileName, lastModBy string, scanChan chan<- string) error {
+	moveForConflictInWritableDir := func(name string) error {
+		return f.moveForConflict(name, lastModBy, scanChan)
+	}
+
+	if f.ExternalMergeEnabled {
+		output, err := f.mergeConflict(conflictName, fileName)
+		if err != nil {
+			slog.Error("Failed to run external merge failed", slogutil.Error(err), "output", string(output))
+
+			if f.ExternalMergeDeleteConflictFail {
+				return f.inWritableDir(f.mtimefs.Remove, conflictName)
+			} else {
+				return f.inWritableDir(moveForConflictInWritableDir, conflictName)
+			}
+		}
+
+		slog.Debug("External merge command succeeded", "output", string(output))
+
+		if f.ExternalMergeDeleteConflictSuccess {
+			return f.inWritableDir(f.mtimefs.Remove, conflictName)
+		} else {
+			return f.inWritableDir(moveForConflictInWritableDir, conflictName)
+		}
+	} else {
+		return f.inWritableDir(moveForConflictInWritableDir, conflictName)
+	}
 }
 
 // A []FileError is sent as part of an event and will be JSON serialized.
