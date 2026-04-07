@@ -72,7 +72,6 @@ type FolderConfiguration struct {
 	PullerPauseS                         int                         `json:"pullerPauseS" xml:"pullerPauseS"`
 	PullerDelayS                         float64                     `json:"pullerDelayS" xml:"pullerDelayS" default:"1"`
 	MaxConflicts                         int                         `json:"maxConflicts" xml:"maxConflicts" default:"10"`
-	ExternalMergeEnabled                 bool                        `json:"externalMergeEnabled" xml:"externalMergeEnabled" default:"false"`
 	ExternalMergeCommand                 string                      `json:"externalMergeCommand" xml:"externalMergeCommand"`
 	ExternalMergeDeleteConflictOnFail    bool                        `json:"externalMergeDeleteConflictOnFail" xml:"externalMergeDeleteConflictOnFail" default:"false"`
 	ExternalMergeDeleteConflictOnSuccess bool                        `json:"externalMergeDeleteConflictOnSuccess" xml:"externalMergeDeleteConflictOnSuccess" default:"true"`
