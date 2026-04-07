@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime"
 	"time"
 
 	"github.com/alecthomas/kong"
@@ -95,8 +94,6 @@ func main() {
 		return
 	}
 	slog.Info(build.LongVersionFor("stdiscosrv"))
-
-	buildInfo.WithLabelValues(build.Version, runtime.Version(), build.User, build.Date.UTC().Format("2006-01-02T15:04:05Z")).Set(1)
 
 	var cert tls.Certificate
 	if !cli.HTTP {

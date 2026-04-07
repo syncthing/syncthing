@@ -13,6 +13,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/syncthing/syncthing/cmd/infra/ursrv/serve"
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 type CLI struct {
@@ -23,6 +24,8 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	})))
+
+	slog.Info(build.LongVersionFor("ursrv"))
 
 	var cli CLI
 	ctx := kong.Parse(&cli)
