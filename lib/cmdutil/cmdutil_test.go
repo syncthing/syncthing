@@ -10,13 +10,13 @@ package cmdutil
 import "testing"
 
 var keywords = map[string]string{
-	"nggyu":               "bait", // bare keyword with no prefix or suffix
+	"AFFIXLESS_KEYWORD":   "bare",
 	"%DOS_STYLE_KEYWORD%": "dos",
 	"$UNIX_STYLE_KEYWORD": "unix",
 }
 
 func TestFormattedCommandSuccessRealKeywords(t *testing.T) {
-	cmd, err := FormattedCommand("echo nggyu %DOS_STYLE_KEYWORD% $UNIX_STYLE_KEYWORD", keywords)
+	cmd, err := FormattedCommand("echo AFFIXLESS_KEYWORD %DOS_STYLE_KEYWORD% $UNIX_STYLE_KEYWORD", keywords)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +26,7 @@ func TestFormattedCommandSuccessRealKeywords(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	const expectedOutput = "bait dos unix\n"
+	const expectedOutput = "bare dos unix\n"
 
 	if string(output) != expectedOutput {
 		t.Errorf("expected %s as command output, got %s", expectedOutput, string(output))
