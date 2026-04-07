@@ -2194,7 +2194,7 @@ func (f *sendReceiveFolder) handleConflict(conflictName, fileName, lastModBy str
 	if f.ExternalMergeCommand != "" {
 		output, err := f.mergeConflict(conflictName, fileName)
 		if err != nil {
-			slog.Error("External merge command failed", f.LogAttr(), slogutil.FilePath(fileName), "conflictpath", conflictName, slogutil.Error(err), "output", string(output))
+			slog.Error("External merge command failed", f.LogAttr(), slogutil.FilePath(fileName), slog.String("conflictpath", conflictName), slogutil.Error(err), slog.String("output", string(output)))
 
 			if f.ExternalMergeDeleteConflictOnFail {
 				return f.inWritableDir(f.mtimefs.Remove, conflictName)
@@ -2203,7 +2203,7 @@ func (f *sendReceiveFolder) handleConflict(conflictName, fileName, lastModBy str
 			}
 		}
 
-		slog.Info("External merge command succeeded", f.LogAttr(), slogutil.FilePath(fileName), "output", string(output))
+		slog.Info("External merge command succeeded", f.LogAttr(), slogutil.FilePath(fileName), slog.String("conflictpath", conflictName), slog.String("output", string(output)))
 
 		if f.ExternalMergeDeleteConflictOnSuccess {
 			return f.inWritableDir(f.mtimefs.Remove, conflictName)
