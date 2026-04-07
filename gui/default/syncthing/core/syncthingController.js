@@ -561,7 +561,6 @@ angular.module('syncthing.core')
             $scope.config.options._urAcceptedStr = "" + $scope.config.options.urAccepted;
 
             $scope.devices = deviceMap($scope.config.devices);
-            $scope.devicesGrouped = {};
             for (var id in $scope.devices) {
                 $scope.completion[id] = {
                     _total: 100,
@@ -569,10 +568,15 @@ angular.module('syncthing.core')
                     _needItems: 0
                 };
 
-                if ($scope.devicesGrouped[$scope.devices[id].group] === undefined) {
-                    $scope.devicesGrouped[$scope.devices[id].group] = []; 
+            };
+
+            $scope.devicesGrouped = {};
+            const otherDevices = $scope.otherDevices();
+            for (var id in otherDevices) {
+                if ($scope.devicesGrouped[otherDevices[id].group] === undefined) {
+                    $scope.devicesGrouped[otherDevices[id].group] = []; 
                 }
-                $scope.devicesGrouped[$scope.devices[id].group].push($scope.devices[id]);
+                $scope.devicesGrouped[otherDevices[id].group].push(otherDevices[id]);
             };
 
             $scope.folders = folderMap($scope.config.folders);
