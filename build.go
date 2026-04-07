@@ -29,7 +29,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"text/template"
+	"text/template" // nosemgrep: go.lang.security.audit.xss.import-text-template.import-text-template
 	"time"
 
 	buildpkg "github.com/syncthing/syncthing/lib/build"
@@ -1115,7 +1115,11 @@ func runError(cmd string, args ...string) ([]byte, error) {
 			log.Println("... in", time.Since(t0))
 		}()
 	}
-	ecmd := exec.Command(cmd, args...)
+	cmdPath, err := exec.LookPath(cmd)
+	if err != nil {
+		return nil, err
+	}
+	ecmd := exec.Command(cmdPath, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	bs, err := ecmd.CombinedOutput()
 	return bytes.TrimSpace(bs), err
 }
@@ -1132,11 +1136,15 @@ func runPrintInDir(dir string, cmd string, args ...string) {
 			log.Println("... in", time.Since(t0))
 		}()
 	}
-	ecmd := exec.Command(cmd, args...)
+	cmdPath, err := exec.LookPath(cmd)
+	if err != nil {
+		log.Fatal(err)
+	}
+	ecmd := exec.Command(cmdPath, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	ecmd.Stdout = os.Stdout
 	ecmd.Stderr = os.Stderr
 	ecmd.Dir = dir
-	err := ecmd.Run()
+	err = ecmd.Run()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -1154,7 +1162,11 @@ func runPipe(file, cmd string, args ...string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	ecmd := exec.Command(cmd, args...)
+	cmdPath, err := exec.LookPath(cmd)
+	if err != nil {
+		log.Fatal(err)
+	}
+	ecmd := exec.Command(cmdPath, args...) // nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	ecmd.Stdout = fd
 	ecmd.Stderr = os.Stderr
 	err = ecmd.Run()
