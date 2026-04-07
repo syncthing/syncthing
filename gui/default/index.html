@@ -381,12 +381,12 @@
 
         <div class="col-md-6" aria-labelledby="folder_list" role="region" >
           <h3 id="folder_list"><span translate>Folders</span><span ng-if="folderList().length > 1"> ({{folderList().length}})</span></h3>
-          <div ng-repeat="(folderGroupName, folders) in foldersGrouped">
+          <div ng-repeat="(folderGroupName, groupedFolders) in foldersGrouped">
             <h4 ng-if="folderGroupName !== ''">{{ folderGroupName }} 
-              <span ng-if="folders.length > 1 && folders.length > 0"> ({{folders.length}})</span>
+              <span ng-if="groupedFolders.length > 1 && folderGroupName.length > 0"> ({{groupedFolders.length}})</span>
             </h4>
             <div class="panel-group" id="folders-{{ $index }}">
-              <div class="panel panel-default" ng-repeat="folder in folders"> 
+              <div class="panel panel-default" ng-repeat="folder in groupedFolders">
                 <button class="btn panel-heading" data-toggle="collapse" data-parent="#folders-{{$index}}" data-target="#folder-{{$parent.$index}}-{{$index}}" aria-expanded="false">
                   <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id) | percent}}"></div>
                   <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id) | percent}}"></div>
@@ -775,12 +775,12 @@
 
           <!-- Remote devices -->
           <h3><span translate>Remote Devices</span> <span ng-if="otherDevices().length > 1"> ({{otherDevices().length}})</span></h3>
-          <div ng-repeat="(deviceGroupName, devices) in devicesGrouped">
-            <h4 ng-if="deviceGroupName !== ''">{{ deviceGroupName }} 
-              <span ng-if="devices.length > 1 && deviceGroupName.length > 0"> ({{devices.length}})</span>
+          <div ng-repeat="(deviceGroupName, groupedDevices) in devicesGrouped">
+            <h4>{{ deviceGroupName }} 
+              <span ng-if="groupedDevices.length > 1 && deviceGroupName.length > 0"> ({{groupedDevices.length}})</span>
             </h4>
             <div class="panel-group" id="devices-{{ $index }}">
-                <div class="panel panel-default" ng-repeat="deviceCfg in devices">
+                <div class="panel panel-default" ng-repeat="deviceCfg in groupedDevices">
                   <button class="btn panel-heading" data-toggle="collapse" data-parent="#devices-{{ $parent.$index }}" data-target="#device-{{$parent.$index}}-{{$index}}" aria-expanded="false">
                     <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.deviceID]._total | percent}}"></div>
                     <h4 class="panel-title">
