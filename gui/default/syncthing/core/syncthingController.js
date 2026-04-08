@@ -81,12 +81,14 @@ angular.module('syncthing.core')
         $scope.model = {};
         $scope.myID = '';
         $scope.devices = {};
+        $scope.devicesGrouped = {};
         $scope.discoveryCache = {};
         $scope.protocolChanged = false;
         $scope.reportData = {};
         $scope.reportDataPreview = '';
         $scope.reportPreview = false;
         $scope.folders = {};
+        $scope.foldersGrouped = {};
         $scope.seenError = '';
         $scope.upgradeInfo = null;
         $scope.deviceStats = {};
@@ -559,20 +561,43 @@ angular.module('syncthing.core')
             $scope.config.options._urAcceptedStr = "" + $scope.config.options.urAccepted;
 
             $scope.devices = deviceMap($scope.config.devices);
+            $scope.devicesGrouped = {};
             for (var id in $scope.devices) {
                 $scope.completion[id] = {
                     _total: 100,
                     _needBytes: 0,
                     _needItems: 0
                 };
+
+                if ($scope.devicesGrouped[$scope.devices[id].group] === undefined) {
+                    $scope.devicesGrouped[$scope.devices[id].group] = []; 
+                }
+                $scope.devicesGrouped[$scope.devices[id].group].push($scope.devices[id]);
             };
+
             $scope.folders = folderMap($scope.config.folders);
+            $scope.foldersGrouped = {};
             Object.keys($scope.folders).forEach(function (folder) {
                 refreshFolder(folder);
                 $scope.folders[folder].devices.forEach(function (deviceCfg) {
                     refreshCompletion(deviceCfg.deviceID, folder);
                 });
+                
+                if ($scope.foldersGrouped[$scope.folders[folder].group] === undefined) {
+                    $scope.foldersGrouped[$scope.folders[folder].group] = [];
+                }
+                $scope.foldersGrouped[$scope.folders[folder].group].push($scope.folders[folder]);
             });
+
+            // Sort with blank group first if any then alphabetically
+            const blankSort = (a, b) => {
+                if (a[0] === "" && b[0] !== "") return -1;
+                if (b[0] === "" && a[0] !== "") return 1;
+                return a[0].localeCompare(b[0]);
+            };
+
+            $scope.foldersGrouped = Object.fromEntries(Object.entries($scope.foldersGrouped).sort(blankSort));
+            $scope.devicesGrouped = Object.fromEntries(Object.entries($scope.devicesGrouped).sort(blankSort));
 
             refreshNoAuthWarning();
             setDefaultTheme();

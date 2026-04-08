@@ -190,7 +190,7 @@ jobs:
           go-version: "~1.25.7" # temporarily stay on Go 1.25 due to linker error on Go 1.26
           cache: false
 
-      - uses: mlugg/setup-zig@v2
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
 
       - uses: actions/cache@v4
         with:
@@ -249,7 +249,7 @@ jobs:
           }
 
       - name: Sign files with Trusted Signing
-        uses: azure/trusted-signing-action@v0.5.1
+        uses: azure/trusted-signing-action@0d74250c661747df006298d0fb49944c10f16e03 # v0.5.1
         with:
           azure-tenant-id: ${{ secrets.AZURE_TRUSTED_SIGNING_TENANT_ID }}
           azure-client-id: ${{ secrets.AZURE_TRUSTED_SIGNING_CLIENT_ID }}
@@ -299,7 +299,7 @@ jobs:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
-      - uses: mlugg/setup-zig@v2
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
 
       - uses: actions/cache@v4
         with:
@@ -350,7 +350,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Build syncthing in OmniOS VM
-        uses: vmactions/omnios-vm@v1
+        uses: vmactions/omnios-vm@68da93c6d9812b29fc90c5b5141b093f84a590fb # v1
         with:
           envs: "VERSION GO_VERSION CGO_ENABLED"
           usesh: true
@@ -723,7 +723,7 @@ jobs:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@eab2afb99481ca09a4e91171a8e0aee0e89bfedd # v1
         with:
           ruby-version: '3.0'
 
@@ -731,7 +731,7 @@ jobs:
         run: |
           gem install fpm
 
-      - uses: mlugg/setup-zig@v2
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
 
       - uses: actions/cache@v4
         with:
@@ -1016,7 +1016,7 @@ jobs:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
-      - uses: mlugg/setup-zig@v2
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
 
       - uses: actions/cache@v4
         with:
@@ -1046,17 +1046,17 @@ jobs:
           EXTRA_LDFLAGS: "-linkmode=external -extldflags=-static"
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Set version tags
         run: |
@@ -1080,16 +1080,16 @@ jobs:
 
           echo Pushing to $tags
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
-
         env:
           REF_NAME: ${{github.ref_name}}
+
       - name: Prepare context dir
         run: |
           mkdir ctx
           mv bin/* script ctx
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: ctx
           file: ${{ matrix.dockerfile }}
@@ -1165,7 +1165,7 @@ jobs:
         run: go run build.go assets
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v8
         with:
           only-new-issues: true
 
