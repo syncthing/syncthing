@@ -593,15 +593,8 @@ angular.module('syncthing.core')
                 $scope.foldersGrouped[$scope.folders[folder].group].push($scope.folders[folder]);
             });
 
-            // Sort with blank group first if any then alphabetically
-            const blankSort = (a, b) => {
-                if (a[0] === "" && b[0] !== "") return -1;
-                if (b[0] === "" && a[0] !== "") return 1;
-                return a[0].localeCompare(b[0]);
-            };
-
-            $scope.foldersGrouped = Object.fromEntries(Object.entries($scope.foldersGrouped).sort(blankSort));
-            $scope.devicesGrouped = Object.fromEntries(Object.entries($scope.devicesGrouped).sort(blankSort));
+            $scope.foldersGrouped = sortByKeyThenProperty($scope.foldersGrouped, "label");
+            $scope.devicesGrouped = sortByKeyThenProperty($scope.devicesGrouped, "name");
 
             refreshNoAuthWarning();
             setDefaultTheme();
@@ -609,6 +602,21 @@ angular.module('syncthing.core')
             if (!hasConfig) {
                 $scope.$emit('ConfigLoaded');
             }
+        }
+
+        // Sort firstly by the top level key of the object and then by 
+        // prop name provided for the array of objects for each key
+        function sortByKeyThenProperty(obj, prop) {
+              const sorted = {};
+              Object.keys(obj)
+                .sort()
+                .forEach((key) => {
+                  sorted[key] = obj[key].sort((a, b) =>
+                    a[prop].localeCompare(b[prop])
+                  );
+                });
+
+              return sorted;
         }
 
         function refreshSystem() {
