@@ -1664,6 +1664,14 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 
 	// Record the updated file in the index
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleFile}
+
+	if f.ConflictHandlingCommand != "" && isConflict(file.Name) {
+		deconflictifiedName := deconflictifyName(file.Name)
+		if _, err := f.mtimefs.Lstat(deconflictifiedName); !fs.IsNotExist(err) {
+			f.performExternalConflictHandling(file.Name, deconflictifiedName, scanChan)
+		}
+	}
+
 	return nil
 }
 
@@ -1861,6 +1869,49 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 		scanChan <- newName
 	}
 	return err
+}
+
+func (f *sendReceiveFolder) performExternalConflictHandling(conflictName, fileName string, scanChan chan<- string) ([]byte, error) {
+	keywords := map[string]string{
+		"%FOLDER_PATH%":   f.mtimefs.URI(),
+		"%CONFLICT_PATH%": conflictName,
+		"%FILE_PATH%":     fileName,
+	}
+
+	cmd, err := cmdutil.FormattedCommand(f.ConflictHandlingCommand, keywords)
+	if err != nil {
+		return nil, err
+	}
+
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		slog.Info("External conflict handling command succeeded", f.LogAttr(), slogutil.FilePath(fileName), slog.String("conflictpath", conflictName), slog.String("output", string(output)))
+	} else {
+		slog.Error("External conflict handling command failed", f.LogAttr(), slogutil.FilePath(fileName), slog.String("conflictpath", conflictName), slogutil.Error(err), slog.String("output", string(output)))
+	}
+
+	scanChan <- fileName
+	scanChan <- conflictName
+
+	return output, err
+}
+
+func (f *sendReceiveFolder) handleConflict(conflictName, fileName, lastModBy string, scanChan chan<- string) error {
+	moveForConflictInWritableDir := func(name string) error {
+		return f.moveForConflict(name, lastModBy, scanChan)
+	}
+
+	if f.ConflictHandlingCommand == "" {
+		return f.inWritableDir(moveForConflictInWritableDir, conflictName)
+	}
+
+	f.performExternalConflictHandling(conflictName, fileName, scanChan)
+
+	if _, err := f.mtimefs.Lstat(conflictName); !fs.IsNotExist(err) {
+		return f.inWritableDir(moveForConflictInWritableDir, conflictName)
+	}
+
+	return nil
 }
 
 func (f *sendReceiveFolder) newPullError(path string, err error) {
@@ -2169,52 +2220,6 @@ func (f *sendReceiveFolder) withLimiter(ctx context.Context, fn func() error) er
 	return fn()
 }
 
-func (f *sendReceiveFolder) mergeConflict(conflictName, fileName string) ([]byte, error) {
-	keywords := map[string]string{
-		"%FOLDER_PATH%":   f.mtimefs.URI(),
-		"%CONFLICT_PATH%": conflictName,
-		"%FILE_PATH%":     fileName,
-	}
-
-	cmd, err := cmdutil.FormattedCommand(f.ExternalMergeCommand, keywords)
-	if err != nil {
-		return nil, err
-	}
-
-	output, err := cmd.CombinedOutput()
-
-	return output, err
-}
-
-func (f *sendReceiveFolder) handleConflict(conflictName, fileName, lastModBy string, scanChan chan<- string) error {
-	moveForConflictInWritableDir := func(name string) error {
-		return f.moveForConflict(name, lastModBy, scanChan)
-	}
-
-	if f.ExternalMergeCommand != "" {
-		output, err := f.mergeConflict(conflictName, fileName)
-		if err != nil {
-			slog.Error("External merge command failed", f.LogAttr(), slogutil.FilePath(fileName), slog.String("conflictpath", conflictName), slogutil.Error(err), slog.String("output", string(output)))
-
-			if f.ExternalMergeDeleteConflictOnFail {
-				return f.inWritableDir(f.mtimefs.Remove, conflictName)
-			} else {
-				return f.inWritableDir(moveForConflictInWritableDir, conflictName)
-			}
-		}
-
-		slog.Info("External merge command succeeded", f.LogAttr(), slogutil.FilePath(fileName), slog.String("conflictpath", conflictName), slog.String("output", string(output)))
-
-		if f.ExternalMergeDeleteConflictOnSuccess {
-			return f.inWritableDir(f.mtimefs.Remove, conflictName)
-		} else {
-			return f.inWritableDir(moveForConflictInWritableDir, conflictName)
-		}
-	} else {
-		return f.inWritableDir(moveForConflictInWritableDir, conflictName)
-	}
-}
-
 // A []FileError is sent as part of an event and will be JSON serialized.
 type FileError struct {
 	Path string `json:"path"`
@@ -2224,6 +2229,13 @@ type FileError struct {
 func conflictName(name, lastModBy string) string {
 	ext := filepath.Ext(name)
 	return name[:len(name)-len(ext)] + time.Now().Format(".sync-conflict-20060102-150405-") + lastModBy + ext
+}
+
+func deconflictifyName(name string) string {
+	deconflictifiedName, _, _ := strings.Cut(name, ".sync-conflict-")
+	deconflictifiedName += filepath.Ext(name)
+
+	return deconflictifiedName
 }
 
 func isConflict(name string) bool {

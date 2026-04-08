@@ -33,7 +33,8 @@ func TestFormattedCommandSuccessRealKeywords(t *testing.T) {
 }
 
 func TestFormattedCommandSuccessNilKeywords(t *testing.T) {
-	cmd, err := FormattedCommand("echo this command should be executed verbatim", nil)
+	const testText = "this command should be executed verbatim"
+	cmd, err := FormattedCommand("echo "+testText, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,8 +44,7 @@ func TestFormattedCommandSuccessNilKeywords(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	const expectedOutput = "this command should be executed verbatim\n"
-
+	const expectedOutput = testText + "\n"
 	if string(output) != expectedOutput {
 		t.Errorf("expected %s as command output, got %s", expectedOutput, string(output))
 	}
