@@ -1871,7 +1871,7 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 	return err
 }
 
-func (f *sendReceiveFolder) performExternalConflictHandling(conflictName, fileName string, scanChan chan<- string) ([]byte, error) {
+func (f *sendReceiveFolder) performExternalConflictHandling(conflictName, fileName string, scanChan chan<- string) {
 	keywords := map[string]string{
 		"%FOLDER_PATH%":   f.mtimefs.URI(),
 		"%CONFLICT_PATH%": conflictName,
@@ -1880,7 +1880,7 @@ func (f *sendReceiveFolder) performExternalConflictHandling(conflictName, fileNa
 
 	cmd, err := cmdutil.FormattedCommand(f.ConflictHandlingCommand, keywords)
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	output, err := cmd.CombinedOutput()
@@ -1892,8 +1892,6 @@ func (f *sendReceiveFolder) performExternalConflictHandling(conflictName, fileNa
 
 	scanChan <- fileName
 	scanChan <- conflictName
-
-	return output, err
 }
 
 func (f *sendReceiveFolder) handleConflict(conflictName, fileName, lastModBy string, scanChan chan<- string) error {
