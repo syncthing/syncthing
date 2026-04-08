@@ -570,14 +570,23 @@ angular.module('syncthing.core')
 
             };
 
-            $scope.devicesGrouped = {};
-            const otherDevices = $scope.otherDevices();
-            for (var id in otherDevices) {
-                if ($scope.devicesGrouped[otherDevices[id].group] === undefined) {
-                    $scope.devicesGrouped[otherDevices[id].group] = []; 
+            // myID is watched as $scope.otherDevices() relies on this
+            // and it can potenitally not be loaded due to this function 
+            // scope being called in an undetermistic manner
+            $scope.$watch('myID', function(myID) {
+                if (myID) {
+                    $scope.devicesGrouped = {};
+                    const otherDevices = $scope.otherDevices();
+                    for (var id in otherDevices) {
+                        if ($scope.devicesGrouped[otherDevices[id].group] === undefined) {
+                            $scope.devicesGrouped[otherDevices[id].group] = []; 
+                        }
+                        $scope.devicesGrouped[otherDevices[id].group].push(otherDevices[id]);
+                    };
+
+                    $scope.devicesGrouped = sortByKeyThenProperty($scope.devicesGrouped, "name");
                 }
-                $scope.devicesGrouped[otherDevices[id].group].push(otherDevices[id]);
-            };
+            });
 
             $scope.folders = folderMap($scope.config.folders);
             $scope.foldersGrouped = {};
@@ -594,7 +603,6 @@ angular.module('syncthing.core')
             });
 
             $scope.foldersGrouped = sortByKeyThenProperty($scope.foldersGrouped, "label");
-            $scope.devicesGrouped = sortByKeyThenProperty($scope.devicesGrouped, "name");
 
             refreshNoAuthWarning();
             setDefaultTheme();
