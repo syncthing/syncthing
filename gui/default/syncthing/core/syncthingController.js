@@ -584,7 +584,7 @@ angular.module('syncthing.core')
                         $scope.devicesGrouped[otherDevices[id].group].push(otherDevices[id]);
                     };
 
-                    $scope.devicesGrouped = sortByKeyThenProperty($scope.devicesGrouped, "name");
+                    $scope.devicesGrouped = sortByKeyThenProperty($scope.devicesGrouped, "name", "deviceID");
                 }
             });
 
@@ -602,7 +602,7 @@ angular.module('syncthing.core')
                 $scope.foldersGrouped[$scope.folders[folder].group].push($scope.folders[folder]);
             });
 
-            $scope.foldersGrouped = sortByKeyThenProperty($scope.foldersGrouped, "label");
+            $scope.foldersGrouped = sortByKeyThenProperty($scope.foldersGrouped, "label", "id");
 
             refreshNoAuthWarning();
             setDefaultTheme();
@@ -613,15 +613,25 @@ angular.module('syncthing.core')
         }
 
         // Sort firstly by the top level key of the object and then by 
-        // prop name provided for the array of objects for each key
-        function sortByKeyThenProperty(obj, prop) {
+        // prop name provided for the array of objects for each key.
+        // If the prop returns has an empty value, then use the
+        // fallback prop provided.
+        function sortByKeyThenProperty(obj, prop, fallbackProp) {
               const sorted = {};
               Object.keys(obj)
                 .sort()
                 .forEach((key) => {
-                  sorted[key] = obj[key].sort((a, b) =>
-                    a[prop].localeCompare(b[prop])
-                  );
+                  sorted[key] = obj[key].sort((a, b) => {
+                    let aProp = prop;
+                    let bProp = prop;
+                    if (!a[aProp]) {
+                        aProp = fallbackProp;
+                    }
+                    if (!b[bProp]) {
+                        bProp = fallbackProp;
+                    }
+                    return a[aProp].localeCompare(b[bProp]);
+                  });
                 });
 
               return sorted;
