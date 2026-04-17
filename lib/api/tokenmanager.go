@@ -37,7 +37,6 @@ type tokenManager struct {
 }
 
 const (
-	noExpiryNano                  int64 = 0
 	defaultSessionCookieDurationS       = 7 * 24 * 60 * 60
 )
 
@@ -67,7 +66,7 @@ func (m *tokenManager) Check(token string) bool {
 
 	expires, ok := m.tokens.Tokens[token]
 	if ok {
-		if expires != noExpiryNano && expires < m.timeNow().UnixNano() {
+		if expires != 0 && expires < m.timeNow().UnixNano() {
 			// The token is expired.
 			m.saveLocked() // removes expired tokens
 			return false
@@ -75,8 +74,8 @@ func (m *tokenManager) Check(token string) bool {
 
 		if m.lifetime <= 0 {
 			// Never expiring; ensure stored expiry reflects that.
-			if expires != noExpiryNano {
-				m.tokens.Tokens[token] = noExpiryNano
+			if expires != 0 {
+				m.tokens.Tokens[token] = 0
 				m.saveLocked()
 			}
 		} else {
@@ -96,7 +95,7 @@ func (m *tokenManager) New() string {
 	defer m.mut.Unlock()
 
 	if m.lifetime <= 0 {
-		m.tokens.Tokens[token] = noExpiryNano
+		m.tokens.Tokens[token] = 0
 	} else {
 		m.tokens.Tokens[token] = m.timeNow().Add(m.lifetime).UnixNano()
 	}
@@ -118,7 +117,7 @@ func (m *tokenManager) saveLocked() {
 	// Remove expired tokens.
 	now := m.timeNow().UnixNano()
 	for token, expiry := range m.tokens.Tokens {
-		if expiry != noExpiryNano && expiry < now {
+		if expiry != 0 && expiry < now {
 			delete(m.tokens.Tokens, token)
 		}
 	}
