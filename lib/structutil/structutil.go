@@ -49,12 +49,19 @@ func SetDefaults(data any) {
 			case string:
 				f.SetString(v)
 
-			case int, uint32, int32, int64, uint64:
+			case int, int32, int64:
 				i, err := strconv.ParseInt(v, 10, 64)
 				if err != nil {
 					panic(err)
 				}
 				f.SetInt(i)
+
+			case uint, uint32, uint64:
+				i, err := strconv.ParseUint(v, 10, 64)
+				if err != nil {
+					panic(err)
+				}
+				f.SetUint(i)
 
 			case float64, float32:
 				i, err := strconv.ParseFloat(v, 64)
