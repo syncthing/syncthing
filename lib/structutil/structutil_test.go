@@ -55,6 +55,26 @@ func TestSetDefaults(t *testing.T) {
 	}
 }
 
+func TestSetDefaultsUnsignedInts(t *testing.T) {
+	x := &struct {
+		A uint   `default:"1"`
+		B uint32 `default:"2"`
+		C uint64 `default:"3"`
+	}{}
+
+	SetDefaults(x)
+
+	if x.A != 1 {
+		t.Errorf("uint failed: %d", x.A)
+	}
+	if x.B != 2 {
+		t.Errorf("uint32 failed: %d", x.B)
+	}
+	if x.C != 3 {
+		t.Errorf("uint64 failed: %d", x.C)
+	}
+}
+
 func TestFillNillSlices(t *testing.T) {
 	// Nil
 	x := &struct {
