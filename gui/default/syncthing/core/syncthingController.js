@@ -1753,13 +1753,20 @@ angular.module('syncthing.core')
 
         $scope.about = {
             paths: {},
+            apps: [],
             refreshPaths: function () {
                 $http.get(urlbase + '/system/paths').success(function (data) {
                     $scope.about.paths = data;
                 }).error($scope.emitHTTPError);
             },
+            refreshApps: function () {
+                $http.get(urlbase + '/system/bundled').success(function (data) {
+                    $scope.about.apps = data;
+                }).error($scope.emitHTTPError);
+            },
             show: function () {
                 $scope.about.refreshPaths();
+                $scope.about.refreshApps();
                 showModal('#about');
             },
         };
