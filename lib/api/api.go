@@ -280,7 +280,8 @@ func (s *service) Serve(ctx context.Context) error {
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/ping", s.restPing)                      // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/status", s.getSystemStatus)             // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/upgrade", s.getSystemUpgrade)           // -
-	restMux.HandlerFunc(http.MethodGet, "/rest/system/version", s.getSystemVersion)           // -
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/version", s.getSystemVersion)
+	restMux.HandlerFunc(http.MethodGet, "/rest/system/bundled", s.getSystemBundled)           // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/loglevels", s.getSystemDebug)           // -
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/log", s.getSystemLog)                   // [since]
 	restMux.HandlerFunc(http.MethodGet, "/rest/system/log.txt", s.getSystemLogTxt)            // [since]
