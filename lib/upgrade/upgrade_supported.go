@@ -101,6 +101,7 @@ func FetchLatestReleases(releasesURL, current string) []Release {
 		slog.Warn("Failed to fetch latest release information", slogutil.Error(err))
 		return nil
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode > 299 {
 		slog.Warn("Failed to fetch latest release information", slogutil.Error(resp.Status))
 		return nil
@@ -111,7 +112,6 @@ func FetchLatestReleases(releasesURL, current string) []Release {
 	if err != nil {
 		slog.Warn("Failed to decode latest release information", slogutil.Error(err))
 	}
-	resp.Body.Close()
 
 	return rels
 }
