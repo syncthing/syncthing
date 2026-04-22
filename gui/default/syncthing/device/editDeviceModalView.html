@@ -57,6 +57,16 @@
             <p translate ng-if="currentDevice.deviceID == myID" class="help-block">Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.</p>
             <p translate ng-if="currentDevice.deviceID != myID" class="help-block">Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.</p>
           </div>
+          <div class="form-group" ng-class="{'has-error': deviceEditor.deviceGroup.$invalid && deviceEditor.deviceGroup.$dirty && !editingDeviceDefaults()}">
+            <label for="deviceGroup"><span translate>Device Group</span></label>
+            <input name="deviceGroup" id="deviceGroup" class="form-control" type="text" ng-model="currentDevice.group" value="{{currentDevice.group}}" list="device-group-list"/>
+            <datalist id="device-group-list">
+              <option ng-repeat="(group, device) in devicesGrouped" value="{{group}}" />
+            </datalist>
+            <p class="help-block">
+              <span translate ng-if="deviceEditor.deviceGroup.$valid || deviceEditor.deviceGroup.$pristine">Optional group for the device. Can be different on each device.</span>
+            </p>
+          </div>
         </div>
         <div ng-if="!editingDeviceDefaults()" id="device-sharing" class="tab-pane">
           <div class="row">

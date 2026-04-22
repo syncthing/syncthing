@@ -11,6 +11,8 @@ angular.module('syncthing.core')
         var navigatingAway = false;
         var online = false;
         var restarting = false;
+        var restartExpectedFrom = 0;
+        var restartExpectedUntil = 0;
 
         function initController() {
             LocaleService.autoConfigLocale();
@@ -33,6 +35,34 @@ angular.module('syncthing.core')
             Events.start();
         }
 
+        function clearRestartExpectation() {
+            restartExpectedFrom = 0;
+            restartExpectedUntil = 0;
+        }
+
+        function setRestartExpectation(delayS) {
+            var delay = delayS > 0 ? delayS : 60;
+            var delayMs = delay * 1000;
+            var earlyMs = 5 * 1000;
+            var graceMs = 60 * 1000;
+            var now = Date.now();
+
+            restartExpectedFrom = now + Math.max(0, delayMs - earlyMs);
+            restartExpectedUntil = now + delayMs + graceMs;
+        }
+
+        function restartExpectedNow() {
+            if (!restartExpectedUntil) {
+                return false;
+            }
+            var now = Date.now();
+            if (now > restartExpectedUntil) {
+                clearRestartExpectation();
+                return false;
+            }
+            return now >= restartExpectedFrom;
+        }
+
         // public/scope definitions
 
         // window.metadata is set in /meta.js which requires authentication
@@ -51,12 +81,14 @@ angular.module('syncthing.core')
         $scope.model = {};
         $scope.myID = '';
         $scope.devices = {};
+        $scope.devicesGrouped = {};
         $scope.discoveryCache = {};
         $scope.protocolChanged = false;
         $scope.reportData = {};
         $scope.reportDataPreview = '';
         $scope.reportPreview = false;
         $scope.folders = {};
+        $scope.foldersGrouped = {};
         $scope.seenError = '';
         $scope.upgradeInfo = null;
         $scope.deviceStats = {};
@@ -204,6 +236,7 @@ angular.module('syncthing.core')
 
                 online = true;
                 restarting = false;
+                clearRestartExpectation();
                 hideModal('#networkError');
                 hideModal('#restarting');
                 hideModal('#shutdown');
@@ -218,8 +251,24 @@ angular.module('syncthing.core')
             console.log('UIOffline');
             online = false;
             if (!restarting) {
-                showModal('#networkError');
+                if (restartExpectedNow()) {
+                    restarting = true;
+                    showModal('#restarting');
+                } else {
+                    showModal('#networkError');
+                }
             }
+        });
+
+        $scope.$on(Events.UPGRADE_RESTART_SCHEDULED, function (_event, arg) {
+            var delayS = 0;
+            if (arg && arg.data && arg.data.delayS !== undefined) {
+                delayS = parseInt(arg.data.delayS, 10);
+                if (isNaN(delayS) || delayS < 0) {
+                    delayS = 0;
+                }
+            }
+            setRestartExpectation(delayS);
         });
 
         $scope.$on('HTTPError', function (event, arg) {
@@ -518,14 +567,42 @@ angular.module('syncthing.core')
                     _needBytes: 0,
                     _needItems: 0
                 };
+
             };
+
+            // myID is watched as $scope.otherDevices() relies on this
+            // and it can potenitally not be loaded due to this function 
+            // scope being called in an undetermistic manner
+            $scope.$watch('myID', function(myID) {
+                if (myID) {
+                    $scope.devicesGrouped = {};
+                    const otherDevices = $scope.otherDevices();
+                    for (var id in otherDevices) {
+                        if ($scope.devicesGrouped[otherDevices[id].group] === undefined) {
+                            $scope.devicesGrouped[otherDevices[id].group] = []; 
+                        }
+                        $scope.devicesGrouped[otherDevices[id].group].push(otherDevices[id]);
+                    };
+
+                    $scope.devicesGrouped = sortByKeyThenProperty($scope.devicesGrouped, "name", "deviceID");
+                }
+            });
+
             $scope.folders = folderMap($scope.config.folders);
+            $scope.foldersGrouped = {};
             Object.keys($scope.folders).forEach(function (folder) {
                 refreshFolder(folder);
                 $scope.folders[folder].devices.forEach(function (deviceCfg) {
                     refreshCompletion(deviceCfg.deviceID, folder);
                 });
+                
+                if ($scope.foldersGrouped[$scope.folders[folder].group] === undefined) {
+                    $scope.foldersGrouped[$scope.folders[folder].group] = [];
+                }
+                $scope.foldersGrouped[$scope.folders[folder].group].push($scope.folders[folder]);
             });
+
+            $scope.foldersGrouped = sortByKeyThenProperty($scope.foldersGrouped, "label", "id");
 
             refreshNoAuthWarning();
             setDefaultTheme();
@@ -533,6 +610,31 @@ angular.module('syncthing.core')
             if (!hasConfig) {
                 $scope.$emit('ConfigLoaded');
             }
+        }
+
+        // Sort firstly by the top level key of the object and then by 
+        // prop name provided for the array of objects for each key.
+        // If the prop returns has an empty value, then use the
+        // fallback prop provided.
+        function sortByKeyThenProperty(obj, prop, fallbackProp) {
+              const sorted = {};
+              Object.keys(obj)
+                .sort()
+                .forEach((key) => {
+                  sorted[key] = obj[key].sort((a, b) => {
+                    let aProp = prop;
+                    let bProp = prop;
+                    if (!a[aProp]) {
+                        aProp = fallbackProp;
+                    }
+                    if (!b[bProp]) {
+                        bProp = fallbackProp;
+                    }
+                    return a[aProp].localeCompare(b[bProp]);
+                  });
+                });
+
+              return sorted;
         }
 
         function refreshSystem() {

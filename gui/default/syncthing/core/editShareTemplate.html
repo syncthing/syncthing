@@ -23,10 +23,10 @@
       <span ng-switch-default ng-switch="selected[id]">
         <span ng-switch-when='true' ng-switch="untrusted">
           <span ng-switch-when='true' ng-class="{'has-error': !encryptionPasswords[id]}">
-            <input class="form-control input-sm" type="{{plain ? 'text' : 'password'}}" ng-model="encryptionPasswords[id]" required placeholder="{{'Device is untrusted, enter encryption password' | translate}}" />
+            <input class="form-control input-sm" type="{{plain ? 'text' : 'password'}}" ng-model="encryptionPasswords[id]" autocomplete="off" required placeholder="{{'Device is untrusted, enter encryption password' | translate}}" />
           </span>
           <span ng-switch-default>
-            <input class="form-control input-sm" type="{{plain ? 'text' : 'password'}}" ng-model="encryptionPasswords[id]" placeholder="{{'If untrusted, enter encryption password' | translate}}" />
+            <input class="form-control input-sm" type="{{plain ? 'text' : 'password'}}" ng-model="encryptionPasswords[id]" autocomplete="off" placeholder="{{'If untrusted, enter encryption password' | translate}}" />
           </span>
         </span>
         <span ng-switch-default>

@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	maxDBConns         = 16
+	maxDBConns         = 6
 	minDeleteRetention = 24 * time.Hour
 )
 

@@ -7,6 +7,7 @@
 package model
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -39,8 +40,8 @@ func (f *receiveEncryptedFolder) Revert() {
 	f.doInSync(f.revert)
 }
 
-func (f *receiveEncryptedFolder) revert() error {
-	f.sl.Info("Reverting unexpected items")
+func (f *receiveEncryptedFolder) revert(ctx context.Context) error {
+	f.sl.InfoContext(ctx, "Reverting unexpected items")
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)
@@ -84,7 +85,7 @@ func (f *receiveEncryptedFolder) revert() error {
 		batch.Append(fi)
 	}
 
-	f.revertHandleDirs(dirs)
+	f.revertHandleDirs(ctx, dirs)
 
 	if err := batch.Flush(); err != nil {
 		return err
@@ -96,13 +97,13 @@ func (f *receiveEncryptedFolder) revert() error {
 	return nil
 }
 
-func (f *receiveEncryptedFolder) revertHandleDirs(dirs []string) {
+func (f *receiveEncryptedFolder) revertHandleDirs(ctx context.Context, dirs []string) {
 	if len(dirs) == 0 {
 		return
 	}
 
 	scanChan := make(chan string)
-	go f.pullScannerRoutine(scanChan)
+	go f.pullScannerRoutine(ctx, scanChan)
 	defer close(scanChan)
 
 	slices.SortFunc(dirs, func(a, b string) int {

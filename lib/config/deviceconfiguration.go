@@ -36,6 +36,7 @@ type DeviceConfiguration struct {
 	Untrusted                bool              `json:"untrusted" xml:"untrusted"`
 	RemoteGUIPort            int               `json:"remoteGUIPort" xml:"remoteGUIPort"`
 	RawNumConnections        int               `json:"numConnections" xml:"numConnections"`
+	Group                    string            `json:"group" xml:"group,attr,omitempty"`
 }
 
 func (cfg DeviceConfiguration) Copy() DeviceConfiguration {

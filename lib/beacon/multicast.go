@@ -13,6 +13,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/netutil"
 
 	"golang.org/x/net/ipv6"
@@ -74,6 +75,11 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 				continue
 			}
 
+			if build.IsAndroid && intf.Flags&net.FlagPointToPoint != 0 {
+				// skip  cellular interfaces
+				continue
+			}
+
 			wcm.IfIndex = intf.Index
 			pconn.SetWriteDeadline(time.Now().Add(time.Second))
 			_, err = pconn.WriteTo(bs, wcm, gaddr)
@@ -129,6 +135,15 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 	pconn := ipv6.NewPacketConn(conn)
 	joined := 0
 	for _, intf := range intfs {
+		if intf.Flags&net.FlagRunning == 0 || intf.Flags&net.FlagMulticast == 0 {
+			continue
+		}
+
+		if build.IsAndroid && intf.Flags&net.FlagPointToPoint != 0 {
+			// skip  cellular interfaces
+			continue
+		}
+
 		err := pconn.JoinGroup(&intf, &net.UDPAddr{IP: gaddr.IP})
 		if err != nil {
 			l.Debugln("IPv6 join", intf.Name, "failed:", err)

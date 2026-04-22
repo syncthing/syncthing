@@ -102,14 +102,10 @@ func (t *quicListener) serve(ctx context.Context) error {
 	}
 	defer udpConn.Close()
 
-	tracer := &writeTrackingTracer{}
-	quicTransport := &quic.Transport{
-		Conn:   udpConn,
-		Tracer: tracer.loggingTracer(),
-	}
+	quicTransport := &quic.Transport{Conn: udpConn}
 	defer quicTransport.Close()
 
-	svc := stun.New(t.cfg, t, &transportPacketConn{tran: quicTransport}, tracer)
+	svc := stun.New(t.cfg, t, &transportPacketConn{tran: quicTransport})
 	stunCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go svc.Serve(stunCtx)

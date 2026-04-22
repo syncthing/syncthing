@@ -407,8 +407,8 @@ func TestRecvOnlyRemoteUndoChanges(t *testing.T) {
 	must(t, m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: "ro", Files: files}))
 
 	// Ensure the pull to resolve conflicts (content identical) happened
-	must(t, f.doInSync(func() error {
-		f.pull()
+	must(t, f.doInSync(func(ctx context.Context) error {
+		f.pull(ctx)
 		return nil
 	}))
 
@@ -456,7 +456,7 @@ func TestRecvOnlyRevertOwnID(t *testing.T) {
 	// Monitor the outcome
 	sub := f.evLogger.Subscribe(events.LocalIndexUpdated)
 	defer sub.Unsubscribe()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	go func() {
 		defer cancel()
@@ -567,7 +567,7 @@ func setupKnownFiles(t *testing.T, ffs fs.Filesystem, data []byte) []protocol.Fi
 	if err != nil {
 		t.Fatal(err)
 	}
-	blocks, _ := scanner.Blocks(context.TODO(), bytes.NewReader(data), protocol.BlockSize(int64(len(data))), int64(len(data)), nil)
+	blocks, _ := scanner.Blocks(t.Context(), bytes.NewReader(data), protocol.BlockSize(int64(len(data))), int64(len(data)), nil)
 	knownFiles := []protocol.FileInfo{
 		{
 			Name:        "knownDir",

@@ -22,6 +22,6 @@ jobs:
     name: Set labels
     runs-on: ubuntu-latest
     steps:
-    - uses: srvaroa/labeler@v1
+    - uses: srvaroa/labeler@9c29ad1ef33d169f9ef33c52722faf47a566bcf3 # v1
       env:
         GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

@@ -11,7 +11,9 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -110,24 +112,18 @@ func TestCloseOnBlockingSend(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		c.ClusterConfig(&ClusterConfig{}, nil)
-		wg.Done()
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		c.Close(errManual)
-		wg.Done()
-	}()
+	})
 
 	// This simulates an error from ping timeout
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		c.internalClose(ErrTimeout)
-		wg.Done()
-	}()
+	})
 
 	done := make(chan struct{})
 	go func() {
@@ -544,6 +540,84 @@ func TestDispatcherToCloseDeadlock(t *testing.T) {
 	case <-c.dispatcherLoopStopped:
 	case <-time.After(time.Second):
 		t.Fatal("timed out before dispatcher loop terminated")
+	}
+}
+
+func TestRequestMaxSize(t *testing.T) {
+	invalidSize := []int{-65536, 0, MaxRequestSize + 1}
+	for _, s := range invalidSize {
+		t.Run(fmt.Sprintf("invalid/%d", s), func(t *testing.T) {
+			m := newTestModel()
+			rw := testutil.NewBlockingRW()
+			c := getRawConnection(NewConnection(c0ID, rw, &testutil.NoopRW{}, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, testKeyGen))
+			c.Start()
+			defer closeAndWait(c, rw)
+
+			c.inbox <- &bep.ClusterConfig{}
+
+			// A request at exactly MaxRequestSize should be accepted.
+			c.inbox <- &bep.Request{
+				Id:   1,
+				Name: "valid",
+				Size: MaxRequestSize,
+			}
+
+			res := <-c.outbox
+			if msg, ok := res.msg.(*bep.Response); !ok || msg.Id != 1 {
+				t.Errorf("bad response %#v", msg)
+			}
+
+			// A request with an invalid size should cause the dispatcher to
+			// return with a protocol error.
+			c.inbox <- &bep.Request{
+				Id:   2,
+				Name: "invalid",
+				Size: int32(s),
+			}
+
+			select {
+			case <-c.dispatcherLoopStopped:
+			case <-time.After(time.Second):
+				t.Fatal("timed out before dispatcher loop terminated")
+			}
+
+			err := m.closedError()
+			if err == nil {
+				t.Fatal("expected connection to be closed with an error")
+			}
+			if !strings.Contains(err.Error(), "protocol error") {
+				t.Errorf("expected a protocol error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestRequestInvalidFilename(t *testing.T) {
+	m := newTestModel()
+	rw := testutil.NewBlockingRW()
+	c := getRawConnection(NewConnection(c0ID, rw, &testutil.NoopRW{}, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, testKeyGen))
+	c.Start()
+	defer closeAndWait(c, rw)
+
+	c.inbox <- &bep.ClusterConfig{}
+	c.inbox <- &bep.Request{
+		Id:   1,
+		Name: "../escape",
+		Size: 1024,
+	}
+
+	select {
+	case <-c.dispatcherLoopStopped:
+	case <-time.After(time.Second):
+		t.Fatal("timed out before dispatcher loop terminated")
+	}
+
+	err := m.closedError()
+	if err == nil {
+		t.Fatal("expected connection to be closed with an error")
+	}
+	if !strings.Contains(err.Error(), "protocol error") {
+		t.Errorf("expected a protocol error, got %v", err)
 	}
 }
 

@@ -30,8 +30,7 @@ func TestRequestSimple(t *testing.T) {
 	// Verify that the model performs a request and creates a file based on
 	// an incoming index update.
 
-	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -78,8 +77,7 @@ func TestSymlinkTraversalRead(t *testing.T) {
 		return
 	}
 
-	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, fc, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -121,8 +119,7 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 		return
 	}
 
-	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, fc, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -180,8 +177,7 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 func TestRequestCreateTmpSymlink(t *testing.T) {
 	// Test that an update for a temporary file is invalidated
 
-	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, fc, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -356,8 +352,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 }
 
 func TestIssue4841(t *testing.T) {
-	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, fc, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	received := make(chan []protocol.FileInfo)
@@ -405,8 +400,7 @@ func TestIssue4841(t *testing.T) {
 }
 
 func TestRescanIfHaveInvalidContent(t *testing.T) {
-	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -467,8 +461,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 func TestParentDeletion(t *testing.T) {
 	t.Skip("flaky")
 
-	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, fc, fcfg := setupModelWithConnection(t)
 	testFs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, testFs.URI())
 
@@ -546,8 +539,7 @@ func TestRequestSymlinkWindows(t *testing.T) {
 		t.Skip("windows specific test")
 	}
 
-	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, fc, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
 
 	received := make(chan []protocol.FileInfo)
@@ -623,8 +615,7 @@ func equalContents(fs fs.Filesystem, path string, contents []byte) error {
 func TestRequestRemoteRenameChanged(t *testing.T) {
 	t.Skip("flaky")
 
-	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	defer cleanupModel(m)
 
@@ -756,8 +747,7 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 }
 
 func TestRequestRemoteRenameConflict(t *testing.T) {
-	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	defer cleanupModel(m)
 
@@ -846,8 +836,7 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 }
 
 func TestRequestDeleteChanged(t *testing.T) {
-	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -925,8 +914,7 @@ func TestRequestDeleteChanged(t *testing.T) {
 }
 
 func TestNeedFolderFiles(t *testing.T) {
-	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, fc, fcfg := setupModelWithConnection(t)
 	defer cleanupModel(m)
 
 	sub := m.evLogger.Subscribe(events.RemoteIndexUpdated)
@@ -970,8 +958,7 @@ func TestNeedFolderFiles(t *testing.T) {
 // propagated upon un-ignoring.
 // https://github.com/syncthing/syncthing/issues/6038
 func TestIgnoreDeleteUnignore(t *testing.T) {
-	w, fcfg, wCancel := newDefaultCfgWrapper()
-	defer wCancel()
+	w, fcfg := newDefaultCfgWrapper(t)
 	m := setupModel(t, w)
 	fss := fcfg.Filesystem()
 	defer cleanupModel(m)
@@ -1065,8 +1052,7 @@ func TestIgnoreDeleteUnignore(t *testing.T) {
 // TestRequestLastFileProgress checks that the last pulled file (here only) is registered
 // as in progress.
 func TestRequestLastFileProgress(t *testing.T) {
-	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -1100,8 +1086,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 	done := make(chan struct{})
 	defer close(done)
 
-	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, fc, fcfg := setupModelWithConnection(t)
 	tfs := fcfg.Filesystem()
 	defer cleanupModelAndRemoveDir(m, tfs.URI())
 
@@ -1213,8 +1198,7 @@ func TestRequestIndexSenderPause(t *testing.T) {
 }
 
 func TestRequestIndexSenderClusterConfigBeforeStart(t *testing.T) {
-	w, fcfg, wCancel := newDefaultCfgWrapper()
-	defer wCancel()
+	w, fcfg := newDefaultCfgWrapper(t)
 	tfs := fcfg.Filesystem()
 	dir1 := "foo"
 	dir2 := "bar"
@@ -1280,8 +1264,7 @@ func TestRequestReceiveEncrypted(t *testing.T) {
 		t.Skip("skipping on short testing - scrypt is too slow")
 	}
 
-	w, fcfg, wCancel := newDefaultCfgWrapper()
-	defer wCancel()
+	w, fcfg := newDefaultCfgWrapper(t)
 	tfs := fcfg.Filesystem()
 	fcfg.Type = config.FolderTypeReceiveEncrypted
 	setFolder(t, w, fcfg)
@@ -1375,8 +1358,7 @@ func TestRequestGlobalInvalidToValid(t *testing.T) {
 	done := make(chan struct{})
 	defer close(done)
 
-	m, fc, fcfg, wcfgCancel := setupModelWithConnection(t)
-	defer wcfgCancel()
+	m, fc, fcfg := setupModelWithConnection(t)
 	fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{DeviceID: device2})
 	waiter, err := m.cfg.Modify(func(cfg *config.Configuration) {
 		cfg.SetDevice(newDeviceConfiguration(cfg.Defaults.Device, device2, "device2"))

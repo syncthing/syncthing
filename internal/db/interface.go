@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package db // import "github.com/syncthing/syncthing/internal/db/sqlite"
+package db
 
 import (
 	"iter"
@@ -15,8 +15,22 @@ import (
 	"github.com/thejerf/suture/v4"
 )
 
+type DBService interface {
+	suture.Service
+
+	// Starts maintenance asynchronously, if not already running
+	// Returns a channel that will receive the result when the requested maintenance finishes
+	StartMaintenance() <-chan error
+
+	// Returns the last time database maintenance completed
+	// This will return time zero when database maintenance has never completed successfully.
+	LastMaintenanceTime() time.Time
+}
+
 type DB interface {
-	Service(maintenanceInterval time.Duration) suture.Service
+	// Create a service that performs database maintenance periodically (no
+	// more often than the requested interval)
+	Service(maintenanceInterval time.Duration) DBService
 
 	// Basics
 	Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error
