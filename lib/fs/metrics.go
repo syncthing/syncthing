@@ -8,6 +8,7 @@ package fs
 
 import (
 	"context"
+	"io/fs"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -134,6 +135,11 @@ func (m *metricsFS) CreateSymlink(target, name string) error {
 func (m *metricsFS) DirNames(name string) ([]string, error) {
 	defer m.account(metricOpDirNames)(-1)
 	return m.next.DirNames(name)
+}
+
+func (m *metricsFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	defer m.account(metricOpDirNames)(-1) // Use same metric as DirNames
+	return m.next.ReadDir(name)
 }
 
 func (m *metricsFS) Lstat(name string) (FileInfo, error) {

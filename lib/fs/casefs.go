@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"sync"
 	"time"
@@ -271,6 +272,13 @@ func (f *caseFilesystem) DirNames(name string) ([]string, error) {
 		return nil, err
 	}
 	return f.Filesystem.DirNames(name)
+}
+
+func (f *caseFilesystem) ReadDir(name string) ([]fs.DirEntry, error) {
+	if err := f.checkCase(name); err != nil {
+		return nil, err
+	}
+	return f.Filesystem.ReadDir(name)
 }
 
 func (f *caseFilesystem) Open(name string) (File, error) {

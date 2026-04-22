@@ -9,6 +9,7 @@ package fs
 import (
 	"context"
 	"fmt"
+	stdfs "io/fs"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -65,6 +66,12 @@ func (fs *logFilesystem) DirNames(name string) ([]string, error) {
 	names, err := fs.Filesystem.DirNames(name)
 	l.Debugln(fs.getCaller(), fs.Type(), fs.URI(), "DirNames", name, names, err)
 	return names, err
+}
+
+func (fs *logFilesystem) ReadDir(name string) ([]stdfs.DirEntry, error) {
+	entries, err := fs.Filesystem.ReadDir(name)
+	l.Debugln(fs.getCaller(), fs.Type(), fs.URI(), "ReadDir", name, len(entries), err)
+	return entries, err
 }
 
 func (fs *logFilesystem) Lstat(name string) (FileInfo, error) {

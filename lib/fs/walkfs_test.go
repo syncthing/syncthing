@@ -132,3 +132,122 @@ func testWalkInfiniteRecursion(t *testing.T, fsType FilesystemType, uri string) 
 		t.Fatal("Infinite recursion not detected correctly")
 	}
 }
+
+// TestWalkLexOrder verifies that the walk produces lexicographic order
+// matching DB ORDER BY name exactly.
+func TestWalkLexOrder(t *testing.T) {
+	fs := NewFilesystem(FilesystemTypeFake, "TestWalkLexOrder")
+
+	if err := fs.MkdirAll("a", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := fs.Mkdir("b", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"a.txt", "a/z.txt", "b.txt", "b/y.txt"} {
+		dir := filepath.Dir(name)
+		if dir != "." {
+			fs.MkdirAll(dir, 0o755)
+		}
+		f, err := fs.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.Close()
+	}
+
+	var visited []string
+	err := fs.Walk(".", func(path string, info FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if path != "." {
+			visited = append(visited, path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Expected order matches: SELECT name FROM files ORDER BY name
+	expected := []string{".stfolder", "a", "a.txt", "a/z.txt", "b", "b.txt", "b/y.txt"}
+
+	if len(visited) != len(expected) {
+		t.Fatalf("Wrong number of entries: got %v, expected %v", visited, expected)
+	}
+	for i, path := range visited {
+		if path != expected[i] {
+			t.Fatalf("Wrong order at index %d: got %q, expected %q.\nFull order: %v", i, path, expected[i], visited)
+		}
+	}
+}
+
+// TestWalkLexOrderImsodinExample tests the exact example from imsodin's review
+// that exposed the ordering bug. This ensures walk order matches DB ORDER BY name
+// for complex directory structures with similar prefixes.
+//
+// Files: a.txt, a_a, a/aaa, a/bbb, a.d/aaa, a_a/aaa, b/aaa
+// DB ORDER BY name: a, a.d, a.d/aaa, a.txt, a/aaa, a/bbb, a_a, a_a/aaa, b, b/aaa
+func TestWalkLexOrderImsodinExample(t *testing.T) {
+	fs := NewFilesystem(FilesystemTypeFake, "TestWalkImsodin")
+
+	// Create imsodin's example structure
+	dirs := []string{"a", "a.d", "a_a", "b"}
+	for _, d := range dirs {
+		if err := fs.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	files := []string{"a.txt", "a/aaa", "a/bbb", "a.d/aaa", "a_a/aaa", "b/aaa"}
+	for _, name := range files {
+		f, err := fs.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.Close()
+	}
+
+	var visited []string
+	err := fs.Walk(".", func(path string, info FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if path != "." {
+			visited = append(visited, path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Expected order matches: SELECT name FROM files ORDER BY name
+	// Verified with SQLite:
+	//   CREATE TABLE files (name TEXT);
+	//   INSERT INTO files VALUES ('a'),('a.d'),('a.d/aaa'),('a.txt'),('a/aaa'),('a/bbb'),('a_a'),('a_a/aaa'),('b'),('b/aaa');
+	//   SELECT name FROM files ORDER BY name;
+	expected := []string{
+		".stfolder", // auto-created by fake fs
+		"a",
+		"a.d",
+		"a.d/aaa",
+		"a.txt",
+		"a/aaa",
+		"a/bbb",
+		"a_a",
+		"a_a/aaa",
+		"b",
+		"b/aaa",
+	}
+
+	if len(visited) != len(expected) {
+		t.Fatalf("Wrong count: got %d, expected %d\ngot:      %v\nexpected: %v", len(visited), len(expected), visited, expected)
+	}
+	for i, path := range visited {
+		if path != expected[i] {
+			t.Fatalf("Wrong order at index %d: got %q, expected %q.\nFull order: %v", i, path, expected[i], visited)
+		}
+	}
+}
