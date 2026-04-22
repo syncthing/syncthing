@@ -556,14 +556,14 @@ type scanBatch struct {
 	f           *folder
 	updateBatch *FileInfoBatch
 	toRemove    []string
-	renamed     map[string]struct{}
+	deleted     map[string]struct{}
 }
 
 func (f *folder) newScanBatch() *scanBatch {
 	b := &scanBatch{
 		f:        f,
 		toRemove: make([]string, 0, maxToRemove),
-		renamed:  make(map[string]struct{}),
+		deleted:  make(map[string]struct{}),
 	}
 	b.updateBatch = NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		if err := b.f.getHealthErrorWithoutIgnores(); err != nil {
@@ -571,7 +571,7 @@ func (f *folder) newScanBatch() *scanBatch {
 			return err
 		}
 		b.f.updateLocalsFromScanning(fs)
-		clear(b.renamed)
+		clear(b.deleted)
 		return nil
 	})
 	return b
@@ -607,12 +607,12 @@ func (b *scanBatch) FlushIfFull() error {
 	return b.updateBatch.FlushIfFull()
 }
 
-func (b *scanBatch) recordRename(name string) {
-	b.renamed[name] = struct{}{}
+func (b *scanBatch) markDeleted(name string) {
+	b.deleted[name] = struct{}{}
 }
 
-func (b *scanBatch) hasRenamed(name string) bool {
-	_, ok := b.renamed[name]
+func (b *scanBatch) hasDeleted(name string) bool {
+	_, ok := b.deleted[name]
 	return ok
 }
 
@@ -721,7 +721,7 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 					return 0, err
 				} else if ok {
 					changes++
-					batch.recordRename(nf.Name)
+					batch.markDeleted(nf.Name)
 				}
 			}
 		}
@@ -914,7 +914,7 @@ loop:
 			continue
 		}
 
-		if batch.hasRenamed(fi.Name) {
+		if batch.hasDeleted(fi.Name) {
 			continue
 		}
 
