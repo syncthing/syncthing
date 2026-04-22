@@ -126,6 +126,7 @@ func TestDefaultValues(t *testing.T) {
 					MaxSingleEntrySize: 1024,
 					MaxTotalSize:       4096,
 				},
+				BlockIndexing: true,
 			},
 			Device: DeviceConfiguration{
 				Addresses:       []string{"dynamic"},
