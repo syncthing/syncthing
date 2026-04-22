@@ -58,6 +58,8 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 			slog.Debug("Timeout trying to get external address, assume no NAT-PMP available")
 			return nil
 		}
+		l.Debugln("Failed to get external address, assume no NAT-PMP available", err)
+		return nil
 	}
 
 	var localIP net.IP
