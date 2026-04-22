@@ -27,6 +27,7 @@ import (
 
 	"github.com/syncthing/syncthing/cmd/infra/strelaypoolsrv/auto"
 	"github.com/syncthing/syncthing/lib/assets"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/geoip"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -145,6 +146,8 @@ func main() {
 	flag.IntVar(&maxRelaysReturned, "max-relays-returned", maxRelaysReturned, "Maximum number of relays returned for a normal endpoint query")
 
 	flag.Parse()
+
+	log.Println(build.LongVersionFor("strelaypoolsrv"))
 
 	requests = make(chan request, requestQueueLen)
 	geoip, err := geoip.NewGeoLite2CityProvider(context.Background(), geoipAccountID, geoipLicenseKey, os.TempDir())
