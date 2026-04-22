@@ -501,10 +501,11 @@
                             <span ng-if="folder.type == 'receiveencrypted'" translate>Receive Encrypted</span>
                           </td>
                         </tr>
-                        <tr ng-if="folder.blockIndexing">
+                        <tr>
                           <th><span class="far fa-fw fa-book"></span>&nbsp;<span translate>Block Indexing</span></th>
                           <td class="text-right">
-                            <span translate>Yes</span>
+                            <span ng-if="folder.blockIndexing" translate>Yes</span>
+                            <span ng-if="!folder.blockIndexing" translate>No</span>
                           </td>
                         </tr>
                         <tr ng-if="folder.ignorePerms">
