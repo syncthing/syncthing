@@ -51,15 +51,7 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 		_, ierr := c.GetExternalAddress()
 		return ierr
 	})
-	switch {
-	case err == nil:
-		break
-	case errors.Is(err, context.Canceled):
-		return nil
-	case strings.Contains(err.Error(), "Timed out"):
-		slog.DebugContext(ctx, "Timeout trying to get external address, assume no NAT-PMP available")
-		return nil
-	default:
+	if err != nil {
 		slog.DebugContext(ctx, "Failed to get external address", slogutil.Error(err))
 		return nil
 	}
