@@ -204,6 +204,7 @@ func TestDeviceConfig(t *testing.T) {
 					MaxTotalSize:       4096,
 					Entries:            []XattrFilterEntry{},
 				},
+				BlockIndexing: true,
 			},
 		}
 
