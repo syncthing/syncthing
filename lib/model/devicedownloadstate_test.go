@@ -66,7 +66,7 @@ func TestDeviceDownloadState(t *testing.T) {
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f1v1p2, f1v2p2},
 		},
 		{ // 7
-			// v2 replacees v1, v2 gets deleted, and v2 part 2 gets added.
+			// v2 replaces v1, v2 gets deleted, and v2 part 2 gets added.
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f1v1p2, f1v2p1, f1v2del, f1v2p2},
 			[]protocol.FileDownloadProgressUpdate{f1v2p2},
 			[]protocol.FileDownloadProgressUpdate{f1v1p1, f1v1p2, f1v2p1},

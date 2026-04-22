@@ -9,7 +9,7 @@ package stats
 import (
 	"time"
 
-	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/internal/db"
 )
 
 type FolderStatistics struct {
@@ -18,8 +18,7 @@ type FolderStatistics struct {
 }
 
 type FolderStatisticsReference struct {
-	ns     *db.NamespacedKV
-	folder string
+	kv *db.Typed
 }
 
 type LastFile struct {
@@ -28,27 +27,26 @@ type LastFile struct {
 	Deleted  bool      `json:"deleted"`
 }
 
-func NewFolderStatisticsReference(ldb *db.Lowlevel, folder string) *FolderStatisticsReference {
+func NewFolderStatisticsReference(kv *db.Typed) *FolderStatisticsReference {
 	return &FolderStatisticsReference{
-		ns:     db.NewFolderStatisticsNamespace(ldb, folder),
-		folder: folder,
+		kv: kv,
 	}
 }
 
 func (s *FolderStatisticsReference) GetLastFile() (LastFile, error) {
-	at, ok, err := s.ns.Time("lastFileAt")
+	at, ok, err := s.kv.Time("lastFileAt")
 	if err != nil {
 		return LastFile{}, err
 	} else if !ok {
 		return LastFile{}, nil
 	}
-	file, ok, err := s.ns.String("lastFileName")
+	file, ok, err := s.kv.String("lastFileName")
 	if err != nil {
 		return LastFile{}, err
 	} else if !ok {
 		return LastFile{}, nil
 	}
-	deleted, _, err := s.ns.Bool("lastFileDeleted")
+	deleted, _, err := s.kv.Bool("lastFileDeleted")
 	if err != nil {
 		return LastFile{}, err
 	}
@@ -60,25 +58,24 @@ func (s *FolderStatisticsReference) GetLastFile() (LastFile, error) {
 }
 
 func (s *FolderStatisticsReference) ReceivedFile(file string, deleted bool) error {
-	l.Debugln("stats.FolderStatisticsReference.ReceivedFile:", s.folder, file)
-	if err := s.ns.PutTime("lastFileAt", time.Now().Truncate(time.Second)); err != nil {
+	if err := s.kv.PutTime("lastFileAt", time.Now().Truncate(time.Second)); err != nil {
 		return err
 	}
-	if err := s.ns.PutString("lastFileName", file); err != nil {
+	if err := s.kv.PutString("lastFileName", file); err != nil {
 		return err
 	}
-	if err := s.ns.PutBool("lastFileDeleted", deleted); err != nil {
+	if err := s.kv.PutBool("lastFileDeleted", deleted); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (s *FolderStatisticsReference) ScanCompleted() error {
-	return s.ns.PutTime("lastScan", time.Now().Truncate(time.Second))
+	return s.kv.PutTime("lastScan", time.Now().Truncate(time.Second))
 }
 
 func (s *FolderStatisticsReference) GetLastScanTime() (time.Time, error) {
-	lastScan, ok, err := s.ns.Time("lastScan")
+	lastScan, ok, err := s.kv.Time("lastScan")
 	if err != nil {
 		return time.Time{}, err
 	} else if !ok {

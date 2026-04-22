@@ -7,11 +7,13 @@
 package connections
 
 import (
+	"errors"
 	"net"
 	"net/url"
 	"strconv"
 	"strings"
 
+	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/osutil"
 )
 
@@ -19,7 +21,8 @@ func fixupPort(uri *url.URL, defaultPort int) *url.URL {
 	copyURI := *uri
 
 	host, port, err := net.SplitHostPort(uri.Host)
-	if e, ok := err.(*net.AddrError); ok && strings.Contains(e.Err, "missing port") {
+	e := &net.AddrError{}
+	if errors.As(err, &e) && strings.Contains(e.Err, "missing port") {
 		// addr is of the form "1.2.3.4" or "[fe80::1]"
 		host = uri.Host
 		if strings.HasPrefix(host, "[") && strings.HasSuffix(host, "]") {
@@ -129,4 +132,28 @@ func maybeReplacePort(uri *url.URL, laddr net.Addr) *url.URL {
 	uriCopy := *uri
 	uriCopy.Host = net.JoinHostPort(host, lportStr)
 	return &uriCopy
+}
+
+func portMappingURIs(mapping *nat.Mapping, listener_uri url.URL) []*url.URL {
+	var uris []*url.URL
+	if mapping != nil {
+		addrs := mapping.ExternalAddresses()
+		for _, addr := range addrs {
+			uri := listener_uri
+			// Does net.JoinHostPort internally
+			uri.Host = addr.String()
+			uris = append(uris, &uri)
+
+			// For every address with a specified IP, add one without an IP,
+			// just in case the specified IP is still internal (router behind DMZ).
+			if len(addr.IP) != 0 && !addr.IP.IsUnspecified() {
+				zeroUri := listener_uri
+				addr.IP = nil
+				zeroUri.Host = addr.String()
+				uris = append(uris, &zeroUri)
+			}
+		}
+	}
+
+	return uris
 }

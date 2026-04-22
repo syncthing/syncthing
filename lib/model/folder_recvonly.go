@@ -7,11 +7,14 @@
 package model
 
 import (
-	"sort"
+	"context"
+	"slices"
+	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/itererr"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -57,8 +60,8 @@ type receiveOnlyFolder struct {
 	*sendReceiveFolder
 }
 
-func newReceiveOnlyFolder(model *model, fset *db.FileSet, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
-	sr := newSendReceiveFolder(model, fset, ignores, cfg, ver, evLogger, ioLimiter).(*sendReceiveFolder)
+func newReceiveOnlyFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfiguration, ver versioner.Versioner, evLogger events.Logger, ioLimiter *semaphore.Semaphore) service {
+	sr := newSendReceiveFolder(model, ignores, cfg, ver, evLogger, ioLimiter).(*sendReceiveFolder)
 	sr.localFlags = protocol.FlagLocalReceiveOnly // gets propagated to the scanner, and set on locally changed files
 	return &receiveOnlyFolder{sr}
 }
@@ -67,14 +70,14 @@ func (f *receiveOnlyFolder) Revert() {
 	f.doInSync(f.revert)
 }
 
-func (f *receiveOnlyFolder) revert() error {
-	l.Infof("Reverting folder %v", f.Description())
+func (f *receiveOnlyFolder) revert(ctx context.Context) error {
+	f.sl.InfoContext(ctx, "Reverting folder")
 
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)
 
 	scanChan := make(chan string)
-	go f.pullScannerRoutine(scanChan)
+	go f.pullScannerRoutine(ctx, scanChan)
 	defer close(scanChan)
 
 	delQueue := &deleteQueue{
@@ -83,30 +86,31 @@ func (f *receiveOnlyFolder) revert() error {
 		scanChan: scanChan,
 	}
 
-	batch := db.NewFileInfoBatch(func(files []protocol.FileInfo) error {
+	batch := NewFileInfoBatch(func(files []protocol.FileInfo) error {
 		f.updateLocalsFromScanning(files)
 		return nil
 	})
-	snap, err := f.dbSnapshot()
-	if err != nil {
-		return err
-	}
-	defer snap.Release()
-	snap.WithHave(protocol.LocalDeviceID, func(fi protocol.FileInfo) bool {
+
+	for fi, err := range itererr.Zip(f.db.AllLocalFiles(f.folderID, protocol.LocalDeviceID)) {
+		if err != nil {
+			return err
+		}
 		if !fi.IsReceiveOnlyChanged() {
 			// We're only interested in files that have changed locally in
 			// receive only mode.
-			return true
+			continue
 		}
 
 		fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
 
-		switch gf, ok := snap.GetGlobal(fi.Name); {
+		switch gf, ok, err := f.db.GetGlobalFile(f.folderID, fi.Name); {
+		case err != nil:
+			return err
 		case !ok:
-			msg := "Unexpected global file that we have locally"
+			msg := "Unexpectedly missing global file that we have locally"
 			l.Debugf("%v revert: %v: %v", f, msg, fi.Name)
 			f.evLogger.Log(events.Failure, msg)
-			return true
+			continue
 		case gf.IsReceiveOnlyChanged():
 			// The global file is our own. A revert then means to delete it.
 			// We'll delete files directly, directories get queued and
@@ -115,13 +119,13 @@ func (f *receiveOnlyFolder) revert() error {
 				fi.Version = protocol.Vector{} // if this file ever resurfaces anywhere we want our delete to be strictly older
 				break
 			}
-			handled, err := delQueue.handle(fi, snap)
+			l.Debugf("Revert: deleting %s: %v\n", fi.Name, err)
+			handled, err := delQueue.handle(fi)
 			if err != nil {
-				l.Infof("Revert: deleting %s: %v\n", fi.Name, err)
-				return true // continue
+				continue
 			}
 			if !handled {
-				return true // continue
+				continue
 			}
 			fi.SetDeleted(f.shortID)
 			fi.Version = protocol.Vector{} // if this file ever resurfaces anywhere we want our delete to be strictly older
@@ -144,15 +148,15 @@ func (f *receiveOnlyFolder) revert() error {
 
 		batch.Append(fi)
 		_ = batch.FlushIfFull()
-
-		return true
-	})
-	_ = batch.Flush()
+	}
+	if err := batch.Flush(); err != nil {
+		return err
+	}
 
 	// Handle any queued directories
-	deleted, err := delQueue.flush(snap)
+	deleted, err := delQueue.flush()
 	if err != nil {
-		l.Infoln("Revert:", err)
+		f.sl.WarnContext(ctx, "Failed to revert directories", slogutil.Error(err))
 	}
 	now := time.Now()
 	for _, dir := range deleted {
@@ -179,15 +183,15 @@ func (f *receiveOnlyFolder) revert() error {
 // directories for last.
 type deleteQueue struct {
 	handler interface {
-		deleteItemOnDisk(item protocol.FileInfo, snap *db.Snapshot, scanChan chan<- string) error
-		deleteDirOnDisk(dir string, snap *db.Snapshot, scanChan chan<- string) error
+		deleteItemOnDisk(item protocol.FileInfo, scanChan chan<- string) error
+		deleteDirOnDisk(dir string, scanChan chan<- string) error
 	}
 	ignores  *ignore.Matcher
 	dirs     []string
 	scanChan chan<- string
 }
 
-func (q *deleteQueue) handle(fi protocol.FileInfo, snap *db.Snapshot) (bool, error) {
+func (q *deleteQueue) handle(fi protocol.FileInfo) (bool, error) {
 	// Things that are ignored but not marked deletable are not processed.
 	ign := q.ignores.Match(fi.Name)
 	if ign.IsIgnored() && !ign.IsDeletable() {
@@ -201,19 +205,21 @@ func (q *deleteQueue) handle(fi protocol.FileInfo, snap *db.Snapshot) (bool, err
 	}
 
 	// Kill it.
-	err := q.handler.deleteItemOnDisk(fi, snap, q.scanChan)
+	err := q.handler.deleteItemOnDisk(fi, q.scanChan)
 	return true, err
 }
 
-func (q *deleteQueue) flush(snap *db.Snapshot) ([]string, error) {
+func (q *deleteQueue) flush() ([]string, error) {
 	// Process directories from the leaves inward.
-	sort.Sort(sort.Reverse(sort.StringSlice(q.dirs)))
+	slices.SortFunc(q.dirs, func(a, b string) int {
+		return strings.Compare(b, a)
+	})
 
 	var firstError error
 	var deleted []string
 
 	for _, dir := range q.dirs {
-		if err := q.handler.deleteDirOnDisk(dir, snap, q.scanChan); err == nil {
+		if err := q.handler.deleteDirOnDisk(dir, q.scanChan); err == nil {
 			deleted = append(deleted, dir)
 		} else if firstError == nil {
 			firstError = err

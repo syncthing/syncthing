@@ -59,7 +59,7 @@ func (p *bufferPool) Get(size int) []byte {
 }
 
 // Put makes the given byte slice available again in the global pool.
-// You must only Put() slices that were returned by Get() or Upgrade().
+// You must only Put() slices that were returned by Get().
 func (p *bufferPool) Put(bs []byte) {
 	// Don't buffer slices outside of our pool range
 	if cap(bs) > MaxBlockSize || cap(bs) < MinBlockSize {
@@ -70,20 +70,6 @@ func (p *bufferPool) Put(bs []byte) {
 	p.puts.Add(1)
 	bkt := putBucketForCap(cap(bs))
 	p.pools[bkt].Put(&bs)
-}
-
-// Upgrade grows the buffer to the requested size, while attempting to reuse
-// it if possible.
-func (p *bufferPool) Upgrade(bs []byte, size int) []byte {
-	if cap(bs) >= size {
-		// Reslicing is enough, lets go!
-		return bs[:size]
-	}
-
-	// It was too small. But it pack into the pool and try to get another
-	// buffer.
-	p.Put(bs)
-	return p.Get(size)
 }
 
 // getBucketForLen returns the bucket where we should get a slice of a

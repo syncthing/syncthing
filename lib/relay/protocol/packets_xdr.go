@@ -31,7 +31,7 @@ struct header {
 
 */
 
-func (header) XDRSize() int {
+func (o header) XDRSize() int {
 	return 4 + 4 + 4
 }
 
@@ -60,7 +60,6 @@ func (o *header) UnmarshalXDR(bs []byte) error {
 	u := &xdr.Unmarshaller{Data: bs}
 	return o.UnmarshalXDRFrom(u)
 }
-
 func (o *header) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.magic = u.UnmarshalUint32()
 	o.messageType = int32(u.UnmarshalUint32())
@@ -79,27 +78,26 @@ struct Ping {
 
 */
 
-func (Ping) XDRSize() int {
+func (o Ping) XDRSize() int {
 	return 0
 }
-
-func (Ping) MarshalXDR() ([]byte, error) {
+func (o Ping) MarshalXDR() ([]byte, error) {
 	return nil, nil
 }
 
-func (Ping) MustMarshalXDR() []byte {
+func (o Ping) MustMarshalXDR() []byte {
 	return nil
 }
 
-func (Ping) MarshalXDRInto(_ *xdr.Marshaller) error {
+func (o Ping) MarshalXDRInto(m *xdr.Marshaller) error {
 	return nil
 }
 
-func (*Ping) UnmarshalXDR(_ []byte) error {
+func (o *Ping) UnmarshalXDR(bs []byte) error {
 	return nil
 }
 
-func (*Ping) UnmarshalXDRFrom(_ *xdr.Unmarshaller) error {
+func (o *Ping) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	return nil
 }
 
@@ -114,27 +112,26 @@ struct Pong {
 
 */
 
-func (Pong) XDRSize() int {
+func (o Pong) XDRSize() int {
 	return 0
 }
-
-func (Pong) MarshalXDR() ([]byte, error) {
+func (o Pong) MarshalXDR() ([]byte, error) {
 	return nil, nil
 }
 
-func (Pong) MustMarshalXDR() []byte {
+func (o Pong) MustMarshalXDR() []byte {
 	return nil
 }
 
-func (Pong) MarshalXDRInto(_ *xdr.Marshaller) error {
+func (o Pong) MarshalXDRInto(m *xdr.Marshaller) error {
 	return nil
 }
 
-func (*Pong) UnmarshalXDR(_ []byte) error {
+func (o *Pong) UnmarshalXDR(bs []byte) error {
 	return nil
 }
 
-func (*Pong) UnmarshalXDRFrom(_ *xdr.Unmarshaller) error {
+func (o *Pong) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	return nil
 }
 
@@ -149,27 +146,26 @@ struct RelayFull {
 
 */
 
-func (RelayFull) XDRSize() int {
+func (o RelayFull) XDRSize() int {
 	return 0
 }
-
-func (RelayFull) MarshalXDR() ([]byte, error) {
+func (o RelayFull) MarshalXDR() ([]byte, error) {
 	return nil, nil
 }
 
-func (RelayFull) MustMarshalXDR() []byte {
+func (o RelayFull) MustMarshalXDR() []byte {
 	return nil
 }
 
-func (RelayFull) MarshalXDRInto(_ *xdr.Marshaller) error {
+func (o RelayFull) MarshalXDRInto(m *xdr.Marshaller) error {
 	return nil
 }
 
-func (*RelayFull) UnmarshalXDR(_ []byte) error {
+func (o *RelayFull) UnmarshalXDR(bs []byte) error {
 	return nil
 }
 
-func (*RelayFull) UnmarshalXDRFrom(_ *xdr.Unmarshaller) error {
+func (o *RelayFull) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	return nil
 }
 
@@ -219,7 +215,6 @@ func (o *JoinRelayRequest) UnmarshalXDR(bs []byte) error {
 	u := &xdr.Unmarshaller{Data: bs}
 	return o.UnmarshalXDRFrom(u)
 }
-
 func (o *JoinRelayRequest) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.Token = u.UnmarshalString()
 	return u.Error
@@ -274,7 +269,6 @@ func (o *JoinSessionRequest) UnmarshalXDR(bs []byte) error {
 	u := &xdr.Unmarshaller{Data: bs}
 	return o.UnmarshalXDRFrom(u)
 }
-
 func (o *JoinSessionRequest) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.Key = u.UnmarshalBytesMax(32)
 	return u.Error
@@ -331,7 +325,6 @@ func (o *Response) UnmarshalXDR(bs []byte) error {
 	u := &xdr.Unmarshaller{Data: bs}
 	return o.UnmarshalXDRFrom(u)
 }
-
 func (o *Response) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.Code = int32(u.UnmarshalUint32())
 	o.Message = u.UnmarshalString()
@@ -387,7 +380,6 @@ func (o *ConnectRequest) UnmarshalXDR(bs []byte) error {
 	u := &xdr.Unmarshaller{Data: bs}
 	return o.UnmarshalXDRFrom(u)
 }
-
 func (o *ConnectRequest) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.ID = u.UnmarshalBytesMax(32)
 	return u.Error
@@ -470,7 +462,6 @@ func (o *SessionInvitation) UnmarshalXDR(bs []byte) error {
 	u := &xdr.Unmarshaller{Data: bs}
 	return o.UnmarshalXDRFrom(u)
 }
-
 func (o *SessionInvitation) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.From = u.UnmarshalBytesMax(32)
 	o.Key = u.UnmarshalBytesMax(32)

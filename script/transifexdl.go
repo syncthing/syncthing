@@ -17,7 +17,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -93,7 +93,7 @@ func main() {
 }
 
 func saveValidLangs(langs []string) {
-	sort.Strings(langs)
+	slices.Sort(langs)
 	fd, err := os.Create("valid-langs.js")
 	if err != nil {
 		log.Fatal(err)

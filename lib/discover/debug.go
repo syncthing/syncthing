@@ -6,8 +6,6 @@
 
 package discover
 
-import (
-	"github.com/syncthing/syncthing/lib/logger"
-)
+import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = logger.DefaultLogger.NewFacility("discover", "Remote device discovery")
+var l = slogutil.NewAdapter("Remote device discovery")

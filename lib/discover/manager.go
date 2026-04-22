@@ -4,8 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:generate -command counterfeiter go run github.com/maxbrunsfeld/counterfeiter/v6
-//go:generate counterfeiter -o mocks/manager.go --fake-name Manager . Manager
+//go:generate go tool counterfeiter -o mocks/manager.go --fake-name Manager . Manager
 
 package discover
 
@@ -13,18 +12,20 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"sort"
+	"log/slog"
+	"slices"
+	"sync"
 	"time"
 
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stringutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // The Manager aggregates results from multiple Finders. Each Finder has
@@ -40,6 +41,7 @@ type Manager interface {
 
 type manager struct {
 	*suture.Supervisor
+
 	myID          protocol.DeviceID
 	cfg           config.Wrapper
 	cert          tls.Certificate
@@ -53,7 +55,7 @@ type manager struct {
 
 func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate, evLogger events.Logger, lister AddressLister, registry *registry.Registry) Manager {
 	m := &manager{
-		Supervisor:    suture.New("discover.Manager", svcutil.SpecWithDebugLogger(l)),
+		Supervisor:    suture.New("discover.Manager", svcutil.SpecWithDebugLogger()),
 		myID:          myID,
 		cfg:           cfg,
 		cert:          cert,
@@ -62,7 +64,6 @@ func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate
 		registry:      registry,
 
 		finders: make(map[string]cachedFinder),
-		mut:     sync.NewRWMutex(),
 	}
 	m.Add(svcutil.AsService(m.serve, m.String()))
 	return m
@@ -89,7 +90,7 @@ func (m *manager) addLocked(identity string, finder Finder, cacheTime, negCacheT
 		entry.token = &token
 	}
 	m.finders[identity] = entry
-	l.Infoln("Using discovery mechanism:", identity)
+	slog.Info("Using discovery mechanism", "identity", identity)
 }
 
 func (m *manager) removeLocked(identity string) {
@@ -100,11 +101,11 @@ func (m *manager) removeLocked(identity string) {
 	if entry.token != nil {
 		err := m.Supervisor.Remove(*entry.token)
 		if err != nil {
-			l.Warnf("removing discovery %s: %s", identity, err)
+			slog.Warn("Failed to remove discovery mechanism", slog.String("identity", identity), slogutil.Error(err))
 		}
 	}
 	delete(m.finders, identity)
-	l.Infoln("Stopped using discovery mechanism: ", identity)
+	slog.Info("Stopped using discovery mechanism", "identity", identity)
 }
 
 // Lookup attempts to resolve the device ID using any of the added Finders,
@@ -117,8 +118,7 @@ func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addre
 
 			if cacheEntry.found && time.Since(cacheEntry.when) < finder.cacheTime {
 				// It's a positive, valid entry. Use it.
-				l.Debugln("cached discovery entry for", deviceID, "at", finder)
-				l.Debugln("  cache:", cacheEntry)
+				slog.DebugContext(ctx, "Found cached discovery entry", "device", deviceID, "finder", finder, "entry", cacheEntry)
 				addresses = append(addresses, cacheEntry.Addresses...)
 				continue
 			}
@@ -127,7 +127,7 @@ func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addre
 			if !cacheEntry.found && valid {
 				// It's a negative, valid entry. We should not make another
 				// attempt right now.
-				l.Debugln("negative cache entry for", deviceID, "at", finder, "valid until", cacheEntry.when.Add(finder.negCacheTime), "or", cacheEntry.validUntil)
+				slog.DebugContext(ctx, "Negative cache entry", "device", deviceID, "finder", finder, "until1", cacheEntry.when.Add(finder.negCacheTime), "until2", cacheEntry.validUntil)
 				continue
 			}
 
@@ -136,8 +136,7 @@ func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addre
 
 		// Perform the actual lookup and cache the result.
 		if addrs, err := finder.Lookup(ctx, deviceID); err == nil {
-			l.Debugln("lookup for", deviceID, "at", finder)
-			l.Debugln("  addresses:", addrs)
+			slog.DebugContext(ctx, "Got finder result", "device", deviceID, "finder", finder, "address", addrs)
 			addresses = append(addresses, addrs...)
 			finder.cache.Set(deviceID, CacheEntry{
 				Addresses: addrs,
@@ -159,10 +158,9 @@ func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addre
 	m.mut.RUnlock()
 
 	addresses = stringutil.UniqueTrimmedStrings(addresses)
-	sort.Strings(addresses)
+	slices.Sort(addresses)
 
-	l.Debugln("lookup results for", deviceID)
-	l.Debugln("  addresses: ", addresses)
+	slog.DebugContext(ctx, "Final lookup results", "device", deviceID, "addresses", addresses)
 
 	return addresses, nil
 }
@@ -262,7 +260,7 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 			}
 			gd, err := NewGlobal(srv, m.cert, m.addressLister, m.evLogger, m.registry)
 			if err != nil {
-				l.Warnln("Global discovery:", err)
+				slog.Warn("Failed to initialize global discovery", slogutil.Error(err))
 				continue
 			}
 
@@ -279,7 +277,7 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 		if _, ok := m.finders[v4Identity]; !ok {
 			bcd, err := NewLocal(m.myID, fmt.Sprintf(":%d", to.Options.LocalAnnPort), m.addressLister, m.evLogger)
 			if err != nil {
-				l.Warnln("IPv4 local discovery:", err)
+				slog.Warn("Failed to initialize IPv4 local discovery", slogutil.Error(err))
 			} else {
 				m.addLocked(v4Identity, bcd, 0, 0)
 			}
@@ -290,7 +288,7 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 		if _, ok := m.finders[v6Identity]; !ok {
 			mcd, err := NewLocal(m.myID, to.Options.LocalAnnMCAddr, m.addressLister, m.evLogger)
 			if err != nil {
-				l.Warnln("IPv6 local discovery:", err)
+				slog.Warn("Failed to initialize IPv6 local discovery", slogutil.Error(err))
 			} else {
 				m.addLocked(v6Identity, mcd, 0, 0)
 			}

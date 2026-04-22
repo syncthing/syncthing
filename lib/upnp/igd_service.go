@@ -37,8 +37,12 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/slogutil"
+	"github.com/syncthing/syncthing/lib/netutil"
 
 	"github.com/syncthing/syncthing/lib/nat"
 )
@@ -52,8 +56,6 @@ type IGDService struct {
 	URN       string
 	LocalIPv4 net.IP
 	Interface *net.Interface
-
-	nat.Service
 }
 
 // AddPinhole adds an IPv6 pinhole in accordance to http://upnp.org/specs/gw/UPnP-gw-WANIPv6FirewallControl-v1-Service.pdf
@@ -65,7 +67,7 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, intA
 		return nil, errors.New("no interface")
 	}
 
-	addrs, err := s.Interface.Addrs()
+	addrs, err := netutil.InterfaceAddrsByInterface(s.Interface)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +105,7 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, intA
 	for _, addr := range addrs {
 		ip, _, err := net.ParseCIDR(addr.String())
 		if err != nil {
-			l.Infof("Couldn't parse address %s: %s", addr, err)
+			slog.WarnContext(ctx, "Couldn't parse interface address", slogutil.Address(addr), slogutil.Error(err))
 			continue
 		}
 
@@ -113,7 +115,7 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, intA
 		}
 
 		if err := s.tryAddPinholeForIP6(ctx, protocol, intAddr.Port, duration, ip); err != nil {
-			l.Infof("Couldn't add pinhole for [%s]:%d/%s. %s", ip, intAddr.Port, protocol, err)
+			slog.WarnContext(ctx, "Couldn't add pinhole", slogutil.Address(ip), slog.Int("port", intAddr.Port), slog.Any("protocol", protocol), slogutil.Error(err))
 			returnErr = err
 		} else {
 			successfulIPs = append(successfulIPs, ip)
@@ -130,11 +132,12 @@ func (s *IGDService) AddPinhole(ctx context.Context, protocol nat.Protocol, intA
 
 func (s *IGDService) tryAddPinholeForIP6(ctx context.Context, protocol nat.Protocol, port int, duration time.Duration, ip net.IP) error {
 	var protoNumber int
-	if protocol == nat.TCP {
+	switch protocol {
+	case nat.TCP:
 		protoNumber = 6
-	} else if protocol == nat.UDP {
+	case nat.UDP:
 		protoNumber = 17
-	} else {
+	default:
 		return errors.New("protocol not supported")
 	}
 
@@ -256,11 +259,12 @@ func (s *IGDService) GetLocalIPv4Address() net.IP {
 // SupportsIPVersion checks whether this is a WANIPv6FirewallControl device,
 // in which case pinholing instead of port mapping should be done
 func (s *IGDService) SupportsIPVersion(version nat.IPVersion) bool {
-	if version == nat.IPvAny {
+	switch version {
+	case nat.IPvAny:
 		return true
-	} else if version == nat.IPv6Only {
+	case nat.IPv6Only:
 		return s.URN == urnWANIPv6FirewallControlV1
-	} else if version == nat.IPv4Only {
+	case nat.IPv4Only:
 		return s.URN != urnWANIPv6FirewallControlV1
 	}
 

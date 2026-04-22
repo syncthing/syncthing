@@ -339,7 +339,7 @@
     "Show diff with previous version": "Vis diff med forrige version",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Vis i stedet for enhets-ID i gruppestatus. Vil bli kringkastet til andre enheter som et valgfritt forvalgsnavn.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Vist i stedet for mappe-ID i gruppestatus. Vil bli oppdatert til navnet enheten kringkaster dersom tomt.",
-    "Shutdown": "Avslutt",
+    "Shut Down": "Avslutt",
     "Shutdown Complete": "Avslutning fullført",
     "Simple": "Enkel",
     "Simple File Versioning": "Enkel versjonskontroll",

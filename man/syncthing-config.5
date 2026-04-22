@@ -27,10 +27,15 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "May 09, 2025" "v1.29.6" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Apr 09, 2026" "v2.0.0" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
-.SH SYNOPSIS
+.SH OVERVIEW
+.sp
+This page covers how to configure Syncthing for file synchronization, including device setup, folder configuration, connection settings, and various configuration methods through the web GUI, command\-line, or direct file editing.
+.SH CONFIGURATION FILE LOCATIONS
+.sp
+The default configuration and database directory locations are:
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -89,9 +94,9 @@ corresponding environment variables (\fB$STDATADIR\fP or \fBSTHOMEDIR\fP).
 The database directory contains the following files, among others:
 .INDENT 0.0
 .TP
-.B \fBindex\-\fP\fI*\fP\fB\&.db\fP
-A directory holding the database with metadata and hashes of the files
-currently on disk and available from peers.
+.B \fBindex\-\fP\fI*\fP
+The database with metadata and hashes of the files currently on disk and
+available from peers.
 .TP
 .B \fBsyncthing.log\fP
 Log output, on some systems.
@@ -119,7 +124,7 @@ may no longer correspond to the defaults.
 .sp
 .EX
 <configuration version=\(dq37\(dq>
-    <folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
+    <folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq group=\(dqHome\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
         <filesystemType>basic</filesystemType>
         <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
             <encryptionPassword></encryptionPassword>
@@ -139,13 +144,11 @@ may no longer correspond to the defaults.
         <pullerPauseS>0</pullerPauseS>
         <maxConflicts>\-1</maxConflicts>
         <disableSparseFiles>false</disableSparseFiles>
-        <disableTempIndexes>false</disableTempIndexes>
         <paused>false</paused>
-        <weakHashThresholdPct>25</weakHashThresholdPct>
         <markerName>.stfolder</markerName>
         <copyOwnershipFromParent>false</copyOwnershipFromParent>
         <modTimeWindowS>0</modTimeWindowS>
-        <maxConcurrentWrites>2</maxConcurrentWrites>
+        <maxConcurrentWrites>16</maxConcurrentWrites>
         <disableFsync>false</disableFsync>
         <blockPullOrder>standard</blockPullOrder>
         <copyRangeMethod>standard</copyRangeMethod>
@@ -156,7 +159,7 @@ may no longer correspond to the defaults.
         <syncXattrs>false</syncXattrs>
         <sendXattrs>false</sendXattrs>
     </folder>
-    <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq name=\(dqsyno\(dq compression=\(dqmetadata\(dq introducer=\(dqfalse\(dq skipIntroductionRemovals=\(dqfalse\(dq introducedBy=\(dq\(dq>
+    <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq name=\(dqsyno\(dq group=\(dqPersonal\(dq compression=\(dqmetadata\(dq introducer=\(dqfalse\(dq skipIntroductionRemovals=\(dqfalse\(dq introducedBy=\(dq\(dq>
         <address>dynamic</address>
         <paused>false</paused>
         <autoAcceptFolders>false</autoAcceptFolders>
@@ -167,7 +170,7 @@ may no longer correspond to the defaults.
         <untrusted>false</untrusted>
         <remoteGUIPort>0</remoteGUIPort>
     </device>
-    <gui enabled=\(dqtrue\(dq tls=\(dqfalse\(dq debugging=\(dqfalse\(dq>
+    <gui enabled=\(dqtrue\(dq tls=\(dqfalse\(dq>
         <address>127.0.0.1:8384</address>
         <apikey>k1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1</apikey>
         <theme>default</theme>
@@ -215,7 +218,6 @@ may no longer correspond to the defaults.
         <stunKeepaliveStartS>180</stunKeepaliveStartS>
         <stunKeepaliveMinS>20</stunKeepaliveMinS>
         <stunServer>default</stunServer>
-        <databaseTuning>auto</databaseTuning>
         <maxConcurrentIncomingRequestKiB>0</maxConcurrentIncomingRequestKiB>
         <announceLANAddresses>true</announceLANAddresses>
         <sendFullIndexOnUpgrade>false</sendFullIndexOnUpgrade>
@@ -244,13 +246,11 @@ may no longer correspond to the defaults.
             <pullerPauseS>0</pullerPauseS>
             <maxConflicts>10</maxConflicts>
             <disableSparseFiles>false</disableSparseFiles>
-            <disableTempIndexes>false</disableTempIndexes>
             <paused>false</paused>
-            <weakHashThresholdPct>25</weakHashThresholdPct>
             <markerName>.stfolder</markerName>
             <copyOwnershipFromParent>false</copyOwnershipFromParent>
             <modTimeWindowS>0</modTimeWindowS>
-            <maxConcurrentWrites>2</maxConcurrentWrites>
+            <maxConcurrentWrites>16</maxConcurrentWrites>
             <disableFsync>false</disableFsync>
             <blockPullOrder>standard</blockPullOrder>
             <copyRangeMethod>standard</copyRangeMethod>
@@ -316,7 +316,7 @@ GUI.
 .INDENT 3.5
 .sp
 .EX
-<folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
+<folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq group=\(dqHome\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
     <filesystemType>basic</filesystemType>
     <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
         <encryptionPassword></encryptionPassword>
@@ -336,13 +336,11 @@ GUI.
     <pullerPauseS>0</pullerPauseS>
     <maxConflicts>\-1</maxConflicts>
     <disableSparseFiles>false</disableSparseFiles>
-    <disableTempIndexes>false</disableTempIndexes>
     <paused>false</paused>
-    <weakHashThresholdPct>25</weakHashThresholdPct>
     <markerName>.stfolder</markerName>
     <copyOwnershipFromParent>false</copyOwnershipFromParent>
     <modTimeWindowS>0</modTimeWindowS>
-    <maxConcurrentWrites>2</maxConcurrentWrites>
+    <maxConcurrentWrites>16</maxConcurrentWrites>
     <disableFsync>false</disableFsync>
     <blockPullOrder>standard</blockPullOrder>
     <copyRangeMethod>standard</copyRangeMethod>
@@ -371,6 +369,16 @@ The folder ID, which must be unique.
 The label of a folder is a human readable and descriptive local name. May
 be different on each device, empty, and/or identical to other folder
 labels. (optional)
+.UNINDENT
+.INDENT 0.0
+.TP
+.B group
+Added in version 2.1.0.
+
+.sp
+The group for a folder is a human readable and descriptive local name.
+Allows folders to be grouped together locally. May be different on each
+device, empty, and/or identical to other folder groups. (optional)
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -555,7 +563,8 @@ delete files from other devices.  The mechanism is described in a
 .TP
 .B scanProgressIntervalS
 The interval in seconds with which scan progress information is sent to the GUI. Setting to \fB0\fP
-will cause Syncthing to use the default value of two.
+will cause Syncthing to use the default value of two. If you don’t
+need to see scan progress, set this to \fB\-1\fP to disable it.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -567,8 +576,8 @@ change this unless you know what you’re doing.
 .TP
 .B maxConflicts
 The maximum number of conflict copies to keep around for any given file.
-The default, \fB\-1\fP, means an unlimited number. Setting this to \fB0\fP disables
-conflict copies altogether.
+The default is \fB10\fP\&. \fB\-1\fP, means an unlimited number.
+Setting this to \fB0\fP disables conflict copies altogether.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -579,29 +588,15 @@ sparse files will not be created.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B disableTempIndexes
-By default, devices exchange information about blocks available in
-transfers that are still in progress, which allows other devices to
-download parts of files that are not yet fully downloaded on your own
-device, essentially making transfers more torrent like. When set to
-\fBtrue\fP, such information is not exchanged for this folder.
-.UNINDENT
-.INDENT 0.0
-.TP
 .B paused
 True if this folder is (temporarily) suspended.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B weakHashThresholdPct
-Use weak hash if more than the given percentage of the file has changed. Set
-to \fB\-1\fP to always use weak hash. Default is \fB25\fP\&.
-.UNINDENT
-.INDENT 0.0
-.TP
 .B markerName
-Name of a directory or file in the folder root to be used as
-\fI\%How do I serve a folder from a read only filesystem?\fP\&. Default is \fB\&.stfolder\fP\&.
+Name of a directory or file in the folder root to be used as a marker \- see
+\fI\%marker FAQ\fP for its purpose.
+A marker directory is only created by Syncthing for the default \fB\&.stfolder\fP, not otherwise.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -622,7 +617,7 @@ folder is located on a FAT partition, and \fB0\fP otherwise.
 .TP
 .B maxConcurrentWrites
 Maximum number of concurrent write operations while syncing. Increasing this might increase or
-decrease disk performance, depending on the underlying storage. Default is \fB2\fP\&.
+decrease disk performance, depending on the underlying storage. Default is \fB16\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -714,7 +709,7 @@ devices when this is set to \fBtrue\fP\&. See
 .INDENT 3.5
 .sp
 .EX
-<device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq name=\(dqsyno\(dq compression=\(dqmetadata\(dq introducer=\(dqfalse\(dq skipIntroductionRemovals=\(dqfalse\(dq introducedBy=\(dq2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR\(dq>
+<device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq name=\(dqsyno\(dq group=\(dqPersonal\(dq compression=\(dqmetadata\(dq introducer=\(dqfalse\(dq skipIntroductionRemovals=\(dqfalse\(dq introducedBy=\(dq2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR\(dq>
     <address>dynamic</address>
     <paused>false</paused>
     <autoAcceptFolders>false</autoAcceptFolders>
@@ -756,6 +751,16 @@ The \fI\%device ID\fP\&.
 .TP
 .B name
 A friendly name for the device. (optional)
+.UNINDENT
+.INDENT 0.0
+.TP
+.B group
+Added in version 2.1.0.
+
+.sp
+The group for a device is a human readable and descriptive local name.
+Allows devices to be grouped together locally. May be different on each
+device, empty, and/or identical to other device groups. (optional)
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -943,7 +948,7 @@ The number of connections to this device. See
 .INDENT 3.5
 .sp
 .EX
-<gui enabled=\(dqtrue\(dq tls=\(dqfalse\(dq debugging=\(dqfalse\(dq>
+<gui enabled=\(dqtrue\(dq tls=\(dqfalse\(dq>
     <address>127.0.0.1:8384</address>
     <apikey>k1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1</apikey>
     <theme>default</theme>
@@ -966,12 +971,6 @@ If not \fBtrue\fP, the GUI and API will not be started.
 If set to \fBtrue\fP, TLS (HTTPS) will be enforced. Non\-HTTPS requests will
 be redirected to HTTPS. When set to \fBfalse\fP, TLS connections are
 still possible but not required.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B debugging
-This enables \fI\%Profiling\fP and additional endpoints in the REST
-API, see \fI\%Debug Endpoints\fP\&.
 .UNINDENT
 .sp
 The following child elements may be present:
@@ -1194,7 +1193,6 @@ Search filter for user searches.
     <stunKeepaliveStartS>180</stunKeepaliveStartS>
     <stunKeepaliveMinS>20</stunKeepaliveMinS>
     <stunServer>default</stunServer>
-    <databaseTuning>auto</databaseTuning>
     <maxConcurrentIncomingRequestKiB>0</maxConcurrentIncomingRequestKiB>
     <announceLANAddresses>true</announceLANAddresses>
     <sendFullIndexOnUpgrade>false</sendFullIndexOnUpgrade>
@@ -1486,13 +1484,6 @@ troubles.  Defaults to \fBtrue\fP, to help the developers troubleshoot.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B databaseTuning
-Controls how Syncthing uses the backend key\-value database that stores the
-index data and other persistent data it needs.  The available options and
-implications are explained in a \fI\%separate chapter\fP\&.
-.UNINDENT
-.INDENT 0.0
-.TP
 .B maxConcurrentIncomingRequestKiB
 This limits how many bytes we have “in the air” in the form of response data
 being read and processed.
@@ -1507,7 +1498,7 @@ addresses to global discovery.
 .TP
 .B sendFullIndexOnUpgrade
 Controls whether all index data is resent when an upgrade has happened,
-equivalent to starting Syncthing with \fI\%\-\-reset\-deltas\fP\&.  This used
+equivalent to starting Syncthing with \fB\-\-reset\-deltas\fP\&.  This used
 to be the default behavior in older versions, but is mainly useful as a
 troubleshooting step and causes high database churn. The default is now
 \fBfalse\fP\&.
@@ -1537,6 +1528,23 @@ no limit.  Affects incoming connections and prevents attempting outgoing
 connections.  The mechanism is described in detail in a \fI\%separate
 chapter\fP\&.
 .UNINDENT
+.INDENT 0.0
+.TP
+.B auditEnabled
+When \fBtrue\fP, analogous to \fI\%\-\-audit\fP being set.
+Defaults to \fBfalse\fP\&.
+.sp
+When either this option, or \fI\%\-\-audit\fP (or both) are enabled,
+auditing is enabled.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B auditFile
+Analogous to \fI\%\-\-auditfile\fP\&. Defaults to being unset.
+.sp
+For compatibility reasons, if both this option and \fI\%\-\-auditfile\fP
+are set, \fI\%\-\-auditfile\fP takes priority.
+.UNINDENT
 .SH DEFAULTS ELEMENT
 .INDENT 0.0
 .INDENT 3.5
@@ -1563,13 +1571,11 @@ chapter\fP\&.
         <pullerPauseS>0</pullerPauseS>
         <maxConflicts>10</maxConflicts>
         <disableSparseFiles>false</disableSparseFiles>
-        <disableTempIndexes>false</disableTempIndexes>
         <paused>false</paused>
-        <weakHashThresholdPct>25</weakHashThresholdPct>
         <markerName>.stfolder</markerName>
         <copyOwnershipFromParent>false</copyOwnershipFromParent>
         <modTimeWindowS>0</modTimeWindowS>
-        <maxConcurrentWrites>2</maxConcurrentWrites>
+        <maxConcurrentWrites>16</maxConcurrentWrites>
         <disableFsync>false</disableFsync>
         <blockPullOrder>standard</blockPullOrder>
         <copyRangeMethod>standard</copyRangeMethod>
@@ -1713,6 +1719,6 @@ send only mode for just the configuration folder.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT
-2014-2019, The Syncthing Authors
+2014-2026, The Syncthing Authors
 .\" Generated by docutils manpage writer.
 .

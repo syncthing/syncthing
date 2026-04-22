@@ -41,7 +41,7 @@ func String(l int) string {
 	var sb strings.Builder
 	sb.Grow(l)
 
-	for i := 0; i < l; i++ {
+	for range l {
 		sb.WriteByte(randomCharset[defaultSecureRand.Intn(len(randomCharset))])
 	}
 	return sb.String()

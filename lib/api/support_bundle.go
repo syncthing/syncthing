@@ -23,6 +23,15 @@ func getRedactedConfig(s *service) config.Configuration {
 	if rawConf.GUI.User != "" {
 		rawConf.GUI.User = "REDACTED"
 	}
+
+	for folderIdx, folderCfg := range rawConf.Folders {
+		for deviceIdx, deviceCfg := range folderCfg.Devices {
+			if deviceCfg.EncryptionPassword != "" {
+				rawConf.Folders[folderIdx].Devices[deviceIdx].EncryptionPassword = "REDACTED"
+			}
+		}
+	}
+
 	return rawConf
 }
 

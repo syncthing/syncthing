@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/timeutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	protocolmocks "github.com/syncthing/syncthing/lib/protocol/mocks"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -73,15 +74,15 @@ func (f *fakeConnection) DownloadProgress(_ context.Context, dp *protocol.Downlo
 	})
 }
 
-func (f *fakeConnection) addFileLocked(name string, flags uint32, ftype protocol.FileInfoType, data []byte, version protocol.Vector, localFlags uint32) {
+func (f *fakeConnection) addFileLocked(name string, flags uint32, ftype protocol.FileInfoType, data []byte, version protocol.Vector, localFlags protocol.FlagLocal) {
 	blockSize := protocol.BlockSize(int64(len(data)))
-	blocks, _ := scanner.Blocks(context.TODO(), bytes.NewReader(data), blockSize, int64(len(data)), nil, true)
+	blocks, _ := scanner.Blocks(context.TODO(), bytes.NewReader(data), blockSize, int64(len(data)), nil)
 
 	file := protocol.FileInfo{
 		Name:       name,
 		Type:       ftype,
 		Version:    version,
-		Sequence:   time.Now().UnixNano(),
+		Sequence:   timeutil.StrictlyMonotonicNanos(),
 		LocalFlags: localFlags,
 	}
 	switch ftype {
@@ -106,15 +107,6 @@ func (f *fakeConnection) addFileLocked(name string, flags uint32, ftype protocol
 		f.fileData = make(map[string][]byte)
 	}
 	f.fileData[name] = data
-}
-
-func (f *fakeConnection) addFileWithLocalFlags(name string, ftype protocol.FileInfoType, localFlags uint32) {
-	f.mut.Lock()
-	defer f.mut.Unlock()
-
-	var version protocol.Vector
-	version = version.Update(f.id.Short())
-	f.addFileLocked(name, 0, ftype, nil, version, localFlags)
 }
 
 func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
@@ -148,7 +140,7 @@ func (f *fakeConnection) deleteFile(name string) {
 			fi.Deleted = true
 			fi.ModifiedS = time.Now().Unix()
 			fi.Version = fi.Version.Update(f.id.Short())
-			fi.Sequence = time.Now().UnixNano()
+			fi.Sequence = timeutil.StrictlyMonotonicNanos()
 			fi.Blocks = nil
 
 			f.files = append(append(f.files[:i], f.files[i+1:]...), fi)

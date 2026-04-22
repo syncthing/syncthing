@@ -6,8 +6,6 @@
 
 package stun
 
-import (
-	"github.com/syncthing/syncthing/lib/logger"
-)
+import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = logger.DefaultLogger.NewFacility("stun", "STUN functionality")
+var l = slogutil.NewAdapter("STUN functionality")

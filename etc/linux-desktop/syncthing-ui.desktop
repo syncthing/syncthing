@@ -2,7 +2,7 @@
 Name=Syncthing Web UI
 GenericName=File synchronization UI
 Comment=Opens Syncthing's Web UI in the default browser (Syncthing must already be started).
-Exec=syncthing --browser-only
+Exec=syncthing browser
 Icon=syncthing
 Terminal=false
 Type=Application

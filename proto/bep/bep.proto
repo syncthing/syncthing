@@ -47,11 +47,9 @@ message ClusterConfig {
 message Folder {
   string id = 1;
   string label = 2;
-  bool read_only = 3;
-  bool ignore_permissions = 4;
-  bool ignore_delete = 5;
-  bool disable_temp_indexes = 6;
-  bool paused = 7;
+  FolderType type = 3;
+  FolderStopReason stop_reason = 7;
+  reserved 4 to 6;
 
   repeated Device devices = 16;
 }
@@ -73,6 +71,18 @@ enum Compression {
   COMPRESSION_METADATA = 0;
   COMPRESSION_NEVER = 1;
   COMPRESSION_ALWAYS = 2;
+}
+
+enum FolderType {
+	FOLDER_TYPE_SEND_RECEIVE = 0;
+	FOLDER_TYPE_SEND_ONLY = 1;
+	FOLDER_TYPE_RECEIVE_ONLY = 2;
+	FOLDER_TYPE_RECEIVE_ENCRYPTED = 3;
+}
+
+enum FolderStopReason {
+  FOLDER_STOP_REASON_RUNNING = 0; // i.e., not stopped
+  FOLDER_STOP_REASON_PAUSED = 1;
 }
 
 // Index and Index Update
@@ -103,6 +113,7 @@ message FileInfo {
   repeated BlockInfo blocks = 16;
   bytes symlink_target = 17;
   bytes blocks_hash = 18;
+  bytes previous_blocks_hash = 20;
   bytes encrypted = 19;
   FileInfoType type = 2;
   uint32 permissions = 4;
@@ -117,12 +128,8 @@ message FileInfo {
   uint32 local_flags = 1000;
 
   // The version_hash is an implementation detail and not part of the wire
-  // format.
+  // format. It is used in the old database format.
   bytes version_hash = 1001;
-
-  // The time when the inode was last changed (i.e., permissions, xattrs
-  // etc changed). This is host-local, not sent over the wire.
-  int64 inode_change_ns = 1002;
 
   // The size of the data appended to the encrypted file on disk. This is
   // host-local, not sent over the wire.
@@ -131,6 +138,8 @@ message FileInfo {
   bool deleted = 6;
   bool invalid = 7;
   bool no_permissions = 8;
+
+  reserved 1002; // previously inode change time
 }
 
 enum FileInfoType {
@@ -145,7 +154,7 @@ message BlockInfo {
   bytes hash = 3;
   int64 offset = 1;
   int32 size = 2;
-  uint32 weak_hash = 4;
+  reserved 4;
 }
 
 message Vector {
@@ -203,8 +212,8 @@ message Request {
   int32 size = 5;
   bytes hash = 6;
   bool from_temporary = 7;
-  uint32 weak_hash = 8;
   int32 block_no = 9;
+  reserved 8;
 }
 
 // Response

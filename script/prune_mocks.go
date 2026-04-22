@@ -35,7 +35,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = exec.Command("go", "run", "golang.org/x/tools/cmd/goimports", "-w", path).Run()
+		err = exec.Command("go", "tool", "goimports", "-w", path).Run()
 		if err != nil {
 			log.Fatal(err)
 		}

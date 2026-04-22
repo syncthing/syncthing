@@ -8,6 +8,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -16,7 +17,7 @@ import (
 	"github.com/thejerf/suture/v4"
 )
 
-var errSvcNotFound = fmt.Errorf("service not found")
+var errSvcNotFound = errors.New("service not found")
 
 // A serviceMap is a utility map of arbitrary keys to a suture.Service of
 // some kind, where adding and removing services ensures they are properly
@@ -36,7 +37,7 @@ func newServiceMap[K comparable, S suture.Service](eventLogger events.Logger) *s
 		tokens:      make(map[K]suture.ServiceToken),
 		eventLogger: eventLogger,
 	}
-	m.supervisor = suture.New(m.String(), svcutil.SpecWithDebugLogger(l))
+	m.supervisor = suture.New(m.String(), svcutil.SpecWithDebugLogger())
 	return m
 }
 
@@ -65,7 +66,6 @@ func (s *serviceMap[K, S]) Stop(k K) {
 	if tok, ok := s.tokens[k]; ok {
 		s.supervisor.Remove(tok)
 	}
-	return
 }
 
 // StopAndWaitChan removes the service at the given key from the supervisor,

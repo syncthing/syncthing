@@ -7,17 +7,7 @@
 package dialer
 
 import (
-	"os"
-	"strings"
-
-	"github.com/syncthing/syncthing/lib/logger"
+	"github.com/syncthing/syncthing/internal/slogutil"
 )
 
-var (
-	l = logger.DefaultLogger.NewFacility("dialer", "Dialing connections")
-	// To run before init() of other files that log on init.
-	_ = func() error {
-		l.SetDebug("dialer", strings.Contains(os.Getenv("STTRACE"), "dialer") || os.Getenv("STTRACE") == "all")
-		return nil
-	}()
-)
+var l = slogutil.NewAdapter("Dialing connections")

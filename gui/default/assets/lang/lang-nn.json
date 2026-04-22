@@ -187,7 +187,7 @@
     "Show QR": "Vis QR",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Vist i staden for einings-ID-en i klyngjestatusen. Vil verta kringkasta til dei andre einingane som eit valfritt standardnamn.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Vist i staden for mappe-ID-en i klyngjestatuses. Vil verta oppdatert til namnet eininga kringkastar dersom tomt.",
-    "Shutdown": "Slå Av",
+    "Shut Down": "Slå Av",
     "Shutdown Complete": "Slått av",
     "Simple File Versioning": "Enkel filutgåvehandtering",
     "Single level wildcard (matches within a directory only)": "Enkeltnivå-jokerteikn (søkjer berre i éi mappe)",

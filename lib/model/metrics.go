@@ -18,7 +18,7 @@ var (
 		Name:      "folder_state",
 		Help:      "Current folder state",
 	}, []string{"folder"})
-	metricFolderSummary = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	metricFolderSummary = promauto.NewGaugeVec(prometheus.GaugeOpts{ //nolint:promlinter
 		Namespace: "syncthing",
 		Subsystem: "model",
 		Name:      "folder_summary",
@@ -55,7 +55,7 @@ var (
 		Namespace: "syncthing",
 		Subsystem: "model",
 		Name:      "folder_processed_bytes_total",
-		Help:      "Total amount of data processed during folder syncing, per folder ID and data source (network/local_origin/local_other/local_shifted/skipped)",
+		Help:      "Total amount of data processed during folder syncing, per folder ID and data source (network/local_origin/local_other/skipped)",
 	}, []string{"folder", "source"})
 
 	metricFolderConflictsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -67,11 +67,10 @@ var (
 )
 
 const (
-	metricSourceNetwork      = "network"       // from the network
-	metricSourceLocalOrigin  = "local_origin"  // from the existing version of the local file
-	metricSourceLocalOther   = "local_other"   // from a different local file
-	metricSourceLocalShifted = "local_shifted" // from the existing version of the local file, rolling hash shifted
-	metricSourceSkipped      = "skipped"       // block of all zeroes, invented out of thin air
+	metricSourceNetwork     = "network"      // from the network
+	metricSourceLocalOrigin = "local_origin" // from the existing version of the local file
+	metricSourceLocalOther  = "local_other"  // from a different local file
+	metricSourceSkipped     = "skipped"      // block of all zeroes, invented out of thin air
 
 	metricScopeGlobal = "global"
 	metricScopeLocal  = "local"
@@ -95,7 +94,6 @@ func registerFolderMetrics(folderID string) {
 	metricFolderProcessedBytesTotal.WithLabelValues(folderID, metricSourceNetwork)
 	metricFolderProcessedBytesTotal.WithLabelValues(folderID, metricSourceLocalOrigin)
 	metricFolderProcessedBytesTotal.WithLabelValues(folderID, metricSourceLocalOther)
-	metricFolderProcessedBytesTotal.WithLabelValues(folderID, metricSourceLocalShifted)
 	metricFolderProcessedBytesTotal.WithLabelValues(folderID, metricSourceSkipped)
 	metricFolderConflictsTotal.WithLabelValues(folderID)
 }

@@ -11,7 +11,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // Test creating temporary file inside read-only directory
@@ -22,7 +21,6 @@ func TestReadOnlyDir(t *testing.T) {
 	s := sharedPullerState{
 		fs:       ffs,
 		tempName: "testdir/.temp_name",
-		mut:      sync.NewRWMutex(),
 	}
 
 	fd, err := s.tempFile()

@@ -10,7 +10,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/thejerf/suture/v4"
@@ -23,6 +23,7 @@ import (
 
 type amqpReplicator struct {
 	suture.Service
+
 	broker   string
 	sender   *amqpSender
 	receiver *amqpReceiver
@@ -172,7 +173,7 @@ func (s *amqpReceiver) Serve(ctx context.Context) error {
 				id, err = protocol.DeviceIDFromString(string(rec.Key))
 			}
 			if err != nil {
-				log.Println("Replication device ID:", err)
+				slog.Warn("Failed to parse replication device ID", "error", err)
 				replicationRecvsTotal.WithLabelValues("error").Inc()
 				continue
 			}

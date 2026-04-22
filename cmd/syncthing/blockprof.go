@@ -8,11 +8,14 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"runtime"
 	"runtime/pprof"
 	"syscall"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/slogutil"
 )
 
 func startBlockProfiler() {
@@ -20,10 +23,10 @@ func startBlockProfiler() {
 	if profiler == nil {
 		panic("Couldn't find block profiler")
 	}
-	l.Debugln("Starting block profiling")
+	slog.Debug("Starting block profiling")
 	go func() {
 		err := saveBlockingProfiles(profiler) // Only returns on error
-		l.Warnln("Block profiler failed:", err)
+		slog.Error("Block profiler failed", slogutil.Error(err))
 		panic("Block profiler failed")
 	}()
 }

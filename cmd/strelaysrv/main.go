@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -21,7 +22,6 @@ import (
 
 	"golang.org/x/time/rate"
 
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -157,7 +157,7 @@ func main() {
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		log.Println("Failed to load keypair. Generating one, this might take a while...")
-		cert, err = tlsutil.NewCertificate(certFile, keyFile, "strelaysrv", 20*365)
+		cert, err = tlsutil.NewCertificate(certFile, keyFile, "strelaysrv", 20*365, false)
 		if err != nil {
 			log.Fatalln("Failed to generate X509 key pair:", err)
 		}
@@ -247,10 +247,10 @@ func main() {
 	query.Set("pingInterval", pingInterval.String())
 	query.Set("networkTimeout", networkTimeout.String())
 	if sessionLimitBps > 0 {
-		query.Set("sessionLimitBps", fmt.Sprint(sessionLimitBps))
+		query.Set("sessionLimitBps", strconv.Itoa(sessionLimitBps))
 	}
 	if globalLimitBps > 0 {
-		query.Set("globalLimitBps", fmt.Sprint(globalLimitBps))
+		query.Set("globalLimitBps", strconv.Itoa(globalLimitBps))
 	}
 	if statusAddr != "" {
 		query.Set("statusAddr", statusAddr)

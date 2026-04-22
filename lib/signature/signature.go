@@ -14,9 +14,9 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"io"
 	"math/big"
 
@@ -135,7 +135,7 @@ func hashReader(r io.Reader) ([]byte, error) {
 	if _, err := io.Copy(h, r); err != nil {
 		return nil, err
 	}
-	hash := []byte(fmt.Sprintf("%x", h.Sum(nil)))
+	hash := []byte(hex.EncodeToString(h.Sum(nil)))
 	return hash, nil
 }
 

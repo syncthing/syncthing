@@ -368,7 +368,7 @@
     "Show diff with previous version": "पिछले संस्करण के साथ अंतर दिखाएं",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "समूह स्थिति में उपकरण ID के बजाय दिखाया गया। वैकल्पिक तयशुदा नाम के रूप में अन्य उपकरणों पर विज्ञापित किया जाएगा।",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "समूह स्थिति में उपकरण ID के बजाय दिखाया गया। खाली छोड़े जाने पर उपकरण द्वारा विज्ञापित नाम में अद्यतित कर दिया जाएगा।",
-    "Shutdown": "शटडाउन",
+    "Shut Down": "शटडाउन",
     "Shutdown Complete": "शटडाउन पूर्ण",
     "Simple": "सरल",
     "Simple File Versioning": "सरल फाइल संस्करण",

@@ -7,7 +7,7 @@
 package model
 
 import (
-	"sort"
+	"slices"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -51,9 +51,9 @@ type standardBlockPullReorderer struct {
 }
 
 func newStandardBlockPullReorderer(id protocol.DeviceID, otherDevices []protocol.DeviceID) *standardBlockPullReorderer {
-	allDevices := append(otherDevices, id)
-	sort.Slice(allDevices, func(i, j int) bool {
-		return allDevices[i].Compare(allDevices[j]) == -1
+	allDevices := append(otherDevices, id) //nolint:gocritic
+	slices.SortFunc(allDevices, func(a, b protocol.DeviceID) int {
+		return a.Compare(b)
 	})
 	// Find our index
 	myIndex := -1
@@ -92,7 +92,7 @@ func (p *standardBlockPullReorderer) Reorder(blocks []protocol.BlockInfo) []prot
 	// The rest of the chunks we fetch in a random order in whole chunks.
 	// Generate chunk index slice and shuffle it
 	indexes := make([]int, 0, len(chunks)-1)
-	for i := 0; i < len(chunks); i++ {
+	for i := range chunks {
 		if i != p.myIndex {
 			indexes = append(indexes, i)
 		}

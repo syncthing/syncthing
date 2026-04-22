@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 )
@@ -72,7 +71,7 @@ func main() {
 		if *standardBlocks || blockSize < protocol.MinBlockSize {
 			blockSize = protocol.BlockSize(fi.Size())
 		}
-		bs, err := scanner.Blocks(context.TODO(), fd, blockSize, fi.Size(), nil, true)
+		bs, err := scanner.Blocks(context.TODO(), fd, blockSize, fi.Size(), nil)
 		if err != nil {
 			log.Fatal(err)
 		}

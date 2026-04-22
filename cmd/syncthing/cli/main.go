@@ -14,15 +14,12 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/kballard/go-shellquote"
 
-	"github.com/syncthing/syncthing/cmd/syncthing/cmdutil"
 	"github.com/syncthing/syncthing/lib/config"
 )
 
 type CLI struct {
-	cmdutil.CommonOptions
-	DataDir    string `name:"data" placeholder:"PATH" env:"STDATADIR" help:"Set data directory (database and logs)"`
-	GUIAddress string `name:"gui-address"`
-	GUIAPIKey  string `name:"gui-apikey"`
+	GUIAddress string `name:"gui-address" env:"STGUIADDRESS"`
+	GUIAPIKey  string `name:"gui-apikey" env:"STGUIAPIKEY"`
 
 	Show       showCommand      `cmd:"" help:"Show command group"`
 	Debug      debugCommand     `cmd:"" help:"Debug command group"`
@@ -37,11 +34,6 @@ type Context struct {
 }
 
 func (cli CLI) AfterApply(kongCtx *kong.Context) error {
-	err := cmdutil.SetConfigDataLocationsFromFlags(cli.HomeDir, cli.ConfDir, cli.DataDir)
-	if err != nil {
-		return fmt.Errorf("command line options: %w", err)
-	}
-
 	clientFactory := &apiClientFactory{
 		cfg: config.GUIConfiguration{
 			RawAddress: cli.GUIAddress,

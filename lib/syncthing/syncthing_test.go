@@ -8,11 +8,12 @@ package syncthing
 
 import (
 	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
@@ -71,8 +72,14 @@ func TestStartupFail(t *testing.T) {
 	}, protocol.LocalDeviceID, events.NoopLogger)
 	defer os.Remove(cfg.ConfigPath())
 
-	db := backend.OpenMemory()
-	app, err := New(cfg, db, events.NoopLogger, cert, Options{})
+	sdb, err := sqlite.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		sdb.Close()
+	})
+	app, err := New(cfg, sdb, events.NoopLogger, cert, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,10 +109,9 @@ func TestStartupFail(t *testing.T) {
 		t.Errorf(`Got different errors "%v" from Start and "%v" from Error`, startErr, err)
 	}
 
-	if trans, err := db.NewReadTransaction(); err == nil {
+	if _, err := sdb.ListFolders(); err == nil {
 		t.Error("Expected error due to db being closed, got nil")
-		trans.Release()
-	} else if !backend.IsClosed(err) {
+	} else if !strings.Contains(err.Error(), "closed") {
 		t.Error("Expected error due to db being closed, got", err)
 	}
 }

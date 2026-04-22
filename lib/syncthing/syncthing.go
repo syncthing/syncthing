@@ -12,27 +12,27 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"runtime"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/api"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/connections/registry"
-	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/locations"
-	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -52,21 +52,18 @@ const (
 )
 
 type Options struct {
-	AuditWriter    io.Writer
-	NoUpgrade      bool
-	ProfilerAddr   string
-	ResetDeltaIdxs bool
-	Verbose        bool
-	// null duration means use default value
-	DBRecheckInterval    time.Duration
-	DBIndirectGCInterval time.Duration
+	AuditWriter           io.Writer
+	NoUpgrade             bool
+	ProfilerAddr          string
+	ResetDeltaIdxs        bool
+	DBMaintenanceInterval time.Duration
 }
 
 type App struct {
 	myID              protocol.DeviceID
 	mainService       *suture.Supervisor
 	cfg               config.Wrapper
-	ll                *db.Lowlevel
+	sdb               db.DB
 	evLogger          events.Logger
 	cert              tls.Certificate
 	opts              Options
@@ -75,19 +72,16 @@ type App struct {
 	stopOnce          sync.Once
 	mainServiceCancel context.CancelFunc
 	stopped           chan struct{}
+	dbService         db.DBService
 
 	// Access to internals for direct users of this package. Note that the interface in Internals is unstable!
 	Internals *Internals
 }
 
-func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, cert tls.Certificate, opts Options) (*App, error) {
-	ll, err := db.NewLowlevel(dbBackend, evLogger, db.WithRecheckInterval(opts.DBRecheckInterval), db.WithIndirectGCInterval(opts.DBIndirectGCInterval))
-	if err != nil {
-		return nil, err
-	}
+func New(cfg config.Wrapper, sdb db.DB, evLogger events.Logger, cert tls.Certificate, opts Options) (*App, error) {
 	a := &App{
 		cfg:      cfg,
-		ll:       ll,
+		sdb:      sdb,
 		evLogger: evLogger,
 		opts:     opts,
 		cert:     cert,
@@ -103,7 +97,7 @@ func New(cfg config.Wrapper, dbBackend backend.Backend, evLogger events.Logger, 
 func (a *App) Start() error {
 	// Create a main service manager. We'll add things to this as we go along.
 	// We want any logging it does to go through our log system.
-	spec := svcutil.SpecWithDebugLogger(l)
+	spec := svcutil.SpecWithDebugLogger()
 	a.mainService = suture.New("main", spec)
 
 	// Start the supervisor and wait for it to stop to handle cleanup.
@@ -121,21 +115,26 @@ func (a *App) Start() error {
 	return nil
 }
 
+// StartMaintenance asynchronously triggers database maintenance to start.
+func (a *App) StartMaintenance() <-chan error {
+	return a.dbService.StartMaintenance()
+}
+
+// LastMaintenanceTime returns the last time database maintenance completed successfully
+// This will return time zero when database maintenance has never completed successfully.
+func (a *App) LastMaintenanceTime() time.Time {
+	return a.dbService.LastMaintenanceTime()
+}
+
 func (a *App) startup() error {
 	a.mainService.Add(ur.NewFailureHandler(a.cfg, a.evLogger))
 
-	a.mainService.Add(a.ll)
+	a.dbService = a.sdb.Service(a.opts.DBMaintenanceInterval)
+	a.mainService.Add(a.dbService)
 
 	if a.opts.AuditWriter != nil {
 		a.mainService.Add(newAuditService(a.opts.AuditWriter, a.evLogger))
 	}
-
-	if a.opts.Verbose {
-		a.mainService.Add(newVerboseService(a.evLogger))
-	}
-
-	errors := logger.NewRecorder(l, logger.LevelWarn, maxSystemErrors, 0)
-	systemLog := logger.NewRecorder(l, logger.LevelDebug, maxSystemLog, initialSystemLog)
 
 	// Event subscription for the API; must start early to catch the early
 	// events. The LocalChangeDetected event might overwhelm the event
@@ -148,10 +147,9 @@ func (a *App) startup() error {
 	// report the error if there is one.
 	osutil.MaximizeOpenFileLimit()
 
-	// Figure out our device ID, set it as the log prefix and log it.
+	// Figure out our device ID and log it.
 	a.myID = protocol.NewDeviceID(a.cert.Certificate[0])
-	l.SetPrefix(fmt.Sprintf("[%s] ", a.myID.String()[:5]))
-	l.Infoln("My ID:", a.myID)
+	slog.Info("Calculated our device ID", slog.String("device", a.myID.String()))
 
 	// Emit the Starting event, now that we know who we are.
 
@@ -161,7 +159,7 @@ func (a *App) startup() error {
 	})
 
 	if err := checkShortIDs(a.cfg); err != nil {
-		l.Warnln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one of the following:\n  ", err)
+		slog.Error("Short device IDs are in conflict; regenerate the device ID of one of the conflicting devices", slogutil.Error(err))
 		return err
 	}
 
@@ -171,23 +169,25 @@ func (a *App) startup() error {
 			runtime.SetBlockProfileRate(1)
 			err := http.ListenAndServe(a.opts.ProfilerAddr, nil)
 			if err != nil {
-				l.Warnln(err)
+				slog.Warn("Failed to listen and serve for profiles", slogutil.Error(err))
 				return
 			}
 		}()
 	}
 
-	perf := ur.CpuBench(context.Background(), 3, 150*time.Millisecond, true)
-	l.Infof("Hashing performance is %.02f MB/s", perf)
-
-	if err := db.UpdateSchema(a.ll); err != nil {
-		l.Warnln("Database schema:", err)
-		return err
+	if slog.Default().Enabled(context.Background(), slog.LevelInfo) {
+		go func() {
+			perf := ur.CpuBench(context.Background(), 3, 150*time.Millisecond)
+			slog.Info("Measured hashing performance", "perf", fmt.Sprintf("%.02f MB/s", perf))
+		}()
 	}
 
 	if a.opts.ResetDeltaIdxs {
-		l.Infoln("Reinitializing delta index IDs")
-		db.DropDeltaIndexIDs(a.ll)
+		slog.Info("Reinitializing delta index IDs")
+		if err := a.sdb.DropAllIndexIDs(); err != nil {
+			slog.Error("Failed to drop index IDs", slogutil.Error(err))
+			return err
+		}
 	}
 
 	protectedFiles := []string{
@@ -198,20 +198,25 @@ func (a *App) startup() error {
 	}
 
 	// Remove database entries for folders that no longer exist in the config
-	folders := a.cfg.Folders()
-	for _, folder := range a.ll.ListFolders() {
-		if _, ok := folders[folder]; !ok {
-			l.Infof("Cleaning metadata for dropped folder %q", folder)
-			db.DropFolder(a.ll, folder)
+	cfgFolders := a.cfg.Folders()
+	dbFolders, err := a.sdb.ListFolders()
+	if err != nil {
+		slog.Warn("Failed to list folders", slogutil.Error(err))
+		return err
+	}
+	for _, folder := range dbFolders {
+		if _, ok := cfgFolders[folder]; !ok {
+			slog.Info("Cleaning metadata for dropped folder", "folder", folder)
+			a.sdb.DropFolder(folder)
 		}
 	}
 
 	// Grab the previously running version string from the database.
 
-	miscDB := db.NewMiscDataNamespace(a.ll)
+	miscDB := db.NewMiscDB(a.sdb)
 	prevVersion, _, err := miscDB.String("prevVersion")
 	if err != nil {
-		l.Warnln("Database:", err)
+		slog.Error("Database error when getting previous version", slogutil.Error(err))
 		return err
 	}
 
@@ -223,13 +228,16 @@ func (a *App) startup() error {
 	curParts := strings.Split(build.Version, "-")
 	if rel := upgrade.CompareVersions(prevParts[0], curParts[0]); rel != upgrade.Equal {
 		if prevVersion != "" {
-			l.Infoln("Detected upgrade from", prevVersion, "to", build.Version)
+			slog.Info("Detected upgrade", "from", prevVersion, "to", build.Version)
 		}
 
 		if a.cfg.Options().SendFullIndexOnUpgrade {
 			// Drop delta indexes in case we've changed random stuff we
 			// shouldn't have. We will resend our index on next connect.
-			db.DropDeltaIndexIDs(a.ll)
+			if err := a.sdb.DropAllIndexIDs(); err != nil {
+				slog.Warn("Failed to drop index IDs", slogutil.Error(err))
+				return err
+			}
 		}
 	}
 
@@ -238,13 +246,13 @@ func (a *App) startup() error {
 		miscDB.PutString("prevVersion", build.Version)
 	}
 
-	if err := globalMigration(a.ll, a.cfg); err != nil {
-		l.Warnln("Global migration:", err)
+	if err := globalMigration(a.sdb, a.cfg); err != nil {
+		slog.Warn("Failed to perform global migration", slogutil.Error(err))
 		return err
 	}
 
 	keyGen := protocol.NewKeyGenerator()
-	m := model.NewModel(a.cfg, a.myID, a.ll, protectedFiles, a.evLogger, keyGen)
+	m := model.NewModel(a.cfg, a.myID, a.sdb, protectedFiles, a.evLogger, keyGen)
 	a.Internals = newInternals(m)
 
 	a.mainService.Add(m)
@@ -278,7 +286,7 @@ func (a *App) startup() error {
 	a.cfg.Modify(func(cfg *config.Configuration) {
 		// Candidate builds always run with usage reporting.
 		if build.IsCandidate {
-			l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
+			slog.Info("Anonymous usage reporting is always enabled for candidate releases")
 			if cfg.Options.URAccepted != ur.Version {
 				cfg.Options.URAccepted = ur.Version
 				// Unique ID will be set and config saved below if necessary.
@@ -291,21 +299,21 @@ func (a *App) startup() error {
 
 	// GUI
 
-	if err := a.setupGUI(m, defaultSub, diskSub, discoveryManager, connectionsService, usageReportingSvc, errors, systemLog, miscDB); err != nil {
-		l.Warnln("Failed starting API:", err)
+	if err := a.setupGUI(m, defaultSub, diskSub, discoveryManager, connectionsService, usageReportingSvc, slogutil.ErrorRecorder, slogutil.GlobalRecorder, miscDB); err != nil {
+		slog.Error("Failed to start API", slogutil.Error(err))
 		return err
 	}
 
 	myDev, _ := a.cfg.Device(a.myID)
-	l.Infof(`My name is "%v"`, myDev.Name)
+	slog.Info("Loaded configuration", "name", myDev.Name)
 	for _, device := range a.cfg.Devices() {
 		if device.DeviceID != a.myID {
-			l.Infof(`Device %s is "%v" at %v`, device.DeviceID, device.Name, device.Addresses)
+			slog.Info("Loaded peer device configuration", device.DeviceID.LogAttr(), slog.String("name", device.Name), slogutil.Address(device.Addresses))
 		}
 	}
 
 	if isSuperUser() {
-		l.Warnln("Syncthing should not run as a privileged or system user. Please consider using a normal user account.")
+		slog.Warn("Syncthing should not run as a privileged or system user; please consider using a normal user account")
 	}
 
 	a.evLogger.Log(events.StartupComplete, map[string]string{
@@ -314,7 +322,7 @@ func (a *App) startup() error {
 
 	if a.cfg.Options().SetLowPriority {
 		if err := osutil.SetLowPriority(); err != nil {
-			l.Warnln("Failed to lower process priority:", err)
+			slog.Warn("Failed to lower process priority", slogutil.Error(err))
 		}
 	}
 
@@ -327,16 +335,16 @@ func (a *App) wait(errChan <-chan error) {
 
 	done := make(chan struct{})
 	go func() {
-		a.ll.Close()
+		a.sdb.Close()
 		close(done)
 	}()
 	select {
 	case <-done:
 	case <-time.After(10 * time.Second):
-		l.Warnln("Database failed to stop within 10s")
+		slog.Warn("Database failed to stop within 10s")
 	}
 
-	l.Infoln("Exiting")
+	slog.Info("Exiting")
 
 	close(a.stopped)
 }
@@ -384,7 +392,7 @@ func (a *App) stopWithErr(stopReason svcutil.ExitStatus, err error) svcutil.Exit
 		a.exitStatus = stopReason
 		a.err = err
 		if shouldDebug() {
-			l.Debugln("Services before stop:")
+			slog.Debug("Services before stop:")
 			printServiceTree(os.Stdout, a.mainService, 0)
 		}
 		a.mainServiceCancel()
@@ -393,7 +401,7 @@ func (a *App) stopWithErr(stopReason svcutil.ExitStatus, err error) svcutil.Exit
 	return a.exitStatus
 }
 
-func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, errors, systemLog logger.Recorder, miscDB *db.NamespacedKV) error {
+func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.Manager, connectionsService connections.Service, urService *ur.Service, errors, systemLog slogutil.Recorder, miscDB *db.Typed) error {
 	guiCfg := a.cfg.GUI()
 
 	if !guiCfg.Enabled {
@@ -401,7 +409,7 @@ func (a *App) setupGUI(m model.Model, defaultSub, diskSub events.BufferedSubscri
 	}
 
 	if guiCfg.InsecureAdminAccess {
-		l.Warnln("Insecure admin access is enabled.")
+		slog.Warn("Insecure admin access is enabled")
 	}
 
 	summaryService := model.NewFolderSummaryService(a.cfg, m, a.myID, a.evLogger)
@@ -437,8 +445,8 @@ func printServiceTree(w io.Writer, sup supervisor, level int) {
 	printService(w, sup, level)
 
 	svcs := sup.Services()
-	sort.Slice(svcs, func(a, b int) bool {
-		return fmt.Sprint(svcs[a]) < fmt.Sprint(svcs[b])
+	slices.SortFunc(svcs, func(a, b suture.Service) int {
+		return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
 	})
 
 	for _, svc := range svcs {

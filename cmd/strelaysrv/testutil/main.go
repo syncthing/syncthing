@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
+	"errors"
 	"flag"
 	"log"
 	"net"
@@ -14,7 +15,6 @@ import (
 	"path/filepath"
 	"time"
 
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/relay/client"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
@@ -133,7 +133,8 @@ func connectToStdio(stdin <-chan string, conn net.Conn) {
 		conn.SetReadDeadline(time.Now().Add(time.Millisecond))
 		n, err := conn.Read(buf[0:])
 		if err != nil {
-			nerr, ok := err.(net.Error)
+			var nerr net.Error
+			ok := errors.As(err, &nerr)
 			if !ok || !nerr.Timeout() {
 				log.Println(err)
 				return

@@ -7,6 +7,11 @@
 package protocol
 
 import (
+	"encoding/binary"
+	"encoding/hex"
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/gen/bep"
@@ -18,6 +23,30 @@ import (
 // new allocated Vector with the modified contents.
 type Vector struct {
 	Counters []Counter
+}
+
+func (v *Vector) String() string {
+	var buf strings.Builder
+	for i, c := range v.Counters {
+		if i > 0 {
+			buf.WriteRune(',')
+		}
+		var idbs [8]byte
+		binary.BigEndian.PutUint64(idbs[:], uint64(c.ID))
+		fmt.Fprintf(&buf, "%x:%d", idbs, c.Value)
+	}
+	return buf.String()
+}
+
+func (v *Vector) HumanString() string {
+	var buf strings.Builder
+	for i, c := range v.Counters {
+		if i > 0 {
+			buf.WriteRune(',')
+		}
+		fmt.Fprintf(&buf, "%s:%d", c.ID, c.Value)
+	}
+	return buf.String()
 }
 
 func (v *Vector) ToWire() *bep.Vector {
@@ -40,6 +69,31 @@ func VectorFromWire(w *bep.Vector) Vector {
 		v.Counters[i] = counterFromWire(c)
 	}
 	return v
+}
+
+func VectorFromString(s string) (Vector, error) {
+	pairs := strings.Split(s, ",")
+	var v Vector
+	v.Counters = make([]Counter, len(pairs))
+	for i, pair := range pairs {
+		idStr, valStr, ok := strings.Cut(pair, ":")
+		if !ok {
+			return Vector{}, fmt.Errorf("bad pair %q", pair)
+		}
+		idslice, err := hex.DecodeString(idStr)
+		if err != nil {
+			return Vector{}, fmt.Errorf("bad id in pair %q", pair)
+		}
+		var idbs [8]byte
+		copy(idbs[8-len(idslice):], idslice)
+		id := binary.BigEndian.Uint64(idbs[:])
+		val, err := strconv.ParseUint(valStr, 10, 64)
+		if err != nil {
+			return Vector{}, fmt.Errorf("bad val in pair %q", pair)
+		}
+		v.Counters[i] = Counter{ID: ShortID(id), Value: val}
+	}
+	return v, nil
 }
 
 // Counter represents a single counter in the version vector.

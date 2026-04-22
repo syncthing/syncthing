@@ -8,12 +8,15 @@ package model
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
@@ -45,20 +48,27 @@ type indexHandler struct {
 
 	cond   *sync.Cond
 	paused bool
-	fset   *db.FileSet
+	sdb    db.DB
 	runner service
 }
 
-func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, folder config.FolderConfiguration, fset *db.FileSet, runner service, startInfo *clusterConfigDeviceInfo, evLogger events.Logger) *indexHandler {
-	myIndexID := fset.IndexID(protocol.LocalDeviceID)
-	mySequence := fset.Sequence(protocol.LocalDeviceID)
+func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, folder config.FolderConfiguration, sdb db.DB, runner service, startInfo *clusterConfigDeviceInfo, evLogger events.Logger) (*indexHandler, error) {
+	myIndexID, err := sdb.GetIndexID(folder.ID, protocol.LocalDeviceID)
+	if err != nil {
+		return nil, err
+	}
+	mySequence, err := sdb.GetDeviceSequence(folder.ID, protocol.LocalDeviceID)
+	if err != nil {
+		return nil, err
+	}
 	var startSequence int64
 
 	// This is the other side's description of what it knows
 	// about us. Lets check to see if we can start sending index
 	// updates directly or need to send the index from start...
 
-	if startInfo.local.IndexID == myIndexID {
+	switch startInfo.local.IndexID {
+	case myIndexID:
 		// They say they've seen our index ID before, so we can
 		// send a delta update only.
 
@@ -69,21 +79,23 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 			// the IndexID, or something else weird has
 			// happened. We send a full index to reset the
 			// situation.
-			l.Infof("Device %v folder %s is delta index compatible, but seems out of sync with reality", conn.DeviceID().Short(), folder.Description())
+			slog.Warn("Peer is delta index compatible, but seems out of sync with reality", conn.DeviceID().LogAttr(), folder.LogAttr())
 			startSequence = 0
 		} else {
 			l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", conn.DeviceID().Short(), folder.Description(), startInfo.local.MaxSequence)
 			startSequence = startInfo.local.MaxSequence
 		}
-	} else if startInfo.local.IndexID != 0 {
+
+	case 0:
+		l.Debugf("Device %v folder %s has no index ID for us", conn.DeviceID().Short(), folder.Description())
+
+	default:
 		// They say they've seen an index ID from us, but it's
 		// not the right one. Either they are confused or we
 		// must have reset our database since last talking to
 		// them. We'll start with a full index transfer.
-		l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", conn.DeviceID().Short(), folder.Description(), startInfo.local.IndexID, myIndexID)
+		slog.Warn("Peer has mismatching index ID for us", conn.DeviceID().LogAttr(), folder.LogAttr(), slog.Group("indexid", slog.Any("ours", myIndexID), slog.Any("theirs", startInfo.local.IndexID)))
 		startSequence = 0
-	} else {
-		l.Debugf("Device %v folder %s has no index ID for us", conn.DeviceID().Short(), folder.Description())
 	}
 
 	// This is the other side's description of themselves. We
@@ -91,23 +103,29 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 	// otherwise we drop our old index data and expect to get a
 	// completely new set.
 
-	theirIndexID := fset.IndexID(conn.DeviceID())
+	theirIndexID, _ := sdb.GetIndexID(folder.ID, conn.DeviceID())
 	if startInfo.remote.IndexID == 0 {
 		// They're not announcing an index ID. This means they
 		// do not support delta indexes and we should clear any
 		// information we have from them before accepting their
 		// index, which will presumably be a full index.
 		l.Debugf("Device %v folder %s does not announce an index ID", conn.DeviceID().Short(), folder.Description())
-		fset.Drop(conn.DeviceID())
+		if err := sdb.DropAllFiles(folder.ID, conn.DeviceID()); err != nil {
+			return nil, err
+		}
 	} else if startInfo.remote.IndexID != theirIndexID {
 		// The index ID we have on file is not what they're
 		// announcing. They must have reset their database and
 		// will probably send us a full index. We drop any
 		// information we have and remember this new index ID
 		// instead.
-		l.Infof("Device %v folder %s has a new index ID (%v)", conn.DeviceID().Short(), folder.Description(), startInfo.remote.IndexID)
-		fset.Drop(conn.DeviceID())
-		fset.SetIndexID(conn.DeviceID(), startInfo.remote.IndexID)
+		slog.Info("Peer has a new index ID", conn.DeviceID().LogAttr(), folder.LogAttr(), slog.Any("indexid", startInfo.remote.IndexID))
+		if err := sdb.DropAllFiles(folder.ID, conn.DeviceID()); err != nil {
+			return nil, err
+		}
+		if err := sdb.SetIndexID(folder.ID, conn.DeviceID(), startInfo.remote.IndexID); err != nil {
+			return nil, err
+		}
 	}
 
 	return &indexHandler{
@@ -119,27 +137,27 @@ func newIndexHandler(conn protocol.Connection, downloads *deviceDownloadState, f
 		sentPrevSequence:         startSequence,
 		evLogger:                 evLogger,
 
-		fset:   fset,
+		sdb:    sdb,
 		runner: runner,
 		cond:   sync.NewCond(new(sync.Mutex)),
-	}
+	}, nil
 }
 
-// waitForFileset waits for the handler to resume and fetches the current fileset.
-func (s *indexHandler) waitForFileset(ctx context.Context) (*db.FileSet, error) {
+// waitWhilePaused waits for the handler to resume.
+func (s *indexHandler) waitWhilePaused(ctx context.Context) error {
 	s.cond.L.Lock()
 	defer s.cond.L.Unlock()
 
 	for s.paused {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return ctx.Err()
 		default:
 			s.cond.Wait()
 		}
 	}
 
-	return s.fset, nil
+	return nil
 }
 
 func (s *indexHandler) Serve(ctx context.Context) (err error) {
@@ -162,11 +180,10 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 	}()
 
 	// We need to send one index, regardless of whether there is something to send or not
-	fset, err := s.waitForFileset(ctx)
-	if err != nil {
+	if err := s.waitWhilePaused(ctx); err != nil {
 		return err
 	}
-	err = s.sendIndexTo(ctx, fset)
+	err = s.sendIndexTo(ctx)
 
 	// Subscribe to LocalIndexUpdated (we have new information to send) and
 	// DeviceDisconnected (it might be us who disconnected, so we should
@@ -179,8 +196,7 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 	defer ticker.Stop()
 
 	for err == nil {
-		fset, err = s.waitForFileset(ctx)
-		if err != nil {
+		if err := s.waitWhilePaused(ctx); err != nil {
 			return err
 		}
 
@@ -188,7 +204,12 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 		// currently in the database, wait for the local index to update. The
 		// local index may update for other folders than the one we are
 		// sending for.
-		if fset.Sequence(protocol.LocalDeviceID) <= s.localPrevSequence {
+		var seq int64
+		seq, err = s.sdb.GetDeviceSequence(s.folder, protocol.LocalDeviceID)
+		if err != nil {
+			return err
+		}
+		if seq <= s.localPrevSequence {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -198,7 +219,7 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 			continue
 		}
 
-		err = s.sendIndexTo(ctx, fset)
+		err = s.sendIndexTo(ctx)
 
 		// Wait a short amount of time before entering the next loop. If there
 		// are continuous changes happening to the local index, this gives us
@@ -215,10 +236,9 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 
 // resume might be called because the folder was actually resumed, or just
 // because the folder config changed (and thus the runner and potentially fset).
-func (s *indexHandler) resume(fset *db.FileSet, runner service) {
+func (s *indexHandler) resume(runner service) {
 	s.cond.L.Lock()
 	s.paused = false
-	s.fset = fset
 	s.runner = runner
 	s.cond.Broadcast()
 	s.cond.L.Unlock()
@@ -230,7 +250,6 @@ func (s *indexHandler) pause() {
 		s.evLogger.Log(events.Failure, "index handler got paused while already paused")
 	}
 	s.paused = true
-	s.fset = nil
 	s.runner = nil
 	s.cond.Broadcast()
 	s.cond.L.Unlock()
@@ -238,9 +257,9 @@ func (s *indexHandler) pause() {
 
 // sendIndexTo sends file infos with a sequence number higher than prevSequence and
 // returns the highest sent sequence number.
-func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error {
+func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 	initial := s.localPrevSequence == 0
-	batch := db.NewFileInfoBatch(nil)
+	batch := NewFileInfoBatch(nil)
 	var batchError error
 	batch.SetFlushFunc(func(fs []protocol.FileInfo) error {
 		select {
@@ -284,22 +303,18 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 		return nil
 	})
 
-	var err error
 	var f protocol.FileInfo
-	snap, err := fset.Snapshot()
-	if err != nil {
-		return svcutil.AsFatalErr(err, svcutil.ExitError)
-	}
-	defer snap.Release()
 	previousWasDelete := false
-	snap.WithHaveSequence(s.localPrevSequence+1, func(fi protocol.FileInfo) bool {
+
+	for fi, err := range itererr.Zip(s.sdb.AllLocalFilesBySequence(s.folder, protocol.LocalDeviceID, s.localPrevSequence+1, MaxBatchSizeFiles+1)) {
+		if err != nil {
+			return err
+		}
 		// This is to make sure that renames (which is an add followed by a delete) land in the same batch.
 		// Even if the batch is full, we allow a last delete to slip in, we do this by making sure that
 		// the batch ends with a non-delete, or that the last item in the batch is already a delete
 		if batch.Full() && (!fi.IsDeleted() || previousWasDelete) {
-			if err = batch.Flush(); err != nil {
-				return false
-			}
+			break
 		}
 
 		if fi.SequenceNo() < s.localPrevSequence+1 {
@@ -307,6 +322,7 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 				"sequence": fi.SequenceNo(),
 				"start":    s.localPrevSequence + 1,
 			})
+			return errors.New("database misbehaved")
 		}
 
 		if f.Sequence > 0 && fi.SequenceNo() <= f.Sequence {
@@ -315,27 +331,17 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 				"start":    s.localPrevSequence + 1,
 				"previous": f.Sequence,
 			})
-			// Abort this round of index sending - the next one will pick
-			// up from the last successful one with the repeaired db.
-			defer func() {
-				if fixed, dbErr := fset.RepairSequence(); dbErr != nil {
-					l.Warnln("Failed repairing sequence entries:", dbErr)
-					panic("Failed repairing sequence entries")
-				} else {
-					s.evLogger.Log(events.Failure, "detected and repaired non-increasing sequence")
-					l.Infof("Repaired %v sequence entries in database", fixed)
-				}
-			}()
-			return false
+			return errors.New("database misbehaved")
 		}
 
 		f = fi
+		s.localPrevSequence = f.Sequence
 
 		// If this is a folder receiving encrypted files only, we
 		// mustn't ever send locally changed file infos. Those aren't
 		// encrypted and thus would be a protocol error at the remote.
 		if s.folderIsReceiveEncrypted && fi.IsReceiveOnlyChanged() {
-			return true
+			continue
 		}
 
 		f = prepareFileInfoForIndex(f)
@@ -343,24 +349,8 @@ func (s *indexHandler) sendIndexTo(ctx context.Context, fset *db.FileSet) error 
 		previousWasDelete = f.IsDeleted()
 
 		batch.Append(f)
-		return true
-	})
-	if err != nil {
-		return err
 	}
-
-	if err := batch.Flush(); err != nil {
-		return err
-	}
-
-	// Use the sequence of the snapshot we iterated as a starting point for the
-	// next run. Previously we used the sequence of the last file we sent,
-	// however it's possible that a higher sequence exists, just doesn't need to
-	// be sent (e.g. in a receive-only folder, when a local change was
-	// reverted). No point trying to send nothing again.
-	s.localPrevSequence = snap.Sequence(protocol.LocalDeviceID)
-
-	return nil
+	return batch.Flush()
 }
 
 func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, prevSequence, lastSequence int64) error {
@@ -368,12 +358,11 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 
 	s.cond.L.Lock()
 	paused := s.paused
-	fset := s.fset
 	runner := s.runner
 	s.cond.L.Unlock()
 
 	if paused {
-		l.Infof("%v for paused folder %q", op, s.folder)
+		slog.Warn("Unexpected operation on paused folder", "op", op, "folder", s.folder)
 		return fmt.Errorf("%v: %w", s.folder, ErrFolderPaused)
 	}
 
@@ -382,13 +371,19 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 	s.downloads.Update(s.folder, makeForgetUpdate(fs))
 
 	if !update {
-		fset.Drop(deviceID)
+		if err := s.sdb.DropAllFiles(s.folder, deviceID); err != nil {
+			return err
+		}
 	}
 
 	l.Debugf("Received %d files for %s from %s, prevSeq=%d, lastSeq=%d", len(fs), s.folder, deviceID.Short(), prevSequence, lastSequence)
 
 	// Verify that the previous sequence number matches what we expected
-	if exp := fset.Sequence(deviceID); prevSequence > 0 && prevSequence != exp {
+	exp, err := s.sdb.GetDeviceSequence(s.folder, deviceID)
+	if err != nil {
+		return err
+	}
+	if prevSequence > 0 && prevSequence != exp {
 		s.logSequenceAnomaly("index update with unexpected sequence", map[string]any{
 			"prevSeq":      prevSequence,
 			"lastSeq":      lastSequence,
@@ -427,11 +422,6 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 				"precedingSeq": fs[i-1].Sequence,
 			})
 		}
-
-		// The local attributes should never be transmitted over the wire.
-		// Make sure they look like they weren't.
-		fs[i].LocalFlags = 0
-		fs[i].VersionHash = nil
 	}
 
 	// Verify the claimed last sequence number
@@ -444,8 +434,13 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 		})
 	}
 
-	fset.Update(deviceID, fs)
-	seq := fset.Sequence(deviceID)
+	if err := s.sdb.Update(s.folder, deviceID, fs); err != nil {
+		return err
+	}
+	seq, err := s.sdb.GetDeviceSequence(s.folder, deviceID)
+	if err != nil {
+		return err
+	}
 
 	// Check that the sequence we get back is what we put in...
 	if lastSequence > 0 && len(fs) > 0 && seq != lastSequence {
@@ -482,22 +477,14 @@ func (s *indexHandler) logSequenceAnomaly(msg string, extra map[string]any) {
 }
 
 func prepareFileInfoForIndex(f protocol.FileInfo) protocol.FileInfo {
-	// Mark the file as invalid if any of the local bad stuff flags are set.
-	f.RawInvalid = f.IsInvalid()
 	// If the file is marked LocalReceive (i.e., changed locally on a
 	// receive only folder) we do not want it to ever become the
 	// globally best version, invalid or not.
 	if f.IsReceiveOnlyChanged() {
 		f.Version = protocol.Vector{}
 	}
-	// The trailer with the encrypted fileinfo is device local, don't send info
-	// about that to remotes
+	// The trailer with the encrypted fileinfo is device local, announce the size without it to remotes.
 	f.Size -= int64(f.EncryptionTrailerSize)
-	f.EncryptionTrailerSize = 0
-	// never sent externally
-	f.LocalFlags = 0
-	f.VersionHash = nil
-	f.InodeChangeNs = 0
 	return f
 }
 
@@ -508,6 +495,7 @@ func (s *indexHandler) String() string {
 type indexHandlerRegistry struct {
 	evLogger      events.Logger
 	conn          protocol.Connection
+	sdb           db.DB
 	downloads     *deviceDownloadState
 	indexHandlers *serviceMap[string, *indexHandler]
 	startInfos    map[string]*clusterConfigDeviceInfo
@@ -517,14 +505,14 @@ type indexHandlerRegistry struct {
 
 type indexHandlerFolderState struct {
 	cfg    config.FolderConfiguration
-	fset   *db.FileSet
 	runner service
 }
 
-func newIndexHandlerRegistry(conn protocol.Connection, downloads *deviceDownloadState, evLogger events.Logger) *indexHandlerRegistry {
+func newIndexHandlerRegistry(conn protocol.Connection, sdb db.DB, downloads *deviceDownloadState, evLogger events.Logger) *indexHandlerRegistry {
 	r := &indexHandlerRegistry{
 		evLogger:      evLogger,
 		conn:          conn,
+		sdb:           sdb,
 		downloads:     downloads,
 		indexHandlers: newServiceMap[string, *indexHandler](evLogger),
 		startInfos:    make(map[string]*clusterConfigDeviceInfo),
@@ -544,15 +532,19 @@ func (r *indexHandlerRegistry) Serve(ctx context.Context) error {
 	return r.indexHandlers.Serve(ctx)
 }
 
-func (r *indexHandlerRegistry) startLocked(folder config.FolderConfiguration, fset *db.FileSet, runner service, startInfo *clusterConfigDeviceInfo) {
+func (r *indexHandlerRegistry) startLocked(folder config.FolderConfiguration, runner service, startInfo *clusterConfigDeviceInfo) error {
 	r.indexHandlers.RemoveAndWait(folder.ID, 0)
 	delete(r.startInfos, folder.ID)
 
-	is := newIndexHandler(r.conn, r.downloads, folder, fset, runner, startInfo, r.evLogger)
+	is, err := newIndexHandler(r.conn, r.downloads, folder, r.sdb, runner, startInfo, r.evLogger)
+	if err != nil {
+		return err
+	}
 	r.indexHandlers.Add(folder.ID, is)
 
 	// This new connection might help us get in sync.
 	runner.SchedulePull()
+	return nil
 }
 
 // AddIndexInfo starts an index handler for given folder, unless it is paused.
@@ -572,7 +564,7 @@ func (r *indexHandlerRegistry) AddIndexInfo(folder string, startInfo *clusterCon
 		r.startInfos[folder] = startInfo
 		return
 	}
-	r.startLocked(folderState.cfg, folderState.fset, folderState.runner, startInfo)
+	_ = r.startLocked(folderState.cfg, folderState.runner, startInfo) // XXX error handling...
 }
 
 // Remove stops a running index handler or removes one pending to be started.
@@ -612,7 +604,7 @@ func (r *indexHandlerRegistry) RemoveAllExcept(except map[string]remoteFolderSta
 // RegisterFolderState must be called whenever something about the folder
 // changes. The exception being if the folder is removed entirely, then call
 // Remove. The fset and runner arguments may be nil, if given folder is paused.
-func (r *indexHandlerRegistry) RegisterFolderState(folder config.FolderConfiguration, fset *db.FileSet, runner service) {
+func (r *indexHandlerRegistry) RegisterFolderState(folder config.FolderConfiguration, runner service) {
 	if !folder.SharedWith(r.conn.DeviceID()) {
 		r.Remove(folder.ID)
 		return
@@ -622,7 +614,7 @@ func (r *indexHandlerRegistry) RegisterFolderState(folder config.FolderConfigura
 	if folder.Paused {
 		r.folderPausedLocked(folder.ID)
 	} else {
-		r.folderRunningLocked(folder, fset, runner)
+		r.folderRunningLocked(folder, runner)
 	}
 	r.mut.Unlock()
 }
@@ -643,10 +635,9 @@ func (r *indexHandlerRegistry) folderPausedLocked(folder string) {
 // folderRunningLocked resumes an already running index handler or starts it, if it
 // was added while paused.
 // It is a noop if the folder isn't known.
-func (r *indexHandlerRegistry) folderRunningLocked(folder config.FolderConfiguration, fset *db.FileSet, runner service) {
+func (r *indexHandlerRegistry) folderRunningLocked(folder config.FolderConfiguration, runner service) {
 	r.folderStates[folder.ID] = &indexHandlerFolderState{
 		cfg:    folder,
-		fset:   fset,
 		runner: runner,
 	}
 
@@ -656,12 +647,12 @@ func (r *indexHandlerRegistry) folderRunningLocked(folder config.FolderConfigura
 			r.indexHandlers.RemoveAndWait(folder.ID, 0)
 			l.Debugf("Removed index handler for device %v and folder %v in resume", r.conn.DeviceID().Short(), folder.ID)
 		}
-		r.startLocked(folder, fset, runner, info)
+		_ = r.startLocked(folder, runner, info) // XXX error handling...
 		delete(r.startInfos, folder.ID)
 		l.Debugf("Started index handler for device %v and folder %v in resume", r.conn.DeviceID().Short(), folder.ID)
 	} else if isOk {
 		l.Debugf("Resuming index handler for device %v and folder %v", r.conn.DeviceID().Short(), folder)
-		is.resume(fset, runner)
+		is.resume(runner)
 	} else {
 		l.Debugf("Not resuming index handler for device %v and folder %v as none is paused and there is no start info", r.conn.DeviceID().Short(), folder.ID)
 	}
@@ -672,7 +663,7 @@ func (r *indexHandlerRegistry) ReceiveIndex(folder string, fs []protocol.FileInf
 	defer r.mut.Unlock()
 	is, isOk := r.indexHandlers.Get(folder)
 	if !isOk {
-		l.Infof("%v for nonexistent or paused folder %q", op, folder)
+		slog.Warn("Unexpected operation on nonexistent or paused folder", "op", op, "folder", folder)
 		return fmt.Errorf("%s: %w", folder, ErrFolderMissing)
 	}
 	return is.receive(fs, update, op, prevSequence, lastSequence)

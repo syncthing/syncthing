@@ -13,14 +13,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/url"
 	"os"
 	"reflect"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/netutil"
@@ -31,7 +33,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 37
+	CurrentVersion       = 52
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -72,8 +74,6 @@ var (
 	// The fallback stun servers are used if the primary ones can't be resolved or are down.
 	DefaultFallbackStunServers = []string{
 		"stun.counterpath.com:3478",
-		"stun.counterpath.net:3478",
-		"stun.ekiga.net:3478",
 		"stun.hitv.com:3478",
 		"stun.internetcalls.com:3478",
 		"stun.miwifi.com:3478",
@@ -82,7 +82,6 @@ var (
 		"stun.voip.aebc.com:3478",
 		"stun.voipbuster.com:3478",
 		"stun.voipstunt.com:3478",
-		"stun.xten.com:3478",
 	}
 )
 
@@ -124,8 +123,7 @@ func New(myID protocol.DeviceID) Configuration {
 
 	// Can't happen.
 	if err := cfg.prepare(myID); err != nil {
-		l.Warnln("bug: error in preparing new folder:", err)
-		panic("error in preparing new folder")
+		panic("bug: error in preparing new folder")
 	}
 
 	return cfg
@@ -167,6 +165,7 @@ func (cfg *Configuration) ProbeFreePorts() error {
 
 type xmlConfiguration struct {
 	Configuration
+
 	XMLName xml.Name `xml:"configuration"`
 }
 
@@ -335,10 +334,10 @@ func (cfg *Configuration) prepareDeviceList() map[protocol.DeviceID]*DeviceConfi
 	// - free from duplicates
 	// - no devices with empty ID
 	// - sorted by ID
-	// Happen before preparting folders as that needs a correct device list.
+	// Happen before preparing folders as that needs a correct device list.
 	cfg.Devices = ensureNoDuplicateOrEmptyIDDevices(cfg.Devices)
-	sort.Slice(cfg.Devices, func(a, b int) bool {
-		return cfg.Devices[a].DeviceID.Compare(cfg.Devices[b].DeviceID) == -1
+	slices.SortFunc(cfg.Devices, func(a, b DeviceConfiguration) int {
+		return a.DeviceID.Compare(b.DeviceID)
 	})
 
 	// Build a list of available devices
@@ -380,8 +379,8 @@ func (cfg *Configuration) prepareFolders(myID protocol.DeviceID, existingDevices
 		}
 	}
 	// Ensure that the folder list is sorted by ID
-	sort.Slice(cfg.Folders, func(a, b int) bool {
-		return cfg.Folders[a].ID < cfg.Folders[b].ID
+	slices.SortFunc(cfg.Folders, func(a, b FolderConfiguration) int {
+		return strings.Compare(a.ID, b.ID)
 	})
 	return sharedFolders, nil
 }
@@ -421,7 +420,7 @@ func (cfg *Configuration) removeDeprecatedProtocols() {
 
 func (cfg *Configuration) applyMigrations() {
 	if cfg.Version > 0 && cfg.Version < OldestHandledVersion {
-		l.Warnf("Configuration version %d is deprecated. Attempting best effort conversion, but please verify manually.", cfg.Version)
+		slog.Warn("Loaded deprecated configuration version; attempting best effort conversion, but please verify manually", "version", cfg.Version)
 	}
 
 	// Upgrade configuration versions as appropriate
@@ -594,7 +593,7 @@ func ensureNoUntrustedTrustingSharing(f *FolderConfiguration, devices []FolderDe
 			continue
 		}
 		if devCfg := existingDevices[dev.DeviceID]; devCfg.Untrusted {
-			l.Warnf("Folder %s (%s) is shared in trusted mode with untrusted device %s (%s); unsharing.", f.ID, f.Label, dev.DeviceID.Short(), devCfg.Name)
+			slog.Error("Folder is shared in trusted mode with untrusted device; unsharing", dev.DeviceID.LogAttr(), f.LogAttr())
 			devices = sliceutil.RemoveAndZero(devices, i)
 			i--
 		}
@@ -614,7 +613,7 @@ func cleanSymlinks(filesystem fs.Filesystem, dir string) {
 			return err
 		}
 		if info.IsSymlink() {
-			l.Infoln("Removing incorrectly versioned symlink", path)
+			slog.Warn("Removing incorrectly versioned symlink", slogutil.FilePath(path))
 			filesystem.Remove(path)
 			return fs.SkipDir
 		}
@@ -686,7 +685,7 @@ func copyMatchingTag(from interface{}, to interface{}, tag string, shouldCopy fu
 		panic(fmt.Sprintf("non equal types: %s != %s", fromType, toType))
 	}
 
-	for i := 0; i < toStruct.NumField(); i++ {
+	for i := range toStruct.NumField() {
 		fromField := fromStruct.Field(i)
 		toField := toStruct.Field(i)
 

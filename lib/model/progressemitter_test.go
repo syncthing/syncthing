@@ -18,7 +18,6 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 var timeout = 100 * time.Millisecond
@@ -79,7 +78,6 @@ func TestProgressEmitter(t *testing.T) {
 
 	s := sharedPullerState{
 		updated: time.Now(),
-		mut:     sync.NewRWMutex(),
 	}
 	p.Register(&s)
 
@@ -222,7 +220,6 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 			Version: v1,
 			Blocks:  blocks,
 		},
-		mut:              sync.NewRWMutex(),
 		availableUpdated: time.Now(),
 	}
 	p.registry["folder"]["1"] = state1
@@ -305,7 +302,6 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 			Version: v1,
 			Blocks:  blocks,
 		},
-		mut:              sync.NewRWMutex(),
 		available:        []int{1, 2, 3},
 		availableUpdated: time.Now(),
 	}
@@ -316,7 +312,6 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 			Version: v1,
 			Blocks:  blocks,
 		},
-		mut:              sync.NewRWMutex(),
 		available:        []int{1, 2, 3},
 		availableUpdated: time.Now(),
 	}
@@ -327,7 +322,6 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 			Version: v1,
 			Blocks:  blocks,
 		},
-		mut:              sync.NewRWMutex(),
 		available:        []int{1, 2, 3},
 		availableUpdated: time.Now(),
 	}
@@ -375,7 +369,6 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 			Type:    protocol.FileInfoTypeDirectory,
 			Blocks:  blocks,
 		},
-		mut:              sync.NewRWMutex(),
 		available:        []int{1, 2, 3},
 		availableUpdated: time.Now(),
 	}
@@ -387,7 +380,6 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 			Version: v1,
 			Type:    protocol.FileInfoTypeSymlink,
 		},
-		mut:              sync.NewRWMutex(),
 		available:        []int{1, 2, 3},
 		availableUpdated: time.Now(),
 	}
@@ -399,7 +391,6 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 			Version: v1,
 			Blocks:  blocks,
 		},
-		mut:              sync.NewRWMutex(),
 		available:        []int{1, 2, 3},
 		availableUpdated: time.Now(),
 	}
@@ -411,7 +402,6 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 			Version: v1,
 			Blocks:  blocks[:3],
 		},
-		mut:              sync.NewRWMutex(),
 		available:        []int{1, 2, 3},
 		availableUpdated: time.Now(),
 	}

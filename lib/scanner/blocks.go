@@ -11,8 +11,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"hash"
-	"hash/adler32"
 	"io"
+	"sync"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -23,22 +23,26 @@ type Counter interface {
 	Update(bytes int64)
 }
 
+const bufSize = 32 << 10 // 32k
+
+var bufPool = sync.Pool{
+	New: func() any {
+		return new([bufSize]byte) // 32k buffer
+	},
+}
+
+const hashLength = sha256.Size
+
+var hashPool = sync.Pool{
+	New: func() any {
+		return sha256.New()
+	},
+}
+
 // Blocks returns the blockwise hash of the reader.
-func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
+func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, counter Counter) ([]protocol.BlockInfo, error) {
 	if counter == nil {
 		counter = &noopCounter{}
-	}
-
-	hf := sha256.New()
-	const hashLength = sha256.Size
-
-	var weakHf hash.Hash32 = noopHash{}
-	var multiHf io.Writer = hf
-	if useWeakHashes {
-		// Use an actual weak hash function, make the multiHf
-		// write to both hash functions.
-		weakHf = adler32.New()
-		multiHf = io.MultiWriter(hf, weakHf)
 	}
 
 	var blocks []protocol.BlockInfo
@@ -57,8 +61,14 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 		hashes = make([]byte, 0, hashLength*numBlocks)
 	}
 
+	hf := hashPool.Get().(hash.Hash) //nolint:forcetypeassert
 	// A 32k buffer is used for copying into the hash function.
-	buf := make([]byte, 32<<10)
+	buf := bufPool.Get().(*[bufSize]byte)[:] //nolint:forcetypeassert
+	defer func() {
+		bufPool.Put((*[bufSize]byte)(buf))
+		hf.Reset()
+		hashPool.Put(hf)
+	}()
 
 	var offset int64
 	lr := io.LimitReader(r, int64(blocksize)).(*io.LimitedReader)
@@ -70,7 +80,7 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 		}
 
 		lr.N = int64(blocksize)
-		n, err := io.CopyBuffer(multiHf, lr, buf)
+		n, err := io.CopyBuffer(hf, lr, buf)
 		if err != nil {
 			return nil, err
 		}
@@ -87,17 +97,15 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 		thisHash, hashes = hashes[:hashLength], hashes[hashLength:]
 
 		b := protocol.BlockInfo{
-			Size:     int(n),
-			Offset:   offset,
-			Hash:     thisHash,
-			WeakHash: weakHf.Sum32(),
+			Size:   int(n),
+			Offset: offset,
+			Hash:   thisHash,
 		}
 
 		blocks = append(blocks, b)
 		offset += n
 
 		hf.Reset()
-		weakHf.Reset()
 	}
 
 	if len(blocks) == 0 {
@@ -112,14 +120,8 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 	return blocks, nil
 }
 
-// Validate quickly validates buf against the 32-bit weakHash, if not zero,
-// else against the cryptohash hash, if len(hash)>0. It is satisfied if
-// either hash matches or neither hash is given.
-func Validate(buf, hash []byte, weakHash uint32) bool {
-	if weakHash != 0 && adler32.Checksum(buf) == weakHash {
-		return true
-	}
-
+// Validate validates the hash, if len(hash)>0.
+func Validate(buf, hash []byte) bool {
 	if len(hash) > 0 {
 		hbuf := sha256.Sum256(buf)
 		return bytes.Equal(hbuf[:], hash)

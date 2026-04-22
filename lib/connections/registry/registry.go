@@ -11,9 +11,9 @@ package registry
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/syncthing/syncthing/lib/sliceutil"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type Registry struct {
@@ -23,7 +23,6 @@ type Registry struct {
 
 func New() *Registry {
 	return &Registry{
-		mut:       sync.NewMutex(),
 		available: make(map[string][]interface{}),
 	}
 }

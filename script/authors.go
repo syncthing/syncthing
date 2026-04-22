@@ -14,14 +14,14 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
-	"io"
 	"log"
 	"math"
 	"os"
 	"os/exec"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -64,59 +64,33 @@ type author struct {
 
 func main() {
 	// Read authors from the AUTHORS file
-	authors := getAuthors()
-
-	// Grab the set of thus known email addresses
-	listed := make(stringSet)
-	names := make(map[string]int)
-	for i, a := range authors {
-		names[a.name] = i
-		for _, e := range a.emails {
-			listed.add(e)
-		}
-	}
+	authorSet := getAuthors()
 
 	// Grab the set of all known authors based on the git log, and add any
 	// missing ones to the authors list.
-	all := allAuthors()
-	for email, name := range all {
-		if listed.has(email) {
-			continue
-		}
+	addAuthors(authorSet)
 
-		if _, ok := names[name]; ok && name != "" {
-			// We found a match on name
-			authors[names[name]].emails = append(authors[names[name]].emails, email)
-			listed.add(email)
-			continue
-		}
+	authors := authorSet.filteredAuthors()
 
-		authors = append(authors, author{
-			name:   name,
-			emails: []string{email},
-		})
-		names[name] = len(authors) - 1
-		listed.add(email)
-	}
+	// Write authors to the about dialog
 
-	// Write author names in GUI about modal
-
-	getContributions(authors)
-	sort.Sort(byContributions(authors))
+	slices.SortFunc(authors, func(a, b author) int {
+		return cmp.Or(
+			-cmp.Compare(a.log10commits, b.log10commits),
+			cmp.Compare(strings.ToLower(a.name), strings.ToLower(b.name)))
+	})
 
 	var lines []string
 	for _, author := range authors {
-		if authorBotsRe.MatchString(author.name) {
-			// Only humans are eligible, pending future legislation to the
-			// contrary.
-			continue
-		}
 		lines = append(lines, author.name)
 	}
 	replacement := strings.Join(lines, ", ")
 
 	authorsRe := regexp.MustCompile(`(?s)id="contributor-list">.*?</div>`)
-	bs := readAll(htmlFile)
+	bs, err := os.ReadFile(htmlFile)
+	if err != nil {
+		log.Fatal(err)
+	}
 	bs = authorsRe.ReplaceAll(bs, []byte("id=\"contributor-list\">\n"+replacement+"\n          </div>"))
 
 	if err := os.WriteFile(htmlFile, bs, 0o644); err != nil {
@@ -124,8 +98,6 @@ func main() {
 	}
 
 	// Write AUTHORS file
-
-	sort.Sort(byName(authors))
 
 	out, err := os.Create("AUTHORS")
 	if err != nil {
@@ -141,16 +113,22 @@ func main() {
 		for _, email := range author.emails {
 			fmt.Fprintf(out, " <%s>", email)
 		}
-		fmt.Fprintf(out, "\n")
+		fmt.Fprint(out, "\n")
 	}
 	out.Close()
 }
 
-func getAuthors() []author {
-	bs := readAll("AUTHORS")
-	lines := strings.Split(string(bs), "\n")
-	var authors []author
+func getAuthors() *authorSet {
+	bs, err := os.ReadFile("AUTHORS")
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	lines := strings.Split(string(bs), "\n")
+	authors := &authorSet{
+		emails:  make(map[string]int),
+		commits: make(map[string]stringSet),
+	}
 	for _, line := range lines {
 		if len(line) == 0 || line[0] == '#' {
 			continue
@@ -159,7 +137,9 @@ func getAuthors() []author {
 		fields := strings.Fields(line)
 		var author author
 		for _, field := range fields {
-			if m := nicknameRe.FindStringSubmatch(field); len(m) > 1 {
+			if field == "#" {
+				break
+			} else if m := nicknameRe.FindStringSubmatch(field); len(m) > 1 {
 				author.nickname = m[1]
 			} else if m := emailRe.FindStringSubmatch(field); len(m) > 1 {
 				author.emails = append(author.emails, m[1])
@@ -172,51 +152,9 @@ func getAuthors() []author {
 			}
 		}
 
-		authors = append(authors, author)
+		authors.add(author)
 	}
 	return authors
-}
-
-func readAll(path string) []byte {
-	fd, err := os.Open(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer fd.Close()
-
-	bs, err := io.ReadAll(fd)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return bs
-}
-
-// Add number of commits per author to the author list.
-func getContributions(authors []author) {
-	buf := new(bytes.Buffer)
-	cmd := exec.Command("git", "log", "--pretty=format:%ae")
-	cmd.Stdout = buf
-	err := cmd.Run()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-next:
-	for _, line := range strings.Split(buf.String(), "\n") {
-		for i := range authors {
-			for _, email := range authors[i].emails {
-				if email == line {
-					authors[i].commits++
-					continue next
-				}
-			}
-		}
-	}
-
-	for i := range authors {
-		authors[i].log10commits = int(math.Log10(float64(authors[i].commits + 1)))
-	}
 }
 
 // list of commits that we don't include in our author file; because they
@@ -230,101 +168,92 @@ var excludeCommits = stringSetFromStrings([]string{
 	"9bdcadf6345aba3a939e9e58d85b89dbe9d44bc9",
 	"b933e9666abdfcd22919dd458c930d944e1e1b7f",
 	"b84d960a81c1282a79e2b9477558de4f1af6faae",
+	"4dfb9d7c83ed172f12ae19408517961f4a49beeb",
 })
 
-// allAuthors returns the set of authors in the git commit log, except those
-// in excluded commits.
-func allAuthors() map[string]string {
-	// Format is hash, email, name, newline, body. The body is indented with
-	// one space, to differentiate from the hash lines.
-	args := append([]string{"log", "--format=%H %ae %an%n%w(,1,1)%b"})
-	cmd := exec.Command("git", args...)
-	bs, err := cmd.Output()
+func addAuthors(authors *authorSet) {
+	// All existing source-tracked files
+	bs, err := exec.Command("git", "ls-tree", "-r", "HEAD", "--name-only").CombinedOutput()
 	if err != nil {
-		log.Fatal("git:", err)
+		fmt.Println(string(bs))
+		log.Fatal("git ls-tree:", err)
 	}
+	files := strings.Split(string(bs), "\n")
+	files = slices.DeleteFunc(files, func(s string) bool {
+		return !(strings.HasPrefix(s, "assets/") ||
+			strings.HasPrefix(s, "cmd/") ||
+			strings.HasPrefix(s, "etc/") ||
+			strings.HasPrefix(s, "gui/") ||
+			strings.HasPrefix(s, "internal/") ||
+			strings.HasPrefix(s, "lib/") ||
+			strings.HasPrefix(s, "proto/") ||
+			strings.HasPrefix(s, "script/") ||
+			strings.HasPrefix(s, "test/") ||
+			strings.HasPrefix(s, "Dockerfile") ||
+			s == "build.go")
+	})
 
 	coAuthoredPrefix := "Co-authored-by: "
-	names := make(map[string]string)
-	skipCommit := false
-	for _, line := range bytes.Split(bs, []byte{'\n'}) {
-		if len(line) == 0 {
-			continue
+	for _, file := range files {
+		// All commits affecting those files, following any renames to their
+		// origin. Format is hash, email, name, newline, body. The body is
+		// indented with one space, to differentiate from the hash lines.
+		args := []string{"log", "--format=%H %ae %an%n%w(,1,1)%b", "--follow", "--", file}
+		bs, err = exec.Command("git", args...).CombinedOutput()
+		if err != nil {
+			fmt.Println(string(bs))
+			log.Fatal("git log:", err)
 		}
 
-		switch line[0] {
-		case ' ':
-			// Look for Co-authored-by: lines in the commit body.
-			if skipCommit {
+		skipCommit := false
+		var hash, email, name string
+		for _, line := range bytes.Split(bs, []byte{'\n'}) {
+			if len(line) == 0 {
 				continue
 			}
 
-			line = line[1:]
-			if bytes.HasPrefix(line, []byte(coAuthoredPrefix)) {
-				// Co-authored-by: Name Name <email@example.com>
-				line = line[len(coAuthoredPrefix):]
-				if name, email, ok := strings.Cut(string(line), "<"); ok {
-					name = strings.TrimSpace(name)
-					email = strings.Trim(strings.TrimSpace(email), "<>")
-					if email == "@" {
-						// GitHub special for users who hide their email.
-						continue
-					}
-					if names[email] == "" {
-						names[email] = name
+			switch line[0] {
+			case ' ':
+				// Look for Co-authored-by: lines in the commit body.
+				if skipCommit {
+					continue
+				}
+
+				line = line[1:]
+				if bytes.HasPrefix(line, []byte(coAuthoredPrefix)) {
+					// Co-authored-by: Name Name <email@example.com>
+					line = line[len(coAuthoredPrefix):]
+					if name, email, ok := strings.Cut(string(line), "<"); ok {
+						name = strings.TrimSpace(name)
+						email = strings.Trim(strings.TrimSpace(email), "<>")
+						if email == "@" {
+							// GitHub special for users who hide their email.
+							continue
+						}
+						authors.setName(email, name)
+						authors.addCommit(email, hash)
 					}
 				}
-			}
 
-		default: // hash email name
-			fields := strings.SplitN(string(line), " ", 3)
-			if len(fields) != 3 {
-				continue
-			}
-			hash, email, name := fields[0], fields[1], fields[2]
+			default: // hash email name
+				fields := strings.SplitN(string(line), " ", 3)
+				if len(fields) != 3 {
+					continue
+				}
+				hash, email, name = fields[0], fields[1], fields[2]
 
-			if excludeCommits.has(hash) {
-				skipCommit = true
-				continue
-			}
-			skipCommit = false
+				if excludeCommits.has(hash) {
+					skipCommit = true
+					continue
+				}
+				skipCommit = false
 
-			if names[email] == "" {
-				names[email] = name
+				authors.setName(email, name)
+				authors.addCommit(email, hash)
 			}
 		}
 	}
-
-	return names
 }
-
-type byContributions []author
-
-func (l byContributions) Len() int { return len(l) }
-
-// Sort first by log10(commits), then by name. This means that we first get
-// an alphabetic list of people with >= 1000 commits, then a list of people
-// with >= 100 commits, and so on.
-func (l byContributions) Less(a, b int) bool {
-	if l[a].log10commits != l[b].log10commits {
-		return l[a].log10commits > l[b].log10commits
-	}
-	return l[a].name < l[b].name
-}
-
-func (l byContributions) Swap(a, b int) { l[a], l[b] = l[b], l[a] }
-
-type byName []author
-
-func (l byName) Len() int { return len(l) }
-
-func (l byName) Less(a, b int) bool {
-	aname := strings.ToLower(l[a].name)
-	bname := strings.ToLower(l[b].name)
-	return aname < bname
-}
-
-func (l byName) Swap(a, b int) { l[a], l[b] = l[b], l[a] }
 
 // A simple string set type
 
@@ -347,12 +276,68 @@ func (s stringSet) has(e string) bool {
 	return ok
 }
 
-func (s stringSet) except(other stringSet) stringSet {
-	diff := make(stringSet)
-	for e := range s {
-		if !other.has(e) {
-			diff.add(e)
+// A set of authors
+
+type authorSet struct {
+	authors []author
+	emails  map[string]int       // email to author index
+	commits map[string]stringSet // email to commit hashes
+}
+
+func (a *authorSet) add(author author) {
+	for _, e := range author.emails {
+		if idx, ok := a.emails[e]; ok {
+			emails := append(author.emails, a.authors[idx].emails...)
+			slices.Sort(emails)
+			emails = slices.Compact(emails)
+			a.authors[idx].name = author.name
+			a.authors[idx].emails = emails
+
+			for _, e := range emails {
+				a.emails[e] = idx
+			}
+			return
 		}
 	}
-	return diff
+
+	for _, e := range author.emails {
+		a.emails[e] = len(a.authors)
+	}
+	a.authors = append(a.authors, author)
+}
+
+func (a *authorSet) setName(email, name string) {
+	idx, ok := a.emails[email]
+	if !ok {
+		a.emails[email] = len(a.authors)
+		a.authors = append(a.authors, author{name: name, emails: []string{email}})
+	} else if a.authors[idx].name == "" {
+		a.authors[idx].name = name
+	}
+}
+
+func (a *authorSet) addCommit(email, hash string) {
+	ss, ok := a.commits[email]
+	if !ok {
+		ss = make(stringSet)
+		a.commits[email] = ss
+	}
+	ss.add(hash)
+}
+
+func (a *authorSet) filteredAuthors() []author {
+	authors := make([]author, len(a.authors))
+	copy(authors, a.authors)
+	for i, author := range authors {
+		for _, e := range author.emails {
+			authors[i].commits += len(a.commits[e])
+		}
+	}
+	authors = slices.DeleteFunc(authors, func(a author) bool {
+		return a.commits == 0 || authorBotsRe.MatchString(a.name)
+	})
+	for i := range authors {
+		authors[i].log10commits = int(math.Log10(float64(authors[i].commits)))
+	}
+	return authors
 }

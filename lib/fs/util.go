@@ -169,10 +169,16 @@ func IsParent(path, parent string) bool {
 		// not be caught below.
 		return path != "/"
 	}
-	if parent[len(parent)-1] != PathSeparator {
-		parent += pathSeparatorString
+	if parent[len(parent)-1] == PathSeparator {
+		return strings.HasPrefix(path, parent)
 	}
-	return strings.HasPrefix(path, parent)
+	if !strings.HasPrefix(path, parent) {
+		return false
+	}
+	if len(path) <= len(parent) {
+		return false
+	}
+	return path[len(parent)] == PathSeparator
 }
 
 func CommonPrefix(first, second string) string {
@@ -192,7 +198,7 @@ func CommonPrefix(first, second string) string {
 	}
 
 	common := make([]string, 0, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		if firstParts[i] != secondParts[i] {
 			break
 		}

@@ -12,9 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/db/backend"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -86,33 +85,39 @@ func init() {
 }
 
 func newConfigWrapper(cfg config.Configuration) (config.Wrapper, context.CancelFunc) {
-	wrapper := config.Wrap("", cfg, myID, events.NoopLogger)
-	ctx, cancel := context.WithCancel(context.Background())
-	go wrapper.Serve(ctx)
-	return wrapper, cancel
+	return newConfigWrapperFromContext(context.Background(), cfg)
 }
 
-func newDefaultCfgWrapper() (config.Wrapper, config.FolderConfiguration, context.CancelFunc) {
-	w, cancel := newConfigWrapper(defaultCfgWrapper.RawCopy())
+func newDefaultCfgWrapper(t testing.TB) (config.Wrapper, config.FolderConfiguration) {
+	w, cancel := newConfigWrapperFromContext(t.Context(), defaultCfgWrapper.RawCopy())
+	t.Cleanup(cancel)
 	fcfg := newFolderConfig()
 	_, _ = w.Modify(func(cfg *config.Configuration) {
 		cfg.SetFolder(fcfg)
 	})
-	return w, fcfg, cancel
+	return w, fcfg
+}
+
+func newConfigWrapperFromContext(ctx context.Context, cfg config.Configuration) (config.Wrapper, context.CancelFunc) {
+	wrapper := config.Wrap("", cfg, myID, events.NoopLogger)
+	ctx, cancel := context.WithCancel(ctx)
+	go wrapper.Serve(ctx)
+	return wrapper, cancel
 }
 
 func newFolderConfig() config.FolderConfiguration {
 	cfg := newFolderConfiguration(defaultCfgWrapper, "default", "default", config.FilesystemTypeFake, rand.String(32)+"?content=true")
 	cfg.FSWatcherEnabled = false
+	cfg.PullerDelayS = 0
 	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
 	return cfg
 }
 
-func setupModelWithConnection(t testing.TB) (*testModel, *fakeConnection, config.FolderConfiguration, context.CancelFunc) {
+func setupModelWithConnection(t testing.TB) (*testModel, *fakeConnection, config.FolderConfiguration) {
 	t.Helper()
-	w, fcfg, cancel := newDefaultCfgWrapper()
+	w, fcfg := newDefaultCfgWrapper(t)
 	m, fc := setupModelWithConnectionFromWrapper(t, w)
-	return m, fc, fcfg, cancel
+	return m, fc, fcfg
 }
 
 func setupModelWithConnectionFromWrapper(t testing.TB, w config.Wrapper) (*testModel, *fakeConnection) {
@@ -149,12 +154,15 @@ type testModel struct {
 func newModel(t testing.TB, cfg config.Wrapper, id protocol.DeviceID, protectedFiles []string) *testModel {
 	t.Helper()
 	evLogger := events.NewLogger()
-	ldb, err := db.NewLowlevel(backend.OpenMemory(), evLogger)
+	mdb, err := sqlite.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := NewModel(cfg, id, ldb, protectedFiles, evLogger, protocol.NewKeyGenerator()).(*model)
-	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(func() {
+		mdb.Close()
+	})
+	m := NewModel(cfg, id, mdb, protectedFiles, evLogger, protocol.NewKeyGenerator()).(*model)
+	ctx, cancel := context.WithCancel(t.Context())
 	go evLogger.Serve(ctx)
 	return &testModel{
 		model:    m,
@@ -172,12 +180,6 @@ func (m *testModel) ServeBackground() {
 		close(m.stopped)
 	}()
 	<-m.started
-}
-
-func (m *testModel) testAvailability(folder string, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
-	av, err := m.model.Availability(folder, file, block)
-	must(m.t, err)
-	return av
 }
 
 func (m *testModel) testCurrentFolderFile(folder string, file string) (protocol.FileInfo, bool) {
@@ -198,7 +200,7 @@ func cleanupModel(m *testModel) {
 		<-m.stopped
 	}
 	m.evCancel()
-	m.db.Close()
+	m.sdb.Close()
 	os.Remove(m.cfg.ConfigPath())
 }
 
@@ -240,52 +242,6 @@ func (*alwaysChanged) Changed() bool {
 	return true
 }
 
-func localSize(t *testing.T, m Model, folder string) db.Counts {
-	t.Helper()
-	snap := dbSnapshot(t, m, folder)
-	defer snap.Release()
-	return snap.LocalSize()
-}
-
-func globalSize(t *testing.T, m Model, folder string) db.Counts {
-	t.Helper()
-	snap := dbSnapshot(t, m, folder)
-	defer snap.Release()
-	return snap.GlobalSize()
-}
-
-func receiveOnlyChangedSize(t *testing.T, m Model, folder string) db.Counts {
-	t.Helper()
-	snap := dbSnapshot(t, m, folder)
-	defer snap.Release()
-	return snap.ReceiveOnlyChangedSize()
-}
-
-func needSizeLocal(t *testing.T, m Model, folder string) db.Counts {
-	t.Helper()
-	snap := dbSnapshot(t, m, folder)
-	defer snap.Release()
-	return snap.NeedSize(protocol.LocalDeviceID)
-}
-
-func dbSnapshot(t *testing.T, m Model, folder string) *db.Snapshot {
-	t.Helper()
-	snap, err := m.DBSnapshot(folder)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return snap
-}
-
-func fsetSnapshot(t *testing.T, fset *db.FileSet) *db.Snapshot {
-	t.Helper()
-	snap, err := fset.Snapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return snap
-}
-
 // Reach in and update the ignore matcher to one that always does
 // reloads when asked to, instead of checking file mtimes. This is
 // because we will be changing the files on disk often enough that the
@@ -293,10 +249,9 @@ func fsetSnapshot(t *testing.T, fset *db.FileSet) *db.Snapshot {
 func folderIgnoresAlwaysReload(t testing.TB, m *testModel, fcfg config.FolderConfiguration) {
 	t.Helper()
 	m.removeFolder(fcfg)
-	fset := newFileSet(t, fcfg.ID, m.db)
-	ignores := ignore.New(fcfg.Filesystem(nil), ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
+	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
 	m.mut.Lock()
-	m.addAndStartFolderLockedWithIgnores(fcfg, fset, ignores)
+	m.addAndStartFolderLockedWithIgnores(fcfg, ignores)
 	m.mut.Unlock()
 }
 
@@ -319,12 +274,11 @@ func basicClusterConfig(local, remote protocol.DeviceID, folders ...string) *pro
 }
 
 func localIndexUpdate(m *testModel, folder string, fs []protocol.FileInfo) {
-	m.mut.RLock()
-	fset := m.folderFiles[folder]
-	m.mut.RUnlock()
-
-	fset.Update(protocol.LocalDeviceID, fs)
-	seq := fset.Sequence(protocol.LocalDeviceID)
+	m.sdb.Update(folder, protocol.LocalDeviceID, fs)
+	seq, err := m.sdb.GetDeviceSequence(folder, protocol.LocalDeviceID)
+	if err != nil {
+		panic(err)
+	}
 	filenames := make([]string, len(fs))
 	for i, file := range fs {
 		filenames[i] = file.Name
@@ -343,15 +297,6 @@ func newDeviceConfiguration(defaultCfg config.DeviceConfiguration, id protocol.D
 	cfg.DeviceID = id
 	cfg.Name = name
 	return cfg
-}
-
-func newFileSet(t testing.TB, folder string, ldb *db.Lowlevel) *db.FileSet {
-	t.Helper()
-	fset, err := db.NewFileSet(folder, ldb)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return fset
 }
 
 func replace(t testing.TB, w config.Wrapper, to config.Configuration) {

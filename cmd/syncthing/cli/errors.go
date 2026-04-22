@@ -9,6 +9,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/alecthomas/kong"
@@ -34,7 +35,7 @@ func (e *errorsPushCommand) Run(ctx Context) error {
 	if err != nil {
 		return err
 	}
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		errStr = fmt.Sprint("Failed to push error\nStatus code: ", response.StatusCode)
 		bytes, err := responseToBArray(response)
 		if err != nil {

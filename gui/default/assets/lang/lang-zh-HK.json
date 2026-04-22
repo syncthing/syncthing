@@ -340,7 +340,7 @@
     "Show diff with previous version": "顯示與先前版本的差異",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "在集群狀態中顯示該名稱，而不是設備 ID。將會作為當前設備的可選的默認名稱，報告給所有其他設備。",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "在集群狀態中顯示該名稱，而不是設備 ID。如果設置為空，則會使用目標設備自報的默認名稱。",
-    "Shutdown": "關閉",
+    "Shut Down": "關閉",
     "Shutdown Complete": "關閉完成",
     "Simple": "簡易",
     "Simple File Versioning": "簡易版本控制",

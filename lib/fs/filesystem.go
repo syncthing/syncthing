@@ -101,7 +101,6 @@ type FileInfo interface {
 	IsSymlink() bool
 	Owner() int
 	Group() int
-	InodeChangeTime() time.Time // may be zero if not supported
 }
 
 // FileMode is similar to os.FileMode
@@ -140,12 +139,12 @@ func (evType EventType) Merge(other EventType) EventType {
 }
 
 func (evType EventType) String() string {
-	switch {
-	case evType == NonRemove:
+	switch evType {
+	case NonRemove:
 		return "non-remove"
-	case evType == Remove:
+	case Remove:
 		return "remove"
-	case evType == Mixed:
+	case Mixed:
 		return "mixed"
 	default:
 		panic("bug: Unknown event type")
@@ -180,7 +179,7 @@ const (
 // SkipDir is used as a return value from WalkFuncs to indicate that
 // the directory named in the call is to be skipped. It is not returned
 // as an error by any function.
-var SkipDir = filepath.SkipDir
+var SkipDir = filepath.SkipDir //nolint:errname
 
 func IsExist(err error) bool {
 	return errors.Is(err, ErrExist)
@@ -259,15 +258,16 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 		// attributed to the calling function.
 		layersAboveWalkFilesystem++
 	}
-	if l.ShouldDebug("walkfs") {
+	switch {
+	case l.ShouldDebug("walkfs"):
 		// A walkFilesystem is not a layer to skip, it embeds the underlying
 		// filesystem, passing calls directly trough. Except for calls made
 		// during walking, however those are truly originating in the walk
 		// filesystem.
 		fs = NewWalkFilesystem(newLogFilesystem(fs, layersAboveWalkFilesystem))
-	} else if l.ShouldDebug("fs") {
+	case l.ShouldDebug("fs"):
 		fs = newLogFilesystem(NewWalkFilesystem(fs), layersAboveWalkFilesystem)
-	} else {
+	default:
 		fs = NewWalkFilesystem(fs)
 	}
 
@@ -284,13 +284,14 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 	return fs
 }
 
+// fs cannot import config or versioner, so we hard code .stfolder
+// (config.DefaultMarkerName) and .stversions (versioner.DefaultPath)
+var internals = []string{".stfolder", ".stignore", ".stversions"}
+
 // IsInternal returns true if the file, as a path relative to the folder
 // root, represents an internal file that should always be ignored. The file
 // path must be clean (i.e., in canonical shortest form).
 func IsInternal(file string) bool {
-	// fs cannot import config or versioner, so we hard code .stfolder
-	// (config.DefaultMarkerName) and .stversions (versioner.DefaultPath)
-	internals := []string{".stfolder", ".stignore", ".stversions"}
 	for _, internal := range internals {
 		if file == internal {
 			return true
@@ -321,7 +322,7 @@ func Canonicalize(file string) (string, error) {
 	}
 
 	// The relative path should be clean from internal dotdots and similar
-	// funkyness.
+	// funkiness.
 	file = filepath.Clean(file)
 
 	// It is not acceptable to attempt to traverse upwards.

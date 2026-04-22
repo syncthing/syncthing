@@ -30,7 +30,6 @@ type GUIConfiguration struct {
 	APIKey                    string   `json:"apiKey" xml:"apikey,omitempty"`
 	InsecureAdminAccess       bool     `json:"insecureAdminAccess" xml:"insecureAdminAccess,omitempty"`
 	Theme                     string   `json:"theme" xml:"theme" default:"default"`
-	Debugging                 bool     `json:"debugging" xml:"debugging,attr"`
 	InsecureSkipHostCheck     bool     `json:"insecureSkipHostcheck" xml:"insecureSkipHostcheck,omitempty"`
 	InsecureAllowFrameLoading bool     `json:"insecureAllowFrameLoading" xml:"insecureAllowFrameLoading,omitempty"`
 	SendBasicAuthPrompt       bool     `json:"sendBasicAuthPrompt" xml:"sendBasicAuthPrompt,attr"`

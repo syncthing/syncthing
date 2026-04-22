@@ -1,6 +1,7 @@
 name: Bug report
 description: If you're actually looking for support instead, see "I need help / I have a question".
 labels: ["bug", "needs-triage"]
+type: Bug
 body:
   - type: markdown
     attributes:

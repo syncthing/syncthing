@@ -1,0 +1,20 @@
+name: Org membership recommendations
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 1 * *'
+
+jobs:
+
+  run-recommendation:
+    runs-on: ubuntu-latest
+    name: Check for a recommendation
+    steps:
+
+      - uses: docker://ghcr.io/calmh/github-org-members:latest
+        env:
+          GITHUB_ORGANISATION: syncthing
+          GITHUB_TOKEN: ${{ secrets.GOM_GITHUB_TOKEN }}
+          GOM_IGNORE_USERS: ${{ secrets.GOM_IGNORE_USERS }}
+          GOM_ALSO_REPOS: ${{ secrets.GOM_ALSO_REPOS }}

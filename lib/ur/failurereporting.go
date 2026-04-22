@@ -10,11 +10,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"runtime/pprof"
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
@@ -39,6 +41,7 @@ var (
 
 type FailureReport struct {
 	FailureData
+
 	Count   int
 	Version string
 }
@@ -219,14 +222,14 @@ func sendFailureReports(ctx context.Context, reports []FailureReport, url string
 	defer reqCancel()
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, url, &b)
 	if err != nil {
-		l.Infoln("Failed to send failure report:", err)
+		slog.WarnContext(ctx, "Failed to send failure report", slogutil.Error(err))
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		l.Infoln("Failed to send failure report:", err)
+		slog.WarnContext(ctx, "Failed to send failure report", slogutil.Error(err))
 		return
 	}
 	resp.Body.Close()

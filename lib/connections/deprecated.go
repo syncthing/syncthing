@@ -11,6 +11,7 @@ import "github.com/syncthing/syncthing/lib/config"
 // invalidListener is never valid
 type invalidListener struct {
 	listenerFactory
+
 	err error
 }
 
@@ -25,6 +26,7 @@ func (i invalidListener) Valid(_ config.Configuration) error {
 // invalidDialer is never valid
 type invalidDialer struct {
 	dialerFactory
+
 	err error
 }
 

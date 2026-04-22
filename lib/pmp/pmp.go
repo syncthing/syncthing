@@ -9,15 +9,16 @@ package pmp
 import (
 	"context"
 	"errors"
-	"fmt"
+	"log/slog"
 	"net"
 	"strings"
 	"time"
 
-	"github.com/jackpal/gateway"
 	natpmp "github.com/jackpal/go-nat-pmp"
 
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/netutil"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/svcutil"
 )
@@ -30,18 +31,18 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 	var ip net.IP
 	err := svcutil.CallWithContext(ctx, func() error {
 		var err error
-		ip, err = gateway.DiscoverGateway()
+		ip, err = netutil.Gateway()
 		return err
 	})
 	if err != nil {
-		l.Debugln("Failed to discover gateway", err)
+		slog.DebugContext(ctx, "Failed to discover gateway", slogutil.Error(err))
 		return nil
 	}
 	if ip == nil || ip.IsUnspecified() {
 		return nil
 	}
 
-	l.Debugln("Discovered gateway at", ip)
+	slog.DebugContext(ctx, "Discovered gateway", "ip", ip)
 
 	c := natpmp.NewClientWithTimeout(ip, timeout)
 	// Try contacting the gateway, if it does not respond, assume it does not
@@ -51,13 +52,8 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 		return ierr
 	})
 	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			return nil
-		}
-		if strings.Contains(err.Error(), "Timed out") {
-			l.Debugln("Timeout trying to get external address, assume no NAT-PMP available")
-			return nil
-		}
+		slog.DebugContext(ctx, "Failed to get external address", slogutil.Error(err))
+		return nil
 	}
 
 	var localIP net.IP
@@ -69,7 +65,7 @@ func Discover(ctx context.Context, renewal, timeout time.Duration) []nat.Device 
 		conn.Close()
 		localIP, err = osutil.IPFromAddr(conn.LocalAddr())
 		if localIP == nil {
-			l.Debugln("Failed to lookup local IP", err)
+			slog.DebugContext(ctx, "Failed to lookup local IP", slogutil.Error(err))
 		}
 	}
 
@@ -89,7 +85,7 @@ type wrapper struct {
 }
 
 func (w *wrapper) ID() string {
-	return fmt.Sprintf("NAT-PMP@%s", w.gatewayIP.String())
+	return "NAT-PMP@" + w.gatewayIP.String()
 }
 
 func (w *wrapper) GetLocalIPv4Address() net.IP {

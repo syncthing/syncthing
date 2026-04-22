@@ -7,11 +7,8 @@
 package model
 
 import (
-	"sort"
+	"sync"
 	"time"
-
-	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type jobQueue struct {
@@ -27,9 +24,7 @@ type jobQueueEntry struct {
 }
 
 func newJobQueue() *jobQueue {
-	return &jobQueue{
-		mut: sync.NewMutex(),
-	}
+	return &jobQueue{}
 }
 
 func (q *jobQueue) Push(file string, size int64, modified time.Time) {
@@ -127,13 +122,6 @@ func (q *jobQueue) Jobs(page, perpage int) ([]string, []string, int) {
 	return progress, queued, (page - 1) * perpage
 }
 
-func (q *jobQueue) Shuffle() {
-	q.mut.Lock()
-	defer q.mut.Unlock()
-
-	rand.Shuffle(q.queued)
-}
-
 func (q *jobQueue) Reset() {
 	q.mut.Lock()
 	defer q.mut.Unlock()
@@ -152,45 +140,3 @@ func (q *jobQueue) lenProgress() int {
 	defer q.mut.Unlock()
 	return len(q.progress)
 }
-
-func (q *jobQueue) SortSmallestFirst() {
-	q.mut.Lock()
-	defer q.mut.Unlock()
-
-	sort.Sort(smallestFirst(q.queued))
-}
-
-func (q *jobQueue) SortLargestFirst() {
-	q.mut.Lock()
-	defer q.mut.Unlock()
-
-	sort.Sort(sort.Reverse(smallestFirst(q.queued)))
-}
-
-func (q *jobQueue) SortOldestFirst() {
-	q.mut.Lock()
-	defer q.mut.Unlock()
-
-	sort.Sort(oldestFirst(q.queued))
-}
-
-func (q *jobQueue) SortNewestFirst() {
-	q.mut.Lock()
-	defer q.mut.Unlock()
-
-	sort.Sort(sort.Reverse(oldestFirst(q.queued)))
-}
-
-// The usual sort.Interface boilerplate
-
-type smallestFirst []jobQueueEntry
-
-func (q smallestFirst) Len() int           { return len(q) }
-func (q smallestFirst) Less(a, b int) bool { return q[a].size < q[b].size }
-func (q smallestFirst) Swap(a, b int)      { q[a], q[b] = q[b], q[a] }
-
-type oldestFirst []jobQueueEntry
-
-func (q oldestFirst) Len() int           { return len(q) }
-func (q oldestFirst) Less(a, b int) bool { return q[a].modified < q[b].modified }
-func (q oldestFirst) Swap(a, b int)      { q[a], q[b] = q[b], q[a] }

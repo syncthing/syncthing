@@ -32,6 +32,7 @@ type Interface interface {
 
 type cast struct {
 	*suture.Supervisor
+
 	name    string
 	reader  svcutil.ServiceWithError
 	writer  svcutil.ServiceWithError
@@ -45,7 +46,7 @@ type cast struct {
 // methods to get a functional implementation of Interface.
 func newCast(name string) *cast {
 	// Only log restarts in debug mode.
-	spec := svcutil.SpecWithDebugLogger(l)
+	spec := svcutil.SpecWithDebugLogger()
 	// Don't retry too frenetically: an error to open a socket or
 	// whatever is usually something that is either permanent or takes
 	// a while to get solved...

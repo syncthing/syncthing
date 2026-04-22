@@ -194,7 +194,7 @@
             <div class="col-md-6">
               <div class="form-group" ng-class="{'has-error': settingsEditor.MaxRecvKbps.$invalid && settingsEditor.MaxRecvKbps.$dirty}">
                 <label translate for="MaxRecvKbps">Incoming Rate Limit (KiB/s)</label>
-                <input id="MaxRecvKbps" name="MaxRecvKbps" class="form-control" type="number" ng-model="tmpOptions.maxRecvKbps" min="0" />
+                <input id="MaxRecvKbps" name="MaxRecvKbps" class="form-control" type="number" ng-model="tmpOptions.maxRecvKbps" min="0" step="1024" />
                 <p class="help-block">
                   <span translate ng-if="settingsEditor.MaxRecvKbps.$error.min && settingsEditor.MaxRecvKbps.$dirty">The rate limit must be a non-negative number (0: no limit)</span>
                 </p>
@@ -203,10 +203,21 @@
             <div class="col-md-6">
               <div class="form-group" ng-class="{'has-error': settingsEditor.MaxSendKbps.$invalid && settingsEditor.MaxSendKbps.$dirty}">
                 <label translate for="MaxSendKbps">Outgoing Rate Limit (KiB/s)</label>
-                <input id="MaxSendKbps" name="MaxSendKbps" class="form-control" type="number" ng-model="tmpOptions.maxSendKbps" min="0" />
+                <input id="MaxSendKbps" name="MaxSendKbps" class="form-control" type="number" ng-model="tmpOptions.maxSendKbps" min="0" step="1024" />
                 <p class="help-block">
                   <span translate ng-if="settingsEditor.MaxSendKbps.$error.min && settingsEditor.MaxSendKbps.$dirty">The rate limit must be a non-negative number (0: no limit)</span>
                 </p>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <div class="checkbox">
+                  <label>
+                    <input id="LimitBandwidthInLan" type="checkbox" ng-model="tmpOptions.limitBandwidthInLan" /> <span translate>Limit Bandwidth in LAN</span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>

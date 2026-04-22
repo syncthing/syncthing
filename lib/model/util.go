@@ -10,10 +10,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
@@ -46,11 +48,11 @@ func inWritableDir(fn func(string) error, targetFs fs.Filesystem, path string, i
 			// caller is inappropriate.)
 			defer func() {
 				if err := targetFs.Chmod(dir, mode); err != nil && !fs.IsNotExist(err) {
-					logFn := l.Warnln
+					logFn := slog.Warn
 					if ignorePerms {
-						logFn = l.Debugln
+						logFn = slog.Debug
 					}
-					logFn("Failed to restore directory permissions after gaining write access:", err)
+					logFn("Failed to restore directory permissions after gaining write access", slogutil.Error(err))
 				}
 			}()
 		}

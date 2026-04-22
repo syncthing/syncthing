@@ -160,10 +160,6 @@ func (fake *BufferedSubscription) SinceReturnsOnCall(i int, result1 []events.Eve
 func (fake *BufferedSubscription) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.maskMutex.RLock()
-	defer fake.maskMutex.RUnlock()
-	fake.sinceMutex.RLock()
-	defer fake.sinceMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

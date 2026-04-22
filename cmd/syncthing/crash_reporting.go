@@ -11,12 +11,15 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/slogutil"
 )
 
 const (
@@ -28,16 +31,18 @@ const (
 // directory to the crash reporting server as urlBase. Uploads are attempted
 // with the newest log first.
 //
-// This can can block for a long time. The context can set a final deadline
+// This can block for a long time. The context can set a final deadline
 // for this.
 func uploadPanicLogs(ctx context.Context, urlBase, dir string) {
 	files, err := filepath.Glob(filepath.Join(dir, "panic-*.log"))
 	if err != nil {
-		l.Warnln("Failed to list panic logs:", err)
+		slog.ErrorContext(ctx, "Failed to list panic logs", slogutil.Error(err))
 		return
 	}
 
-	sort.Sort(sort.Reverse(sort.StringSlice(files)))
+	slices.SortFunc(files, func(a, b string) int {
+		return strings.Compare(b, a)
+	})
 	for _, file := range files {
 		if strings.Contains(file, ".reported.") {
 			// We've already sent this file. It'll be cleaned out at some
@@ -46,7 +51,7 @@ func uploadPanicLogs(ctx context.Context, urlBase, dir string) {
 		}
 
 		if err := uploadPanicLog(ctx, urlBase, file); err != nil {
-			l.Warnln("Reporting crash:", err)
+			slog.ErrorContext(ctx, "Reporting crash", slogutil.Error(err))
 		} else {
 			// Rename the log so we don't have to try to report it again. This
 			// succeeds, or it does not. There is no point complaining about it.
@@ -69,7 +74,7 @@ func uploadPanicLog(ctx context.Context, urlBase, file string) error {
 	data = filterLogLines(data)
 
 	hash := fmt.Sprintf("%x", sha256.Sum256(data))
-	l.Infof("Reporting crash found in %s (report ID %s) ...\n", filepath.Base(file), hash[:8])
+	slog.InfoContext(ctx, "Reporting crash", slogutil.FilePath(filepath.Base(file)), slog.String("id", hash[:8]))
 
 	url := fmt.Sprintf("%s/%s", urlBase, hash)
 	headReq, err := http.NewRequest(http.MethodHead, url, nil)

@@ -9,6 +9,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -32,7 +33,7 @@ type OptionJunctionsAsDirs struct{}
 
 func (*OptionJunctionsAsDirs) apply(fs Filesystem) Filesystem {
 	if basic, ok := fs.(*BasicFilesystem); !ok {
-		l.Warnln("WithJunctionsAsDirs must only be used with FilesystemTypeBasic")
+		slog.Warn("WithJunctionsAsDirs must only be used with FilesystemTypeBasic")
 	} else {
 		basic.junctionsAsDirs = true
 	}
@@ -339,6 +340,7 @@ func (*BasicFilesystem) underlying() (Filesystem, bool) {
 // basicFile implements the fs.File interface on top of an os.File
 type basicFile struct {
 	*os.File
+
 	name string
 }
 
@@ -379,12 +381,12 @@ func longFilenameSupport(path string) string {
 	return path
 }
 
-type ErrWatchEventOutsideRoot struct{ msg string }
+type WatchEventOutsideRootError struct{ msg string }
 
-func (e *ErrWatchEventOutsideRoot) Error() string {
+func (e *WatchEventOutsideRootError) Error() string {
 	return e.msg
 }
 
-func (f *BasicFilesystem) newErrWatchEventOutsideRoot(absPath string, roots []string) *ErrWatchEventOutsideRoot {
-	return &ErrWatchEventOutsideRoot{fmt.Sprintf("Watching for changes encountered an event outside of the filesystem root: f.root==%v, roots==%v, path==%v. This should never happen, please report this message to forum.syncthing.net.", f.root, roots, absPath)}
+func (f *BasicFilesystem) newErrWatchEventOutsideRoot(absPath string, roots []string) *WatchEventOutsideRootError {
+	return &WatchEventOutsideRootError{fmt.Sprintf("Watching for changes encountered an event outside of the filesystem root: f.root==%v, roots==%v, path==%v. This should never happen, please report this message to forum.syncthing.net.", f.root, roots, absPath)}
 }

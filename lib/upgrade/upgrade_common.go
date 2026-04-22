@@ -119,7 +119,7 @@ func CompareVersions(a, b string) Relation {
 	}
 
 	// First compare major-minor-patch versions
-	for i := 0; i < minlen; i++ {
+	for i := range minlen {
 		if arel[i] < brel[i] {
 			if i == 0 {
 				// major version difference
@@ -168,7 +168,7 @@ func CompareVersions(a, b string) Relation {
 	}
 
 	// Compare prerelease strings
-	for i := 0; i < minlen; i++ {
+	for i := range minlen {
 		switch av := apre[i].(type) {
 		case int:
 			switch bv := bpre[i].(type) {

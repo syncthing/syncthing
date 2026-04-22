@@ -20,7 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -375,7 +375,9 @@ func mergeDirectoryContents(c ...[]fileInfo) []fileInfo {
 		i++
 	}
 
-	sort.Sort(fileInfoList(res))
+	slices.SortFunc(res, func(a, b fileInfo) int {
+		return strings.Compare(a.name, b.name)
+	})
 	return res
 }
 
@@ -402,20 +404,6 @@ type fileInfo struct {
 
 func (f fileInfo) String() string {
 	return fmt.Sprintf("%s %04o %d %x", f.name, f.mode, f.mod, f.hash)
-}
-
-type fileInfoList []fileInfo
-
-func (l fileInfoList) Len() int {
-	return len(l)
-}
-
-func (l fileInfoList) Less(a, b int) bool {
-	return l[a].name < l[b].name
-}
-
-func (l fileInfoList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
 }
 
 func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) chan error {
@@ -455,7 +443,7 @@ func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) chan er
 				name: rn,
 				mode: info.Mode(),
 				// comparing timestamps with better precision than a second
-				// is problematic as there is rounding and truncatign going
+				// is problematic as there is rounding and truncation going
 				// on at every level
 				mod:  info.ModTime().Unix(),
 				size: info.Size(),

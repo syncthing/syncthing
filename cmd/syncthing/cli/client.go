@@ -32,6 +32,7 @@ type APIClient interface {
 
 type apiClient struct {
 	http.Client
+
 	cfg    config.GUIConfiguration
 	apikey string
 }
@@ -91,11 +92,11 @@ func loadGUIConfig() (config.GUIConfiguration, error) {
 	guiCfg := cfg.GUI()
 
 	if guiCfg.Address() == "" {
-		return config.GUIConfiguration{}, errors.New("Could not find GUI Address")
+		return config.GUIConfiguration{}, errors.New("could not find GUI Address")
 	}
 
 	if guiCfg.APIKey == "" {
-		return config.GUIConfiguration{}, errors.New("Could not find GUI API key")
+		return config.GUIConfiguration{}, errors.New("could not find GUI API key")
 	}
 
 	return guiCfg, nil
@@ -113,7 +114,7 @@ func (c *apiClient) Endpoint() string {
 }
 
 func (c *apiClient) Do(req *http.Request) (*http.Response, error) {
-	req.Header.Set("X-API-Key", c.apikey)
+	req.Header.Set("X-Api-Key", c.apikey)
 	resp, err := c.Client.Do(req)
 	if err != nil {
 		return nil, err

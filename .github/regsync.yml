@@ -1,0 +1,52 @@
+  version: 1
+  creds:
+    - registry: docker.io
+      user: "{{env \"DOCKERHUB_USERNAME\"}}"
+      pass: "{{env \"DOCKERHUB_TOKEN\"}}"
+
+  defaults:
+    ratelimit:
+      min: 100
+      retry: 1m
+    parallel: 4
+
+  sync:
+
+    - source: ghcr.io/syncthing/syncthing
+      target: docker.io/syncthing/syncthing
+      type: repository
+      tags:
+        allow:
+          - latest
+          - rc
+          - edge
+          - \d+
+          - \d+\.\d+
+          - \d+\.\d+\.\d+
+          - \d+\.\d+\.\d+-rc\.\d+
+
+    - source: ghcr.io/syncthing/relaysrv
+      target: docker.io/syncthing/relaysrv
+      type: repository
+      tags:
+        allow:
+          - latest
+          - rc
+          - edge
+          - \d+
+          - \d+\.\d+
+          - \d+\.\d+\.\d+
+          - \d+\.\d+\.\d+-rc\.\d+
+
+    - source: ghcr.io/syncthing/discosrv
+      target: docker.io/syncthing/discosrv
+      type: repository
+      tags:
+        allow:
+          - latest
+          - rc
+          - edge
+          - \d+
+          - \d+\.\d+
+          - \d+\.\d+\.\d+
+          - \d+\.\d+\.\d+-rc\.\d+

@@ -10,11 +10,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"sync"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/logger"
-	"github.com/syncthing/syncthing/lib/sync"
-
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/thejerf/suture/v4"
 )
 
@@ -106,7 +106,6 @@ func AsService(fn func(ctx context.Context) error, creator string) ServiceWithEr
 	return &service{
 		creator: creator,
 		serve:   fn,
-		mut:     sync.NewMutex(),
 	}
 }
 
@@ -159,12 +158,12 @@ func OnSupervisorDone(sup *suture.Supervisor, fn func()) {
 	sup.Add(doneService(fn))
 }
 
-func SpecWithDebugLogger(l logger.Logger) suture.Spec {
-	return spec(func(e suture.Event) { l.Debugln(e) })
+func SpecWithDebugLogger() suture.Spec {
+	return spec(func(e suture.Event) { slog.Debug(e.String()) })
 }
 
-func SpecWithInfoLogger(l logger.Logger) suture.Spec {
-	return spec(infoEventHook(l))
+func SpecWithInfoLogger() suture.Spec {
+	return spec(infoEventHook())
 }
 
 func spec(eventHook suture.EventHook) suture.Spec {
@@ -179,31 +178,32 @@ func spec(eventHook suture.EventHook) suture.Spec {
 // infoEventHook prints service failures and failures to stop services at level
 // info. All other events and identical, consecutive failures are logged at
 // debug only.
-func infoEventHook(l logger.Logger) suture.EventHook {
+func infoEventHook() suture.EventHook {
 	var prevTerminate suture.EventServiceTerminate
 	return func(ei suture.Event) {
+		m := ei.Map()
+		l := slog.Default().With("supervisor", m["supervisor_name"], "service", m["service_name"])
 		switch e := ei.(type) {
 		case suture.EventStopTimeout:
-			l.Infof("%s: Service %s failed to terminate in a timely manner", e.SupervisorName, e.ServiceName)
+			l.Warn("Service failed to terminate in a timely manner")
 		case suture.EventServicePanic:
-			l.Warnln("Caught a service panic, which shouldn't happen")
-			l.Infoln(e)
+			l.Error("Caught a service panic, which shouldn't happen")
+			l.Warn(e.String()) //nolint:sloglint
 		case suture.EventServiceTerminate:
-			msg := fmt.Sprintf("%s: service %s failed: %s", e.SupervisorName, e.ServiceName, e.Err)
 			if e.ServiceName == prevTerminate.ServiceName && e.Err == prevTerminate.Err {
-				l.Debugln(msg)
+				l.Debug("Service failed repeatedly", slogutil.Error(e.Err))
 			} else {
-				l.Infoln(msg)
+				l.Warn("Service failed", slogutil.Error(e.Err))
 			}
 			prevTerminate = e
-			l.Debugln(e) // Contains some backoff statistics
+			l.Debug(e.String()) // Contains some backoff statistics
 		case suture.EventBackoff:
-			l.Debugf("%s: exiting the backoff state.", e.SupervisorName)
+			l.Debug("Exiting the backoff state")
 		case suture.EventResume:
-			l.Debugf("%s: too many service failures - entering the backoff state.", e.SupervisorName)
+			l.Debug("Too many service failures - entering the backoff state")
 		default:
-			l.Warnln("Unknown suture supervisor event type", e.Type())
-			l.Infoln(e)
+			l.Warn("Unknown suture supervisor event", slog.Any("type", e.Type()))
+			l.Warn(e.String()) //nolint:sloglint
 		}
 	}
 }

@@ -7,14 +7,7 @@
 package fs
 
 import (
-	"github.com/syncthing/syncthing/lib/logger"
+	"github.com/syncthing/syncthing/internal/slogutil"
 )
 
-var l = logger.DefaultLogger.NewFacility("fs", "Filesystem access")
-
-func init() {
-	logger.DefaultLogger.NewFacility("walkfs", "Filesystem access while walking")
-	if logger.DefaultLogger.ShouldDebug("walkfs") {
-		l.SetDebug("fs", true)
-	}
-}
+var l = slogutil.NewAdapter("Filesystem access")

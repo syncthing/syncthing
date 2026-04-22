@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -218,7 +218,7 @@ func TestDirNames(t *testing.T) {
 		"a",
 		"bC",
 	}
-	sort.Strings(testCases)
+	slices.Sort(testCases)
 
 	for _, sub := range testCases {
 		if err := os.Mkdir(filepath.Join(dir, sub), 0o777); err != nil {
@@ -229,7 +229,7 @@ func TestDirNames(t *testing.T) {
 	if dirs, err := fs.DirNames("."); err != nil || len(dirs) != len(testCases) {
 		t.Errorf("%s %s %s", err, dirs, testCases)
 	} else {
-		sort.Strings(dirs)
+		slices.Sort(dirs)
 		for i := range dirs {
 			if dirs[i] != testCases[i] {
 				t.Errorf("%s != %s", dirs[i], testCases[i])
@@ -321,8 +321,8 @@ func TestGlob(t *testing.T) {
 
 	for _, testCase := range testCases {
 		results, err := fs.Glob(testCase.pattern)
-		sort.Strings(results)
-		sort.Strings(testCase.matches)
+		slices.Sort(results)
+		slices.Sort(testCase.matches)
 		if err != nil {
 			t.Error(err)
 		}
@@ -628,8 +628,7 @@ func TestXattr(t *testing.T) {
 			Value: value,
 		})
 	}
-	sort.Slice(attrs, func(i, j int) bool { return attrs[i].Name < attrs[j].Name })
-
+	slices.SortFunc(attrs, func(a, b protocol.Xattr) int { return strings.Compare(a.Name, b.Name) })
 	// Set the xattrs, read them back and compare
 	if err := tfs.SetXattr("/test", attrs, testXattrFilter{}); err != nil {
 		t.Fatal(err)

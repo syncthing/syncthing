@@ -9,7 +9,7 @@ package versioner
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"strconv"
 	"time"
 
@@ -44,7 +44,7 @@ func newStaggered(cfg config.FolderConfiguration) Versioner {
 	versionsFs := versionerFsFromFolderCfg(cfg)
 
 	s := &staggered{
-		folderFs:   cfg.Filesystem(nil),
+		folderFs:   cfg.Filesystem(),
 		versionsFs: versionsFs,
 		interval: [4]interval{
 			{30, 60 * 60},                     // first hour -> 30 sec between versions
@@ -69,7 +69,7 @@ func (v *staggered) toRemove(versions []string, now time.Time) []string {
 	var remove []string
 
 	// The list of versions may or may not be properly sorted.
-	sort.Strings(versions)
+	slices.Sort(versions)
 
 	for _, version := range versions {
 		versionTime, err := time.ParseInLocation(TimeFormat, extractTag(version), time.Local)

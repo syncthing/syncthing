@@ -48,7 +48,7 @@ func nextSuffix() string {
 // to remove the file when no longer needed.
 func TempFile(filesystem fs.Filesystem, dir, prefix string) (f fs.File, err error) {
 	nconflict := 0
-	for i := 0; i < 10000; i++ {
+	for range 10000 {
 		name := filepath.Join(dir, prefix+nextSuffix())
 		f, err = filesystem.OpenFile(name, fs.OptReadWrite|fs.OptCreate|fs.OptExclusive, 0o600)
 		if fs.IsExist(err) {

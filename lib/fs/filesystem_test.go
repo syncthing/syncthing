@@ -189,7 +189,7 @@ func TestRepro9677MissingMtimeFS(t *testing.T) {
 	testTime := time.Unix(1723491493, 123456789)
 
 	// Create a file with an mtime FS entry
-	firstFS := NewFilesystem(FilesystemTypeFake, fmt.Sprintf("%v?insens=true&timeprecisionsecond=true", t.Name()), &OptionDetectCaseConflicts{}, NewMtimeOption(mtimeDB))
+	firstFS := NewFilesystem(FilesystemTypeFake, fmt.Sprintf("%v?insens=true&timeprecisionsecond=true", t.Name()), &OptionDetectCaseConflicts{}, NewMtimeOption(mtimeDB, ""))
 
 	// Create a file, set its mtime and check that we get the expected mtime when stat-ing.
 	file, err := firstFS.Create(name)
@@ -231,6 +231,6 @@ func TestRepro9677MissingMtimeFS(t *testing.T) {
 	// be without mtime, even if requested:
 	NewFilesystem(FilesystemTypeFake, fmt.Sprintf("%v?insens=true&timeprecisionsecond=true", t.Name()), &OptionDetectCaseConflicts{})
 
-	newFS := NewFilesystem(FilesystemTypeFake, fmt.Sprintf("%v?insens=true&timeprecisionsecond=true", t.Name()), &OptionDetectCaseConflicts{}, NewMtimeOption(mtimeDB))
+	newFS := NewFilesystem(FilesystemTypeFake, fmt.Sprintf("%v?insens=true&timeprecisionsecond=true", t.Name()), &OptionDetectCaseConflicts{}, NewMtimeOption(mtimeDB, ""))
 	checkMtime(newFS)
 }

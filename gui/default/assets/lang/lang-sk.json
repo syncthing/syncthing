@@ -366,7 +366,7 @@
     "Show diff with previous version": "Ukázať rozdiely s predchádzajúcou verziou",
     "Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.": "Zobrazované namiesto ID zariadenia v štatúte klastra. Toto pomenovanie bude oznamovať ostatným zariadeniam ako voliteľné predvolené pomenovanie.",
     "Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.": "Zobrazované namiesto ID zariadenia v klastri. Ak je ponechané prázdne, bude nahradené pomenovaním, ktoré oznamuje zariadenie.",
-    "Shutdown": "Vypnutie",
+    "Shut Down": "Vypnutie",
     "Shutdown Complete": "Vypnutie ukončené",
     "Simple": "Jednoduché",
     "Simple File Versioning": "Jednoduché verzie súborov",

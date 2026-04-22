@@ -6,13 +6,15 @@
 
 package config
 
-type FolderType int32
+import "github.com/syncthing/syncthing/lib/protocol"
+
+type FolderType protocol.FolderType
 
 const (
-	FolderTypeSendReceive      FolderType = 0
-	FolderTypeSendOnly         FolderType = 1
-	FolderTypeReceiveOnly      FolderType = 2
-	FolderTypeReceiveEncrypted FolderType = 3
+	FolderTypeSendReceive      = FolderType(protocol.FolderTypeSendReceive)
+	FolderTypeSendOnly         = FolderType(protocol.FolderTypeSendOnly)
+	FolderTypeReceiveOnly      = FolderType(protocol.FolderTypeReceiveOnly)
+	FolderTypeReceiveEncrypted = FolderType(protocol.FolderTypeReceiveEncrypted)
 )
 
 func (t FolderType) String() string {

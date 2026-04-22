@@ -26,10 +26,11 @@ type Connection struct {
 	closedReturnsOnCall map[int]struct {
 		result1 <-chan struct{}
 	}
-	ClusterConfigStub        func(*protocol.ClusterConfig)
+	ClusterConfigStub        func(*protocol.ClusterConfig, map[string]string)
 	clusterConfigMutex       sync.RWMutex
 	clusterConfigArgsForCall []struct {
 		arg1 *protocol.ClusterConfig
+		arg2 map[string]string
 	}
 	ConnectionIDStub        func() string
 	connectionIDMutex       sync.RWMutex
@@ -144,11 +145,6 @@ type Connection struct {
 	requestReturnsOnCall map[int]struct {
 		result1 []byte
 		result2 error
-	}
-	SetFolderPasswordsStub        func(map[string]string)
-	setFolderPasswordsMutex       sync.RWMutex
-	setFolderPasswordsArgsForCall []struct {
-		arg1 map[string]string
 	}
 	StartStub        func()
 	startMutex       sync.RWMutex
@@ -283,16 +279,17 @@ func (fake *Connection) ClosedReturnsOnCall(i int, result1 <-chan struct{}) {
 	}{result1}
 }
 
-func (fake *Connection) ClusterConfig(arg1 *protocol.ClusterConfig) {
+func (fake *Connection) ClusterConfig(arg1 *protocol.ClusterConfig, arg2 map[string]string) {
 	fake.clusterConfigMutex.Lock()
 	fake.clusterConfigArgsForCall = append(fake.clusterConfigArgsForCall, struct {
 		arg1 *protocol.ClusterConfig
-	}{arg1})
+		arg2 map[string]string
+	}{arg1, arg2})
 	stub := fake.ClusterConfigStub
-	fake.recordInvocation("ClusterConfig", []interface{}{arg1})
+	fake.recordInvocation("ClusterConfig", []interface{}{arg1, arg2})
 	fake.clusterConfigMutex.Unlock()
 	if stub != nil {
-		fake.ClusterConfigStub(arg1)
+		fake.ClusterConfigStub(arg1, arg2)
 	}
 }
 
@@ -302,17 +299,17 @@ func (fake *Connection) ClusterConfigCallCount() int {
 	return len(fake.clusterConfigArgsForCall)
 }
 
-func (fake *Connection) ClusterConfigCalls(stub func(*protocol.ClusterConfig)) {
+func (fake *Connection) ClusterConfigCalls(stub func(*protocol.ClusterConfig, map[string]string)) {
 	fake.clusterConfigMutex.Lock()
 	defer fake.clusterConfigMutex.Unlock()
 	fake.ClusterConfigStub = stub
 }
 
-func (fake *Connection) ClusterConfigArgsForCall(i int) *protocol.ClusterConfig {
+func (fake *Connection) ClusterConfigArgsForCall(i int) (*protocol.ClusterConfig, map[string]string) {
 	fake.clusterConfigMutex.RLock()
 	defer fake.clusterConfigMutex.RUnlock()
 	argsForCall := fake.clusterConfigArgsForCall[i]
-	return argsForCall.arg1
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *Connection) ConnectionID() string {
@@ -908,38 +905,6 @@ func (fake *Connection) RequestReturnsOnCall(i int, result1 []byte, result2 erro
 	}{result1, result2}
 }
 
-func (fake *Connection) SetFolderPasswords(arg1 map[string]string) {
-	fake.setFolderPasswordsMutex.Lock()
-	fake.setFolderPasswordsArgsForCall = append(fake.setFolderPasswordsArgsForCall, struct {
-		arg1 map[string]string
-	}{arg1})
-	stub := fake.SetFolderPasswordsStub
-	fake.recordInvocation("SetFolderPasswords", []interface{}{arg1})
-	fake.setFolderPasswordsMutex.Unlock()
-	if stub != nil {
-		fake.SetFolderPasswordsStub(arg1)
-	}
-}
-
-func (fake *Connection) SetFolderPasswordsCallCount() int {
-	fake.setFolderPasswordsMutex.RLock()
-	defer fake.setFolderPasswordsMutex.RUnlock()
-	return len(fake.setFolderPasswordsArgsForCall)
-}
-
-func (fake *Connection) SetFolderPasswordsCalls(stub func(map[string]string)) {
-	fake.setFolderPasswordsMutex.Lock()
-	defer fake.setFolderPasswordsMutex.Unlock()
-	fake.SetFolderPasswordsStub = stub
-}
-
-func (fake *Connection) SetFolderPasswordsArgsForCall(i int) map[string]string {
-	fake.setFolderPasswordsMutex.RLock()
-	defer fake.setFolderPasswordsMutex.RUnlock()
-	argsForCall := fake.setFolderPasswordsArgsForCall[i]
-	return argsForCall.arg1
-}
-
 func (fake *Connection) Start() {
 	fake.startMutex.Lock()
 	fake.startArgsForCall = append(fake.startArgsForCall, struct {
@@ -1179,46 +1144,6 @@ func (fake *Connection) TypeReturnsOnCall(i int, result1 string) {
 func (fake *Connection) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
-	fake.closeMutex.RLock()
-	defer fake.closeMutex.RUnlock()
-	fake.closedMutex.RLock()
-	defer fake.closedMutex.RUnlock()
-	fake.clusterConfigMutex.RLock()
-	defer fake.clusterConfigMutex.RUnlock()
-	fake.connectionIDMutex.RLock()
-	defer fake.connectionIDMutex.RUnlock()
-	fake.cryptoMutex.RLock()
-	defer fake.cryptoMutex.RUnlock()
-	fake.deviceIDMutex.RLock()
-	defer fake.deviceIDMutex.RUnlock()
-	fake.downloadProgressMutex.RLock()
-	defer fake.downloadProgressMutex.RUnlock()
-	fake.establishedAtMutex.RLock()
-	defer fake.establishedAtMutex.RUnlock()
-	fake.indexMutex.RLock()
-	defer fake.indexMutex.RUnlock()
-	fake.indexUpdateMutex.RLock()
-	defer fake.indexUpdateMutex.RUnlock()
-	fake.isLocalMutex.RLock()
-	defer fake.isLocalMutex.RUnlock()
-	fake.priorityMutex.RLock()
-	defer fake.priorityMutex.RUnlock()
-	fake.remoteAddrMutex.RLock()
-	defer fake.remoteAddrMutex.RUnlock()
-	fake.requestMutex.RLock()
-	defer fake.requestMutex.RUnlock()
-	fake.setFolderPasswordsMutex.RLock()
-	defer fake.setFolderPasswordsMutex.RUnlock()
-	fake.startMutex.RLock()
-	defer fake.startMutex.RUnlock()
-	fake.statisticsMutex.RLock()
-	defer fake.statisticsMutex.RUnlock()
-	fake.stringMutex.RLock()
-	defer fake.stringMutex.RUnlock()
-	fake.transportMutex.RLock()
-	defer fake.transportMutex.RUnlock()
-	fake.typeMutex.RLock()
-	defer fake.typeMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

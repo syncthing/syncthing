@@ -12,12 +12,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/api/auto"
 	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 const themePrefix = "theme-assets/"
@@ -36,7 +36,6 @@ func newStaticsServer(theme, assetDir string) *staticsServer {
 	s := &staticsServer{
 		assetDir:        assetDir,
 		assets:          auto.Assets(),
-		mut:             sync.NewRWMutex(),
 		theme:           theme,
 		lastThemeChange: time.Now().UTC(),
 	}

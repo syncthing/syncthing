@@ -6,8 +6,6 @@
 
 package connections
 
-import (
-	"github.com/syncthing/syncthing/lib/logger"
-)
+import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = logger.DefaultLogger.NewFacility("connections", "Connection handling")
+var l = slogutil.NewAdapter("Connection handling")
