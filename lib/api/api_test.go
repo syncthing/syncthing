@@ -571,8 +571,6 @@ func httpPost(url string, body map[string]string, cookies []*http.Cookie, t *tes
 }
 
 func TestHTTPLogin(t *testing.T) {
-	t.Parallel()
-
 	httpGetBasicAuth := func(url string, username string, password string) *http.Response {
 		t.Helper()
 		return httpGet(url, username, password, "", "", nil, t)
@@ -602,7 +600,6 @@ func TestHTTPLogin(t *testing.T) {
 
 		t.Run(fmt.Sprintf("%d path", expectedOkStatus), func(t *testing.T) {
 			t.Run("no auth is rejected", func(t *testing.T) {
-				t.Parallel()
 				resp := httpGetBasicAuth(url, "", "")
 				if resp.StatusCode != expectedFailStatus {
 					t.Errorf("Unexpected non-%d return code %d for unauthed request", expectedFailStatus, resp.StatusCode)
@@ -613,7 +610,6 @@ func TestHTTPLogin(t *testing.T) {
 			})
 
 			t.Run("incorrect password is rejected", func(t *testing.T) {
-				t.Parallel()
 				resp := httpGetBasicAuth(url, "üser", "rksmrgs")
 				if resp.StatusCode != expectedFailStatus {
 					t.Errorf("Unexpected non-%d return code %d for incorrect password", expectedFailStatus, resp.StatusCode)
@@ -624,7 +620,6 @@ func TestHTTPLogin(t *testing.T) {
 			})
 
 			t.Run("incorrect username is rejected", func(t *testing.T) {
-				t.Parallel()
 				resp := httpGetBasicAuth(url, "user", "räksmörgås") // string literals in Go source code are in UTF-8
 				if resp.StatusCode != expectedFailStatus {
 					t.Errorf("Unexpected non-%d return code %d for incorrect username", expectedFailStatus, resp.StatusCode)
@@ -635,7 +630,6 @@ func TestHTTPLogin(t *testing.T) {
 			})
 
 			t.Run("UTF-8 auth works", func(t *testing.T) {
-				t.Parallel()
 				resp := httpGetBasicAuth(url, "üser", "räksmörgås") // string literals in Go source code are in UTF-8
 				if resp.StatusCode != expectedOkStatus {
 					t.Errorf("Unexpected non-%d return code %d for authed request (UTF-8)", expectedOkStatus, resp.StatusCode)
@@ -646,7 +640,6 @@ func TestHTTPLogin(t *testing.T) {
 			})
 
 			t.Run("Logout removes the session cookie", func(t *testing.T) {
-				t.Parallel()
 				resp := httpGetBasicAuth(url, "üser", "räksmörgås") // string literals in Go source code are in UTF-8
 				if resp.StatusCode != expectedOkStatus {
 					t.Errorf("Unexpected non-%d return code %d for authed request (UTF-8)", expectedOkStatus, resp.StatusCode)
@@ -661,7 +654,6 @@ func TestHTTPLogin(t *testing.T) {
 			})
 
 			t.Run("Session cookie is invalid after logout", func(t *testing.T) {
-				t.Parallel()
 				loginResp := httpGetBasicAuth(url, "üser", "räksmörgås") // string literals in Go source code are in UTF-8
 				if loginResp.StatusCode != expectedOkStatus {
 					t.Errorf("Unexpected non-%d return code %d for authed request (UTF-8)", expectedOkStatus, loginResp.StatusCode)
@@ -683,7 +675,6 @@ func TestHTTPLogin(t *testing.T) {
 			})
 
 			t.Run("ISO-8859-1 auth works", func(t *testing.T) {
-				t.Parallel()
 				resp := httpGetBasicAuth(url, "\xfcser", "r\xe4ksm\xf6rg\xe5s") // escaped ISO-8859-1
 				if resp.StatusCode != expectedOkStatus {
 					t.Errorf("Unexpected non-%d return code %d for authed request (ISO-8859-1)", expectedOkStatus, resp.StatusCode)
@@ -694,7 +685,6 @@ func TestHTTPLogin(t *testing.T) {
 			})
 
 			t.Run("bad X-API-Key is rejected", func(t *testing.T) {
-				t.Parallel()
 				resp := httpGetXapikey(url, testAPIKey+"X")
 				if resp.StatusCode != expectedFailStatus {
 					t.Errorf("Unexpected non-%d return code %d for bad API key", expectedFailStatus, resp.StatusCode)
@@ -705,7 +695,6 @@ func TestHTTPLogin(t *testing.T) {
 			})
 
 			t.Run("good X-API-Key is accepted", func(t *testing.T) {
-				t.Parallel()
 				resp := httpGetXapikey(url, testAPIKey)
 				if resp.StatusCode != expectedOkStatus {
 					t.Errorf("Unexpected non-%d return code %d for API key", expectedOkStatus, resp.StatusCode)
@@ -716,7 +705,6 @@ func TestHTTPLogin(t *testing.T) {
 			})
 
 			t.Run("bad Bearer is rejected", func(t *testing.T) {
-				t.Parallel()
 				resp := httpGetAuthorizationBearer(url, testAPIKey+"X")
 				if resp.StatusCode != expectedFailStatus {
 					t.Errorf("Unexpected non-%d return code %d for bad Authorization: Bearer", expectedFailStatus, resp.StatusCode)
@@ -727,7 +715,6 @@ func TestHTTPLogin(t *testing.T) {
 			})
 
 			t.Run("good Bearer is accepted", func(t *testing.T) {
-				t.Parallel()
 				resp := httpGetAuthorizationBearer(url, testAPIKey)
 				if resp.StatusCode != expectedOkStatus {
 					t.Errorf("Unexpected non-%d return code %d for Authorization: Bearer", expectedOkStatus, resp.StatusCode)
@@ -748,8 +735,6 @@ func TestHTTPLogin(t *testing.T) {
 	testWith(false, http.StatusNotFound, http.StatusForbidden, "/any-path/that/does/nooooooot/match-any/noauth-pattern")
 
 	t.Run("Password change invalidates old and enables new password", func(t *testing.T) {
-		t.Parallel()
-
 		// This test needs a longer-than-default shutdown timeout to finish saving
 		// config changes when running on GitHub Actions
 		shutdownTimeout := time.Second
@@ -786,8 +771,6 @@ func TestHTTPLogin(t *testing.T) {
 		newPassword := "123!asdF"
 
 		t.Run("when done via /rest/config", func(t *testing.T) {
-			t.Parallel()
-
 			w := initConfig(initialPassword, t)
 			{
 				baseURL := startHTTPWithShutdownTimeout(t, w, shutdownTimeout)
@@ -820,8 +803,6 @@ func TestHTTPLogin(t *testing.T) {
 		})
 
 		t.Run("when done via /rest/config/gui", func(t *testing.T) {
-			t.Parallel()
-
 			w := initConfig(initialPassword, t)
 			{
 				baseURL := startHTTPWithShutdownTimeout(t, w, shutdownTimeout)
