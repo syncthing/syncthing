@@ -1323,7 +1323,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 func (f *sendReceiveFolder) copierRoutine(ctx context.Context, in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
 	otherFolderFilesystems := make(map[string]fs.Filesystem)
 	for folder, cfg := range f.model.cfg.Folders() {
-		if folder == f.ID || !f.BlockIndexing {
+		if folder == f.ID || !cfg.BlockIndexing {
 			continue
 		}
 		otherFolderFilesystems[folder] = cfg.Filesystem()
