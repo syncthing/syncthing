@@ -571,6 +571,8 @@ func httpPost(url string, body map[string]string, cookies []*http.Cookie, t *tes
 }
 
 func TestHTTPLogin(t *testing.T) {
+	// This test intentionally does not use t.Parallel()
+
 	httpGetBasicAuth := func(url string, username string, password string) *http.Response {
 		t.Helper()
 		return httpGet(url, username, password, "", "", nil, t)
