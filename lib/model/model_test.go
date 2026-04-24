@@ -3679,6 +3679,7 @@ func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSec
 	m.AddConnection(fc2, protocol.Hello{})
 	m.promoteConnections()
 
+	// Initial CCs
 	initTimeout := time.NewTimer(time.Second)
 	defer initTimeout.Stop()
 	select {
