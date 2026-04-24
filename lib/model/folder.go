@@ -556,12 +556,14 @@ type scanBatch struct {
 	f           *folder
 	updateBatch *FileInfoBatch
 	toRemove    []string
+	deleted     map[string]struct{}
 }
 
 func (f *folder) newScanBatch() *scanBatch {
 	b := &scanBatch{
 		f:        f,
 		toRemove: make([]string, 0, maxToRemove),
+		deleted:  make(map[string]struct{}),
 	}
 	b.updateBatch = NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		if err := b.f.getHealthErrorWithoutIgnores(); err != nil {
@@ -569,6 +571,7 @@ func (f *folder) newScanBatch() *scanBatch {
 			return err
 		}
 		b.f.updateLocalsFromScanning(fs)
+		clear(b.deleted)
 		return nil
 	})
 	return b
@@ -602,6 +605,15 @@ func (b *scanBatch) FlushIfFull() error {
 		}
 	}
 	return b.updateBatch.FlushIfFull()
+}
+
+func (b *scanBatch) markDeleted(name string) {
+	b.deleted[name] = struct{}{}
+}
+
+func (b *scanBatch) hasDeleted(name string) bool {
+	_, ok := b.deleted[name]
+	return ok
 }
 
 // Update adds the fileinfo to the batch for updating, and does a few checks.
@@ -680,7 +692,6 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 		fchan = scanner.Walk(scanCtx, scanConfig)
 	}
 
-	alreadyUsedOrExisting := make(map[string]struct{})
 	for res := range fchan {
 		if res.Err != nil {
 			f.newScanError(res.Path, res.Err)
@@ -705,11 +716,12 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 		switch f.Type {
 		case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
 		default:
-			if nf, ok := f.findRename(ctx, res.File, alreadyUsedOrExisting); ok {
+			if nf, ok := f.findRename(ctx, res.File, batch); ok {
 				if ok, err := batch.Update(nf); err != nil {
 					return 0, err
 				} else if ok {
 					changes++
+					batch.markDeleted(nf.Name)
 				}
 			}
 		}
@@ -878,7 +890,7 @@ outer:
 	return changes, nil
 }
 
-func (f *folder) findRename(ctx context.Context, file protocol.FileInfo, alreadyUsedOrExisting map[string]struct{}) (protocol.FileInfo, bool) {
+func (f *folder) findRename(ctx context.Context, file protocol.FileInfo, batch *scanBatch) (protocol.FileInfo, bool) {
 	if len(file.Blocks) == 0 || file.Size == 0 {
 		return protocol.FileInfo{}, false
 	}
@@ -899,11 +911,10 @@ loop:
 		}
 
 		if fi.Name == file.Name {
-			alreadyUsedOrExisting[fi.Name] = struct{}{}
 			continue
 		}
 
-		if _, ok := alreadyUsedOrExisting[fi.Name]; ok {
+		if batch.hasDeleted(fi.Name) {
 			continue
 		}
 
@@ -921,8 +932,6 @@ loop:
 		if file.Size != fi.Size {
 			continue
 		}
-
-		alreadyUsedOrExisting[fi.Name] = struct{}{}
 
 		if !osutil.IsDeleted(f.mtimefs, fi.Name) {
 			continue
