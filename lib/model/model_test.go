@@ -3679,16 +3679,17 @@ func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSec
 	m.AddConnection(fc2, protocol.Hello{})
 	m.promoteConnections()
 
-	// Initial CCs
+	initTimeout := time.NewTimer(time.Second)
+	defer initTimeout.Stop()
 	select {
 	case <-cc1:
-	default:
-		t.Fatal("missing initial CC from device1")
+	case <-initTimeout.C:
+		t.Fatal("timed out waiting for initial CC from device1")
 	}
 	select {
 	case <-cc2:
-	default:
-		t.Fatal("missing initial CC from device2")
+	case <-initTimeout.C:
+		t.Fatal("timed out waiting for initial CC from device2")
 	}
 
 	t.Log("Applying config change")
