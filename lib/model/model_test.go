@@ -3680,15 +3680,17 @@ func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSec
 	m.promoteConnections()
 
 	// Initial CCs
+	initTimeout := time.NewTimer(time.Second)
+	defer initTimeout.Stop()
 	select {
 	case <-cc1:
-	default:
-		t.Fatal("missing initial CC from device1")
+	case <-initTimeout.C:
+		t.Fatal("timed out waiting for initial CC from device1")
 	}
 	select {
 	case <-cc2:
-	default:
-		t.Fatal("missing initial CC from device2")
+	case <-initTimeout.C:
+		t.Fatal("timed out waiting for initial CC from device2")
 	}
 
 	t.Log("Applying config change")
@@ -3781,13 +3783,19 @@ func TestIssue6961(t *testing.T) {
 }
 
 func TestCompletionEmptyGlobal(t *testing.T) {
-	m, conn, fcfg := setupModelWithConnection(t)
+	m, _, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+
+	// Insert a local file
 	files := []protocol.FileInfo{{Name: "foo", Version: protocol.Vector{}.Update(myID.Short()), Sequence: 1}}
-	m.sdb.Update(fcfg.ID, protocol.LocalDeviceID, files)
+	must(t, m.sdb.Update(fcfg.ID, protocol.LocalDeviceID, files))
+
+	// A remote announces it deleted
 	files[0].Deleted = true
 	files[0].Version = files[0].Version.Update(device1.Short())
-	must(t, m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: fcfg.ID, Files: files}))
+	must(t, m.sdb.Update(fcfg.ID, device1, files))
+
+	// Our completion should be 95%
 	comp := m.testCompletion(protocol.LocalDeviceID, fcfg.ID)
 	if comp.CompletionPct != 95 {
 		t.Error("Expected completion of 95%, got", comp.CompletionPct)

@@ -18,7 +18,6 @@ import (
 	rdebug "runtime/debug"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/d4l3k/messagediff"
@@ -620,12 +619,9 @@ func (l testfileList) String() string {
 	return b.String()
 }
 
-var initOnce sync.Once
-
 const (
 	testdataSize = 17<<20 + 1
 	testdataName = "_random.data"
-	testFsPath   = "some_random_dir_path"
 )
 
 func BenchmarkHashFile(b *testing.B) {
@@ -717,13 +713,15 @@ func TestStopWalk(t *testing.T) {
 	// Empty out any waiting entries and wait for the channel to close.
 	// Count them, they should be zero or very few - essentially, each
 	// hasher has the choice of returning a fully handled entry or
-	// cancelling, but they should not start on another item.
+	// cancelling, but they should not start on another item. The scan
+	// goroutine can also have one directory entry in-flight on finishedChan
+	// (directories bypass the hashers).
 	extra := 0
 	for range fchan {
 		extra++
 	}
 	t.Log("Extra entries:", extra)
-	if extra > numHashers {
+	if extra > numHashers+1 {
 		t.Error("unexpected extra entries received after cancel")
 	}
 }

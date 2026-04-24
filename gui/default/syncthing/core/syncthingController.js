@@ -2713,6 +2713,27 @@ angular.module('syncthing.core')
                 }
             }, $scope.emitHTTPError);
         };
+        
+        $scope.isFolderTabDisabled = function (tab) {
+            if (!$scope.currentFolder) {
+                return false;
+            }
+            if ($scope.currentFolder._editing === "new-ignores") {
+                return tab !== "ignores";
+            }
+            if (tab === "ignores" && $scope.currentFolder._recvEnc) {
+                return true;
+            }
+            return false;
+        };
+
+        $scope.onFolderTabClick = function ($event, tab) {
+            if ($scope.isFolderTabDisabled(tab)) {
+                $event.preventDefault();
+                $event.stopPropagation();
+                return false;
+            }
+        };
 
         function saveFolderIgnoresExisting() {
             if ($scope.ignores.disabled) {
