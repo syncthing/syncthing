@@ -3342,6 +3342,87 @@ func TestRenameSameFile(t *testing.T) {
 	}
 }
 
+// TestRenameBatchFlush verifies that rename detection works correctly when
+// a batch flush happens mid-scan. With enough files to exceed
+// MaxBatchSizeFiles the scan batch flushes at least once, clearing the
+// in-memory deleted-tracking map. After the flush the database itself
+// guards against reusing an already-consumed rename source. The fake
+// filesystem iterates in non-deterministic order, so the two rename pairs
+// may or may not straddle a flush boundary on any given run; with
+// 2*MaxBatchSizeFiles filler files the cross-flush case is hit roughly half
+// the time.
+func TestRenameBatchFlush(t *testing.T) {
+	wcfg, fcfg := newDefaultCfgWrapper(t)
+	m := setupModel(t, wcfg)
+	defer cleanupModel(m)
+
+	ffs := fcfg.Filesystem()
+
+	// Two source files with identical content so they share a blocks hash.
+	content := []byte("shared-content-for-rename-detection")
+	writeFile(t, ffs, "src-a", content)
+	writeFile(t, ffs, "src-b", content)
+
+	m.ScanFolders()
+
+	// Delete the sources and create two new destinations with the same
+	// content plus enough filler files to force at least one batch flush.
+	must(t, ffs.Remove("src-a"))
+	must(t, ffs.Remove("src-b"))
+	writeFile(t, ffs, "dst-a", content)
+	writeFile(t, ffs, "dst-b", content)
+	for i := range MaxBatchSizeFiles * 2 {
+		writeFile(t, ffs, fmt.Sprintf("filler-%04d", i), []byte(fmt.Sprintf("filler-%04d", i)))
+	}
+
+	m.ScanFolders()
+
+	// Collect all files keyed by name.
+	files := make(map[string]protocol.FileInfo)
+	it, errFn := m.LocalFilesSequenced("default", protocol.LocalDeviceID, 0)
+	for fi := range it {
+		files[fi.FileName()] = fi
+	}
+	if err := errFn(); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"src-a", "src-b"} {
+		fi, ok := files[name]
+		if !ok {
+			t.Fatalf("%q not found in DB", name)
+		}
+		if !fi.IsDeleted() {
+			t.Fatalf("%q should be deleted", name)
+		}
+	}
+
+	for _, name := range []string{"dst-a", "dst-b"} {
+		fi, ok := files[name]
+		if !ok {
+			t.Fatalf("%q not found in DB", name)
+		}
+		if fi.IsDeleted() {
+			t.Fatalf("%q should not be deleted", name)
+		}
+	}
+
+	// When rename detection works the deleted source is appended to the
+	// batch right after its destination, so their sequences are adjacent
+	// (src.seq == dst.seq + 1). If detection failed the sources would
+	// only be deleted in a later scan phase with much higher sequences.
+	dstSeqs := map[int64]bool{
+		files["dst-a"].SequenceNo(): true,
+		files["dst-b"].SequenceNo(): true,
+	}
+	for _, name := range []string{"src-a", "src-b"} {
+		srcSeq := files[name].SequenceNo()
+		if !dstSeqs[srcSeq-1] {
+			t.Errorf("deleted %q (seq %d) not adjacent to a destination file; rename was not detected", name, srcSeq)
+		}
+	}
+}
+
 func TestBlockListMap(t *testing.T) {
 	wcfg, fcfg := newDefaultCfgWrapper(t)
 	m := setupModel(t, wcfg)
@@ -3597,15 +3678,17 @@ func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSec
 	m.promoteConnections()
 
 	// Initial CCs
+	initTimeout := time.NewTimer(time.Second)
+	defer initTimeout.Stop()
 	select {
 	case <-cc1:
-	default:
-		t.Fatal("missing initial CC from device1")
+	case <-initTimeout.C:
+		t.Fatal("timed out waiting for initial CC from device1")
 	}
 	select {
 	case <-cc2:
-	default:
-		t.Fatal("missing initial CC from device2")
+	case <-initTimeout.C:
+		t.Fatal("timed out waiting for initial CC from device2")
 	}
 
 	t.Log("Applying config change")
@@ -3698,13 +3781,19 @@ func TestIssue6961(t *testing.T) {
 }
 
 func TestCompletionEmptyGlobal(t *testing.T) {
-	m, conn, fcfg := setupModelWithConnection(t)
+	m, _, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+
+	// Insert a local file
 	files := []protocol.FileInfo{{Name: "foo", Version: protocol.Vector{}.Update(myID.Short()), Sequence: 1}}
-	m.sdb.Update(fcfg.ID, protocol.LocalDeviceID, files)
+	must(t, m.sdb.Update(fcfg.ID, protocol.LocalDeviceID, files))
+
+	// A remote announces it deleted
 	files[0].Deleted = true
 	files[0].Version = files[0].Version.Update(device1.Short())
-	must(t, m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: fcfg.ID, Files: files}))
+	must(t, m.sdb.Update(fcfg.ID, device1, files))
+
+	// Our completion should be 95%
 	comp := m.testCompletion(protocol.LocalDeviceID, fcfg.ID)
 	if comp.CompletionPct != 95 {
 		t.Error("Expected completion of 95%, got", comp.CompletionPct)
