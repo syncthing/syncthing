@@ -83,6 +83,8 @@ func (h *httpProxyDialer) Dial(network, addr string) (net.Conn, error) {
 	return h.DialContext(context.Background(), network, addr)
 }
 
+// bufferedConn wraps a bufio.Reader (needed by http.ReadResponse) while
+// providing the other net.Conn methods via embedding.
 type bufferedConn struct {
 	net.Conn
 
