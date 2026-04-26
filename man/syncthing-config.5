@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Apr 04, 2026" "v2.0.0" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Apr 09, 2026" "v2.0.0" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH OVERVIEW
@@ -124,7 +124,7 @@ may no longer correspond to the defaults.
 .sp
 .EX
 <configuration version=\(dq37\(dq>
-    <folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
+    <folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq group=\(dqHome\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
         <filesystemType>basic</filesystemType>
         <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
             <encryptionPassword></encryptionPassword>
@@ -159,7 +159,7 @@ may no longer correspond to the defaults.
         <syncXattrs>false</syncXattrs>
         <sendXattrs>false</sendXattrs>
     </folder>
-    <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq name=\(dqsyno\(dq compression=\(dqmetadata\(dq introducer=\(dqfalse\(dq skipIntroductionRemovals=\(dqfalse\(dq introducedBy=\(dq\(dq>
+    <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq name=\(dqsyno\(dq group=\(dqPersonal\(dq compression=\(dqmetadata\(dq introducer=\(dqfalse\(dq skipIntroductionRemovals=\(dqfalse\(dq introducedBy=\(dq\(dq>
         <address>dynamic</address>
         <paused>false</paused>
         <autoAcceptFolders>false</autoAcceptFolders>
@@ -316,7 +316,7 @@ GUI.
 .INDENT 3.5
 .sp
 .EX
-<folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
+<folder id=\(dqdefault\(dq label=\(dqDefault Folder\(dq group=\(dqHome\(dq path=\(dq/Users/jb/Sync/\(dq type=\(dqsendreceive\(dq rescanIntervalS=\(dq3600\(dq fsWatcherEnabled=\(dqtrue\(dq fsWatcherDelayS=\(dq10\(dq fsWatcherTimeoutS=\(dq0\(dq ignorePerms=\(dqfalse\(dq autoNormalize=\(dqtrue\(dq>
     <filesystemType>basic</filesystemType>
     <device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq introducedBy=\(dq\(dq>
         <encryptionPassword></encryptionPassword>
@@ -369,6 +369,16 @@ The folder ID, which must be unique.
 The label of a folder is a human readable and descriptive local name. May
 be different on each device, empty, and/or identical to other folder
 labels. (optional)
+.UNINDENT
+.INDENT 0.0
+.TP
+.B group
+Added in version 2.1.0.
+
+.sp
+The group for a folder is a human readable and descriptive local name.
+Allows folders to be grouped together locally. May be different on each
+device, empty, and/or identical to other folder groups. (optional)
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -699,7 +709,7 @@ devices when this is set to \fBtrue\fP\&. See
 .INDENT 3.5
 .sp
 .EX
-<device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq name=\(dqsyno\(dq compression=\(dqmetadata\(dq introducer=\(dqfalse\(dq skipIntroductionRemovals=\(dqfalse\(dq introducedBy=\(dq2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR\(dq>
+<device id=\(dqS7UKX27\-GI7ZTXS\-GC6RKUA\-7AJGZ44\-C6NAYEB\-HSKTJQK\-KJHU2NO\-CWV7EQW\(dq name=\(dqsyno\(dq group=\(dqPersonal\(dq compression=\(dqmetadata\(dq introducer=\(dqfalse\(dq skipIntroductionRemovals=\(dqfalse\(dq introducedBy=\(dq2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR\(dq>
     <address>dynamic</address>
     <paused>false</paused>
     <autoAcceptFolders>false</autoAcceptFolders>
@@ -741,6 +751,16 @@ The \fI\%device ID\fP\&.
 .TP
 .B name
 A friendly name for the device. (optional)
+.UNINDENT
+.INDENT 0.0
+.TP
+.B group
+Added in version 2.1.0.
+
+.sp
+The group for a device is a human readable and descriptive local name.
+Allows devices to be grouped together locally. May be different on each
+device, empty, and/or identical to other device groups. (optional)
 .UNINDENT
 .INDENT 0.0
 .TP

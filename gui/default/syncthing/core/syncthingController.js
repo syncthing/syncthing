@@ -570,14 +570,23 @@ angular.module('syncthing.core')
 
             };
 
-            $scope.devicesGrouped = {};
-            const otherDevices = $scope.otherDevices();
-            for (var id in otherDevices) {
-                if ($scope.devicesGrouped[otherDevices[id].group] === undefined) {
-                    $scope.devicesGrouped[otherDevices[id].group] = []; 
+            // myID is watched as $scope.otherDevices() relies on this
+            // and it can potenitally not be loaded due to this function 
+            // scope being called in an undetermistic manner
+            $scope.$watch('myID', function(myID) {
+                if (myID) {
+                    $scope.devicesGrouped = {};
+                    const otherDevices = $scope.otherDevices();
+                    for (var id in otherDevices) {
+                        if ($scope.devicesGrouped[otherDevices[id].group] === undefined) {
+                            $scope.devicesGrouped[otherDevices[id].group] = []; 
+                        }
+                        $scope.devicesGrouped[otherDevices[id].group].push(otherDevices[id]);
+                    };
+
+                    $scope.devicesGrouped = sortByKeyThenProperty($scope.devicesGrouped, "name", "deviceID");
                 }
-                $scope.devicesGrouped[otherDevices[id].group].push(otherDevices[id]);
-            };
+            });
 
             $scope.folders = folderMap($scope.config.folders);
             $scope.foldersGrouped = {};
@@ -593,15 +602,7 @@ angular.module('syncthing.core')
                 $scope.foldersGrouped[$scope.folders[folder].group].push($scope.folders[folder]);
             });
 
-            // Sort with blank group first if any then alphabetically
-            const blankSort = (a, b) => {
-                if (a[0] === "" && b[0] !== "") return -1;
-                if (b[0] === "" && a[0] !== "") return 1;
-                return a[0].localeCompare(b[0]);
-            };
-
-            $scope.foldersGrouped = Object.fromEntries(Object.entries($scope.foldersGrouped).sort(blankSort));
-            $scope.devicesGrouped = Object.fromEntries(Object.entries($scope.devicesGrouped).sort(blankSort));
+            $scope.foldersGrouped = sortByKeyThenProperty($scope.foldersGrouped, "label", "id");
 
             refreshNoAuthWarning();
             setDefaultTheme();
@@ -609,6 +610,31 @@ angular.module('syncthing.core')
             if (!hasConfig) {
                 $scope.$emit('ConfigLoaded');
             }
+        }
+
+        // Sort firstly by the top level key of the object and then by 
+        // prop name provided for the array of objects for each key.
+        // If the prop returns has an empty value, then use the
+        // fallback prop provided.
+        function sortByKeyThenProperty(obj, prop, fallbackProp) {
+              const sorted = {};
+              Object.keys(obj)
+                .sort()
+                .forEach((key) => {
+                  sorted[key] = obj[key].sort((a, b) => {
+                    let aProp = prop;
+                    let bProp = prop;
+                    if (!a[aProp]) {
+                        aProp = fallbackProp;
+                    }
+                    if (!b[bProp]) {
+                        bProp = fallbackProp;
+                    }
+                    return a[aProp].localeCompare(b[bProp]);
+                  });
+                });
+
+              return sorted;
         }
 
         function refreshSystem() {
@@ -2686,6 +2712,27 @@ angular.module('syncthing.core')
                     });
                 }
             }, $scope.emitHTTPError);
+        };
+        
+        $scope.isFolderTabDisabled = function (tab) {
+            if (!$scope.currentFolder) {
+                return false;
+            }
+            if ($scope.currentFolder._editing === "new-ignores") {
+                return tab !== "ignores";
+            }
+            if (tab === "ignores" && $scope.currentFolder._recvEnc) {
+                return true;
+            }
+            return false;
+        };
+
+        $scope.onFolderTabClick = function ($event, tab) {
+            if ($scope.isFolderTabDisabled(tab)) {
+                $event.preventDefault();
+                $event.stopPropagation();
+                return false;
+            }
         };
 
         function saveFolderIgnoresExisting() {
