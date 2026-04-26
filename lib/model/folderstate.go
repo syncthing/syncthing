@@ -19,7 +19,6 @@ type folderState int
 
 const (
 	FolderIdle folderState = iota
-	FolderStarting
 	FolderScanning
 	FolderScanWaiting
 	FolderSyncWaiting
@@ -28,6 +27,7 @@ const (
 	FolderCleaning
 	FolderCleanWaiting
 	FolderError
+	FolderStarting
 )
 
 func (s folderState) String() string {

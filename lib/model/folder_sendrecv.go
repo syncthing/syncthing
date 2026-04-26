@@ -1393,7 +1393,7 @@ func (f *sendReceiveFolder) copyBlock(ctx context.Context, block protocol.BlockI
 
 	// Check for the block in the current version of the file
 	if idx, ok := state.curFileBlocks[string(block.Hash)]; ok {
-		if f.copyBlockFromFile(ctx, state.file.Name, state.curFile.Blocks[idx].Offset, state, f.mtimefs, block, buf) {
+		if f.copyBlockFromFile(ctx, state.curFile.Name, state.curFile.Blocks[idx].Offset, state, f.mtimefs, block, buf) {
 			state.copiedFromOrigin(block.Size)
 			return true
 		}

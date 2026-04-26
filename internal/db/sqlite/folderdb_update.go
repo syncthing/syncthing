@@ -314,13 +314,13 @@ func (s *folderDB) blockIndexEmpty() (bool, error) {
 }
 
 func (s *folderDB) DropBlockIndex() error {
+	s.updateLock.Lock()
+	defer s.updateLock.Unlock()
+
 	empty, err := s.blockIndexEmpty()
 	if err != nil || empty {
 		return err
 	}
-
-	s.updateLock.Lock()
-	defer s.updateLock.Unlock()
 
 	if _, err := s.sql.Exec(`DELETE FROM blocks`); err != nil {
 		return wrap(err)
@@ -330,13 +330,13 @@ func (s *folderDB) DropBlockIndex() error {
 }
 
 func (s *folderDB) PopulateBlockIndex() error {
+	s.updateLock.Lock()
+	defer s.updateLock.Unlock()
+
 	empty, err := s.blockIndexEmpty()
 	if err != nil || !empty {
 		return err
 	}
-
-	s.updateLock.Lock()
-	defer s.updateLock.Unlock()
 
 	tx, err := s.sql.BeginTxx(context.Background(), nil)
 	if err != nil {

@@ -162,7 +162,8 @@ func (f *folder) Serve(ctx context.Context) error {
 	}()
 
 	if err := f.reconcileBlockIndex(ctx); err != nil {
-		return err
+		f.setError(ctx, err)
+		return err // will get restarted by suture
 	}
 
 	if f.FSWatcherEnabled && f.getHealthErrorAndLoadIgnores() == nil {
