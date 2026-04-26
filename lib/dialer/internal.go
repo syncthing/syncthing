@@ -85,23 +85,23 @@ func (h *httpProxyDialer) Dial(network, addr string) (net.Conn, error) {
 
 type bufferedConn struct {
 	net.Conn
-	*bufio.Reader
+
+	reader *bufio.Reader
 }
 
 func (c *bufferedConn) Read(b []byte) (int, error) {
-	return c.Reader.Read(b)
+	return c.reader.Read(b)
 }
 
 var warnCleartextProxyAuthOnce sync.Once
 
 func (h *httpProxyDialer) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	var conn net.Conn
-	var err error
-
 	if network != "tcp" && network != "tcp4" && network != "tcp6" {
 		return nil, fmt.Errorf("unsupported network for http proxy: %s", network)
 	}
 
+	var conn net.Conn
+	var err error
 	if cd, ok := h.forwardDialer.(proxy.ContextDialer); ok {
 		conn, err = cd.DialContext(ctx, "tcp", h.proxyURL.Host)
 	} else {
@@ -141,15 +141,14 @@ func (h *httpProxyDialer) DialContext(ctx context.Context, network, addr string)
 	if u := h.proxyURL.User; u != nil {
 		if h.proxyURL.Scheme == "http" {
 			warnCleartextProxyAuthOnce.Do(func() {
-				slog.Warn(
+				slog.WarnContext(ctx,
 					"Using basic auth over cleartext HTTP proxy",
 					"proxy", h.proxyURL.Redacted(),
 				)
 			})
 		}
-		username := u.Username()
 		password, _ := u.Password()
-		auth := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
+		auth := base64.StdEncoding.EncodeToString([]byte(u.Username() + ":" + password))
 		req.Header.Set("Proxy-Authorization", "Basic "+auth)
 	}
 
@@ -171,8 +170,7 @@ func (h *httpProxyDialer) DialContext(ctx context.Context, network, addr string)
 		return nil, fmt.Errorf("http proxy CONNECT failed: %s", resp.Status)
 	}
 
-	// wrapper to return whatever the server sent after CONNECT
-	return &bufferedConn{conn, br}, nil
+	return &bufferedConn{Conn: conn, reader: br}, nil
 }
 
 // dialerConn is needed because proxy dialed connections have RemoteAddr() pointing at the proxy,
