@@ -211,8 +211,8 @@ func TestTokenManagerNoExpiry(t *testing.T) {
 	tm.timeNow = clock.Now
 
 	token := tm.New()
-	if expiry := tm.tokens.Tokens[token]; expiry != noExpiryNano {
-		t.Fatalf("token should use no-expiry sentinel, got %d", expiry)
+	if expiry, ok := tm.tokens.Tokens[token]; !ok || expiry != 0 {
+		t.Fatalf("token should have no expiry, got %d", expiry)
 	}
 
 	clock.wind(365 * 24 * time.Hour)
@@ -231,33 +231,5 @@ func TestSessionCookieMaxAgeNoExpiry(t *testing.T) {
 	}
 	if got := m.sessionCookieMaxAge(); got != math.MaxInt32 {
 		t.Fatalf("unexpected max age %d", got)
-	}
-}
-
-func TestSessionCookiePathUsesPreparedConfigValue(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name string
-		path string
-	}{
-		{name: "default", path: "/"},
-		{name: "subpath", path: "/st"},
-	}
-
-	for _, tc := range cases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			m := tokenCookieManager{
-				guiCfg: config.GUIConfiguration{
-					SessionCookiePath: tc.path,
-				},
-			}
-			if got := m.guiCfg.SessionCookiePath; got != tc.path {
-				t.Fatalf("unexpected path %q != %q", got, tc.path)
-			}
-		})
 	}
 }

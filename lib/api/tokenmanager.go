@@ -36,9 +36,7 @@ type tokenManager struct {
 	saveTimer *time.Timer
 }
 
-const (
-	defaultSessionCookieDurationS       = 7 * 24 * 60 * 60
-)
+const defaultSessionCookieDurationS = 7 * 24 * 60 * 60
 
 func newTokenManager(key string, miscDB *db.Typed, lifetime time.Duration, maxItems int) *tokenManager {
 	var tokens apiproto.TokenSet
@@ -65,26 +63,19 @@ func (m *tokenManager) Check(token string) bool {
 	defer m.mut.Unlock()
 
 	expires, ok := m.tokens.Tokens[token]
-	if ok {
-		if expires != 0 && expires < m.timeNow().UnixNano() {
-			// The token is expired.
-			m.saveLocked() // removes expired tokens
-			return false
-		}
-
-		if m.lifetime <= 0 {
-			// Never expiring; ensure stored expiry reflects that.
-			if expires != 0 {
-				m.tokens.Tokens[token] = 0
-				m.saveLocked()
-			}
-		} else {
-			// Give the token further life.
-			m.tokens.Tokens[token] = m.timeNow().Add(m.lifetime).UnixNano()
-			m.saveLocked()
-		}
+	if !ok {
+		return false
 	}
-	return ok
+	if expires != 0 && expires < m.timeNow().UnixNano() {
+		// The token is expired.
+		m.saveLocked() // removes expired tokens
+		return false
+	}
+
+	// Give the token further life.
+	m.tokens.Tokens[token] = m.newExpiryNanos()
+	m.saveLocked()
+	return true
 }
 
 // New creates a new token and returns it.
@@ -94,14 +85,17 @@ func (m *tokenManager) New() string {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	if m.lifetime <= 0 {
-		m.tokens.Tokens[token] = 0
-	} else {
-		m.tokens.Tokens[token] = m.timeNow().Add(m.lifetime).UnixNano()
-	}
+	m.tokens.Tokens[token] = m.newExpiryNanos()
 	m.saveLocked()
 
 	return token
+}
+
+func (m *tokenManager) newExpiryNanos() int64 {
+	if m.lifetime <= 0 {
+		return 0
+	}
+	return m.timeNow().Add(m.lifetime).UnixNano()
 }
 
 // Delete removes a token.
@@ -213,23 +207,17 @@ func (m *tokenCookieManager) createSession(username string, persistent bool, w h
 }
 
 func (m *tokenCookieManager) sessionCookieMaxAge() int {
-	durationS := m.sessionCookieDurationSeconds()
-	if durationS < 0 {
-		// If the value is negative, it means "never expire the cookie".
-		// We therefore use a very large Max-Age to indicate a long cookie
-		// persistence time. This only makes the browser keep the cookie for a
-		// long time; a stolen cookie is still usable until the session is
-		// explicitly logged out.
+	switch {
+	case m.guiCfg.SessionCookieDurationS < 0:
+		// A negative value means "never expire the cookie". Use a very
+		// large Max-Age to make the browser keep the cookie for a long
+		// time.
 		return math.MaxInt32
-	}
-	return durationS
-}
-
-func (m *tokenCookieManager) sessionCookieDurationSeconds() int {
-	if m.guiCfg.SessionCookieDurationS == 0 {
+	case m.guiCfg.SessionCookieDurationS == 0:
 		return defaultSessionCookieDurationS
+	default:
+		return m.guiCfg.SessionCookieDurationS
 	}
-	return m.guiCfg.SessionCookieDurationS
 }
 
 func (m *tokenCookieManager) hasValidSession(r *http.Request) bool {
