@@ -178,11 +178,12 @@ func (c *GUIConfiguration) prepare() {
 	if c.APIKey == "" {
 		c.APIKey = rand.String(32)
 	}
-	path := strings.TrimSpace(c.SessionCookiePath)
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
+	if path := strings.TrimSpace(c.SessionCookiePath); path != "" {
+		if !strings.HasPrefix(path, "/") {
+			path = "/" + path
+		}
+		c.SessionCookiePath = path
 	}
-	c.SessionCookiePath = path
 }
 
 func (c GUIConfiguration) Copy() GUIConfiguration {

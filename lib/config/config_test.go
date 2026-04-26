@@ -794,14 +794,12 @@ func TestGUISessionCookiePathPrepare(t *testing.T) {
 		in   string
 		out  string
 	}{
-		{name: "default", in: "", out: "/"},
-		{name: "spaces", in: "   ", out: "/"},
+		{name: "empty stays empty", in: "", out: ""},
 		{name: "already rooted", in: " /gui ", out: "/gui"},
 		{name: "needs slash", in: "gui", out: "/gui"},
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

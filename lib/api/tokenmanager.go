@@ -193,6 +193,10 @@ func (m *tokenCookieManager) createSession(username string, persistent bool, w h
 	if persistent {
 		maxAge = m.sessionCookieMaxAge()
 	}
+	path := m.guiCfg.SessionCookiePath
+	if path == "" {
+		path = "/"
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:  m.cookieName,
 		Value: sessionid,
@@ -200,7 +204,7 @@ func (m *tokenCookieManager) createSession(username string, persistent bool, w h
 		// but in http.Cookie MaxAge = 0 means unspecified (session) and MaxAge < 0 means delete immediately
 		MaxAge: maxAge,
 		Secure: useSecureCookie,
-		Path:   m.guiCfg.SessionCookiePath,
+		Path:   path,
 	})
 
 	emitLoginAttempt(true, username, r, m.evLogger)
