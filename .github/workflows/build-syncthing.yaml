@@ -284,10 +284,37 @@ jobs:
   #
 
   package-linux:
-    name: Package for Linux
+    name: Package for Linux (${{ matrix.group }})
     runs-on: ubuntu-latest
     needs:
       - facts
+    strategy:
+      fail-fast: false
+      # split the build into three groups with roughtly the same amount of
+      # work, in order to reduce wall clock time
+      matrix:
+        include:
+          - group: common
+            targets: |
+              amd64 zig cc -target x86_64-linux-musl
+              386 zig cc -target x86-linux-musl
+              arm zig cc -target arm-linux-musleabi -mcpu=arm1136j_s
+              arm64 zig cc -target aarch64-linux-musl
+            extra-packages: ""
+          - group: mips
+            targets: |
+              mips zig cc -target mips-linux-musleabi
+              mipsle zig cc -target mipsel-linux-musleabi
+              mips64 mips64-linux-gnuabi64-gcc
+              mips64le mips64el-linux-gnuabi64-gcc
+            extra-packages: "gcc-mips64-linux-gnuabi64 gcc-mips64el-linux-gnuabi64"
+          - group: other
+            targets: |
+              riscv64 zig cc -target riscv64-linux-musl
+              s390x zig cc -target s390x-linux-musl
+              loong64 zig cc -target loongarch64-linux-musl
+              ppc64le zig cc -target powerpc64le-linux-musl
+            extra-packages: ""
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
@@ -306,34 +333,29 @@ jobs:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-linux-${{ matrix.group }}-${{ hashFiles('go.sum') }}
+
+      - name: Install extra packages
+        if: matrix.extra-packages != ''
+        run: sudo apt-get install -y ${{ matrix.extra-packages }}
 
       - name: Create packages
         run: |
-          sudo apt-get install -y gcc-mips64-linux-gnuabi64 gcc-mips64el-linux-gnuabi64
-          for tgt in syncthing stdiscosrv strelaysrv ; do
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch 386 -cc "zig cc -target x86-linux-musl" tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch arm -cc "zig cc -target arm-linux-musleabi -mcpu=arm1136j_s" tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch mips -cc "zig cc -target mips-linux-musleabi" tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch mipsle -cc "zig cc -target mipsel-linux-musleabi" tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch mips64 -cc mips64-linux-gnuabi64-gcc tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch mips64le -cc mips64el-linux-gnuabi64-gcc tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch riscv64 -cc "zig cc -target riscv64-linux-musl" tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch s390x -cc "zig cc -target s390x-linux-musl" tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch loong64 -cc "zig cc -target loongarch64-linux-musl" tar "$tgt"
-            # go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch ppc64 -cc "zig cc -target powerpc64-linux-musl" tar "$tgt" # fails with linkmode not supported
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch ppc64le -cc "zig cc -target powerpc64le-linux-musl" tar "$tgt"
+          echo "$TARGETS" | while read -r arch cc; do
+            [ -z "$arch" ] && continue
+            for tgt in syncthing stdiscosrv strelaysrv ; do
+              go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch "$arch" -cc "$cc" tar "$tgt"
+            done
           done
         env:
           CGO_ENABLED: "1"
           EXTRA_LDFLAGS: "-linkmode=external -extldflags=-static"
+          TARGETS: ${{ matrix.targets }}
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: packages-linux
+          name: packages-linux-${{ matrix.group }}
           path: |
             *.tar.gz
             compat.json
