@@ -740,12 +740,6 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanO
 		}
 	}
 
-	if ct := fi.InodeChangeTime(); !ct.IsZero() {
-		f.InodeChangeNs = ct.UnixNano()
-	} else {
-		f.InodeChangeNs = 0
-	}
-
 	if fi.IsSymlink() {
 		f.Type = protocol.FileInfoTypeSymlink
 		target, err := filesystem.ReadSymlink(name)

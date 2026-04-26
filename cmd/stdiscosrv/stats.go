@@ -11,14 +11,6 @@ import (
 )
 
 var (
-	buildInfo = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: "syncthing",
-			Subsystem: "discovery",
-			Name:      "build_info",
-			Help:      "A metric with a constant '1' value labeled by version, goversion, builduser and builddate from which stdiscosrv was built.",
-		}, []string{"version", "goversion", "builduser", "builddate"})
-
 	apiRequestsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "syncthing",
@@ -132,7 +124,7 @@ const (
 )
 
 func init() {
-	prometheus.MustRegister(buildInfo,
+	prometheus.MustRegister(
 		apiRequestsTotal, apiRequestsSeconds,
 		lookupRequestsTotal, announceRequestsTotal,
 		replicationSendsTotal, replicationRecvsTotal,

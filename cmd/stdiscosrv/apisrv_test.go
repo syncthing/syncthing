@@ -18,6 +18,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -106,12 +107,59 @@ func addr(host string, port int) *net.TCPAddr {
 	}
 }
 
+func TestRetryAfterSHistogram(t *testing.T) {
+	tracker := &retryAfterTracker{
+		name:         "test",
+		bucketStarts: time.Now(),
+		desiredRate:  100,
+		currentDelay: 1800,
+	}
+
+	const n = 1000
+	bucketSize := 60 // seconds per histogram bucket
+	numBuckets := (notFoundRetryUnknownMaxSeconds + bucketSize - 1) / bucketSize
+	buckets := make([]int, numBuckets)
+
+	for i := 0; i < n; i++ {
+		v := tracker.retryAfterS()
+		if v < notFoundRetryUnknownMinSeconds || v > notFoundRetryUnknownMaxSeconds {
+			t.Fatalf("retryAfterS() = %d, out of range [%d, %d]", v, notFoundRetryUnknownMinSeconds, notFoundRetryUnknownMaxSeconds)
+		}
+		b := (v - 1) / bucketSize
+		if b >= numBuckets {
+			b = numBuckets - 1
+		}
+		buckets[b]++
+	}
+
+	// Print a horizontal histogram
+	maxCount := 0
+	for _, c := range buckets {
+		if c > maxCount {
+			maxCount = c
+		}
+	}
+	barWidth := 60
+	for i, c := range buckets {
+		lo := i*bucketSize + 1
+		hi := (i + 1) * bucketSize
+		if hi > notFoundRetryUnknownMaxSeconds {
+			hi = notFoundRetryUnknownMaxSeconds
+		}
+		bar := ""
+		if maxCount > 0 {
+			bar = strings.Repeat("#", c*barWidth/maxCount)
+		}
+		t.Logf("%4d-%4ds | %-*s %d", lo, hi, barWidth, bar, c)
+	}
+}
+
 func BenchmarkAPIRequests(b *testing.B) {
 	db := newInMemoryStore(b.TempDir(), 0, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go db.Serve(ctx)
-	api := newAPISrv("127.0.0.1:0", tls.Certificate{}, db, nil, true, true, 1000)
+	api := newAPISrv("127.0.0.1:0", tls.Certificate{}, db, nil, true, true, 1000, 1000)
 	srv := httptest.NewServer(http.HandlerFunc(api.handler))
 
 	kf := b.TempDir() + "/cert"

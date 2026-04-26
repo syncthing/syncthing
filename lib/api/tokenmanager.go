@@ -7,6 +7,7 @@
 package api
 
 import (
+	"math"
 	"net/http"
 	"slices"
 	"strings"
@@ -35,6 +36,8 @@ type tokenManager struct {
 	saveTimer *time.Timer
 }
 
+const defaultSessionCookieDurationS = 7 * 24 * 60 * 60
+
 func newTokenManager(key string, miscDB *db.Typed, lifetime time.Duration, maxItems int) *tokenManager {
 	var tokens apiproto.TokenSet
 	if bs, ok, _ := miscDB.Bytes(key); ok {
@@ -60,18 +63,19 @@ func (m *tokenManager) Check(token string) bool {
 	defer m.mut.Unlock()
 
 	expires, ok := m.tokens.Tokens[token]
-	if ok {
-		if expires < m.timeNow().UnixNano() {
-			// The token is expired.
-			m.saveLocked() // removes expired tokens
-			return false
-		}
-
-		// Give the token further life.
-		m.tokens.Tokens[token] = m.timeNow().Add(m.lifetime).UnixNano()
-		m.saveLocked()
+	if !ok {
+		return false
 	}
-	return ok
+	if expires != 0 && expires < m.timeNow().UnixNano() {
+		// The token is expired.
+		m.saveLocked() // removes expired tokens
+		return false
+	}
+
+	// Give the token further life.
+	m.tokens.Tokens[token] = m.newExpiryNanos()
+	m.saveLocked()
+	return true
 }
 
 // New creates a new token and returns it.
@@ -81,10 +85,17 @@ func (m *tokenManager) New() string {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	m.tokens.Tokens[token] = m.timeNow().Add(m.lifetime).UnixNano()
+	m.tokens.Tokens[token] = m.newExpiryNanos()
 	m.saveLocked()
 
 	return token
+}
+
+func (m *tokenManager) newExpiryNanos() int64 {
+	if m.lifetime <= 0 {
+		return 0
+	}
+	return m.timeNow().Add(m.lifetime).UnixNano()
 }
 
 // Delete removes a token.
@@ -100,7 +111,7 @@ func (m *tokenManager) saveLocked() {
 	// Remove expired tokens.
 	now := m.timeNow().UnixNano()
 	for token, expiry := range m.tokens.Tokens {
-		if expiry < now {
+		if expiry != 0 && expiry < now {
 			delete(m.tokens.Tokens, token)
 		}
 	}
@@ -152,12 +163,16 @@ type tokenCookieManager struct {
 }
 
 func newTokenCookieManager(shortID string, guiCfg config.GUIConfiguration, evLogger events.Logger, miscDB *db.Typed) *tokenCookieManager {
+	sessionLifetimeS := guiCfg.SessionCookieDurationS
+	if sessionLifetimeS == 0 {
+		sessionLifetimeS = defaultSessionCookieDurationS
+	}
 	return &tokenCookieManager{
 		cookieName: "sessionid-" + shortID,
 		shortID:    shortID,
 		guiCfg:     guiCfg,
 		evLogger:   evLogger,
-		tokens:     newTokenManager("sessions", miscDB, maxSessionLifetime, maxActiveSessions),
+		tokens:     newTokenManager("sessions", miscDB, time.Duration(sessionLifetimeS)*time.Second, maxActiveSessions),
 	}
 }
 
@@ -176,7 +191,11 @@ func (m *tokenCookieManager) createSession(username string, persistent bool, w h
 
 	maxAge := 0
 	if persistent {
-		maxAge = int(maxSessionLifetime.Seconds())
+		maxAge = m.sessionCookieMaxAge()
+	}
+	path := m.guiCfg.SessionCookiePath
+	if path == "" {
+		path = "/"
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name:  m.cookieName,
@@ -185,10 +204,24 @@ func (m *tokenCookieManager) createSession(username string, persistent bool, w h
 		// but in http.Cookie MaxAge = 0 means unspecified (session) and MaxAge < 0 means delete immediately
 		MaxAge: maxAge,
 		Secure: useSecureCookie,
-		Path:   "/",
+		Path:   path,
 	})
 
 	emitLoginAttempt(true, username, r, m.evLogger)
+}
+
+func (m *tokenCookieManager) sessionCookieMaxAge() int {
+	switch {
+	case m.guiCfg.SessionCookieDurationS < 0:
+		// A negative value means "never expire the cookie". Use a very
+		// large Max-Age to make the browser keep the cookie for a long
+		// time.
+		return math.MaxInt32
+	case m.guiCfg.SessionCookieDurationS == 0:
+		return defaultSessionCookieDurationS
+	default:
+		return m.guiCfg.SessionCookieDurationS
+	}
 }
 
 func (m *tokenCookieManager) hasValidSession(r *http.Request) bool {

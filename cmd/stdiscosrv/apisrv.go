@@ -67,7 +67,7 @@ type contextKey int
 
 const idKey contextKey = iota
 
-func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, useHTTP, compression bool, desiredNotFoundRate float64) *apiSrv {
+func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, useHTTP, compression bool, desiredUnseenNotFoundRate, desiredSeenNotFoundRate float64) *apiSrv {
 	return &apiSrv{
 		addr:        addr,
 		cert:        cert,
@@ -78,13 +78,13 @@ func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, 
 		seenTracker: &retryAfterTracker{
 			name:         "seenTracker",
 			bucketStarts: time.Now(),
-			desiredRate:  desiredNotFoundRate / 2,
+			desiredRate:  desiredSeenNotFoundRate,
 			currentDelay: notFoundRetryUnknownMinSeconds,
 		},
 		notSeenTracker: &retryAfterTracker{
 			name:         "notSeenTracker",
 			bucketStarts: time.Now(),
-			desiredRate:  desiredNotFoundRate / 2,
+			desiredRate:  desiredUnseenNotFoundRate,
 			currentDelay: notFoundRetryUnknownMaxSeconds / 2,
 		},
 	}
@@ -564,5 +564,17 @@ func (t *retryAfterTracker) retryAfterS() int {
 	}
 	t.curCount++
 	t.mut.Unlock()
-	return t.currentDelay + rand.Intn(t.currentDelay/4)
+
+	// Skewed normal distribution with the mean at currentDelay and the
+	// limits (50% and 150%) at 3 standard deviations
+	nf := rand.NormFloat64()
+	minD := max(notFoundRetryUnknownMinSeconds, t.currentDelay/2)
+	maxD := min(notFoundRetryUnknownMaxSeconds, t.currentDelay*3/2)
+	intv := float64(maxD - t.currentDelay)
+	if nf < 0 {
+		intv = float64(t.currentDelay - minD)
+	}
+	nf = min(max(nf*intv/3+float64(t.currentDelay), notFoundRetryUnknownMinSeconds), notFoundRetryUnknownMaxSeconds)
+
+	return int(nf)
 }
