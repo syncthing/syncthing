@@ -311,9 +311,7 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 
 // escapeForLDAPFilter escapes a value that will be used in a filter clause
 func escapeForLDAPFilter(value string) string {
-	// https://social.technet.microsoft.com/wiki/contents/articles/5392.active-directory-ldap-syntax-filters.aspx#Special_Characters
-	// Backslash must always be first in the list so we don't double escape them.
-	return escapeRunes(value, []rune{'\\', '*', '(', ')', 0})
+	return ldap.EscapeFilter(value)
 }
 
 // escapeForLDAPDN escapes a value that will be used in a bind DN

@@ -213,7 +213,8 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 		http.Error(w, string(bs), http.StatusInternalServerError)
 		return
 	}
-	fmt.Fprintf(w, "%s\n", bs)
+	var wr io.Writer = w
+	fmt.Fprintf(wr, "%s\n", bs)
 }
 
 func (s *service) Serve(ctx context.Context) error {
@@ -592,9 +593,8 @@ func redirectToHTTPSMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.TLS == nil {
 			// Redirect HTTP requests to HTTPS
-			r.URL.Host = r.Host
-			r.URL.Scheme = "https"
-			http.Redirect(w, r, r.URL.String(), http.StatusTemporaryRedirect)
+			w.Header().Set("Location", "https://"+r.Host+r.URL.RequestURI())
+			w.WriteHeader(http.StatusTemporaryRedirect)
 		} else {
 			h.ServeHTTP(w, r)
 		}
@@ -702,7 +702,8 @@ func (s *service) getJSMetadata(w http.ResponseWriter, _ *http.Request) {
 		"authenticated": true,
 	})
 	w.Header().Set("Content-Type", "application/javascript")
-	fmt.Fprintf(w, "var metadata = %s;\n", meta)
+	var wr io.Writer = w
+	fmt.Fprintf(wr, "var metadata = %s;\n", meta)
 }
 
 func (*service) getSystemVersion(w http.ResponseWriter, _ *http.Request) {
@@ -1027,7 +1028,8 @@ func (s *service) postSystemShutdown(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (*service) flushResponse(resp string, w http.ResponseWriter) {
-	w.Write([]byte(resp + "\n"))
+	var wr io.Writer = w
+	fmt.Fprintf(wr, "%s\n", resp)
 	f := w.(http.Flusher)
 	f.Flush()
 }
@@ -1105,8 +1107,9 @@ func (s *service) getSystemLogTxt(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
+	var wr io.Writer = w
 	for _, line := range s.systemLog.Since(since) {
-		fmt.Fprintf(w, "%s: %s\n", line.When.Format(time.RFC3339), line.Message)
+		fmt.Fprintf(wr, "%s: %s\n", line.When.Format(time.RFC3339), line.Message)
 	}
 }
 
@@ -1579,7 +1582,8 @@ func (*service) getQR(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "image/png")
-	w.Write(code.PNG())
+	var wr io.Writer = w
+	wr.Write(code.PNG()) //nolint
 }
 
 func (s *service) getFolderVersions(w http.ResponseWriter, r *http.Request) {
