@@ -418,6 +418,11 @@ func (w *walker) handleItem(ctx context.Context, path string, info fs.FileInfo, 
 		return nil
 
 	case info.IsDir():
+		// Skip system filesystems on Linux (procfs, sysfs, devtmpfs, etc.)
+		if isSystemFilesystem(path) {
+			l.Debugln(w, "skipping system filesystem:", path)
+			return fs.SkipDir
+		}
 		return w.walkDir(ctx, path, info, finishedChan)
 
 	case info.IsRegular():
@@ -765,3 +770,4 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem, scanO
 
 	return f, nil
 }
+
