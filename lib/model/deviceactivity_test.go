@@ -27,6 +27,7 @@ func TestDeviceActivity(t *testing.T) {
 		// of the equation for this test, basing it only on the number of
 		// outstanding blocks
 		blockDur := time.Second * protocol.MinBlockSize / assumedRate
+		start := time.Now()
 
 		if lb := na.leastBusy(devices); lb != 0 {
 			t.Errorf("Least busy device should be n0 (%v) not %v", n0, lb)
@@ -36,33 +37,34 @@ func TestDeviceActivity(t *testing.T) {
 		}
 
 		lb := na.leastBusy(devices)
-		na.using(devices[lb].ID, protocol.MinBlockSize)
+		t0 := na.using(devices[lb].ID, protocol.MinBlockSize, start)
 		if lb := na.leastBusy(devices); lb != 1 {
 			t.Errorf("Least busy device should be n1 (%v) not %v", n1, lb)
 		}
+
 		lb = na.leastBusy(devices)
-		na.using(devices[lb].ID, protocol.MinBlockSize)
+		t1 := na.using(devices[lb].ID, protocol.MinBlockSize, start)
 		if lb := na.leastBusy(devices); lb != 2 {
 			t.Errorf("Least busy device should be n2 (%v) not %v", n2, lb)
 		}
 
 		lb = na.leastBusy(devices)
-		na.using(devices[lb].ID, protocol.MinBlockSize)
+		t2 := na.using(devices[lb].ID, protocol.MinBlockSize, start)
 		if lb := na.leastBusy(devices); lb != 0 {
 			t.Errorf("Least busy device should be n0 (%v) not %v", n0, lb)
 		}
 
-		na.done(n1.ID, protocol.MinBlockSize, blockDur)
+		na.done(t1, start.Add(blockDur))
 		if lb := na.leastBusy(devices); lb != 1 {
 			t.Errorf("Least busy device should be n1 (%v) not %v", n1, lb)
 		}
 
-		na.done(n2.ID, protocol.MinBlockSize, blockDur)
+		na.done(t2, start.Add(blockDur))
 		if lb := na.leastBusy(devices); lb != 1 {
 			t.Errorf("Least busy device should still be n1 (%v) not %v", n1, lb)
 		}
 
-		na.done(n0.ID, protocol.MinBlockSize, blockDur)
+		na.done(t0, start.Add(blockDur))
 		if lb := na.leastBusy(devices); lb != 0 {
 			t.Errorf("Least busy device should be n0 (%v) not %v", n0, lb)
 		}
@@ -70,25 +72,26 @@ func TestDeviceActivity(t *testing.T) {
 
 	t.Run("rateBased", func(t *testing.T) {
 		na := newDeviceActivity()
+		start := time.Now()
 
 		// n0 has proven to be quick, averaging ten blocks per second
-		na.using(n0.ID, protocol.MinBlockSize)
-		na.done(n0.ID, protocol.MinBlockSize, time.Second/10)
+		t0 := na.using(n0.ID, protocol.MinBlockSize, start)
+		na.done(t0, start.Add(time.Second/10))
 
 		// n1 is a bit slower, averaging two blocks per second
-		na.using(n1.ID, protocol.MinBlockSize)
-		na.done(n1.ID, protocol.MinBlockSize, time.Second/2)
+		t1 := na.using(n1.ID, protocol.MinBlockSize, start)
+		na.done(t1, start.Add(time.Second/2))
 
 		// n2 is a yet slower, averaging one block per second
-		na.using(n2.ID, protocol.MinBlockSize)
-		na.done(n2.ID, protocol.MinBlockSize, time.Second/1)
+		t3 := na.using(n2.ID, protocol.MinBlockSize, start)
+		na.done(t3, start.Add(time.Second/1))
 
 		// Request one hundred blocks, and observe the distribution
 		count := make([]int, 3)
 		for range 100 {
 			idx := na.leastBusy(devices)
 			count[idx]++
-			na.using(devices[idx].ID, protocol.MinBlockSize)
+			na.using(devices[idx].ID, protocol.MinBlockSize, start)
 		}
 
 		// n0 should have been assigned 10/13 ~= 78% of the blocks
@@ -100,4 +103,29 @@ func TestDeviceActivity(t *testing.T) {
 			t.Error("Unexpected results", count)
 		}
 	})
+}
+
+func TestRateSlicing(t *testing.T) {
+	s := []usageInterval{
+		{
+			start: time.Unix(100000000, 0),
+			end:   time.Unix(100001000, 0),
+			rate:  100,
+		},
+		{
+			start: time.Unix(100000500, 0),
+			end:   time.Unix(100002500, 0),
+			rate:  125,
+		},
+		{
+			start: time.Unix(100002000, 0),
+			end:   time.Unix(100003000, 0),
+			rate:  150,
+		},
+	}
+
+	// t.Log(s)
+	res := sliceRates(s)
+	_ = res
+	// t.Log(res)
 }
