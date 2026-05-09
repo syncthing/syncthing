@@ -1651,6 +1651,83 @@ func TestEmptyIgnores(t *testing.T) {
 	}
 }
 
+func TestCreateSharedIgnoreFiles(t *testing.T) {
+	fcfg := config.FolderConfiguration{
+		ID:             "sharedIgnores",
+		Path:           srand.String(32) + "?content=true",
+		FilesystemType: config.FilesystemTypeFake,
+	}
+	ffs := fcfg.Filesystem()
+
+	must(t, createSharedIgnoreFiles(fcfg))
+
+	if got := normalizedFileString(t, ffs, ".stignore"); got != "!/.stignore-shared\n#include .stignore-shared\n" {
+		t.Errorf("unexpected .stignore content: %q", got)
+	}
+	if got := normalizedFileString(t, ffs, ".stignore-shared"); got != "" {
+		t.Errorf("unexpected .stignore-shared content: %q", got)
+	}
+}
+
+func TestCreateSharedIgnoreFilesDoesNotOverwrite(t *testing.T) {
+	fcfg := config.FolderConfiguration{
+		ID:             "sharedIgnoresExisting",
+		Path:           srand.String(32) + "?content=true",
+		FilesystemType: config.FilesystemTypeFake,
+	}
+	ffs := fcfg.Filesystem()
+	writeFile(t, ffs, ".stignore", []byte("custom\n"))
+	writeFile(t, ffs, ".stignore-shared", []byte("shared\n"))
+
+	must(t, createSharedIgnoreFiles(fcfg))
+
+	if got := normalizedFileString(t, ffs, ".stignore"); got != "custom\n" {
+		t.Errorf("unexpected .stignore content: %q", got)
+	}
+	if got := normalizedFileString(t, ffs, ".stignore-shared"); got != "shared\n" {
+		t.Errorf("unexpected .stignore-shared content: %q", got)
+	}
+}
+
+func TestAutoCreateSharedIgnoreFilesForPausedNewFolder(t *testing.T) {
+	w, cancel := newConfigWrapper(config.New(myID))
+	defer cancel()
+	m := setupModel(t, w)
+	defer cleanupModel(m)
+
+	fcfg := newFolderConfiguration(w, "sharedIgnoresPaused", "shared ignores", config.FilesystemTypeFake, srand.String(32)+"?content=true")
+	fcfg.Paused = true
+	fcfg.AutoCreateSharedIgnore = true
+	waiter, err := w.Modify(func(cfg *config.Configuration) {
+		cfg.SetFolder(fcfg)
+	})
+	must(t, err)
+	waiter.Wait()
+
+	ffs := fcfg.Filesystem()
+	if got := normalizedFileString(t, ffs, ".stignore"); got != "!/.stignore-shared\n#include .stignore-shared\n" {
+		t.Errorf("unexpected .stignore content: %q", got)
+	}
+	if got := normalizedFileString(t, ffs, ".stignore-shared"); got != "" {
+		t.Errorf("unexpected .stignore-shared content: %q", got)
+	}
+}
+
+func normalizedFileString(t testing.TB, filesystem fs.Filesystem, name string) string {
+	t.Helper()
+	return strings.ReplaceAll(string(readFile(t, filesystem, name)), "\r\n", "\n")
+}
+
+func readFile(t testing.TB, filesystem fs.Filesystem, name string) []byte {
+	t.Helper()
+	fd, err := filesystem.Open(name)
+	must(t, err)
+	defer fd.Close()
+	data, err := io.ReadAll(fd)
+	must(t, err)
+	return data
+}
+
 func waitForState(t *testing.T, sub events.Subscription, folder, expected string) {
 	t.Helper()
 	timeout := time.After(5 * time.Second)

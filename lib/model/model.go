@@ -297,6 +297,7 @@ func (m *model) initFolders(cfg config.Configuration) error {
 	clusterConfigDevices := make(deviceIDSet, len(cfg.Devices))
 	for _, folderCfg := range cfg.Folders {
 		if folderCfg.Paused {
+			m.maybeCreateSharedIgnoreFiles(folderCfg)
 			folderCfg.CreateRoot()
 			continue
 		}
@@ -336,6 +337,8 @@ func (m *model) fatal(err error) {
 
 // Need to hold lock on m.mut when calling this.
 func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, cacheIgnoredFiles bool) {
+	m.maybeCreateSharedIgnoreFiles(cfg)
+
 	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(cacheIgnoredFiles))
 	if cfg.Type != config.FolderTypeReceiveEncrypted {
 		if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
@@ -2258,6 +2261,78 @@ func (m *model) setIgnores(cfg config.FolderConfiguration, content []string) err
 	return nil
 }
 
+func (m *model) maybeCreateSharedIgnoreFiles(cfg config.FolderConfiguration) {
+	if !cfg.AutoCreateSharedIgnore || cfg.Type == config.FolderTypeReceiveEncrypted {
+		return
+	}
+	if err := createSharedIgnoreFiles(cfg); err != nil {
+		slog.Error("Failed to create shared ignore files", cfg.LogAttr(), slogutil.Error(err))
+	}
+}
+
+func createSharedIgnoreFiles(cfg config.FolderConfiguration) error {
+	err := cfg.CheckPath()
+	if errors.Is(err, config.ErrPathMissing) {
+		if err = cfg.CreateRoot(); err != nil {
+			return fmt.Errorf("failed to create folder root: %w", err)
+		}
+		err = cfg.CheckPath()
+	}
+	if err != nil && !errors.Is(err, config.ErrMarkerMissing) {
+		return err
+	}
+
+	ffs := cfg.Filesystem()
+	if err := createIgnoreFileIfMissing(ffs, ".stignore", []string{
+		"!/.stignore-shared",
+		"#include .stignore-shared",
+	}); err != nil {
+		return fmt.Errorf("failed to create .stignore: %w", err)
+	}
+	if err := createEmptyFileIfMissing(ffs, ".stignore-shared"); err != nil {
+		return fmt.Errorf("failed to create .stignore-shared: %w", err)
+	}
+
+	return nil
+}
+
+func createIgnoreFileIfMissing(filesystem fs.Filesystem, path string, content []string) error {
+	fd, err := filesystem.OpenFile(path, fs.OptWriteOnly|fs.OptCreate|fs.OptExclusive, 0o666)
+	if fs.IsExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	wr := osutil.LineEndingsWriter(fd)
+	for _, line := range content {
+		if _, err = fmt.Fprintln(wr, line); err != nil {
+			break
+		}
+	}
+	if closeErr := fd.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return err
+	}
+
+	filesystem.Hide(path)
+	return nil
+}
+
+func createEmptyFileIfMissing(filesystem fs.Filesystem, path string) error {
+	fd, err := filesystem.OpenFile(path, fs.OptWriteOnly|fs.OptCreate|fs.OptExclusive, 0o666)
+	if fs.IsExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return fd.Close()
+}
+
 // OnHello is called when an device connects to us.
 // This allows us to extract some information from the Hello message
 // and add it to a list of known devices ahead of any checks.
@@ -2982,6 +3057,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
 			if cfg.Paused {
+				m.maybeCreateSharedIgnoreFiles(cfg)
 				slog.Info("Paused folder", cfg.LogAttr())
 			} else {
 				slog.Info("Adding folder", cfg.LogAttr())
@@ -3006,7 +3082,14 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 
 		if fromCfg.Paused && toCfg.Paused {
+			if !fromCfg.AutoCreateSharedIgnore && toCfg.AutoCreateSharedIgnore {
+				m.maybeCreateSharedIgnoreFiles(toCfg)
+			}
 			continue
+		}
+
+		if !fromCfg.AutoCreateSharedIgnore && toCfg.AutoCreateSharedIgnore {
+			m.maybeCreateSharedIgnoreFiles(toCfg)
 		}
 
 		// This folder exists on both sides. Settings might have changed.

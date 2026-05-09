@@ -68,6 +68,7 @@ type FolderConfiguration struct {
 	Hashers                 int                         `json:"hashers" xml:"hashers"`
 	Order                   PullOrder                   `json:"order" xml:"order"`
 	IgnoreDelete            bool                        `json:"ignoreDelete" xml:"ignoreDelete"`
+	AutoCreateSharedIgnore  bool                        `json:"autoCreateSharedIgnore" xml:"autoCreateSharedIgnore" restart:"false"`
 	ScanProgressIntervalS   int                         `json:"scanProgressIntervalS" xml:"scanProgressIntervalS"`
 	PullerPauseS            int                         `json:"pullerPauseS" xml:"pullerPauseS"`
 	PullerDelayS            float64                     `json:"pullerDelayS" xml:"pullerDelayS" default:"1"`
