@@ -8,8 +8,9 @@ on:
 jobs:
 
   run-recommendation:
-    runs-on: ubuntu-latest
     name: Check for a recommendation
+    if: github.repository_owner == 'syncthing'
+    runs-on: ubuntu-latest
     steps:
 
       - uses: docker://ghcr.io/calmh/github-org-members:latest

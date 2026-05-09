@@ -1558,10 +1558,21 @@ func (f *sendReceiveFolder) pullBlock(ctx context.Context, state pullBlockState,
 		return
 	}
 
-	if !f.DisableSparseFiles && state.reused == 0 && state.block.IsEmpty() {
+	if state.block.IsEmpty() {
 		// There is no need to request a block of all zeroes. Pretend we
 		// requested it and handled it correctly.
-		state.pullDone(state.block)
+		if state.reused != 0 || f.DisableSparseFiles {
+			// We are reusing a file (contents apparently weren't all-zeroes
+			// previously), or sparse files are disabled, so we need to
+			// actually write the block.
+			zeroes := make([]byte, state.block.Size)
+			err = f.limitedWriteAt(ctx, fd, zeroes, state.block.Offset)
+		}
+		if err != nil {
+			state.fail(fmt.Errorf("save: %w", err))
+		} else {
+			state.pullDone(state.block)
+		}
 		out <- state.sharedPullerState
 		return
 	}
@@ -1607,11 +1618,10 @@ loop:
 		}
 
 		// Verify that the received block matches the desired hash, if not
-		// try pulling it from another device.
-		// For receive-only folders, the hash is not SHA256 as it's an
-		// encrypted hash token. In that case we can't verify the block
-		// integrity so we'll take it on trust. (The other side can and
-		// will verify.)
+		// try pulling it from another device. For receive-encrypted
+		// folders, the hash is not SHA256 as it's an encrypted hash token.
+		// In that case we can't verify the block integrity so we'll take it
+		// on trust. (The other side can and will verify.)
 		if f.Type != config.FolderTypeReceiveEncrypted {
 			lastError = f.verifyBuffer(buf, state.block)
 		}

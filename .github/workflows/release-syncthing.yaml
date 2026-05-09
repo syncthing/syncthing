@@ -12,6 +12,7 @@ permissions:
 jobs:
   create-release-tag:
     name: Create release tag
+    if: github.repository_owner == 'syncthing'
     runs-on: ubuntu-latest
     environment: release
     steps:
