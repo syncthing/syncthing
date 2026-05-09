@@ -22,25 +22,26 @@ func TestDeviceActivity(t *testing.T) {
 	if lb := na.leastBusy(devices); lb != 0 {
 		t.Errorf("Least busy device should be n0 (%v) not %v", n0, lb)
 	}
-	if lb := na.leastBusy(devices); lb != 0 {
-		t.Errorf("Least busy device should still be n0 (%v) not %v", n0, lb)
+	if lb := na.leastBusy(devices); lb != 1 {
+		t.Errorf("Least busy device should rotate to n1 (%v) not %v", n1, lb)
+	}
+	if lb := na.leastBusy(devices); lb != 2 {
+		t.Errorf("Least busy device should rotate to n2 (%v) not %v", n2, lb)
 	}
 
-	lb := na.leastBusy(devices)
-	na.using(devices[lb])
+	na.using(n0)
 	if lb := na.leastBusy(devices); lb != 1 {
 		t.Errorf("Least busy device should be n1 (%v) not %v", n1, lb)
 	}
-	lb = na.leastBusy(devices)
-	na.using(devices[lb])
+
+	na.using(n1)
 	if lb := na.leastBusy(devices); lb != 2 {
 		t.Errorf("Least busy device should be n2 (%v) not %v", n2, lb)
 	}
 
-	lb = na.leastBusy(devices)
-	na.using(devices[lb])
-	if lb := na.leastBusy(devices); lb != 0 {
-		t.Errorf("Least busy device should be n0 (%v) not %v", n0, lb)
+	na.using(n2)
+	if lb := na.leastBusy(devices); lb != 2 {
+		t.Errorf("Least busy device should rotate to n2 (%v) not %v", n2, lb)
 	}
 
 	na.done(n1)
@@ -54,7 +55,21 @@ func TestDeviceActivity(t *testing.T) {
 	}
 
 	na.done(n0)
-	if lb := na.leastBusy(devices); lb != 0 {
-		t.Errorf("Least busy device should be n0 (%v) not %v", n0, lb)
+	if lb := na.leastBusy(devices); lb != 2 {
+		t.Errorf("Least busy device should rotate to n2 (%v) not %v", n2, lb)
+	}
+}
+
+func TestDeviceActivityPrefersFasterTemporaryPeer(t *testing.T) {
+	completeSlow := Availability{protocol.DeviceID([32]byte{1, 2, 3, 4}), false}
+	partialFast := Availability{protocol.DeviceID([32]byte{5, 6, 7, 8}), true}
+	devices := []Availability{completeSlow, partialFast}
+	na := newDeviceActivity()
+
+	na.success(completeSlow, 10_000_000, 1000)
+	na.success(partialFast, 1_000_000, 1000)
+
+	if lb := na.leastBusy(devices); lb != 1 {
+		t.Errorf("Least busy device should be fast partial peer (%v) not %v", partialFast, lb)
 	}
 }

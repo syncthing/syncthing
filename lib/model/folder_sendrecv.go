@@ -1608,9 +1608,11 @@ loop:
 		// Fetch the block, while marking the selected device as in use so that
 		// leastBusy can select another device when someone else asks.
 		activity.using(selected)
+		requestStarted := time.Now()
 		var buf []byte
 		blockNo := int(state.block.Offset / int64(state.file.BlockSize()))
 		buf, lastError = f.model.RequestGlobal(ctx, selected.ID, f.folderID, state.file.Name, blockNo, state.block.Offset, state.block.Size, state.block.Hash, selected.FromTemporary)
+		requestDuration := time.Since(requestStarted)
 		activity.done(selected)
 		if lastError != nil {
 			f.sl.DebugContext(ctx, "Block request returned error", slogutil.FilePath(state.file.Name), "offset", state.block.Offset, "size", state.block.Size, "device", selected.ID.Short(), slogutil.Error(lastError))
@@ -1629,6 +1631,7 @@ loop:
 			f.sl.DebugContext(ctx, "Block hash mismatch", slogutil.FilePath(state.file.Name), "offset", state.block.Offset, "size", state.block.Size)
 			continue
 		}
+		activity.success(selected, requestDuration, len(buf))
 
 		// Save the block data we got from the cluster
 		err = f.limitedWriteAt(ctx, fd, buf, state.block.Offset)
