@@ -13,11 +13,11 @@ import (
 )
 
 type countingReader struct {
-	io.Reader
-
-	idString string
 	tot      atomic.Int64 // bytes
 	last     atomic.Int64 // unix nanos
+
+	io.Reader
+	idString string
 }
 
 var (
@@ -41,11 +41,11 @@ func (c *countingReader) Last() time.Time {
 }
 
 type countingWriter struct {
-	io.Writer
-
-	idString string
 	tot      atomic.Int64 // bytes
 	last     atomic.Int64 // unix nanos
+
+	io.Writer
+	idString string
 }
 
 func (c *countingWriter) Write(bs []byte) (int, error) {
