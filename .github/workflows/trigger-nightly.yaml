@@ -5,6 +5,9 @@ on:
     # Run nightly build at 01:00 UTC
     - cron: '00 01 * * *'
 
+permissions:
+  contents: write
+
 jobs:
 
   trigger-nightly:

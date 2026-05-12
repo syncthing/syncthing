@@ -9,6 +9,11 @@ on:
   workflow_call:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
 env:
   # The go version to use for builds. We set check-latest to true when
   # installing, so we get the latest patch version that matches the
@@ -1020,6 +1025,7 @@ jobs:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     strategy:
+      fail-fast: false
       matrix:
         pkg:
           - syncthing
