@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -167,73 +166,64 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 
 	file := filepath.Base(filePath)
 	inFolderPath := filepath.Dir(filePath)
-	err = dupDirTree(srcFs, dstFs, inFolderPath)
-	if err != nil {
-		l.Debugln("archiving", filePath, err)
+	return inWritableVersionDir(srcFs, dstFs, inFolderPath, func() error {
+		now := time.Now()
+		ver := tagger(file, now.Format(TimeFormat))
+		dst := filepath.Join(inFolderPath, ver)
+		l.Debugln("archiving", filePath, "moving to", dst)
+		err := osutil.RenameOrCopy(method, srcFs, dstFs, filePath, dst)
+		mtime := info.ModTime()
+		// If it's a trashcan versioner type thing, then it does not have version time in the name
+		// so use mtime for that.
+		if ver == file {
+			mtime = now
+		}
+		_ = dstFs.Chtimes(dst, mtime, mtime)
 		return err
-	}
-
-	now := time.Now()
-
-	ver := tagger(file, now.Format(TimeFormat))
-	dst := filepath.Join(inFolderPath, ver)
-	l.Debugln("archiving", filePath, "moving to", dst)
-	err = osutil.RenameOrCopy(method, srcFs, dstFs, filePath, dst)
-
-	mtime := info.ModTime()
-	// If it's a trashcan versioner type thing, then it does not have version time in the name
-	// so use mtime for that.
-	if ver == file {
-		mtime = now
-	}
-
-	_ = dstFs.Chtimes(dst, mtime, mtime)
-
-	return err
+	})
 }
 
-func dupDirTree(srcFs, dstFs fs.Filesystem, folderPath string) error {
-	// Return early if the folder already exists.
-	_, err := dstFs.Stat(folderPath)
-	if err == nil || !fs.IsNotExist(err) {
-		return err
-	}
-	hadParent := true
-	for i := range folderPath {
-		if os.IsPathSeparator(folderPath[i]) {
-			// If the parent folder didn't exist, then this folder doesn't exist
-			// so we can skip the check
-			if hadParent {
-				_, err := dstFs.Stat(folderPath[:i])
-				if err == nil {
-					continue
-				}
-				if !fs.IsNotExist(err) {
-					return err
-				}
-			}
-			hadParent = false
-			err := dupDirWithPerms(srcFs, dstFs, folderPath[:i])
-			if err != nil {
-				return err
-			}
+// inWritableVersionDir calls fn after making each directory along
+// folderPath writable, so the archive can put files into them even when
+// source-perm mirroring would have left them read-only (e.g. 0o555 from
+// receive-only enforcement). The original modes are put back when fn
+// returns; newly-created directories take the source-tree mode so we
+// keep #10105's mirroring but don't get stuck for #10532.
+func inWritableVersionDir(srcFs, dstFs fs.Filesystem, folderPath string, fn func() error) error {
+	// If chmod fails on the way out we log and continue. At that point
+	// we've already nudged the filesystem state and the error from fn
+	// (if any) is what we actually want to return to the caller.
+	restore := func(path string, mode fs.FileMode) {
+		if err := dstFs.Chmod(path, mode); err != nil && !fs.IsNotExist(err) {
+			slog.Warn("Failed to restore directory permissions after gaining write access", slogutil.FilePath(path), slogutil.Error(err))
 		}
 	}
-	return dupDirWithPerms(srcFs, dstFs, folderPath)
-}
 
-func dupDirWithPerms(srcFs, dstFs fs.Filesystem, folderPath string) error {
-	srcStat, err := srcFs.Stat(folderPath)
-	if err != nil {
-		return err
+	var path string
+	for _, part := range fs.PathComponents(folderPath) {
+		path = filepath.Join(path, part)
+		info, err := dstFs.Stat(path)
+		switch {
+		case fs.IsNotExist(err):
+			target := fs.FileMode(0o755)
+			if srcStat, srcErr := srcFs.Stat(path); srcErr == nil {
+				target = srcStat.Mode()
+			}
+			if err := dstFs.Mkdir(path, 0o700); err != nil {
+				return err
+			}
+			defer restore(path, target)
+		case err != nil:
+			return err
+		case info.Mode()&0o200 == 0:
+			m := info.Mode()
+			if err := dstFs.Chmod(path, m|0o700); err != nil {
+				return err
+			}
+			defer restore(path, m)
+		}
 	}
-	// If we call Mkdir with srcStat.Mode(), we won't get the expected perms because of umask
-	// So, we create the folder with 0700, and then change the perms to the srcStat.Mode()
-	err = dstFs.Mkdir(folderPath, 0o700)
-	if err != nil {
-		return err
-	}
-	return dstFs.Chmod(folderPath, srcStat.Mode())
+	return fn()
 }
 
 func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath string, versionTime time.Time, tagger fileTagger) error {

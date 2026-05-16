@@ -256,3 +256,117 @@ func TestArchiveFoldersCreationPermission(t *testing.T) {
 		t.Errorf("földer2 permissions %v, want %v", folder2VersionsInfo.Mode(), folder2Perms)
 	}
 }
+
+func TestArchiveUnderRestrictiveVersionDir(t *testing.T) {
+	// Test that an archive below a .stversions directory left at 0o555 by
+	// prior source-perm mirroring still succeeds, with the directory mode
+	// restored afterwards. (issue #10532)
+	if build.IsWindows {
+		t.Skip("Skipping on Windows")
+		return
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("Skipping as root: DAC permission checks are bypassed")
+		return
+	}
+	dir := t.TempDir()
+	versionsDir := t.TempDir()
+
+	cfg := config.FolderConfiguration{
+		FilesystemType: config.FilesystemTypeBasic,
+		Path:           dir,
+		Versioning: config.VersioningConfiguration{
+			FSPath: versionsDir,
+			FSType: config.FilesystemTypeBasic,
+			Params: map[string]string{
+				"keep": "2",
+			},
+		},
+	}
+	vfs := cfg.Filesystem()
+	v := newSimple(cfg)
+
+	// Source tree: folder/sub/file. Sub gets a non-default mode so we
+	// can verify the mirroring continues to work for new dirs.
+	folder := filepath.Join(dir, "folder")
+	sub := filepath.Join(folder, "sub")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	rel := filepath.Join("folder", "sub", "file")
+	f, err := vfs.Create(rel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	subPerms := os.FileMode(0o750)
+	if err := os.Chmod(sub, subPerms); err != nil {
+		t.Fatal(err)
+	}
+
+	// Pre-populate .stversions/folder at 0o555 to mimic the pathological
+	// state where prior mirroring left an intermediate version directory
+	// without owner-write.
+	versionedFolder := filepath.Join(versionsDir, "folder")
+	if err := os.Mkdir(versionedFolder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	folderPerms := os.FileMode(0o555)
+	if err := os.Chmod(versionedFolder, folderPerms); err != nil {
+		t.Fatal(err)
+	}
+	// Restore owner-write so t.TempDir cleanup can remove the tree.
+	t.Cleanup(func() { _ = os.Chmod(versionedFolder, 0o755) })
+
+	if err := v.Archive(rel); err != nil {
+		t.Fatalf("archive: %v", err)
+	}
+
+	// The pre-existing folder dir must be back at 0o555.
+	info, err := os.Stat(versionedFolder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != folderPerms {
+		t.Errorf("folder restored mode %v, want %v", info.Mode().Perm(), folderPerms)
+	}
+
+	// The newly created sub dir under it must mirror the source mode.
+	versionedSub := filepath.Join(versionedFolder, "sub")
+	info, err = os.Stat(versionedSub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != subPerms {
+		t.Errorf("sub mode %v, want %v", info.Mode().Perm(), subPerms)
+	}
+
+	// And the file must have landed inside it.
+	entries, err := os.ReadDir(versionedSub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("found %d entries in sub version dir, want 1", len(entries))
+	}
+
+	// Archive another file under the same path to exercise the
+	// chmod-restore cycle a second time, with both folder and sub now
+	// pre-existing at their restored modes.
+	rel2 := filepath.Join("folder", "sub", "file2")
+	f2, err := vfs.Create(rel2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f2.Close()
+	if err := v.Archive(rel2); err != nil {
+		t.Fatalf("second archive: %v", err)
+	}
+	info, err = os.Stat(versionedFolder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != folderPerms {
+		t.Errorf("folder mode after second archive %v, want %v", info.Mode().Perm(), folderPerms)
+	}
+}
