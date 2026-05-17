@@ -278,9 +278,9 @@ func TestDupDirTreeWritePermissions(t *testing.T) {
 		t.Fatalf("foo: 0o%o", info.Mode())
 	}
 	if info, err := dstFs.Lstat("foo/bar"); err != nil || info.Mode() != 0o755 {
-		t.Fatalf("foo: 0o%o", info.Mode())
+		t.Fatalf("foo/bar: 0o%o", info.Mode())
 	}
 	if info, err := dstFs.Lstat("foo/bar/baz"); err != nil || info.Mode() != 0o700 {
-		t.Fatalf("foo: 0o%o", info.Mode())
+		t.Fatalf("foo/bar/baz: 0o%o", info.Mode())
 	}
 }
