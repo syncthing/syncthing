@@ -253,20 +253,6 @@ func dupDirTree(srcFs, dstFs fs.Filesystem, path string) error {
 	return nil
 }
 
-func dupDirWithPerms(srcFs, dstFs fs.Filesystem, folderPath string) error {
-	srcStat, err := srcFs.Stat(folderPath)
-	if err != nil {
-		return err
-	}
-	// If we call Mkdir with srcStat.Mode(), we won't get the expected perms because of umask
-	// So, we create the folder with 0700, and then change the perms to the srcStat.Mode()
-	err = dstFs.Mkdir(folderPath, 0o700)
-	if err != nil {
-		return err
-	}
-	return dstFs.Chmod(folderPath, srcStat.Mode())
-}
-
 func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath string, versionTime time.Time, tagger fileTagger) error {
 	tag := versionTime.In(time.Local).Truncate(time.Second).Format(TimeFormat)
 	taggedFilePath := tagger(filePath, tag)
