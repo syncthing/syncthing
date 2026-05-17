@@ -192,34 +192,65 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 	return err
 }
 
-func dupDirTree(srcFs, dstFs fs.Filesystem, folderPath string) error {
-	// Return early if the folder already exists.
-	_, err := dstFs.Stat(folderPath)
-	if err == nil || !fs.IsNotExist(err) {
-		return err
+// dupDirTree ensures folderPath exists in dstFs, copying permissions mostly
+// from srcFs. Permissions are altered to have the user read, write and
+// execute bits set, so that Syncthing file operations are possible within
+// the destination directory.
+//
+// This is based on os.MkdirAll with our srcFs adjustments.
+func dupDirTree(srcFs, dstFs fs.Filesystem, path string) error {
+	// Fast path: if we can tell whether path is a directory or file, stop with success or error.
+	dir, err := dstFs.Lstat(path)
+	if err == nil {
+		if dir.IsDir() {
+			return nil
+		}
+		return errors.New("destination exists but is not a directory")
 	}
-	hadParent := true
-	for i := range folderPath {
-		if os.IsPathSeparator(folderPath[i]) {
-			// If the parent folder didn't exist, then this folder doesn't exist
-			// so we can skip the check
-			if hadParent {
-				_, err := dstFs.Stat(folderPath[:i])
-				if err == nil {
-					continue
-				}
-				if !fs.IsNotExist(err) {
-					return err
-				}
-			}
-			hadParent = false
-			err := dupDirWithPerms(srcFs, dstFs, folderPath[:i])
-			if err != nil {
-				return err
-			}
+
+	// Slow path: make sure parent exists and then call Mkdir for path.
+
+	// Extract the parent folder from path by first removing any trailing
+	// path separator and then scanning backward until finding a path
+	// separator or reaching the beginning of the string.
+	i := len(path) - 1
+	for i >= 0 && os.IsPathSeparator(path[i]) {
+		i--
+	}
+	for i >= 0 && !os.IsPathSeparator(path[i]) {
+		i--
+	}
+	if i < 0 {
+		i = 0
+	}
+
+	// If there is a parent directory, and it is not the volume name,
+	// recurse to ensure parent directory exists.
+	if parent := path[:i]; len(parent) > len(filepath.VolumeName(path)) {
+		err = dupDirTree(srcFs, dstFs, parent)
+		if err != nil {
+			return err
 		}
 	}
-	return dupDirWithPerms(srcFs, dstFs, folderPath)
+
+	// Parent now exists; invoke Mkdir and use its result.
+	srcPerms := fs.FileMode(0o700)
+	if srcDir, err := srcFs.Lstat(path); err == nil {
+		srcPerms = srcDir.Mode()&0o777 | 0o700
+	}
+	err = dstFs.Mkdir(path, srcPerms)
+	if err != nil {
+		// Handle arguments like "foo/." by
+		// double-checking that directory doesn't exist.
+		dir, err1 := dstFs.Lstat(path)
+		if err1 == nil && dir.IsDir() {
+			return nil
+		}
+		return err
+	}
+	// extra chmod to ensure our permissions take effect despite umask
+	_ = dstFs.Chmod(path, srcPerms)
+	return nil
 }
 
 func dupDirWithPerms(srcFs, dstFs fs.Filesystem, folderPath string) error {

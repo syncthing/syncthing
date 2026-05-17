@@ -15,6 +15,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/fs"
 )
 
 func TestTaggedFilename(t *testing.T) {
@@ -254,5 +255,32 @@ func TestArchiveFoldersCreationPermission(t *testing.T) {
 	}
 	if folder2VersionsInfo.Mode().Perm() != folder2Perms {
 		t.Errorf("földer2 permissions %v, want %v", folder2VersionsInfo.Mode(), folder2Perms)
+	}
+}
+
+func TestDupDirTreeWritePermissions(t *testing.T) {
+	srcFs := fs.NewFilesystem(fs.FilesystemTypeFake, "TestDupDirTreeWritePermissions/srcFs")
+	dstFs := fs.NewFilesystem(fs.FilesystemTypeFake, "TestDupDirTreeWritePermissions/dstFs")
+
+	// A source dir to duplicate
+	_ = srcFs.Mkdir("foo", 0o444)
+	_ = srcFs.Mkdir("foo/bar", 0o555)
+	_ = srcFs.Mkdir("foo/bar/baz", 0o000)
+
+	// Duplication should succeed
+	if err := dupDirTree(srcFs, dstFs, "foo/bar/baz"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Permissions should be the same, but with read/write/execute bits for
+	// the user
+	if info, err := dstFs.Lstat("foo"); err != nil || info.Mode() != 0o744 {
+		t.Fatalf("foo: 0o%o", info.Mode())
+	}
+	if info, err := dstFs.Lstat("foo/bar"); err != nil || info.Mode() != 0o755 {
+		t.Fatalf("foo: 0o%o", info.Mode())
+	}
+	if info, err := dstFs.Lstat("foo/bar/baz"); err != nil || info.Mode() != 0o700 {
+		t.Fatalf("foo: 0o%o", info.Mode())
 	}
 }
