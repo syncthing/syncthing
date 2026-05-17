@@ -200,8 +200,7 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 // This is based on os.MkdirAll with our srcFs adjustments.
 func dupDirTree(srcFs, dstFs fs.Filesystem, path string) error {
 	// Fast path: if we can tell whether path is a directory or file, stop with success or error.
-	dir, err := dstFs.Lstat(path)
-	if err == nil {
+	if dir, err := dstFs.Lstat(path); err == nil {
 		if dir.IsDir() {
 			return nil
 		}
@@ -227,8 +226,7 @@ func dupDirTree(srcFs, dstFs fs.Filesystem, path string) error {
 	// If there is a parent directory, and it is not the volume name,
 	// recurse to ensure parent directory exists.
 	if parent := path[:i]; len(parent) > len(filepath.VolumeName(path)) {
-		err = dupDirTree(srcFs, dstFs, parent)
-		if err != nil {
+		if err := dupDirTree(srcFs, dstFs, parent); err != nil {
 			return err
 		}
 	}
@@ -238,8 +236,7 @@ func dupDirTree(srcFs, dstFs fs.Filesystem, path string) error {
 	if srcDir, err := srcFs.Lstat(path); err == nil {
 		srcPerms = srcDir.Mode()&0o777 | 0o700
 	}
-	err = dstFs.Mkdir(path, srcPerms)
-	if err != nil {
+	if err := dstFs.Mkdir(path, srcPerms); err != nil {
 		// Handle arguments like "foo/." by
 		// double-checking that directory doesn't exist.
 		dir, err1 := dstFs.Lstat(path)
@@ -248,8 +245,10 @@ func dupDirTree(srcFs, dstFs fs.Filesystem, path string) error {
 		}
 		return err
 	}
-	// extra chmod to ensure our permissions take effect despite umask
+
+	// Extra chmod to ensure our permissions override umask
 	_ = dstFs.Chmod(path, srcPerms)
+
 	return nil
 }
 
