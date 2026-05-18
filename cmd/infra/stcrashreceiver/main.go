@@ -123,7 +123,7 @@ func handleFailureFn(dsn, failureDir string, ignore *ignorePatterns) func(w http
 			return
 		}
 
-		if ignore.match(bs) {
+		if _, ok := ignore.match(bs); ok {
 			result = "ignored"
 			return
 		}
@@ -216,14 +216,14 @@ func loadIgnorePatterns(path string) (*ignorePatterns, error) {
 	return &ignorePatterns{patterns: patterns}, nil
 }
 
-func (i *ignorePatterns) match(report []byte) bool {
+func (i *ignorePatterns) match(report []byte) (string, bool) {
 	if i == nil {
-		return false
+		return "", false
 	}
 	for _, re := range i.patterns {
 		if re.Match(report) {
-			return true
+			return re.String(), true
 		}
 	}
-	return false
+	return "", false
 }
