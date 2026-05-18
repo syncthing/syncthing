@@ -32,11 +32,12 @@ const Codename = "Hafnium Hornet"
 
 var (
 	// Injected by build script
-	Version = "unknown-dev"
-	Host    = "unknown"
-	User    = "unknown"
-	Stamp   = "0"
-	Tags    = ""
+	Version       = "unknown-dev"
+	Host          = "unknown"
+	User          = "unknown"
+	Stamp         = "0"
+	Tags          = ""
+	reportCrashes = ""
 
 	// Added to by other packages
 	extraTags []string
@@ -74,6 +75,7 @@ func init() {
 		}
 	}
 	setBuildData()
+	fmt.Println("reportCrashes =", reportCrashes)
 }
 
 func setBuildData() {
@@ -176,4 +178,8 @@ func filterString(s, allowedChars string) string {
 func AddTag(tag string) {
 	extraTags = append(extraTags, tag)
 	LongVersion = LongVersionFor("syncthing")
+}
+
+func ReportCrashes() bool {
+	return reportCrashes == "true"
 }

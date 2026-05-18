@@ -906,6 +906,7 @@ func ldflags(tags []string) string {
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.User=%s", buildUser())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Host=%s", buildHost())
 	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.Tags=%s", strings.Join(tags, ","))
+	fmt.Fprintf(b, " -X github.com/syncthing/syncthing/lib/build.reportCrashes=%v", strings.HasSuffix(buildHost(), ".syncthing.net"))
 	if v := os.Getenv("EXTRA_LDFLAGS"); v != "" {
 		fmt.Fprintf(b, " %s", v)
 	}

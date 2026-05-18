@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/stringutil"
@@ -144,6 +145,9 @@ func (opts *OptionsConfiguration) prepare(guiPWIsSet bool) {
 	if opts.URAccepted > 0 && opts.URUniqueID == "" {
 		opts.URUniqueID = rand.String(8)
 	}
+
+	// Crash reporting is enabled if requested and if enabled by the build.
+	opts.CREnabled = opts.CREnabled && build.ReportCrashes()
 }
 
 // RequiresRestartOnly returns a copy with only the attributes that require
