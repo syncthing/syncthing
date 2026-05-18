@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="shortcut icon" href="/assets/img/favicon-default.png" type="image/x-icon"/>
+  <link rel="mask-icon" href="/assets/img/safari-pinned-tab.svg" color="#0882c8"/>
+  <title>Syncthing</title>
+  <!-- Reuse existing Syncthing Bootstrap CSS for visual consistency -->
+  <link href="/vendor/bootstrap/css/bootstrap.css" rel="stylesheet"/>
+  <link href="/assets/font/raleway.css" rel="stylesheet"/>
+  <link href="/vendor/fork-awesome/css/fork-awesome.css" rel="stylesheet"/>
+  <link href="/vendor/fork-awesome/css/v5-compat.css" rel="stylesheet"/>
+  <link href="/assets/css/overrides.css" rel="stylesheet"/>
+  <link href="/assets/css/theme.css" rel="stylesheet"/>
+  <style>
+    /* Svelte-specific: identicon SVG rendering (AngularJS uses a custom element directive) */
+    .identicon svg {
+      width: 100%;
+      height: 100%;
+      fill: currentColor;
+    }
+    /* Modal backdrop fix for Svelte modal stacking */
+    .modal-backdrop + .modal-backdrop {
+      display: none;
+    }
+    /* Login form layout (not in overrides.css) */
+    .center-block {
+      max-width: 400px;
+      margin: 40px auto;
+    }
+    .login-form-messages {
+      min-height: 40px;
+    }
+  </style>
+  <script type="text/javascript" src="/meta.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
