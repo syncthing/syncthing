@@ -35,6 +35,7 @@
   import UsageReport from './components/modals/UsageReport.svelte';
   import ConfirmDialog from './components/modals/ConfirmDialog.svelte';
   import RevertOverride from './components/modals/RevertOverride.svelte';
+  import RestoreVersions from './components/modals/RestoreVersions.svelte';
 
   // Modal state
   let showSettingsModal = $state(false);
@@ -65,6 +66,8 @@
   let showRevertOverrideModal = $state(false);
   let revertOverrideType = $state('revert');
   let revertOverrideFolderID = $state('');
+  let showRestoreVersionsModal = $state(false);
+  let restoreVersionsFolderID = $state('');
 
   // Current editing context
   let currentDevice = $state({});
@@ -436,6 +439,7 @@
     showRemoveDeviceConfirm, showRemoveFolderConfirm,
     showUpgrade: () => { showUpgradeModal = true; },
     showMajorUpgrade: () => { showMajorUpgradeModal = true; },
+    showRestoreVersions: (folderID) => { restoreVersionsFolderID = folderID; showRestoreVersionsModal = true; },
   };
 </script>
 
@@ -956,6 +960,14 @@
     confirmClass="btn-warning"
     onconfirm={confirmRemoveFolder}
     onclose={() => showRemoveFolderModal = false}
+  />
+{/if}
+
+<!-- Restore Versions -->
+{#if showRestoreVersionsModal}
+  <RestoreVersions
+    folderID={restoreVersionsFolderID}
+    onclose={() => showRestoreVersionsModal = false}
   />
 {/if}
 
