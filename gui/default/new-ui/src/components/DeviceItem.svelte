@@ -288,7 +288,7 @@
             {#if devFolders().length > 0}
               <tr>
                 <th><span class="fas fa-fw fa-folder"></span>&nbsp;{$translations, t('Folders')}</th>
-                <td class="text-right no-overflow-ellipse overflow-break-word">{#each devFolders() as folderID, idx}{utils.folderLabel(folders, folderID)}{#if idx < devFolders().length - 1}, {/if}{/each}</td>
+                <td class="text-right no-overflow-ellipse overflow-break-word">{#each devFolders() as folderID, idx}{#if folders[folderID]?.type !== 'receiveencrypted' && folders[folderID]?.devices?.some(d => d.deviceID === deviceCfg.deviceID && d.encryptionPassword)}<span class="text-nowrap"><span class="fa fa-lock"></span>&nbsp;</span>{/if}{@const remoteState = completion?.[deviceCfg.deviceID]?.[folderID]?.remoteState}{#if remoteState === 'notSharing'}<span use:tooltip={t('The remote device has not accepted sharing this folder.')}>{utils.folderLabel(folders, folderID)}<sup>1</sup></span>{:else if remoteState === 'paused'}<span use:tooltip={t('The remote device has paused this folder.')}>{utils.folderLabel(folders, folderID)}<sup>2</sup></span>{:else}{utils.folderLabel(folders, folderID)}{/if}{#if idx < devFolders().length - 1}, {/if}{/each}</td>
               </tr>
             {/if}
 

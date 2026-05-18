@@ -349,12 +349,7 @@
             <!-- Shared With -->
             <tr>
               <th><span class="fas fa-fw fa-share-alt"></span>&nbsp;{$translations, t('Shared With')}</th>
-              <td class="text-right no-overflow-ellipse overflow-break-word">
-                {#each otherDevices() as dev, idx}
-                  <!-- svelte-ignore a11y_invalid_attribute -->
-                  <a href="#" onclick={(e) => { e.preventDefault(); actions.editDevice(devices[dev.deviceID]); }}>{utils.deviceName(devices[dev.deviceID])}</a>{#if idx < otherDevices().length - 1},{/if}
-                {/each}
-              </td>
+              <td class="text-right no-overflow-ellipse overflow-break-word">{#each otherDevices() as dev, idx}{#if folder.type !== 'receiveencrypted' && dev.encryptionPassword}<span class="text-nowrap"><span class="fa fa-lock"></span>&nbsp;</span>{/if}{@const remoteState = completion?.[dev.deviceID]?.[folder.id]?.remoteState}{#if remoteState === 'notSharing'}<a href="" onclick={(e) => { e.preventDefault(); actions.editDevice(devices[dev.deviceID]); }} use:tooltip={t('The remote device has not accepted sharing this folder.')}>{utils.deviceName(devices[dev.deviceID])}<sup>1</sup></a>{:else if remoteState === 'paused'}<a href="" onclick={(e) => { e.preventDefault(); actions.editDevice(devices[dev.deviceID]); }} use:tooltip={t('The remote device has paused this folder.')}>{utils.deviceName(devices[dev.deviceID])}<sup>2</sup></a>{:else}<a href="" onclick={(e) => { e.preventDefault(); actions.editDevice(devices[dev.deviceID]); }}>{utils.deviceName(devices[dev.deviceID])}</a>{/if}{#if idx < otherDevices().length - 1}, {/if}{/each}</td>
             </tr>
 
             <!-- Last Scan -->
@@ -397,7 +392,7 @@
           </button>
         {/if}
         {#if utils.hasReceiveEncryptedItems(folder, model) && ['outofsync', 'faileditems', 'localunencrypted'].includes(status())}
-          <button type="button" class="btn btn-sm btn-danger pull-left" onclick={() => actions.revertOverride('revert', folder.id)}>
+          <button type="button" class="btn btn-sm btn-danger pull-left" onclick={() => actions.revertOverride('deleteEnc', folder.id)}>
             <span class="fa fa-minus-circle"></span>&nbsp;{$translations, t('Delete Unexpected Items')}
           </button>
         {/if}
@@ -413,7 +408,8 @@
             </button>
           {/if}
           {#if folder.versioning?.type && folder.versioning.type !== 'external'}
-            <button type="button" class="btn btn-default btn-sm" disabled={folder.paused}>
+            <button type="button" class="btn btn-default btn-sm" disabled={folder.paused}
+              onclick={() => { if (actions.showRestoreVersions) actions.showRestoreVersions(folder.id); }}>
               <span class="fas fa-undo"></span>&nbsp;{$translations, t('Versions')}
             </button>
           {/if}

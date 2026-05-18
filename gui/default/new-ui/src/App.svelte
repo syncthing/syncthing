@@ -33,6 +33,8 @@
   import RemoteNeedFiles from './components/modals/RemoteNeedFiles.svelte';
   import LocalChanged from './components/modals/LocalChanged.svelte';
   import UsageReport from './components/modals/UsageReport.svelte';
+  import ConfirmDialog from './components/modals/ConfirmDialog.svelte';
+  import RevertOverride from './components/modals/RevertOverride.svelte';
 
   // Modal state
   let showSettingsModal = $state(false);
@@ -49,11 +51,20 @@
   let showLocalChangedModal = $state(false);
   let showUsageReportModal = $state(false);
   let showNetworkErrorModal = $state(false);
+  let showHttpErrorModal = $state(false);
   let showRestartingModal = $state(false);
   let showShutdownModal = $state(false);
   let showUpgradeModal = $state(false);
+  let showMajorUpgradeModal = $state(false);
+  let showUpgradingModal = $state(false);
+  let showSavingModal = $state(false);
   let showConnectivityModal = $state(false);
   let connectivityType = $state('listeners');
+  let showRemoveDeviceModal = $state(false);
+  let showRemoveFolderModal = $state(false);
+  let showRevertOverrideModal = $state(false);
+  let revertOverrideType = $state('revert');
+  let revertOverrideFolderID = $state('');
 
   // Current editing context
   let currentDevice = $state({});
@@ -364,9 +375,50 @@
     await api.dismissPendingFolder(folderID, deviceID);
   }
 
-  async function revertOverride(operation, folderID) {
-    await api.post('db/' + operation + '?folder=' + encodeURIComponent(folderID));
+  function revertOverride(operation, folderID) {
+    revertOverrideType = operation === 'override' ? 'override' : (operation === 'deleteEnc' ? 'deleteEnc' : 'revert');
+    revertOverrideFolderID = folderID;
+    showRevertOverrideModal = true;
   }
+
+  async function confirmRevertOverride() {
+    const op = revertOverrideType === 'deleteEnc' ? 'revert' : revertOverrideType;
+    if (op === 'revert') {
+      await api.postRevert(revertOverrideFolderID);
+    } else if (op === 'override') {
+      await api.postOverride(revertOverrideFolderID);
+    }
+    showRevertOverrideModal = false;
+  }
+
+  async function confirmRemoveDevice() {
+    if (!currentDevice.deviceID) return;
+    showRemoveDeviceModal = false;
+    showDeviceEditModal = false;
+    const devID = currentDevice.deviceID;
+    devices.update(d => { delete d[devID]; return { ...d }; });
+    config.update(c => {
+      c.devices = Object.values(get(devices)).sort(utils.deviceCompare);
+      return { ...c };
+    });
+    await saveConfig();
+  }
+
+  async function confirmRemoveFolder() {
+    if (!currentFolder.id) return;
+    showRemoveFolderModal = false;
+    showFolderEditModal = false;
+    const fid = currentFolder.id;
+    folders.update(f => { delete f[fid]; return { ...f }; });
+    config.update(c => {
+      c.folders = Object.values(get(folders)).sort(utils.folderCompare);
+      return { ...c };
+    });
+    await saveConfig();
+  }
+
+  function showRemoveDeviceConfirm() { showRemoveDeviceModal = true; }
+  function showRemoveFolderConfirm() { showRemoveFolderModal = true; }
 
   // Expose global actions object for child components
   const actions = {
@@ -381,6 +433,9 @@
     isAuthEnabled, ignoreDevice, dismissPendingDevice, addFolderAndShare,
     shareFolderWithDevice, ignoreFolder, dismissPendingFolder,
     revertOverride, saveConfig,
+    showRemoveDeviceConfirm, showRemoveFolderConfirm,
+    showUpgrade: () => { showUpgradeModal = true; },
+    showMajorUpgrade: () => { showMajorUpgradeModal = true; },
   };
 </script>
 
@@ -783,24 +838,132 @@
 
 <!-- Network error modal -->
 {#if showNetworkErrorModal}
-  <Modal title={t('Connection Error')} onclose={() => showNetworkErrorModal = false}>
-    <p>{$translations, t('Syncthing seems to be experiencing a problem processing your request. Please refresh the page or try again later.')}</p>
+  <Modal title={t('Connection Error')} status="danger" icon="fas fa-exclamation-circle" closeable={false}>
+    <div class="modal-body">
+      <p>{$translations, t('Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…')}</p>
+    </div>
+  </Modal>
+{/if}
+
+<!-- HTTP error modal -->
+{#if showHttpErrorModal}
+  <Modal title={t('Connection Error')} status="danger" icon="fas fa-exclamation-circle" closeable={false}>
+    <div class="modal-body">
+      <p>{$translations, t('Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.')}</p>
+    </div>
+  </Modal>
+{/if}
+
+<!-- Upgrade confirmation modal -->
+{#if showUpgradeModal}
+  <Modal title={t('Upgrade')} status="warning" icon="fas fa-arrow-circle-up" onclose={() => showUpgradeModal = false}>
+    <div class="modal-body">
+      <p>{$translations, t('Are you sure you want to upgrade?')}</p>
+      <p><a href="https://github.com/syncthing/syncthing/releases/tag/{$upgradeInfo?.latest}" target="_blank">{t('Release Notes')}</a></p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-primary btn-sm" onclick={() => actions.doUpgrade()}>
+        <span class="fas fa-check"></span>&nbsp;{$translations, t('Upgrade')}
+      </button>
+      <button type="button" class="btn btn-default btn-sm" onclick={() => showUpgradeModal = false}>
+        <span class="fas fa-times"></span>&nbsp;{$translations, t('Close')}
+      </button>
+    </div>
+  </Modal>
+{/if}
+
+<!-- Major upgrade modal -->
+{#if showMajorUpgradeModal}
+  <Modal title={t('Major Upgrade')} status="danger" icon="fas fa-arrow-circle-up" onclose={() => showMajorUpgradeModal = false}>
+    <div class="modal-body">
+      <p>
+        {$translations, t('This is a major version upgrade.')}
+        {t('A new major version may not be compatible with previous versions.')}
+        {t('Please consult the release notes before performing a major upgrade.')}
+      </p>
+      <p><a href="https://github.com/syncthing/syncthing/releases/tag/{$upgradeInfo?.latest}" target="_blank">{t('Release Notes')}</a></p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-primary btn-sm" onclick={() => actions.doUpgrade()}>
+        <span class="fas fa-check"></span>&nbsp;{$translations, t('Upgrade')}
+      </button>
+      <button type="button" class="btn btn-default btn-sm" onclick={() => showMajorUpgradeModal = false}>
+        <span class="fas fa-times"></span>&nbsp;{$translations, t('Close')}
+      </button>
+    </div>
+  </Modal>
+{/if}
+
+<!-- Upgrading modal -->
+{#if showUpgradingModal}
+  <Modal title={t('Upgrading')} status="info" icon="fas fa-arrow-circle-up" closeable={false}>
+    <div class="modal-body">
+      <p>{$translations, t('Syncthing is upgrading.')} {t('Please wait')}...</p>
+    </div>
+  </Modal>
+{/if}
+
+<!-- Saving changes modal -->
+{#if showSavingModal}
+  <Modal title={t('Saving changes')} status="info" icon="fas fa-hourglass-half" closeable={false}>
+    <div class="modal-body">
+      <p>{$translations, t('Syncthing is saving changes.')} {t('Please wait')}...</p>
+    </div>
   </Modal>
 {/if}
 
 <!-- Restarting modal -->
 {#if showRestartingModal}
-  <Modal title={t('Restarting')} onclose={() => {}}>
-    <div class="text-center">
-      <p>{$translations, t('Syncthing is restarting.')}</p>
-      <p><span class="fas fa-spinner fa-spin fa-3x"></span></p>
+  <Modal title={t('Restarting')} status="info" icon="fas fa-hourglass-half" closeable={false}>
+    <div class="modal-body">
+      <p>{$translations, t('Syncthing is restarting.')} {t('Please wait')}...</p>
     </div>
   </Modal>
 {/if}
 
 <!-- Shutdown modal -->
 {#if showShutdownModal}
-  <Modal title={t('Syncthing has been shut down.')} onclose={() => {}}>
-    <p>{$translations, t('Syncthing has been shut down.')}</p>
+  <Modal title={t('Shutdown Complete')} status="success" icon="fas fa-power-off" closeable={false}>
+    <div class="modal-body">
+      <p>{$translations, t('Syncthing has been shut down.')}</p>
+    </div>
   </Modal>
+{/if}
+
+<!-- Remove Device Confirmation -->
+{#if showRemoveDeviceModal}
+  <ConfirmDialog
+    title={t('Remove Device')}
+    status="warning"
+    icon="fas fa-question-circle"
+    message={t('Are you sure you want to remove device {%name%}?', { name: currentDevice.name || currentDevice.deviceID })}
+    confirmText={t('Yes')}
+    confirmClass="btn-warning"
+    onconfirm={confirmRemoveDevice}
+    onclose={() => showRemoveDeviceModal = false}
+  />
+{/if}
+
+<!-- Remove Folder Confirmation -->
+{#if showRemoveFolderModal}
+  <ConfirmDialog
+    title={t('Remove Folder')}
+    status="warning"
+    icon="fas fa-question-circle"
+    message={t('Are you sure you want to remove folder {%label%}?', { label: currentFolder.label || currentFolder.id })}
+    message2={t('No files will be deleted as a result of this operation.')}
+    confirmText={t('Yes')}
+    confirmClass="btn-warning"
+    onconfirm={confirmRemoveFolder}
+    onclose={() => showRemoveFolderModal = false}
+  />
+{/if}
+
+<!-- Revert/Override Confirmation -->
+{#if showRevertOverrideModal}
+  <RevertOverride
+    type={revertOverrideType}
+    onconfirm={confirmRevertOverride}
+    onclose={() => showRevertOverrideModal = false}
+  />
 {/if}

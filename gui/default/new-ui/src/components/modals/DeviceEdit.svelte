@@ -237,7 +237,7 @@
         <div class="row">
           <div class="col-md-6">
             <div class="form-group">
-              <div class="checkbox">
+              <div class="checkbox" use:tooltip={device.untrusted ? t('Always disabled for untrusted devices') : ''}>
                 <label>
                   <input type="checkbox" bind:checked={device.introducer} disabled={device.untrusted} />
                   <span>{$translations, t('Introducer')}</span>
@@ -248,7 +248,7 @@
           </div>
           <div class="col-md-6">
             <div class="form-group">
-              <div class="checkbox">
+              <div class="checkbox" use:tooltip={device.untrusted ? t('Always disabled for untrusted devices') : ''}>
                 <label>
                   <input type="checkbox" bind:checked={device.autoAcceptFolders} disabled={device.untrusted} />
                   <span>{$translations, t('Auto Accept')}</span>
@@ -450,7 +450,7 @@
     </button>
     {#if editingDeviceExisting()}
       <div class="pull-left">
-        <button type="button" class="btn btn-warning btn-sm" onclick={deleteDevice}>
+        <button type="button" class="btn btn-warning btn-sm" onclick={() => actions.showRemoveDeviceConfirm()}>
           <span class="fas fa-minus-circle"></span>&nbsp;{$translations, t('Remove')}
         </button>
       </div>

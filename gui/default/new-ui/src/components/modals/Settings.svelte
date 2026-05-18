@@ -344,6 +344,12 @@
             </div>
           </div>
           <div class="col-md-6">
+            {#if tmpGUI.address && (tmpGUI.address.startsWith('/') || tmpGUI.address.startsWith('unix:'))}
+              <div class="form-group">
+                <label>{$translations, t('UNIX Permissions')}</label>
+                <input class="form-control" type="text" bind:value={tmpGUI.unixSocketPermissions} />
+              </div>
+            {/if}
             <!-- Language selector in settings -->
             <div class="form-group">
               <label>{$translations, t('Language')}</label>

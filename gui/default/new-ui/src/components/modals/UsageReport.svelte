@@ -39,9 +39,11 @@
     </p>
   </div>
   <div class="modal-footer">
-    <button type="button" class="btn btn-default" onclick={declineUR}>{$translations, t('No')}</button>
-    <button type="button" class="btn btn-primary" onclick={acceptUR}>
+    <button type="button" class="btn btn-success btn-sm" onclick={acceptUR}>
       <span class="fas fa-check"></span>&nbsp;{$translations, t('Yes')}
+    </button>
+    <button type="button" class="btn btn-danger btn-sm" onclick={declineUR}>
+      <span class="fas fa-times"></span>&nbsp;{$translations, t('No')}
     </button>
   </div>
 </Modal>

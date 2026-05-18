@@ -68,9 +68,16 @@
     {/if}
 
     <ul class="nav navbar-nav navbar-right">
-      {#if upgradeInfo?.newer}
+      {#if upgradeInfo?.majorNewer}
+        <li class="upgrade-newer-major">
+          <button type="button" class="btn navbar-btn btn-danger btn-sm" onclick={() => actions.showMajorUpgrade()}>
+            <span class="fas fa-arrow-circle-up"></span>
+            <span class="hidden-xs">{$translations, t('Upgrade To {%version%}', { version: upgradeInfo.latest })}</span>
+          </button>
+        </li>
+      {:else if upgradeInfo?.newer}
         <li class="upgrade-newer">
-          <button type="button" class="btn navbar-btn btn-primary btn-sm" onclick={() => actions.doUpgrade()}>
+          <button type="button" class="btn navbar-btn btn-primary btn-sm" onclick={() => actions.showUpgrade()}>
             <span class="fas fa-arrow-circle-up"></span>
             <span class="hidden-xs">{$translations, t('Upgrade To {%version%}', { version: upgradeInfo.latest })}</span>
           </button>

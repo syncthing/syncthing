@@ -96,30 +96,35 @@
         </div>
       {/if}
       {#if activeTab === 'paths'}
-        <div style="padding: 10px 0;">
-          <table class="table table-striped table-condensed">
-            <tbody>
-              {#if paths.baseDir}
-                <tr>
-                  <th>{$translations, t('Configuration Directory')}</th>
-                  <td>{paths.baseDir}</td>
-                </tr>
-              {/if}
-              {#if paths.dataDir}
-                <tr>
-                  <th>{$translations, t('Database Location')}</th>
-                  <td>{paths.dataDir}</td>
-                </tr>
-              {/if}
-              {#if system?.myID}
-                <tr>
-                  <th>{$translations, t('Device ID')}</th>
-                  <td style="word-break: break-all; font-family: monospace; font-size: 11px;">{system.myID}</td>
-                </tr>
-              {/if}
-            </tbody>
-          </table>
-        </div>
+        <table class="table table-striped table-auto">
+          <caption><label>{$translations, t('Internally used paths:')}</label></caption>
+          <tbody>
+            {#if paths['baseDir-userHome']}
+              <tr><th>{t('User Home')}</th><td><code class="word-break-all">{paths['baseDir-userHome']}</code></td></tr>
+            {/if}
+            {#if paths['baseDir-config']}
+              <tr><th><strong>{t('Configuration Directory')}</strong></th><td><code class="word-break-all"><strong>{paths['baseDir-config']}</strong></code></td></tr>
+            {/if}
+            {#if paths['config']}
+              <tr><th>{t('Configuration File')}</th><td><code class="word-break-all">{paths['config']}</code></td></tr>
+            {/if}
+            {#if paths['certFile']}
+              <tr><th>{t('Device Certificate')}</th><td><code class="word-break-all">{paths['certFile']}</code><br /><code class="word-break-all">{paths['keyFile'] || ''}</code></td></tr>
+            {/if}
+            {#if paths['httpsCertFile']}
+              <tr><th>{t('GUI / API HTTPS Certificate')}</th><td><code class="word-break-all">{paths['httpsCertFile']}</code><br /><code class="word-break-all">{paths['httpsKeyFile'] || ''}</code></td></tr>
+            {/if}
+            {#if paths['database']}
+              <tr><th>{t('Database Location')}</th><td><code class="word-break-all">{paths['database']}</code></td></tr>
+            {/if}
+            {#if paths['logFile']}
+              <tr><th>{t('Log File')}</th><td><code class="word-break-all">{paths['logFile']}</code></td></tr>
+            {/if}
+            {#if paths['guiAssets']}
+              <tr><th>{t('GUI Override Directory')}</th><td><code class="word-break-all">{paths['guiAssets']}</code></td></tr>
+            {/if}
+          </tbody>
+        </table>
       {/if}
     </div>
   </div>

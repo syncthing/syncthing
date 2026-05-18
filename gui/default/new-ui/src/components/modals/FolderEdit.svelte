@@ -638,7 +638,7 @@
           <div class="form-group" class:has-error={dirty.cleanupInterval && (versioningCleanupIntervalS === '' || versioningCleanupIntervalS === null || versioningCleanupIntervalS < 0)}>
             <label for="cleanupInterval">{$translations, t('Cleanup Interval')}</label>
             <div class="input-group">
-              <input id="cleanupInterval" class="form-control text-right" type="number" bind:value={versioningCleanupIntervalS} min="0" step="3600" required oninput={() => dirty.cleanupInterval = true} />
+              <input id="cleanupInterval" class="form-control text-right" type="number" bind:value={versioningCleanupIntervalS} min="0" max="31536000" step="3600" required oninput={() => dirty.cleanupInterval = true} />
               <div class="input-group-addon">{t('seconds')}</div>
             </div>
             <p class="help-block">
@@ -935,7 +935,7 @@
       <span class="fas fa-times"></span>&nbsp;{$translations, t('Close')}
     </button>
     {#if folder._editing === 'existing'}
-      <button type="button" class="btn btn-warning pull-left btn-sm" onclick={deleteFolder}>
+      <button type="button" class="btn btn-warning pull-left btn-sm" onclick={() => actions.showRemoveFolderConfirm()}>
         <span class="fas fa-minus-circle"></span>&nbsp;{$translations, t('Remove')}
       </button>
     {/if}

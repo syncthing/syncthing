@@ -38,7 +38,7 @@
 
   async function saveAdvanced() {
     try {
-      await api.postConfig(advancedConfig);
+      await api.putConfig(advancedConfig);
       onclose();
     } catch (e) {
       console.error('Error saving advanced config:', e);
@@ -289,6 +289,23 @@
                           </div>
                         </div>
                       {/each}
+                    </form>
+                  {/if}
+                </div>
+              {/if}
+              {#if advancedConfig.defaults.ignores}
+                <div class="panel panel-default">
+                  <div class="panel-heading" style="cursor: pointer;" onclick={() => toggleSection('default-ignores')}>
+                    <h4 class="panel-title">{$translations, t('Default Ignore Patterns')}</h4>
+                  </div>
+                  {#if expandedSections['default-ignores']}
+                    <form class="form-horizontal" role="form">
+                      <div class="form-group">
+                        <label class="col-sm-4 control-label">{uncamel('lines')}</label>
+                        <div class="col-sm-8">
+                          <textarea class="form-control" rows="5" value={(advancedConfig.defaults.ignores.lines || []).join('\n')} onchange={(e) => advancedConfig.defaults.ignores.lines = e.target.value.split('\n')}></textarea>
+                        </div>
+                      </div>
                     </form>
                   {/if}
                 </div>

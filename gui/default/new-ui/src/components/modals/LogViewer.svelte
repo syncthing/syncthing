@@ -106,7 +106,7 @@
           readonly
           value={logContent()}
           onscroll={handleScroll}
-          style="font-family: monospace; font-size: 12px;"
+          style="font-family: Consolas, monospace; font-size: 11px;"
         ></textarea>
         {#if paused}
           <div class="text-center" style="margin-top: 5px;">
