@@ -1,7 +1,7 @@
 <script>
   import Modal from '../Modal.svelte';
   import { api } from '../../lib/api.js';
-  import { devices as devicesStore, folders as foldersStore, config, saveConfig } from '../../lib/stores.js';
+  import { devices as devicesStore, folders as foldersStore, config } from '../../lib/stores.js';
   import * as utils from '../../lib/utils.js';
   import { get } from 'svelte/store';
   import { t, translations } from '../../lib/i18n.js';
@@ -141,7 +141,7 @@
       });
     }
 
-    await saveConfig();
+    await actions.saveConfig();
     onclose();
   }
 
@@ -166,7 +166,7 @@
       return { ...c };
     });
 
-    await saveConfig();
+    await actions.saveConfig();
     onclose();
   }
 </script>

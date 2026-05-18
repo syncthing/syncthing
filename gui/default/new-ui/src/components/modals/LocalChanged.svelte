@@ -57,15 +57,7 @@
 
 <Modal title="{titleText()} ({folder})" status="info" icon="fas fa-exclamation-circle" large={true} {onclose}>
   <div class="modal-body">
-    {#if loading && !localChanged}
-      <div class="progress progress-striped active" style="margin: 20px 0;">
-        <div class="progress-bar" role="progressbar" style="width: 100%;">
-          <span>{$translations, t('Loading...')}</span>
-        </div>
-      </div>
-    {:else if !localChanged || !localChanged.files || localChanged.files.length === 0}
-      <p class="text-muted text-center">{$translations, t('No locally changed items.')}</p>
-    {:else}
+    {#if localChanged && localChanged.files && localChanged.files.length > 0}
       {#if folderType === 'receiveonly'}
         <p>{t('The following items were changed locally.')}</p>
       {:else if folderType === 'receiveencrypted'}

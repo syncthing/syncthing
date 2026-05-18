@@ -1,6 +1,6 @@
 <script>
   import Modal from '../Modal.svelte';
-  import { config as configStore, saveConfig } from '../../lib/stores.js';
+  import { config as configStore } from '../../lib/stores.js';
   import { t, translations } from '../../lib/i18n.js';
 
   let { system, config, onclose, actions } = $props();
@@ -11,7 +11,7 @@
       c.options.urSeen = system?.urVersionMax || 3;
       return { ...c };
     });
-    await saveConfig();
+    await actions.saveConfig();
     onclose();
   }
 
@@ -21,7 +21,7 @@
       c.options.urSeen = system?.urVersionMax || 3;
       return { ...c };
     });
-    await saveConfig();
+    await actions.saveConfig();
     onclose();
   }
 </script>

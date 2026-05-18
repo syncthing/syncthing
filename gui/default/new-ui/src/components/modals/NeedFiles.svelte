@@ -110,15 +110,7 @@
 
 <Modal title={t('Out of Sync Items')} status="info" icon="fas fa-cloud-download-alt" large={true} {onclose}>
   <div class="modal-body">
-    {#if loading && !needed}
-      <div class="progress progress-striped active" style="margin: 20px 0;">
-        <div class="progress-bar" role="progressbar" style="width: 100%;">
-          <span>{$translations, t('Loading...')}</span>
-        </div>
-      </div>
-    {:else if !needed || !needed.items || needed.items.length === 0}
-      <p class="text-muted text-center">{$translations, t('No items out of sync.')}</p>
-    {:else}
+    {#if needed && needed.items && needed.items.length > 0}
       <!-- Download progress legend -->
       {#if downloadProgressEnabled()}
         <div id="download-legend">

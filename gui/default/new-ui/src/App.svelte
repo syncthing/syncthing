@@ -82,6 +82,17 @@
   // Restarting/shutdown tracking
   let isRestarting = $state(false);
 
+  // Wrap saveConfig with "Saving changes" modal (like original: show after 200ms delay)
+  async function saveConfigWithFeedback() {
+    const timeout = setTimeout(() => { showSavingModal = true; }, 200);
+    try {
+      await saveConfigWithFeedback();
+    } finally {
+      clearTimeout(timeout);
+      showSavingModal = false;
+    }
+  }
+
   onMount(() => {
     init();
   });
@@ -237,7 +248,7 @@
       c.folders = Object.values(get(folders)).sort(utils.folderCompare);
       return { ...c };
     });
-    await saveConfig();
+    await saveConfigWithFeedback();
   }
 
   async function setDevicePause(deviceId, pause) {
@@ -249,7 +260,7 @@
       c.devices = Object.values(get(devices)).sort(utils.deviceCompare);
       return { ...c };
     });
-    await saveConfig();
+    await saveConfigWithFeedback();
   }
 
   async function rescanFolder(folderId) {
@@ -269,7 +280,7 @@
       c.folders = Object.values(get(folders)).sort(utils.folderCompare);
       return { ...c };
     });
-    await saveConfig();
+    await saveConfigWithFeedback();
   }
 
   async function setAllDevicesPause(pause) {
@@ -281,7 +292,7 @@
       c.devices = Object.values(get(devices)).sort(utils.deviceCompare);
       return { ...c };
     });
-    await saveConfig();
+    await saveConfigWithFeedback();
   }
 
   function isAtleastOneFolderPausedStateSetTo(pause) {
@@ -322,7 +333,7 @@
       c.remoteIgnoredDevices.push(ignoredDevice);
       return { ...c };
     });
-    await saveConfig();
+    await saveConfigWithFeedback();
   }
 
   async function dismissPendingDevice(deviceID) {
@@ -352,7 +363,7 @@
       c.folders = Object.values(get(folders)).sort(utils.folderCompare);
       return { ...c };
     });
-    await saveConfig();
+    await saveConfigWithFeedback();
   }
 
   async function ignoreFolder(deviceID, folderID, offeringDevice) {
@@ -371,7 +382,7 @@
       c.devices = Object.values(get(devices)).sort(utils.deviceCompare);
       return { ...c };
     });
-    await saveConfig();
+    await saveConfigWithFeedback();
   }
 
   async function dismissPendingFolder(folderID, deviceID) {
@@ -404,7 +415,7 @@
       c.devices = Object.values(get(devices)).sort(utils.deviceCompare);
       return { ...c };
     });
-    await saveConfig();
+    await saveConfigWithFeedback();
   }
 
   async function confirmRemoveFolder() {
@@ -417,7 +428,7 @@
       c.folders = Object.values(get(folders)).sort(utils.folderCompare);
       return { ...c };
     });
-    await saveConfig();
+    await saveConfigWithFeedback();
   }
 
   function showRemoveDeviceConfirm() { showRemoveDeviceModal = true; }
@@ -435,7 +446,7 @@
     isAtleastOneFolderPausedStateSetTo, isAtleastOneDevicePausedStateSetTo,
     isAuthEnabled, ignoreDevice, dismissPendingDevice, addFolderAndShare,
     shareFolderWithDevice, ignoreFolder, dismissPendingFolder,
-    revertOverride, saveConfig,
+    revertOverride, saveConfig: saveConfigWithFeedback,
     showRemoveDeviceConfirm, showRemoveFolderConfirm,
     showUpgrade: () => { showUpgradeModal = true; },
     showMajorUpgrade: () => { showMajorUpgradeModal = true; },

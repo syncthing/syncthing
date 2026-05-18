@@ -51,15 +51,7 @@
 
 <Modal title="{t('Failed Items')} ({folder})" status="warning" icon="fas fa-exclamation-circle" large={true} {onclose}>
   <div class="modal-body">
-    {#if loading && !failed}
-      <div class="progress progress-striped active" style="margin: 20px 0;">
-        <div class="progress-bar" role="progressbar" style="width: 100%;">
-          <span>{$translations, t('Loading...')}</span>
-        </div>
-      </div>
-    {:else if !failed || !failed.errors || failed.errors.length === 0}
-      <p class="text-muted text-center">{$translations, t('No failed items.')}</p>
-    {:else}
+    {#if failed && failed.errors && failed.errors.length > 0}
       <p>
         {t('The following items could not be synchronized.')}
         {t('They are retried automatically and will be synced when the error is resolved.')}

@@ -1,6 +1,6 @@
 <script>
   import Modal from '../Modal.svelte';
-  import { config as configStore, devices as devicesStore, saveConfig } from '../../lib/stores.js';
+  import { config as configStore, devices as devicesStore } from '../../lib/stores.js';
   import * as utils from '../../lib/utils.js';
   import { api } from '../../lib/api.js';
   import { get } from 'svelte/store';
@@ -129,7 +129,7 @@
       return { ...c };
     });
 
-    await saveConfig();
+    await actions.saveConfig();
 
     if (themeChanged) {
       document.location.reload(true);

@@ -86,7 +86,7 @@
 <Modal title="{t('Out of Sync Items')} - {utils.deviceName(device)}" status="info" icon="fas fa-exchange-alt" large={true} {onclose}>
   <div class="modal-body">
     {#if needFolders.length === 0}
-      <p class="text-muted text-center">{$translations, t('Loading data...')}</p>
+      <span>{$translations, t('Loading data...')}</span>
     {:else}
       {#each needFolders as fid, idx}
         <div class="panel panel-default">
@@ -101,7 +101,7 @@
           <div class:collapse={needFolders.length > 1} class="panel-collapse">
             <div class="panel-body less-padding">
               {#if !remoteNeed[fid]}
-                <p><span class="fas fa-spinner fa-spin"></span> {t('Loading...')}</p>
+                <p>{$translations, t('Loading data...')}</p>
               {:else}
                 <table class="table table-striped">
                   <thead>
