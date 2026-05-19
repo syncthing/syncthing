@@ -22,7 +22,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) error {
+func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo, options db.UpdateOptions) error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
 
