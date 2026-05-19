@@ -40,7 +40,7 @@
   async function loadRemoteNeed(folder, page = 1, perpage = 10) {
     try {
       const data = await api.getRemoteNeed(device.deviceID, folder, page, perpage);
-      data.files = [...(data.progress || []), ...(data.queued || []), ...(data.rest || [])];
+      // remoteneed API returns {files, page, perpage} directly (not progress/queued/rest like need)
       remoteNeed = { ...remoteNeed, [folder]: data };
     } catch (e) {
       console.error('Error loading remote need:', e);
@@ -85,10 +85,11 @@
 
 <Modal title="{t('Out of Sync Items')} - {utils.deviceName(device)}" status="info" icon="fas fa-exchange-alt" large={true} {onclose}>
   <div class="modal-body">
-    {#if needFolders.length === 0}
+    {#if Object.keys(remoteNeed).length === 0}
       <span>{$translations, t('Loading data...')}</span>
     {:else}
       {#each needFolders as fid, idx}
+        {#if remoteNeed[fid] && remoteNeed[fid].files && remoteNeed[fid].files.length > 0}
         <div class="panel panel-default">
           <button class="btn panel-heading" data-toggle="collapse" aria-expanded="false" onclick={(e) => {
             const target = e.currentTarget.nextElementSibling;
@@ -100,9 +101,6 @@
           </button>
           <div class:collapse={needFolders.length > 1} class="panel-collapse">
             <div class="panel-body less-padding">
-              {#if !remoteNeed[fid]}
-                <p>{$translations, t('Loading data...')}</p>
-              {:else}
                 <table class="table table-striped">
                   <thead>
                     <tr>
@@ -156,10 +154,10 @@
                   {/each}
                 </ul>
                 <div class="clearfix"></div>
-              {/if}
             </div>
           </div>
         </div>
+        {/if}
       {/each}
     {/if}
   </div>

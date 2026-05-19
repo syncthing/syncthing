@@ -110,7 +110,7 @@
 
 <Modal title={t('Out of Sync Items')} status="info" icon="fas fa-cloud-download-alt" large={true} {onclose}>
   <div class="modal-body">
-    {#if needed && needed.items && needed.items.length > 0}
+    {#if needed}
       <!-- Download progress legend -->
       {#if downloadProgressEnabled()}
         <div id="download-legend">
