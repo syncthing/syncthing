@@ -4,6 +4,8 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
+//go:build crashrep
+
 package main
 
 import (
@@ -21,6 +23,7 @@ import (
 
 	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/locations"
 )
 
 const (
@@ -150,4 +153,40 @@ func filterLogLines(data []byte) []byte {
 		}
 	}
 	return filtered
+}
+
+// maybeReportPanics tries to figure out if crash reporting is on or off,
+// and reports any panics it can find if it's enabled. We spend at most
+// panicUploadMaxWait uploading panics...
+func maybeReportPanics() {
+	// Try to get a config to see if/where panics should be reported.
+	cfg, err := loadOrDefaultConfig()
+	if err != nil {
+		slog.Error("Couldn't load config; not reporting crash")
+		return
+	}
+
+	// Bail if we're not supposed to report panics.
+	opts := cfg.Options()
+	if !opts.CREnabled {
+		return
+	}
+
+	// Set up a timeout on the whole operation.
+	ctx, cancel := context.WithTimeout(context.Background(), panicUploadMaxWait)
+	defer cancel()
+
+	// Print a notice if the upload takes a long time.
+	go func() {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(panicUploadNoticeWait):
+			slog.Warn("Uploading crash reports is taking a while, please wait")
+		}
+	}()
+
+	// Report the panics.
+	dir := locations.GetBaseDir(locations.ConfigBaseDir)
+	uploadPanicLogs(ctx, opts.CRURL, dir)
 }

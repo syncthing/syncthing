@@ -31,8 +31,8 @@ env:
   BUILD_USER: builder
   BUILD_HOST: github.syncthing.net
 
-  TAGS: "sqlite_omit_load_extension sqlite_dbstat"
-  TAGS_LINUX: "sqlite_omit_load_extension sqlite_dbstat netgo osusergo"
+  TAGS: "sqlite_omit_load_extension sqlite_dbstat crashrep"
+  TAGS_LINUX: "sqlite_omit_load_extension sqlite_dbstat netgo osusergo crashrep"
 
 # A note on actions and third party code... The actions under actions/ (like
 # `uses: actions/checkout`) are maintained by GitHub, and we need to trust

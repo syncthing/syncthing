@@ -147,7 +147,7 @@ func (opts *OptionsConfiguration) prepare(guiPWIsSet bool) {
 	}
 
 	// Crash reporting is enabled if requested and if enabled by the build.
-	opts.CREnabled = opts.CREnabled && build.ReportCrashes()
+	opts.CREnabled = opts.CREnabled && build.CrashReporting
 }
 
 // RequiresRestartOnly returns a copy with only the attributes that require
