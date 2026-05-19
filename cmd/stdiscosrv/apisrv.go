@@ -254,7 +254,7 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req *http.Request) {
 	reqID := req.Context().Value(idKey).(requestID)
 
-	rawCert, err := certificateBytes(req)
+	rawCert, err := s.certificateBytes(req)
 	if err != nil {
 		slog.Debug("Request without certificates", "id", reqID, "error", err)
 		announceRequestsTotal.WithLabelValues("no_certificate").Inc()
@@ -330,9 +330,12 @@ func handlePing(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func certificateBytes(req *http.Request) ([]byte, error) {
+func (s *apiSrv) certificateBytes(req *http.Request) ([]byte, error) {
 	if req.TLS != nil && len(req.TLS.PeerCertificates) > 0 {
 		return req.TLS.PeerCertificates[0].Raw, nil
+	}
+	if !s.useHTTP {
+		return nil, errors.New("no certificate presented")
 	}
 
 	var bs []byte

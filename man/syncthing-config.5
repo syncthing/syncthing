@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Apr 09, 2026" "v2.0.0" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "May 13, 2026" "v2.1.0" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH OVERVIEW
@@ -704,6 +704,19 @@ File and directory extended attributes are scanned and sent to other
 devices when this is set to \fBtrue\fP\&. See
 \fI\%sendXattrs\fP for more information.
 .UNINDENT
+.INDENT 0.0
+.TP
+.B blockIndexing
+Added in version 2.1.0.
+
+.sp
+Whether to use block indexing for the folder; defaults to \fBtrue\fP for
+send\-only and receive\-only folders. Block indexing makes it possible for
+Syncthing to reuse data blocks between files (even in different
+folders), but requires maintaining an index of every individual block’s
+hash. This index can be costly for large folders, so indexing can be
+disabled with the tradeoff of using more bandwidth for transfers.
+.UNINDENT
 .SH DEVICE ELEMENT
 .INDENT 0.0
 .INDENT 3.5
@@ -1079,6 +1092,24 @@ won’t see browser popups prompting for username and password.
 .TP
 .B metricsWithoutAuth
 If true, this allows access to the ‘/metrics’ without authentication.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B sessionCookieDurationS
+Added in version 2.1.0.
+
+.sp
+How long to remain logged in when “stay logged in” is checked in the GUI
+login form. In seconds, default 604800 (one week).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B sessionCookiePath
+Added in version 2.1.0.
+
+.sp
+Path for session cookie; default “/”, change only if the GUI is served
+vi a proxy at a subpath.
 .UNINDENT
 .SH LDAP ELEMENT
 .INDENT 0.0

@@ -629,10 +629,6 @@ func (fs *fakeFS) Stat(name string) (FileInfo, error) {
 	return fs.Lstat(name)
 }
 
-func (*fakeFS) SymlinksSupported() bool {
-	return false
-}
-
 func (*fakeFS) Walk(_ string, _ WalkFunc) error {
 	return errors.New("not implemented")
 }

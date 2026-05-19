@@ -270,7 +270,7 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 
 	defer connection.Close()
 
-	bindDN := formatOptionalPercentS(cfg.BindDN, escapeForLDAPDN(username))
+	bindDN := formatOptionalPercentS(cfg.BindDN, ldap.EscapeDN(username))
 	err = connection.Bind(bindDN, password)
 	if err != nil {
 		slog.Error("Failed to bind with LDAP server", slogutil.Error(err))
@@ -291,7 +291,7 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 	// the user. If this matches precisely one user then we are good to go.
 	// The search filter uses the same %s interpolation as the bind DN.
 
-	searchString := formatOptionalPercentS(cfg.SearchFilter, escapeForLDAPFilter(username))
+	searchString := formatOptionalPercentS(cfg.SearchFilter, ldap.EscapeFilter(username))
 	const sizeLimit = 2  // we search for up to two users -- we only want to match one, so getting any number >1 is a failure.
 	const timeLimit = 60 // Search for up to a minute...
 	searchReq := ldap.NewSearchRequest(cfg.SearchBaseDN, ldap.ScopeWholeSubtree, ldap.DerefFindingBaseObj, sizeLimit, timeLimit, false, searchString, nil, nil)
@@ -307,27 +307,6 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 	}
 
 	return true
-}
-
-// escapeForLDAPFilter escapes a value that will be used in a filter clause
-func escapeForLDAPFilter(value string) string {
-	// https://social.technet.microsoft.com/wiki/contents/articles/5392.active-directory-ldap-syntax-filters.aspx#Special_Characters
-	// Backslash must always be first in the list so we don't double escape them.
-	return escapeRunes(value, []rune{'\\', '*', '(', ')', 0})
-}
-
-// escapeForLDAPDN escapes a value that will be used in a bind DN
-func escapeForLDAPDN(value string) string {
-	// https://social.technet.microsoft.com/wiki/contents/articles/5312.active-directory-characters-to-escape.aspx
-	// Backslash must always be first in the list so we don't double escape them.
-	return escapeRunes(value, []rune{'\\', ',', '#', '+', '<', '>', ';', '"', '=', ' ', 0})
-}
-
-func escapeRunes(value string, runes []rune) string {
-	for _, e := range runes {
-		value = strings.ReplaceAll(value, string(e), fmt.Sprintf("\\%X", e))
-	}
-	return value
 }
 
 func formatOptionalPercentS(template string, username string) string {

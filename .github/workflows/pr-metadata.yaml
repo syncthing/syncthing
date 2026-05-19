@@ -20,6 +20,7 @@ jobs:
 
   labels:
     name: Set labels
+    if: github.repository_owner == 'syncthing'
     runs-on: ubuntu-latest
     steps:
     - uses: srvaroa/labeler@9c29ad1ef33d169f9ef33c52722faf47a566bcf3 # v1

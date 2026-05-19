@@ -73,48 +73,6 @@ func TestFormatOptionalPercentS(t *testing.T) {
 	}
 }
 
-func TestEscapeForLDAPFilter(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		in  string
-		out string
-	}{
-		{"username", `username`},
-		{"user(name", `user\28name`},
-		{"user)name", `user\29name`},
-		{"user\\name", `user\5Cname`},
-		{"user*name", `user\2Aname`},
-		{"*,CN=asdf", `\2A,CN=asdf`},
-	}
-
-	for _, c := range cases {
-		res := escapeForLDAPFilter(c.in)
-		if c.out != res {
-			t.Fatalf("result should be %s != %s", c.out, res)
-		}
-	}
-}
-
-func TestEscapeForLDAPDN(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		in  string
-		out string
-	}{
-		{"username", `username`},
-		{"* ,CN=asdf", `*\20\2CCN\3Dasdf`},
-	}
-
-	for _, c := range cases {
-		res := escapeForLDAPDN(c.in)
-		if c.out != res {
-			t.Fatalf("result should be %s != %s", c.out, res)
-		}
-	}
-}
-
 type mockClock struct {
 	now time.Time
 }
