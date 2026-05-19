@@ -9,3 +9,11 @@
 package build
 
 const CrashReporting = true
+
+func init() {
+	if Tags == "" {
+		Tags = "crashrep"
+	} else {
+		Tags = Tags + ",crashrep"
+	}
+}
