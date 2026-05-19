@@ -55,7 +55,7 @@
   }
 </script>
 
-<Modal title="{titleText()} ({folder})" status="info" icon="fas fa-exclamation-circle" large={true} {onclose}>
+<Modal title="{titleText()} ({folder})" status={folderType === 'receiveencrypted' ? 'warning' : 'info'} icon="fas fa-exclamation-circle" large={true} {onclose}>
   <div class="modal-body">
     {#if localChanged && localChanged.files && localChanged.files.length > 0}
       {#if folderType === 'receiveonly'}

@@ -49,7 +49,7 @@
 
 </script>
 
-<Modal title="{t('Failed Items')} ({folder})" status="warning" icon="fas fa-exclamation-circle" large={true} {onclose}>
+<Modal title={t('Failed Items')} status="warning" icon="fas fa-exclamation-circle" large={true} {onclose}>
   <div class="modal-body">
     {#if failed && failed.errors && failed.errors.length > 0}
       <p>

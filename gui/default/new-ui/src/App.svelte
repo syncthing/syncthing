@@ -654,7 +654,7 @@
             </h3>
           </div>
           <div class="panel-body">
-            <p>{$translations, t('For the following folders an error occurred while starting to watch for changes.')}</p>
+            <p>{$translations, t('For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can\'t.')} <a href="https://forum.syncthing.net" target="_blank">{t('Support')}</a></p>
             <table>
               <tbody>
                 {#each Object.entries(utils.fsWatcherErrorMap($folders, $model)) as [id, err]}

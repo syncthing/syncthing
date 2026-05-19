@@ -203,7 +203,7 @@
             {#if conn().connected}
               <tr>
                 <th><span class="reception reception-4 reception-theme"></span>&nbsp;{$translations, t('Connection Type')}</th>
-                <td class="text-right">{utils.rdConnTypeString(connType())}</td>
+                <td class="text-right"><span use:tooltip={connType()}>{utils.rdConnTypeString(connType())}</span></td>
               </tr>
               <tr>
                 <th><span class="fas fa-fw fa-random"></span>&nbsp;{$translations, t('Number of Connections')}</th>

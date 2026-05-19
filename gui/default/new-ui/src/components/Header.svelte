@@ -112,17 +112,17 @@
         </a>
         <ul class="dropdown-menu">
           <li><a class="navbar-link" href="{docsURL(version, 'intro/gui')}" target="_blank"><span class="fa fa-fw fa-info-circle"></span>&nbsp;{$translations, t('Introduction')}</a></li>
-          <li class="divider"></li>
+          <li class="divider" aria-hidden="true"></li>
           <li><a class="navbar-link" href="https://syncthing.net/" target="_blank"><span class="fa fa-fw fa-home"></span>&nbsp;{$translations, t('Home page')}</a></li>
           <li><a class="navbar-link" href="{docsURL(version)}" target="_blank"><span class="fa fa-fw fa-book"></span>&nbsp;{$translations, t('Documentation')}</a></li>
           <li><a class="navbar-link" href="https://forum.syncthing.net" target="_blank"><span class="fa fa-fw fa-users"></span>&nbsp;{$translations, t('Support')}</a></li>
-          <li class="divider"></li>
+          <li class="divider" aria-hidden="true"></li>
           <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/releases" target="_blank"><span class="fa fa-fw fa-file-text"></span>&nbsp;{$translations, t('Changelog')}</a></li>
           <li><a class="navbar-link" href="https://data.syncthing.net/" target="_blank"><span class="fa fa-fw fa-bar-chart"></span>&nbsp;{$translations, t('Statistics')}</a></li>
-          <li class="divider"></li>
+          <li class="divider" aria-hidden="true"></li>
           <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/issues" target="_blank"><span class="fa fa-fw fa-bug"></span>&nbsp;{$translations, t('Bugs')}</a></li>
           <li><a class="navbar-link" href="https://github.com/syncthing/syncthing" target="_blank"><span class="fa fa-fw fa-file-code-o"></span>&nbsp;{$translations, t('Source Code')}</a></li>
-          <li class="divider"></li>
+          <li class="divider" aria-hidden="true"></li>
           <!-- svelte-ignore a11y_invalid_attribute -->
           <li><a href="#" onclick={(e) => { e.preventDefault(); closeDropdowns(); actions.openAbout(); }}><span class="fa fa-fw fa-heart"></span>&nbsp;{$translations, t('About')}</a></li>
         </ul>
@@ -142,13 +142,13 @@
             <li><a href="#" onclick={(e) => { e.preventDefault(); closeDropdowns(); actions.openSettings(); }}><span class="fa fa-fw fa-cog"></span>&nbsp;{$translations, t('Settings')}</a></li>
             <!-- svelte-ignore a11y_invalid_attribute -->
             <li><a href="#" onclick={(e) => { e.preventDefault(); closeDropdowns(); actions.openAdvancedSettings(); }}><span class="fa fa-fw fa-cogs"></span>&nbsp;{$translations, t('Advanced')}</a></li>
-            <li class="divider"></li>
+            <li class="divider" aria-hidden="true"></li>
             <!-- svelte-ignore a11y_invalid_attribute -->
             <li><a href="#" onclick={(e) => { e.preventDefault(); closeDropdowns(); actions.showDeviceIdentification(getThisDevice()); }}><span class="fa fa-fw fa-qrcode"></span>&nbsp;{$translations, t('Show ID')}</a></li>
             <!-- svelte-ignore a11y_invalid_attribute -->
             <li><a href="#" onclick={(e) => { e.preventDefault(); closeDropdowns(); actions.openLogViewer(); }}><span class="fa fa-fw fa-wrench"></span>&nbsp;{$translations, t('Logs')}</a></li>
             <li><a href="/rest/debug/support" target="_blank"><span class="fa fa-fw fa-user-md"></span>&nbsp;{$translations, t('Support Bundle')}</a></li>
-            <li class="divider"></li>
+            <li class="divider" aria-hidden="true"></li>
             {#if actions.isAuthEnabled()}
               <!-- svelte-ignore a11y_invalid_attribute -->
               <li><a href="#" onclick={(e) => { e.preventDefault(); closeDropdowns(); actions.doLogout(); }}><span class="far fa-fw fa-sign-out"></span>&nbsp;{$translations, t('Log Out')}</a></li>

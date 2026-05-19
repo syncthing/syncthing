@@ -132,6 +132,8 @@
     </div>
   </div>
   <div class="modal-footer">
-    <button type="button" class="btn btn-default" onclick={onclose}>{$translations, t('Close')}</button>
+    <button type="button" class="btn btn-default btn-sm" onclick={onclose}>
+      <span class="fas fa-times"></span>&nbsp;{$translations, t('Close')}
+    </button>
   </div>
 </Modal>
