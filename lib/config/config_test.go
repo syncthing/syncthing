@@ -86,7 +86,7 @@ func TestDefaultValues(t *testing.T) {
 			UnackedNotificationIDs:    []string{"authenticationUserAndPassword"},
 			SetLowPriority:            true,
 			CRURL:                     "https://crash.syncthing.net/newcrash",
-			CREnabled:                 true,
+			CREnabled:                 false,
 			StunKeepaliveStartS:       180,
 			StunKeepaliveMinS:         20,
 			RawStunServers:            []string{"default"},
