@@ -5,57 +5,28 @@
 
   let { device, onclose } = $props();
 
-  let copied = $state(false);
-
-  async function copyID() {
-    const success = await utils.copyToClipboard(device.deviceID);
-    if (success) {
-      copied = true;
-      setTimeout(() => { copied = false; }, 2000);
-    }
+  function copyID(e) {
+    utils.copyToClipboard(device.deviceID);
   }
 </script>
 
-<Modal title={t('Device Identification')} status="info" icon="fas fa-qrcode" {onclose}>
-  <div class="modal-body">
-    <div class="text-center" style="margin-bottom: 15px;">
-      <span class="identicon" style="display:inline-block; width:64px; height:64px;">
-        {@html utils.generateIdenticon(device.deviceID)}
-      </span>
-    </div>
-
-    <div class="form-group">
-      <label>{$translations, t('Device ID')}</label>
-      <div class="input-group">
-        <input type="text" class="form-control" value={device.deviceID} readonly
-          style="font-family: monospace; font-size: 11px;" />
-        <span class="input-group-btn">
-          <button type="button" class="btn btn-default" onclick={copyID} title="{t('Copy')}">
-            <span class="far fa-copy"></span>
+<Modal title="{t('Device Identification')} - {utils.deviceName(device)}" status="info" icon="fas fa-qrcode" large={true} {onclose}>
+  <div class="modal-body text-center">
+    <div class="well well-sm text-monospace select-on-click"><strong>{device.deviceID}</strong></div>
+    {#if device.deviceID}
+      <div>
+        <img class="img-thumbnail" src="/rest/qr/?text={device.deviceID}" height="328" width="328" alt="{t('QR code')}" />
+        <div class="btn-group-vertical" style="vertical-align: top;">
+          <button type="button" class="btn btn-default" onclick={copyID}>
+            <span class="fa fa-lg fa-clone text-left"></span>&nbsp;{$translations, t('Copy')}
           </button>
-        </span>
-      </div>
-    </div>
-
-    {#if device.name}
-      <div class="form-group">
-        <label>{$translations, t('Device Name')}</label>
-        <input type="text" class="form-control" value={device.name} readonly />
+        </div>
       </div>
     {/if}
-
-    <div class="text-center" style="margin-top: 15px;">
-      <p class="text-muted">
-        {copied ? t('Copied!') : t('Share this device ID with others so they can connect to you.')}
-      </p>
-      <div class="btn-group">
-        <button type="button" class="btn btn-default" onclick={copyID}>
-          <span class="far fa-copy"></span>&nbsp;{$translations, t('Copy')}
-        </button>
-      </div>
-    </div>
   </div>
   <div class="modal-footer">
-    <button type="button" class="btn btn-default" onclick={onclose}>{$translations, t('Close')}</button>
+    <button type="button" class="btn btn-default btn-sm" onclick={onclose}>
+      <span class="fas fa-times"></span>&nbsp;{$translations, t('Close')}
+    </button>
   </div>
 </Modal>

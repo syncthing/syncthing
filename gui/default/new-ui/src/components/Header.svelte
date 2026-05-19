@@ -85,7 +85,7 @@
       {/if}
 
       <!-- Language selector dropdown -->
-      <li class="dropdown" class:open={langOpen}>
+      <li class="dropdown" language-select class:open={langOpen}>
         <!-- svelte-ignore a11y_invalid_attribute -->
         <a href="#" class="dropdown-toggle" onclick={(e) => { e.stopPropagation(); toggleDropdown('lang'); }}>
           <span class="fas fa-globe"></span>

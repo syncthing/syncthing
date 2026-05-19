@@ -22,9 +22,18 @@
     if (timer) clearTimeout(timer);
   });
 
+  let facilityPackages = $state({});
+
   async function loadFacilities() {
     try {
-      facilities = await api.getLogLevels();
+      const data = await api.getLogLevels();
+      // API returns either {facilities: {levels, packages}} or flat {key: level}
+      if (data.facilities) {
+        facilities = data.facilities.levels || {};
+        facilityPackages = data.facilities.packages || {};
+      } else {
+        facilities = data;
+      }
     } catch (e) {
       console.error('Error loading log levels:', e);
     }
@@ -73,14 +82,17 @@
     }
   }
 
-  async function toggleFacility(facility) {
-    const newLevel = facilities[facility] === 'debug' ? 'info' : 'debug';
+  let facilitiesUpdating = $state(false);
+
+  async function setFacilityLevel(facility, newLevel) {
+    facilitiesUpdating = true;
     try {
       await api.post('system/log?facility=' + encodeURIComponent(facility) + '&level=' + newLevel);
       facilities = { ...facilities, [facility]: newLevel };
     } catch (e) {
-      console.error('Error toggling facility:', e);
+      console.error('Error setting facility level:', e);
     }
+    facilitiesUpdating = false;
   }
 </script>
 
@@ -118,30 +130,24 @@
       {/if}
 
       {#if activeTab === 'facilities'}
-        <div style="max-height: 400px; overflow-y: auto;">
-          <table class="table table-striped table-condensed">
-            <thead>
+        <label>{$translations, t('Available debug logging facilities:')}</label>
+        <table class="table table-condensed table-striped">
+          <tbody>
+            {#each Object.entries(facilities).sort(([a], [b]) => a.localeCompare(b)) as [facility, level]}
               <tr>
-                <th>{$translations, t('Facility')}</th>
-                <th>{$translations, t('Level')}</th>
+                <td>{facilityPackages[facility] || facility} (<code>{facility}</code>)</td>
+                <td class="form-group">
+                  <select class="form-control" value={level.toUpperCase()} onchange={(e) => setFacilityLevel(facility, e.target.value)} disabled={facilitiesUpdating}>
+                    <option value="DEBUG">{t('Debug')}</option>
+                    <option value="INFO">{t('Info')}</option>
+                    <option value="WARN">{t('Warning')}</option>
+                    <option value="ERROR">{t('Error')}</option>
+                  </select>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {#each Object.entries(facilities).sort(([a], [b]) => a.localeCompare(b)) as [facility, level]}
-                <tr>
-                  <td>{facility}</td>
-                  <td>
-                    <!-- svelte-ignore a11y_invalid_attribute -->
-                    <a href="#" onclick={(e) => { e.preventDefault(); toggleFacility(facility); }}
-                      class={level === 'debug' ? 'text-success' : ''}>
-                      {level}
-                    </a>
-                  </td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
+            {/each}
+          </tbody>
+        </table>
       {/if}
     </div>
   </div>

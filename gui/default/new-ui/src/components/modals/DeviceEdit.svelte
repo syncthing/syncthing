@@ -203,11 +203,21 @@
         {#if !editingDeviceDefaults()}
           <div class="form-group">
             <label for="deviceID">{$translations, t('Device ID')}</label>
-            {#if editingDeviceNew()}
-              <input id="deviceID" class="form-control text-monospace" type="text" bind:value={device.deviceID} />
-            {:else}
-              <div class="well well-sm text-monospace" style="height: auto; word-break: break-all;">{device.deviceID}</div>
-            {/if}
+            <div class="input-group">
+              {#if editingDeviceNew()}
+                <input id="deviceID" class="form-control text-monospace" type="text" bind:value={device.deviceID} />
+              {:else}
+                <div class="well well-sm form-control text-monospace select-on-click" style="height: auto;">{device.deviceID}</div>
+              {/if}
+              <div id="shareDeviceIdButtons" class="input-group-btn">
+                <button type="button" class="btn btn-default" onclick={() => utils.copyToClipboard(device.deviceID)} use:tooltip={t('Copy')}>
+                  <span class="fa fa-lg fa-clone"></span>
+                </button>
+                <button type="button" class="btn btn-default" onclick={() => { if (actions.showDeviceIdentification) actions.showDeviceIdentification(device); }} use:tooltip={t('Show QR')}>
+                  <span class="fa fa-lg fa-qrcode"></span>
+                </button>
+              </div>
+            </div>
             {#if editingDeviceNew()}
               <p class="help-block">
                 {t('The device ID to enter here can be found in the "Actions > Show ID" dialog on the other device. Spaces and dashes are optional (ignored).')}
