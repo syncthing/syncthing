@@ -111,7 +111,7 @@ replace github.com/gobwas/glob v0.2.3 => github.com/calmh/glob v0.0.0-2022061508
 replace github.com/jackpal/gateway v1.1.1 => github.com/marbens-arch/gateway v1.1.2-0.20260308173556-c567cc04e7d4
 
 // https://github.com/mattn/go-sqlite3/pull/1338
-replace github.com/mattn/go-sqlite3 v1.14.44 => github.com/calmh/go-sqlite3 v1.14.35-0.20260509063420-822b4765116d
+replace github.com/mattn/go-sqlite3 v1.14.44 => github.com/calmh/go-sqlite3 v1.14.45-0.20260519105929-5d44f3ff332a
 
 tool (
 	github.com/calmh/xdr/cmd/genxdr
