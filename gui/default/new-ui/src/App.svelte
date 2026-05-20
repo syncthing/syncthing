@@ -86,7 +86,7 @@
   async function saveConfigWithFeedback() {
     const timeout = setTimeout(() => { showSavingModal = true; }, 200);
     try {
-      await saveConfigWithFeedback();
+      await saveConfig();
     } finally {
       clearTimeout(timeout);
       showSavingModal = false;
