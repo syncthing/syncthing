@@ -17,27 +17,20 @@
   let actionsOpen = $state(false);
   let helpOpen = $state(false);
   let langOpen = $state(false);
+  let uiOpen = $state(false);
 
   function toggleDropdown(which) {
-    if (which === 'actions') {
-      actionsOpen = !actionsOpen;
-      helpOpen = false;
-      langOpen = false;
-    } else if (which === 'lang') {
-      langOpen = !langOpen;
-      actionsOpen = false;
-      helpOpen = false;
-    } else {
-      helpOpen = !helpOpen;
-      actionsOpen = false;
-      langOpen = false;
-    }
+    actionsOpen = which === 'actions' ? !actionsOpen : false;
+    helpOpen = which === 'help' ? !helpOpen : false;
+    langOpen = which === 'lang' ? !langOpen : false;
+    uiOpen = which === 'ui' ? !uiOpen : false;
   }
 
   function closeDropdowns() {
     actionsOpen = false;
     helpOpen = false;
     langOpen = false;
+    uiOpen = false;
   }
 
   function getThisDevice() {
@@ -83,6 +76,30 @@
           </button>
         </li>
       {/if}
+
+      <!-- UI switcher dropdown -->
+      <li class="dropdown" class:open={uiOpen}>
+        <!-- svelte-ignore a11y_invalid_attribute -->
+        <a href="#" class="dropdown-toggle" onclick={(e) => { e.stopPropagation(); toggleDropdown('ui'); }}>
+          <svg width="14" height="14" viewBox="0 0 256 308" style="vertical-align: -2px; fill: currentColor;"><path d="M239.682 40.707C211.113-.182 156.674-12.3 115.129 16.076L44.104 59.76c-21.144 14.453-33.963 37.515-34.96 62.883-.692 17.607 5.149 34.73 16.58 48.674a57.874 57.874 0 0 0-7.558 27.282c-.838 25.367 10.507 49.585 30.28 64.647a73.588 73.588 0 0 0 7.559 27.283c28.57 40.889 83.009 53.007 124.554 24.63l71.024-43.682c21.145-14.453 33.964-37.515 34.96-62.883.693-17.607-5.148-34.73-16.58-48.674a57.878 57.878 0 0 0 7.56-27.282c.837-25.368-10.508-49.586-30.281-64.647z"/></svg>
+          <span class="caret"></span>
+        </a>
+        <ul class="dropdown-menu">
+          <li>
+            <a href="/">
+              <svg width="14" height="14" viewBox="0 0 256 272" style="vertical-align: -2px; fill: #dd0031;"><path d="M.1 45.522L125.908.697l129.196 44.028-20.919 166.45-108.277 59.966-106.583-59.169z"/><path d="M255.104 44.725L125.908.697v270.444l108.277-59.866z" fill="#c3002f"/><path d="M126.107 32.274L47.714 206.693l29.285-.498 15.739-39.828h70.325l17.233 40.164 27.79.498zm.2 55.882l26.496 55.383h-49.806z" fill="#fff"/></svg>
+              &nbsp;{$translations, t('Angular (Default)')}
+            </a>
+          </li>
+          <li class="active">
+            <a href="/new-ui/">
+              <svg width="14" height="14" viewBox="0 0 256 308" style="vertical-align: -2px; fill: #ff3e00;"><path d="M239.682 40.707C211.113-.182 156.674-12.3 115.129 16.076L44.104 59.76c-21.144 14.453-33.963 37.515-34.96 62.883-.692 17.607 5.149 34.73 16.58 48.674a57.874 57.874 0 0 0-7.558 27.282c-.838 25.367 10.507 49.585 30.28 64.647a73.588 73.588 0 0 0 7.559 27.283c28.57 40.889 83.009 53.007 124.554 24.63l71.024-43.682c21.145-14.453 33.964-37.515 34.96-62.883.693-17.607-5.148-34.73-16.58-48.674a57.878 57.878 0 0 0 7.56-27.282c.837-25.368-10.508-49.586-30.281-64.647z"/></svg>
+              &nbsp;{$translations, t('Svelte (Experimental)')}
+              &nbsp;<span class="badge">aktiv</span>
+            </a>
+          </li>
+        </ul>
+      </li>
 
       <!-- Language selector dropdown -->
       <li class="dropdown" language-select class:open={langOpen}>
