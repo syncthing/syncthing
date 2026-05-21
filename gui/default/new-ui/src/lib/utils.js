@@ -58,24 +58,49 @@ export function metricFilter(input) {
 
 // ===== Duration formatting =====
 
+import humanizeDuration from './humanize-duration.js';
+import { currentLocale } from './i18n.js';
+
 const SECONDS_IN = { d: 86400, h: 3600, m: 60, s: 1 };
 
 export function durationFilter(input, precision = 's') {
   input = parseInt(input, 10);
   if (isNaN(input)) return '';
 
-  let result = '';
-  for (const k in SECONDS_IN) {
-    const t = Math.floor(input / SECONDS_IN[k]);
-    if (t > 0) {
-      result += (result ? ' ' : '') + t + k;
+  const lang = get(currentLocale) || 'en';
+  const langNorm = lang.replace('-', '_');
+  const fallbacks = [];
+  const langBase = langNorm.substr(0, 2);
+  if (langBase === 'zh') fallbacks.push('zh_TW');
+  if (langBase !== langNorm) fallbacks.push(langBase);
+  fallbacks.push('en');
+
+  const units = ['d', 'h', 'm', 's'];
+  const precIdx = units.indexOf(precision);
+  const activeUnits = precIdx >= 0 ? units.slice(0, precIdx + 1) : units;
+
+  try {
+    return humanizeDuration(input * 1000, {
+      language: langNorm,
+      maxDecimalPoints: 0,
+      units: activeUnits,
+      fallbacks: fallbacks
+    });
+  } catch (e) {
+    // Fallback to English abbreviations
+    let result = '';
+    for (const k in SECONDS_IN) {
+      const t = Math.floor(input / SECONDS_IN[k]);
+      if (t > 0) {
+        result += (result ? ' ' : '') + t + k;
+      }
+      if (precision === k) {
+        return result || '<1' + k;
+      }
+      input %= SECONDS_IN[k];
     }
-    if (precision === k) {
-      return result || '<1' + k;
-    }
-    input %= SECONDS_IN[k];
+    return result || '0s';
   }
-  return result || '0s';
 }
 
 // ===== Percent formatting =====

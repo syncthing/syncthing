@@ -33,7 +33,7 @@
 
   function getEntries(obj) {
     if (!obj) return [];
-    return Object.entries(obj).filter(([k, v]) => inputTypeFor(k, v) !== 'skip');
+    return Object.entries(obj).filter(([k, v]) => inputTypeFor(k, v) !== 'skip').sort((a, b) => a[0].localeCompare(b[0]));
   }
 
   async function saveAdvanced() {
@@ -69,7 +69,7 @@
                   </label>
                   <div class="col-sm-8">
                     {#if typeof value === 'boolean'}
-                      <input class="form-control" type="checkbox" bind:checked={advancedConfig.gui[key]} />
+                      <input type="checkbox" style="margin-top: 9px;" bind:checked={advancedConfig.gui[key]} />
                     {:else if typeof value === 'number'}
                       <input class="form-control" type="number" bind:value={advancedConfig.gui[key]} />
                     {:else if Array.isArray(value)}
@@ -100,7 +100,7 @@
                   </label>
                   <div class="col-sm-8">
                     {#if typeof value === 'boolean'}
-                      <input class="form-control" type="checkbox" bind:checked={advancedConfig.options[key]} />
+                      <input type="checkbox" style="margin-top: 9px;" bind:checked={advancedConfig.options[key]} />
                     {:else if typeof value === 'number'}
                       <input class="form-control" type="number" bind:value={advancedConfig.options[key]} />
                     {:else if Array.isArray(value)}
@@ -132,7 +132,7 @@
                     </label>
                     <div class="col-sm-8">
                       {#if typeof value === 'boolean'}
-                        <input class="form-control" type="checkbox" bind:checked={advancedConfig.ldap[key]} />
+                        <input type="checkbox" style="margin-top: 9px;" bind:checked={advancedConfig.ldap[key]} />
                       {:else if typeof value === 'number'}
                         <input class="form-control" type="number" bind:value={advancedConfig.ldap[key]} />
                       {:else}
@@ -171,7 +171,7 @@
                           </label>
                           <div class="col-sm-8">
                             {#if typeof value === 'boolean'}
-                              <input class="form-control" type="checkbox" bind:checked={advancedConfig.folders[fi][key]} />
+                              <input type="checkbox" style="margin-top: 9px;" bind:checked={advancedConfig.folders[fi][key]} />
                             {:else if typeof value === 'number'}
                               <input class="form-control" type="number" bind:value={advancedConfig.folders[fi][key]} />
                             {:else if Array.isArray(value)}
@@ -215,7 +215,7 @@
                           </label>
                           <div class="col-sm-8">
                             {#if typeof value === 'boolean'}
-                              <input class="form-control" type="checkbox" bind:checked={advancedConfig.devices[di][key]} />
+                              <input type="checkbox" style="margin-top: 9px;" bind:checked={advancedConfig.devices[di][key]} />
                             {:else if typeof value === 'number'}
                               <input class="form-control" type="number" bind:value={advancedConfig.devices[di][key]} />
                             {:else if Array.isArray(value)}
@@ -255,7 +255,7 @@
                           <label class="col-sm-4 control-label">{uncamel(key)}</label>
                           <div class="col-sm-8">
                             {#if typeof value === 'boolean'}
-                              <input class="form-control" type="checkbox" bind:checked={advancedConfig.defaults.folder[key]} />
+                              <input type="checkbox" style="margin-top: 9px;" bind:checked={advancedConfig.defaults.folder[key]} />
                             {:else if typeof value === 'number'}
                               <input class="form-control" type="number" bind:value={advancedConfig.defaults.folder[key]} />
                             {:else}
@@ -280,7 +280,7 @@
                           <label class="col-sm-4 control-label">{uncamel(key)}</label>
                           <div class="col-sm-8">
                             {#if typeof value === 'boolean'}
-                              <input class="form-control" type="checkbox" bind:checked={advancedConfig.defaults.device[key]} />
+                              <input type="checkbox" style="margin-top: 9px;" bind:checked={advancedConfig.defaults.device[key]} />
                             {:else if typeof value === 'number'}
                               <input class="form-control" type="number" bind:value={advancedConfig.defaults.device[key]} />
                             {:else}
