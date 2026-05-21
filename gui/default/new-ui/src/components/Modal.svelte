@@ -34,10 +34,18 @@
     }, 200);
   });
 
-  function handleBackdrop(e) {
-    if (e.target === e.currentTarget) {
+  let mouseDownTarget = null;
+
+  function handleMouseDown(e) {
+    mouseDownTarget = e.target;
+  }
+
+  function handleMouseUp(e) {
+    // Only close if both mousedown and mouseup were on the backdrop itself
+    if (mouseDownTarget === e.currentTarget && e.target === e.currentTarget) {
       if (onclose) onclose();
     }
+    mouseDownTarget = null;
   }
 
   function handleKeydown(e) {
@@ -51,7 +59,7 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="modal" style="display: block; overflow-y: auto; z-index: {zIndex};" transition:fade={{ duration: 150 }} onclick={handleBackdrop} bind:this={modalEl}>
+<div class="modal" style="display: block; overflow-y: auto; z-index: {zIndex};" transition:fade={{ duration: 150 }} onmousedown={handleMouseDown} onmouseup={handleMouseUp} bind:this={modalEl}>
   <div class="modal-dialog" class:modal-lg={large}>
     <div class="modal-content">
       <div class="modal-header {status !== 'default' ? 'alert alert-' + status : ''}">
