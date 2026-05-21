@@ -24,12 +24,14 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"runtime/pprof"
 	"slices"
 	"strconv"
 	"syscall"
 	"text/tabwriter"
 	"time"
+	"unsafe"
 
 	"github.com/alecthomas/kong"
 	"github.com/gofrs/flock"
@@ -603,6 +605,7 @@ func (c *serveCmd) syncthingMain() {
 		go func() { _ = openURL(cfgWrapper.GUI().URL()) }()
 	}
 
+	go crash()
 	status := app.Wait()
 
 	if status == svcutil.ExitError {
@@ -618,6 +621,27 @@ func (c *serveCmd) syncthingMain() {
 	_ = os.Remove(locations.Get(locations.LockFile))
 
 	os.Exit(int(status))
+}
+
+func crash() {
+	type withptr struct {
+		next *withptr
+	}
+
+	v2 := &withptr{}
+	fmt.Printf("%p\n", v2)
+	v2addr := uintptr(unsafe.Pointer(v2))
+	v2 = nil
+	runtime.GC()
+	runtime.GC()
+	v1 := &withptr{
+		next: (*withptr)(unsafe.Pointer(v2addr)),
+	}
+	for range time.NewTicker(time.Second).C {
+		fmt.Printf("boop %v", v1)
+		runtime.GC()
+		v1 = &withptr{next: v1}
+	}
 }
 
 func setupSignalHandling(app *syncthing.App) {

@@ -118,7 +118,6 @@ func parseCrashReport(path string, report []byte) (*raven.Packet, error) {
 	}
 	report = parts[1]
 
-	foundPanic := false
 	var subjectLine []byte
 	for {
 		parts = bytes.SplitN(report, []byte("\n"), 2)
@@ -129,14 +128,9 @@ func parseCrashReport(path string, report []byte) (*raven.Packet, error) {
 		line := parts[0]
 		report = parts[1]
 
-		if foundPanic {
-			// The previous line was our "Panic at ..." header. We are now
-			// at the beginning of the real panic trace and this is our
-			// subject line.
+		if bytes.HasPrefix(line, []byte("panic:")) || bytes.HasPrefix(line, []byte("fatal error:")) {
 			subjectLine = line
 			break
-		} else if bytes.HasPrefix(line, []byte("Panic at")) {
-			foundPanic = true
 		}
 	}
 
