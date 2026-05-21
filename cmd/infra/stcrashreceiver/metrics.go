@@ -37,4 +37,9 @@ var (
 		Subsystem: "crashreceiver",
 		Name:      "diskstore_oldest_age_seconds",
 	})
+	metricSentryReportsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "syncthing",
+		Subsystem: "crashreceiver",
+		Name:      "sentry_reports_total",
+	}, []string{"result"})
 )
