@@ -47,4 +47,14 @@ var (
 		Subsystem: "crashreceiver",
 		Name:      "ignore_matches_total",
 	}, []string{"pattern"})
+	metricSourceCodeLoadsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "syncthing",
+		Subsystem: "crashreceiver",
+		Name:      "source_code_loads_total",
+	}, []string{"result"})
+	metricSourceCodeCacheSize = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "syncthing",
+		Subsystem: "crashreceiver",
+		Name:      "source_code_cache_size",
+	})
 )
