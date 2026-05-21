@@ -199,12 +199,21 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 //
 // This is based on os.MkdirAll with our srcFs adjustments.
 func dupDirTree(srcFs, dstFs fs.Filesystem, path string) error {
+	const (
+		allPerms    = 0o777
+		minDirPerms = 0o700
+	)
+
 	// Fast path: if we can tell whether path is a directory or file, stop with success or error.
 	if dir, err := dstFs.Lstat(path); err == nil {
-		if dir.IsDir() {
-			return nil
+		if !dir.IsDir() {
+			return errors.New("destination exists but is not a directory")
 		}
-		return errors.New("destination exists but is not a directory")
+		if dir.Mode()&minDirPerms != minDirPerms {
+			// We want all the required permission bits set
+			_ = dstFs.Chmod(path, dir.Mode()&allPerms|minDirPerms)
+		}
+		return nil
 	}
 
 	// Slow path: make sure parent exists and then call Mkdir for path.
@@ -232,9 +241,9 @@ func dupDirTree(srcFs, dstFs fs.Filesystem, path string) error {
 	}
 
 	// Parent now exists; invoke Mkdir and use its result.
-	srcPerms := fs.FileMode(0o700)
+	srcPerms := fs.FileMode(minDirPerms)
 	if srcDir, err := srcFs.Lstat(path); err == nil {
-		srcPerms = srcDir.Mode()&0o777 | 0o700
+		srcPerms = srcDir.Mode()&allPerms | minDirPerms
 	}
 	if err := dstFs.Mkdir(path, srcPerms); err != nil {
 		// Handle arguments like "foo/." by
