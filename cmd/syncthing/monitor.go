@@ -233,7 +233,7 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 
 		dst.Write([]byte(line))
 
-		if panicFd == nil && (strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:")) {
+		if panicFd == nil && (strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") || strings.HasPrefix("runtime:", line)) {
 			panicFd, err = os.Create(locations.GetTimestamped(locations.PanicLog))
 			if err != nil {
 				slog.Error("Failed to create panic log", slogutil.Error(err))
