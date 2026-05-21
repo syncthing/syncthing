@@ -193,9 +193,14 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 }
 
 // dupDirTree ensures folderPath exists in dstFs, copying permissions mostly
-// from srcFs. Permissions are altered to have the user read, write and
-// execute bits set, so that Syncthing file operations are possible within
+// from srcFs. Permissions are altered to have the user read, write, and
+// execute bits set so that Syncthing file operations are possible within
 // the destination directory.
+//
+// We want to retain the source group and other bits so that we do not
+// inadvertently open up a directory for users who shouldn't have access to
+// it, but we do not consider it a security issue to open up the permissions
+// for the current user.
 //
 // This is based on os.MkdirAll with our srcFs adjustments.
 func dupDirTree(srcFs, dstFs fs.Filesystem, path string) error {
