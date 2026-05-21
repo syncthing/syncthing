@@ -90,6 +90,7 @@ func (r *crashReceiver) servePut(reportID string, w http.ResponseWriter, req *ht
 	first := string(bytes.TrimSpace(bytes.Split(bs, []byte("\n"))[0]))
 
 	if pat, ok := r.ignore.match(bs); ok {
+		metricIgnoreMatchesTotal.WithLabelValues(pat).Inc()
 		result = "ignored"
 		log.Printf("Ignored report %s, matched: %s (%s)", reportID[:8], pat, first)
 		return

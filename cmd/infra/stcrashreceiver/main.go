@@ -123,7 +123,8 @@ func handleFailureFn(dsn, failureDir string, ignore *ignorePatterns) func(w http
 			return
 		}
 
-		if _, ok := ignore.match(bs); ok {
+		if pat, ok := ignore.match(bs); ok {
+			metricIgnoreMatchesTotal.WithLabelValues(pat).Inc()
 			result = "ignored"
 			return
 		}

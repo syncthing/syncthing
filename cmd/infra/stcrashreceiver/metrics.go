@@ -42,4 +42,9 @@ var (
 		Subsystem: "crashreceiver",
 		Name:      "sentry_reports_total",
 	}, []string{"result"})
+	metricIgnoreMatchesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "syncthing",
+		Subsystem: "crashreceiver",
+		Name:      "ignore_matches_total",
+	}, []string{"pattern"})
 )
