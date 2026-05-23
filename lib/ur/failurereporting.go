@@ -23,6 +23,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/svcutil"
 	"github.com/syncthing/syncthing/lib/tlsutil"
+	"github.com/syncthing/syncthing/lib/ur/contract"
 
 	"github.com/thejerf/suture/v4"
 )
@@ -39,23 +40,10 @@ var (
 	invalidEventDataType = "failure event data is not a string"
 )
 
-type FailureReport struct {
-	FailureData
-
-	Count   int
-	Version string
-}
-
-type FailureData struct {
-	Description string
-	Goroutines  string
-	Extra       map[string]string
-}
-
-func FailureDataWithGoroutines(description string) FailureData {
+func FailureDataWithGoroutines(description string) contract.FailureData {
 	var buf strings.Builder
 	pprof.Lookup("goroutine").WriteTo(&buf, 1)
-	return FailureData{
+	return contract.FailureData{
 		Description: description,
 		Goroutines:  buf.String(),
 		Extra:       make(map[string]string),
@@ -86,7 +74,7 @@ type failureHandler struct {
 type failureStat struct {
 	first, last time.Time
 	count       int
-	data        FailureData
+	data        contract.FailureData
 }
 
 func (h *failureHandler) Serve(ctx context.Context) error {
@@ -105,24 +93,24 @@ func (h *failureHandler) Serve(ctx context.Context) error {
 			if !ok {
 				// Just to be safe - shouldn't ever happen, as
 				// evChan is set to nil when unsubscribing.
-				h.addReport(FailureData{Description: evChanClosed}, time.Now())
+				h.addReport(contract.FailureData{Description: evChanClosed}, time.Now())
 				evChan = nil
 				continue
 			}
-			var data FailureData
+			var data contract.FailureData
 			switch d := e.Data.(type) {
 			case string:
 				data.Description = d
-			case FailureData:
+			case contract.FailureData:
 				data = d
 			default:
 				// Same here, shouldn't ever happen.
-				h.addReport(FailureData{Description: invalidEventDataType}, time.Now())
+				h.addReport(contract.FailureData{Description: invalidEventDataType}, time.Now())
 				continue
 			}
 			h.addReport(data, e.Time)
 		case <-timer.C:
-			reports := make([]FailureReport, 0, len(h.buf))
+			reports := make([]contract.FailureReport, 0, len(h.buf))
 			now := time.Now()
 			for descr, stat := range h.buf {
 				if now.Sub(stat.last) > minDelay || now.Sub(stat.first) > maxDelay {
@@ -152,7 +140,7 @@ func (h *failureHandler) Serve(ctx context.Context) error {
 	if sub != nil {
 		sub.Unsubscribe()
 		if len(h.buf) > 0 {
-			reports := make([]FailureReport, 0, len(h.buf))
+			reports := make([]contract.FailureReport, 0, len(h.buf))
 			for _, stat := range h.buf {
 				reports = append(reports, newFailureReport(stat))
 			}
@@ -179,7 +167,7 @@ func (h *failureHandler) applyOpts(opts config.OptionsConfiguration, sub events.
 	return url, nil, nil
 }
 
-func (h *failureHandler) addReport(data FailureData, evTime time.Time) {
+func (h *failureHandler) addReport(data contract.FailureData, evTime time.Time) {
 	if stat, ok := h.buf[data.Description]; ok {
 		stat.last = evTime
 		stat.count++
@@ -204,7 +192,7 @@ func (*failureHandler) String() string {
 	return "FailureHandler"
 }
 
-func sendFailureReports(ctx context.Context, reports []FailureReport, url string) {
+func sendFailureReports(ctx context.Context, reports []contract.FailureReport, url string) {
 	var b bytes.Buffer
 	if err := json.NewEncoder(&b).Encode(reports); err != nil {
 		panic(err)
@@ -235,8 +223,8 @@ func sendFailureReports(ctx context.Context, reports []FailureReport, url string
 	resp.Body.Close()
 }
 
-func newFailureReport(stat *failureStat) FailureReport {
-	return FailureReport{
+func newFailureReport(stat *failureStat) contract.FailureReport {
+	return contract.FailureReport{
 		FailureData: stat.data,
 		Count:       stat.count,
 		Version:     build.LongVersion,

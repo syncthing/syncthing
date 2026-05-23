@@ -22,6 +22,7 @@ jobs:
     if: github.repository_owner == 'syncthing'
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         pkg:
           - stcrashreceiver
