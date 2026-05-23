@@ -20,7 +20,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/ur"
+	"github.com/syncthing/syncthing/lib/ur/contract"
 )
 
 type indexHandler struct {
@@ -470,7 +470,7 @@ func (s *indexHandler) logSequenceAnomaly(msg string, extra map[string]any) {
 		extraStrs[k] = fmt.Sprint(v)
 	}
 
-	s.evLogger.Log(events.Failure, ur.FailureData{
+	s.evLogger.Log(events.Failure, contract.FailureData{
 		Description: msg,
 		Extra:       extraStrs,
 	})

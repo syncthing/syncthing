@@ -282,3 +282,16 @@ func clear(v interface{}, since int) error {
 	}
 	return nil
 }
+
+type FailureReport struct {
+	FailureData
+
+	Count   int
+	Version string
+}
+
+type FailureData struct {
+	Description string
+	Goroutines  string
+	Extra       map[string]string
+}
