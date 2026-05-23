@@ -20,6 +20,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -89,6 +90,7 @@ func main() {
 	if params.MetricsListen != "" {
 		mmux := http.NewServeMux()
 		mmux.Handle("/metrics", promhttp.Handler())
+		mmux.HandleFunc("/debug/pprof/", pprof.Index)
 		go func() {
 			if err := http.ListenAndServe(params.MetricsListen, mmux); err != nil {
 				log.Fatalln("HTTP serve metrics:", err)
