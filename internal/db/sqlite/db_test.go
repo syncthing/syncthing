@@ -13,7 +13,6 @@ import (
 	"errors"
 	"iter"
 	"os"
-	"path"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -1168,7 +1167,7 @@ func TestOpenSpecialName(t *testing.T) {
 
 	// Create a "base" dir that is in the way if the path becomes
 	// incorrectly truncated in the next steps.
-	base := path.Join(dir, "test")
+	base := filepath.Join(dir, "test")
 	if err := os.Mkdir(base, 0o755); err != nil {
 		t.Fatal(err)
 	}
