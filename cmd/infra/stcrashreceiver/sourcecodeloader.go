@@ -66,8 +66,8 @@ func (l *githubSourceCodeLoader) Load(filename string, line, context int) ([][]b
 			metricSourceCodeCacheSize.Set(float64(l.cache.Len()))
 		}()
 
-		knownPrefixes := []string{"/lib/", "/cmd/"}
-		var idx int
+		knownPrefixes := []string{"/lib/", "/cmd/", "/internal/"}
+		idx := -1
 		for _, pref := range knownPrefixes {
 			idx = strings.Index(filename, pref)
 			if idx >= 0 {
