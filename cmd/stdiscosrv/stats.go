@@ -7,6 +7,8 @@
 package main
 
 import (
+	"net/http"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -113,14 +115,11 @@ var (
 )
 
 const (
-	dbOpGet             = "get"
-	dbOpPut             = "put"
-	dbOpMerge           = "merge"
-	dbOpDelete          = "delete"
-	dbResSuccess        = "success"
-	dbResNotFound       = "not_found"
-	dbResError          = "error"
-	dbResUnmarshalError = "unmarsh_err"
+	dbOpGet       = "get"
+	dbOpPut       = "put"
+	dbOpMerge     = "merge"
+	dbResSuccess  = "success"
+	dbResNotFound = "not_found"
 )
 
 func init() {
@@ -132,4 +131,24 @@ func init() {
 		databaseOperations, databaseOperationSeconds,
 		databaseWriteSeconds, databaseLastWritten,
 		retryAfterLevel)
+
+	// Prewarm important counters so they're available with zero values at
+	// startup
+
+	apiRequestsTotal.WithLabelValues(http.MethodGet, "200")
+	apiRequestsTotal.WithLabelValues(http.MethodGet, "404")
+	apiRequestsTotal.WithLabelValues(http.MethodPost, "204")
+	apiRequestsTotal.WithLabelValues(http.MethodPost, "400")
+	apiRequestsTotal.WithLabelValues(http.MethodPost, "403")
+
+	lookupRequestsTotal.WithLabelValues("success")
+	lookupRequestsTotal.WithLabelValues("not_found_ever")
+	lookupRequestsTotal.WithLabelValues("not_found_recent")
+
+	announceRequestsTotal.WithLabelValues("success")
+	announceRequestsTotal.WithLabelValues("bad_request")
+	announceRequestsTotal.WithLabelValues("no_certificate")
+
+	replicationSendsTotal.WithLabelValues("success")
+	replicationRecvsTotal.WithLabelValues("success")
 }
