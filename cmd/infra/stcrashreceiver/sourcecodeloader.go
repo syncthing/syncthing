@@ -85,13 +85,13 @@ func (l *githubSourceCodeLoader) Load(filename string, line, context int) ([][]b
 			metricSourceCodeLoadsTotal.WithLabelValues("failed").Inc()
 			return nil, 0
 		}
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			fmt.Println("Loading source:", resp.Status)
 			metricSourceCodeLoadsTotal.WithLabelValues("failed").Inc()
 			return nil, 0
 		}
 		data, err := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
 		if err != nil {
 			fmt.Println("Loading source:", err.Error())
 			metricSourceCodeLoadsTotal.WithLabelValues("failed").Inc()
