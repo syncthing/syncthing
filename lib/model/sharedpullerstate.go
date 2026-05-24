@@ -13,8 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/protobuf/proto"
-
 	"github.com/syncthing/syncthing/internal/protoutil"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -405,7 +403,7 @@ func writeEncryptionTrailer(file protocol.FileInfo, writer io.WriterAt) (int64, 
 }
 
 func encryptionTrailerSize(file protocol.FileInfo) int64 {
-	return int64(proto.Size(file.ToWire(false))) + 4 // XXX: Inefficient
+	return int64(file.WireSize(false)) + 4
 }
 
 // Progress returns the momentarily progress for the puller

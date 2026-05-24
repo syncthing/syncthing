@@ -12,12 +12,68 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+func TestFileInfoWireSizeMatchesProtoSize(t *testing.T) {
+	cases := []FileInfo{
+		{},
+		{
+			Name:      "file.txt",
+			Size:      12345,
+			ModifiedS: 1710000000,
+			Sequence:  7,
+			Version: Vector{Counters: []Counter{
+				{ID: 1, Value: 10},
+				{ID: 2, Value: 20},
+			}},
+			Blocks: []BlockInfo{
+				{Offset: 0, Size: 128 << 10, Hash: make([]byte, 32)},
+				{Offset: 128 << 10, Size: 128 << 10, Hash: make([]byte, 32)},
+			},
+			Permissions:  0o644,
+			ModifiedNs:   123456789,
+			RawBlockSize: 128 << 10,
+			BlocksHash:   make([]byte, 32),
+			Platform: PlatformData{
+				Unix: &UnixData{
+					OwnerName: "alice",
+					GroupName: "staff",
+					UID:       1000,
+					GID:       1000,
+				},
+				Linux: &XattrData{
+					Xattrs: []Xattr{
+						{Name: "user.comment", Value: []byte("hello")},
+					},
+				},
+			},
+		},
+		{
+			Name:                  "link",
+			Type:                  FileInfoTypeSymlink,
+			SymlinkTarget:         []byte("../dst"),
+			LocalFlags:            FlagLocalIgnored | FlagLocalMustRescan,
+			EncryptionTrailerSize: 42,
+			Deleted:               true,
+			NoPermissions:         true,
+		},
+	}
+
+	for _, tc := range cases {
+		for _, withInternalFields := range []bool{false, true} {
+			got := tc.WireSize(withInternalFields)
+			want := proto.Size(tc.ToWire(withInternalFields))
+			if got != want {
+				t.Fatalf("WireSize(%v)=%d != proto.Size=%d for %#v", withInternalFields, got, want, tc)
+			}
+		}
+	}
+}
+
 func BenchmarkFileInfoSize(b *testing.B) {
 	fi := benchmarkFileInfo()
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = proto.Size(fi.ToWire(true))
+		_ = fi.WireSize(true)
 	}
 }
 
