@@ -592,6 +592,34 @@ func TestRequestMaxSize(t *testing.T) {
 	}
 }
 
+func TestRequestZeroSize(t *testing.T) {
+	// A zero-sized request should be accepted, since current versions of
+	// Syncthing send these. See https://github.com/syncthing/syncthing/issues/10709.
+	m := newTestModel()
+	rw := testutil.NewBlockingRW()
+	c := getRawConnection(NewConnection(c0ID, rw, &testutil.NoopRW{}, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, testKeyGen))
+	c.Start()
+	defer closeAndWait(c, rw)
+
+	c.inbox <- &bep.ClusterConfig{}
+	c.inbox <- &bep.Request{
+		Id:   1,
+		Name: "valid",
+		Size: 0,
+	}
+
+	select {
+	case res := <-c.outbox:
+		if msg, ok := res.msg.(*bep.Response); !ok || msg.Id != 1 {
+			t.Errorf("bad response %#v", msg)
+		}
+	case <-c.dispatcherLoopStopped:
+		t.Fatal("dispatcher loop terminated, expected zero-sized request to be accepted")
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for response")
+	}
+}
+
 func TestRequestInvalidFilename(t *testing.T) {
 	m := newTestModel()
 	rw := testutil.NewBlockingRW()
