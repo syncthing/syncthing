@@ -1345,6 +1345,12 @@ func (f *sendReceiveFolder) copierRoutine(ctx context.Context, in <-chan copyBlo
 			default:
 			}
 
+			if block.Size == 0 {
+				// Copying zero bytes is a no-op.
+				state.copyDone(block)
+				continue
+			}
+
 			if !f.DisableSparseFiles && state.reused == 0 && block.IsEmpty() {
 				// The block is a block of all zeroes, and we are not reusing
 				// a temp file, so there is no need to do anything with it.
@@ -1533,6 +1539,13 @@ func (f *sendReceiveFolder) pullerRoutine(ctx context.Context, in <-chan pullBlo
 		// themselves.
 
 		bytes := state.block.Size
+
+		if bytes == 0 {
+			// Pulling zero bytes is a no-op.
+			state.pullDone(state.block)
+			out <- state.sharedPullerState
+			continue
+		}
 
 		if err := requestLimiter.TakeWithContext(ctx, bytes); err != nil {
 			state.fail(err)

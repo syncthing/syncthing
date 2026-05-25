@@ -891,7 +891,7 @@ func TestPullCtxCancel(t *testing.T) {
 	emptyState := func() pullBlockState {
 		return pullBlockState{
 			sharedPullerState: newSharedPullerState(protocol.FileInfo{}, nil, f.folderID, "", nil, nil, false, false, protocol.FileInfo{}, false, false),
-			block:             protocol.BlockInfo{},
+			block:             protocol.BlockInfo{Size: 42},
 		}
 	}
 
