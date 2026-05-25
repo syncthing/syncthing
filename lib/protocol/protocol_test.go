@@ -544,7 +544,7 @@ func TestDispatcherToCloseDeadlock(t *testing.T) {
 }
 
 func TestRequestMaxSize(t *testing.T) {
-	invalidSize := []int{-65536, 0, MaxRequestSize + 1}
+	invalidSize := []int{-65536, -1, MaxRequestSize + 1}
 	for _, s := range invalidSize {
 		t.Run(fmt.Sprintf("invalid/%d", s), func(t *testing.T) {
 			m := newTestModel()
