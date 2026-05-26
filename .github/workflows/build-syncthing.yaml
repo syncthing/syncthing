@@ -1012,6 +1012,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
     needs:
       - facts
     env:
@@ -1115,6 +1116,7 @@ jobs:
           mv bin/* script ctx
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: ctx
@@ -1125,6 +1127,22 @@ jobs:
           labels: |
             org.opencontainers.image.version=${{ env.VERSION }}
             org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Install Cosign
+        if: github.event_name == 'push'
+        uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
+
+      - name: Sign image
+        if: github.event_name == 'push'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          IFS="," read -ra tags <<< $DOCKER_TAGS
+          images=""
+          for tag in ${tags[@]}; do
+            images+="${tag}@${DIGEST} "
+          done
+          cosign sign --yes --recursive ${images}
 
   #
   # Sync images to Docker hub. This takes the images already pushed to GHCR

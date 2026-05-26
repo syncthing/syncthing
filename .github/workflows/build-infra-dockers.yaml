@@ -15,6 +15,7 @@ env:
 permissions:
   contents: read
   packages: write
+  id-token: write
 
 jobs:
   docker-syncthing:
@@ -30,11 +31,11 @@ jobs:
           - stupgrades
           - ursrv
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # was: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # was: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
@@ -77,6 +78,7 @@ jobs:
           echo "TAGS=$tags" >> $GITHUB_ENV
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: .
@@ -86,3 +88,11 @@ jobs:
           tags: ${{ env.TAGS }}
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Install Cosign
+        if: github.ref == 'refs/heads/infrastructure'
+        uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
+
+      - name: Sign image
+        if: github.ref == 'refs/heads/infrastructure'
+        run: cosign sign --yes --recursive ghcr.io/syncthing/infra/${{ matrix.pkg }}:latest@${{ steps.build.outputs.digest }}
