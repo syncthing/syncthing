@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net"
 	"net/url"
+	"slices"
 	"sync"
 	"time"
 
@@ -185,9 +186,10 @@ func (t *tcpListener) WANAddresses() []*url.URL {
 
 	t.mut.RUnlock()
 
-	// If we support ReusePort, add an unspecified zero port address, which will be resolved by the discovery server
-	// in hopes that TCP punch through works.
-	if dialer.SupportsReusePort {
+	// If we support ReusePort, and we are already announcing an unspecified
+	// address, add an unspecified zero port address, which will be resolved
+	// by the discovery server in hopes that TCP punch through works.
+	if dialer.SupportsReusePort && slices.ContainsFunc(uris, func(u *url.URL) bool { return u.Hostname() == "0.0.0.0" }) {
 		uri := *t.uri
 		uri.Host = "0.0.0.0:0"
 		uris = append([]*url.URL{&uri}, uris...)

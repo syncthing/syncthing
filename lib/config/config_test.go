@@ -126,6 +126,7 @@ func TestDefaultValues(t *testing.T) {
 					MaxSingleEntrySize: 1024,
 					MaxTotalSize:       4096,
 				},
+				BlockIndexing: true,
 			},
 			Device: DeviceConfiguration{
 				Addresses:       []string{"dynamic"},
@@ -204,6 +205,7 @@ func TestDeviceConfig(t *testing.T) {
 					MaxTotalSize:       4096,
 					Entries:            []XattrFilterEntry{},
 				},
+				BlockIndexing: true,
 			},
 		}
 
@@ -783,6 +785,32 @@ func TestGUIConfigURL(t *testing.T) {
 		if u != tc[1] {
 			t.Errorf("Incorrect URL %s != %s for addr %s", u, tc[1], tc[0])
 		}
+	}
+}
+
+func TestGUISessionCookiePathPrepare(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		in   string
+		out  string
+	}{
+		{name: "empty stays empty", in: "", out: ""},
+		{name: "already rooted", in: " /gui ", out: "/gui"},
+		{name: "needs slash", in: "gui", out: "/gui"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			c := GUIConfiguration{SessionCookiePath: tc.in}
+			c.prepare()
+			if c.SessionCookiePath != tc.out {
+				t.Fatalf("unexpected path %q != %q", c.SessionCookiePath, tc.out)
+			}
+		})
 	}
 }
 

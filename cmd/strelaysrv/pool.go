@@ -4,7 +4,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"io"
 	"log"
@@ -17,7 +16,7 @@ const (
 	httpStatusEnhanceYourCalm = 429
 )
 
-func poolHandler(pool string, uri *url.URL, mapping mapping, ownCert tls.Certificate) {
+func poolHandler(pool string, uri *url.URL, mapping mapping) {
 	if debug {
 		log.Println("Joining", pool)
 	}
@@ -32,24 +31,7 @@ func poolHandler(pool string, uri *url.URL, mapping mapping, ownCert tls.Certifi
 			uriCopy.String(),
 		})
 
-		poolUrl, err := url.Parse(pool)
-		if err != nil {
-			log.Printf("Could not parse pool url '%s': %v", pool, err)
-		}
-
-		client := http.DefaultClient
-		if poolUrl.Scheme == "https" {
-			// Sent our certificate in join request
-			client = &http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{
-						Certificates: []tls.Certificate{ownCert},
-					},
-				},
-			}
-		}
-
-		resp, err := client.Post(pool, "application/json", &b)
+		resp, err := httpClient.Post(pool, "application/json", &b) //nolint:noctx
 		if err != nil {
 			log.Printf("Error joining pool %v: HTTP request: %v", pool, err)
 			time.Sleep(time.Minute)

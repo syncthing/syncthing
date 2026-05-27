@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: '42 3 * * 1'
 
+permissions:
+  contents: write
+
 jobs:
 
   update_transifex_docs:

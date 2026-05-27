@@ -15,7 +15,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"path"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -77,7 +77,7 @@ func newInMemoryStore(dir string, flushInterval time.Duration, blobs blob.Store)
 			slog.Error("Failed to find database in blob storage", "error", cerr)
 			return s
 		}
-		fd, cerr := os.Create(path.Join(s.dir, "records.db"))
+		fd, cerr := os.Create(filepath.Join(s.dir, "records.db"))
 		if cerr != nil {
 			slog.Error("Failed to create database file", "error", cerr)
 			return s
@@ -257,7 +257,7 @@ func (s *inMemoryStore) write() (err error) {
 		}
 	}()
 
-	dbf := path.Join(s.dir, "records.db")
+	dbf := filepath.Join(s.dir, "records.db")
 	fd, err := os.Create(dbf + ".tmp")
 	if err != nil {
 		return err
@@ -340,7 +340,7 @@ func (s *inMemoryStore) write() (err error) {
 }
 
 func (s *inMemoryStore) read() (int, error) {
-	fd, err := os.Open(path.Join(s.dir, "records.db"))
+	fd, err := os.Open(filepath.Join(s.dir, "records.db"))
 	if err != nil {
 		return 0, err
 	}

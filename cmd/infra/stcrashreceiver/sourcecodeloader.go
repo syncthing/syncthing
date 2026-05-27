@@ -15,23 +15,33 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	lru "github.com/hashicorp/golang-lru/v2"
 )
 
 const (
-	urlPrefix   = "https://raw.githubusercontent.com/syncthing/syncthing/"
-	httpTimeout = 10 * time.Second
+	urlPrefix       = "https://raw.githubusercontent.com/syncthing/syncthing/"
+	httpTimeout     = 10 * time.Second
+	maxCacheEntries = 1000
 )
+
+type cacheKey struct {
+	version string
+	file    string
+}
 
 type githubSourceCodeLoader struct {
 	mut     sync.Mutex
 	version string
-	cache   map[string]map[string][][]byte // version -> file -> lines
-	client  *http.Client
+
+	cache  *lru.TwoQueueCache[cacheKey, [][]byte] // version & file -> lines
+	client *http.Client
 }
 
 func newGithubSourceCodeLoader() *githubSourceCodeLoader {
+	cache, _ := lru.New2Q[cacheKey, [][]byte](maxCacheEntries)
 	return &githubSourceCodeLoader{
-		cache:  make(map[string]map[string][][]byte),
+		cache:  cache,
 		client: &http.Client{Timeout: httpTimeout},
 	}
 }
@@ -39,9 +49,6 @@ func newGithubSourceCodeLoader() *githubSourceCodeLoader {
 func (l *githubSourceCodeLoader) LockWithVersion(version string) {
 	l.mut.Lock()
 	l.version = version
-	if _, ok := l.cache[version]; !ok {
-		l.cache[version] = make(map[string][][]byte)
-	}
 }
 
 func (l *githubSourceCodeLoader) Unlock() {
@@ -50,11 +57,13 @@ func (l *githubSourceCodeLoader) Unlock() {
 
 func (l *githubSourceCodeLoader) Load(filename string, line, context int) ([][]byte, int) {
 	filename = filepath.ToSlash(filename)
-	lines, ok := l.cache[l.version][filename]
+	key := cacheKey{version: l.version, file: filename}
+	lines, ok := l.cache.Get(key)
 	if !ok {
 		// Cache whatever we managed to find (or nil if nothing, so we don't try again)
 		defer func() {
-			l.cache[l.version][filename] = lines
+			l.cache.Add(key, lines)
+			metricSourceCodeCacheSize.Set(float64(l.cache.Len()))
 		}()
 
 		knownPrefixes := []string{"/lib/", "/cmd/"}
@@ -73,19 +82,25 @@ func (l *githubSourceCodeLoader) Load(filename string, line, context int) ([][]b
 		resp, err := l.client.Get(url)
 		if err != nil {
 			fmt.Println("Loading source:", err)
+			metricSourceCodeLoadsTotal.WithLabelValues("failed").Inc()
 			return nil, 0
 		}
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			fmt.Println("Loading source:", resp.Status)
+			metricSourceCodeLoadsTotal.WithLabelValues("failed").Inc()
 			return nil, 0
 		}
 		data, err := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
 		if err != nil {
 			fmt.Println("Loading source:", err.Error())
+			metricSourceCodeLoadsTotal.WithLabelValues("failed").Inc()
 			return nil, 0
 		}
 		lines = bytes.Split(data, []byte{'\n'})
+		metricSourceCodeLoadsTotal.WithLabelValues("loaded").Inc()
+	} else {
+		metricSourceCodeLoadsTotal.WithLabelValues("cached").Inc()
 	}
 
 	return getLineFromLines(lines, line, context)

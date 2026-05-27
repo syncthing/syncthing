@@ -23,10 +23,6 @@ import (
 
 var errNotSupported = errors.New("symlinks not supported")
 
-func (BasicFilesystem) SymlinksSupported() bool {
-	return false
-}
-
 func (BasicFilesystem) ReadSymlink(path string) (string, error) {
 	return "", errNotSupported
 }

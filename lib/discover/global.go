@@ -289,7 +289,6 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 	resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		slog.DebugContext(ctx, "announce POST", "server", c.server, "status", resp.Status)
 		c.setError(errors.New(resp.Status))
 
 		if h := resp.Header.Get("Retry-After"); h != "" {

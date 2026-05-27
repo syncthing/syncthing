@@ -16,10 +16,6 @@ import (
 	"strings"
 )
 
-func (*BasicFilesystem) SymlinksSupported() bool {
-	return true
-}
-
 func (f *BasicFilesystem) CreateSymlink(target, name string) error {
 	name, err := f.rooted(name)
 	if err != nil {

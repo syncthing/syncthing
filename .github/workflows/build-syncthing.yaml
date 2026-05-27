@@ -9,6 +9,11 @@ on:
   workflow_call:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
 env:
   # The go version to use for builds. We set check-latest to true when
   # installing, so we get the latest patch version that matches the
@@ -190,7 +195,7 @@ jobs:
           go-version: "~1.25.7" # temporarily stay on Go 1.25 due to linker error on Go 1.26
           cache: false
 
-      - uses: mlugg/setup-zig@v2
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
 
       - uses: actions/cache@v4
         with:
@@ -229,7 +234,6 @@ jobs:
   codesign-windows:
     name: Codesign for Windows
     if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
-    environment: release
     runs-on: windows-latest
     needs:
       - package-windows
@@ -249,7 +253,7 @@ jobs:
           }
 
       - name: Sign files with Trusted Signing
-        uses: azure/trusted-signing-action@v0.5.1
+        uses: azure/trusted-signing-action@0d74250c661747df006298d0fb49944c10f16e03 # v0.5.1
         with:
           azure-tenant-id: ${{ secrets.AZURE_TRUSTED_SIGNING_TENANT_ID }}
           azure-client-id: ${{ secrets.AZURE_TRUSTED_SIGNING_CLIENT_ID }}
@@ -284,10 +288,37 @@ jobs:
   #
 
   package-linux:
-    name: Package for Linux
+    name: Package for Linux (${{ matrix.group }})
     runs-on: ubuntu-latest
     needs:
       - facts
+    strategy:
+      fail-fast: false
+      # split the build into three groups with roughtly the same amount of
+      # work, in order to reduce wall clock time
+      matrix:
+        include:
+          - group: common
+            targets: |
+              amd64 zig cc -target x86_64-linux-musl
+              386 zig cc -target x86-linux-musl
+              arm zig cc -target arm-linux-musleabi -mcpu=arm1136j_s
+              arm64 zig cc -target aarch64-linux-musl
+            extra-packages: ""
+          - group: mips
+            targets: |
+              mips zig cc -target mips-linux-musleabi
+              mipsle zig cc -target mipsel-linux-musleabi
+              mips64 mips64-linux-gnuabi64-gcc
+              mips64le mips64el-linux-gnuabi64-gcc
+            extra-packages: "gcc-mips64-linux-gnuabi64 gcc-mips64el-linux-gnuabi64"
+          - group: other
+            targets: |
+              riscv64 zig cc -target riscv64-linux-musl
+              s390x zig cc -target s390x-linux-musl
+              loong64 zig cc -target loongarch64-linux-musl
+              ppc64le zig cc -target powerpc64le-linux-musl
+            extra-packages: ""
     env:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
@@ -299,41 +330,36 @@ jobs:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
-      - uses: mlugg/setup-zig@v2
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
 
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('go.sum') }}
+          key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-linux-${{ matrix.group }}-${{ hashFiles('go.sum') }}
+
+      - name: Install extra packages
+        if: matrix.extra-packages != ''
+        run: sudo apt-get install -y ${{ matrix.extra-packages }}
 
       - name: Create packages
         run: |
-          sudo apt-get install -y gcc-mips64-linux-gnuabi64 gcc-mips64el-linux-gnuabi64
-          for tgt in syncthing stdiscosrv strelaysrv ; do
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch 386 -cc "zig cc -target x86-linux-musl" tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch arm -cc "zig cc -target arm-linux-musleabi -mcpu=arm1136j_s" tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch mips -cc "zig cc -target mips-linux-musleabi" tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch mipsle -cc "zig cc -target mipsel-linux-musleabi" tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch mips64 -cc mips64-linux-gnuabi64-gcc tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch mips64le -cc mips64el-linux-gnuabi64-gcc tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch riscv64 -cc "zig cc -target riscv64-linux-musl" tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch s390x -cc "zig cc -target s390x-linux-musl" tar "$tgt"
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch loong64 -cc "zig cc -target loongarch64-linux-musl" tar "$tgt"
-            # go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch ppc64 -cc "zig cc -target powerpc64-linux-musl" tar "$tgt" # fails with linkmode not supported
-            go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch ppc64le -cc "zig cc -target powerpc64le-linux-musl" tar "$tgt"
+          echo "$TARGETS" | while read -r arch cc; do
+            [ -z "$arch" ] && continue
+            for tgt in syncthing stdiscosrv strelaysrv ; do
+              go run build.go -tags "${{env.TAGS_LINUX}}" -goos linux -goarch "$arch" -cc "$cc" tar "$tgt"
+            done
           done
         env:
           CGO_ENABLED: "1"
           EXTRA_LDFLAGS: "-linkmode=external -extldflags=-static"
+          TARGETS: ${{ matrix.targets }}
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: packages-linux
+          name: packages-linux-${{ matrix.group }}
           path: |
             *.tar.gz
             compat.json
@@ -350,7 +376,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Build syncthing in OmniOS VM
-        uses: vmactions/omnios-vm@v1
+        uses: vmactions/omnios-vm@68da93c6d9812b29fc90c5b5141b093f84a590fb # v1
         with:
           envs: "VERSION GO_VERSION CGO_ENABLED"
           usesh: true
@@ -380,7 +406,6 @@ jobs:
   package-macos:
     name: Package for macOS
     if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
-    environment: release
     runs-on: macos-latest
     needs:
       - facts
@@ -478,7 +503,6 @@ jobs:
   notarize-macos:
     name: Notarize for macOS
     if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
-    environment: release
     needs:
       - package-macos
     runs-on: macos-latest
@@ -619,7 +643,6 @@ jobs:
   sign-for-upgrade:
     name: Sign for upgrade
     if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
-    environment: release
     needs:
       - codesign-windows
       - package-linux
@@ -723,7 +746,7 @@ jobs:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@eab2afb99481ca09a4e91171a8e0aee0e89bfedd # v1
         with:
           ruby-version: '3.0'
 
@@ -731,7 +754,7 @@ jobs:
         run: |
           gem install fpm
 
-      - uses: mlugg/setup-zig@v2
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
 
       - uses: actions/cache@v4
         with:
@@ -766,7 +789,6 @@ jobs:
   publish-nightly:
     name: Publish nightly build
     if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/release-nightly')
-    environment: release
     needs:
       - sign-for-upgrade
       - facts
@@ -815,7 +837,6 @@ jobs:
   publish-release-files:
     name: Publish release files
     if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/tags/v'))
-    environment: release
     permissions:
       contents: write
       id-token: write
@@ -888,14 +909,17 @@ jobs:
           if ! gh release view --json name "$VERSION" >/dev/null 2>&1 ; then
             gh release create "$VERSION" \
               $maybePrerelease \
+              --draft \
               --title "$VERSION" \
               --notes-from-tag
           fi
+
           gh release upload --clobber "$VERSION" \
             packages/*.asc packages/*.json \
             packages/syncthing-*.tar.gz \
             packages/syncthing-*.zip \
             packages/syncthing_*.deb
+          gh release edit "$VERSION" --draft=false
 
           PKGS=$(pwd)/packages
           cd /tmp # gh will not release for repo x while inside repo y
@@ -904,12 +928,14 @@ jobs:
             if ! gh release view --json name "$VERSION" >/dev/null 2>&1 ; then
               gh release create "$VERSION" \
                 $maybePrerelease \
+                --draft \
                 --title "$VERSION" \
                 --notes "https://github.com/syncthing/syncthing/releases/tag/$VERSION"
             fi
             gh release upload --clobber "$VERSION" \
               $PKGS/*.asc \
               $PKGS/*${repo}*
+            gh release edit "$VERSION" --draft=false
           done
         env:
           GH_TOKEN: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
@@ -921,7 +947,6 @@ jobs:
   publish-apt:
     name: Publish APT
     if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
-    environment: release
     needs:
       - package-debian
       - facts
@@ -993,6 +1018,7 @@ jobs:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     strategy:
+      fail-fast: false
       matrix:
         pkg:
           - syncthing
@@ -1016,7 +1042,7 @@ jobs:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
-      - uses: mlugg/setup-zig@v2
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
 
       - uses: actions/cache@v4
         with:
@@ -1046,23 +1072,23 @@ jobs:
           EXTRA_LDFLAGS: "-linkmode=external -extldflags=-static"
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Set version tags
         run: |
           version=${VERSION#v}
           repo=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
-          ref="${{github.ref_name}}"
+          ref="${REF_NAME}"
           ref=${ref//\//-} # slashes to dashes
 
           # List of tags for ghcr.io
@@ -1080,6 +1106,8 @@ jobs:
 
           echo Pushing to $tags
           echo "DOCKER_TAGS=$tags" >> $GITHUB_ENV
+        env:
+          REF_NAME: ${{github.ref_name}}
 
       - name: Prepare context dir
         run: |
@@ -1087,7 +1115,7 @@ jobs:
           mv bin/* script ctx
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: ctx
           file: ${{ matrix.dockerfile }}
@@ -1109,7 +1137,6 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - docker-ghcr
-    environment: docker
     env:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -1163,7 +1190,7 @@ jobs:
         run: go run build.go assets
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v8
         with:
           only-new-issues: true
 
