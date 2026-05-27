@@ -81,12 +81,14 @@ angular.module('syncthing.core')
         $scope.model = {};
         $scope.myID = '';
         $scope.devices = {};
+        $scope.devicesGrouped = {};
         $scope.discoveryCache = {};
         $scope.protocolChanged = false;
         $scope.reportData = {};
         $scope.reportDataPreview = '';
         $scope.reportPreview = false;
         $scope.folders = {};
+        $scope.foldersGrouped = {};
         $scope.seenError = '';
         $scope.upgradeInfo = null;
         $scope.deviceStats = {};
@@ -565,14 +567,42 @@ angular.module('syncthing.core')
                     _needBytes: 0,
                     _needItems: 0
                 };
+
             };
+
+            // myID is watched as $scope.otherDevices() relies on this
+            // and it can potenitally not be loaded due to this function
+            // scope being called in an undetermistic manner
+            $scope.$watch('myID', function(myID) {
+                if (myID) {
+                    $scope.devicesGrouped = {};
+                    const otherDevices = $scope.otherDevices();
+                    for (var id in otherDevices) {
+                        if ($scope.devicesGrouped[otherDevices[id].group] === undefined) {
+                            $scope.devicesGrouped[otherDevices[id].group] = [];
+                        }
+                        $scope.devicesGrouped[otherDevices[id].group].push(otherDevices[id]);
+                    };
+
+                    $scope.devicesGrouped = sortByKeyThenProperty($scope.devicesGrouped, "name", "deviceID");
+                }
+            });
+
             $scope.folders = folderMap($scope.config.folders);
+            $scope.foldersGrouped = {};
             Object.keys($scope.folders).forEach(function (folder) {
                 refreshFolder(folder);
                 $scope.folders[folder].devices.forEach(function (deviceCfg) {
                     refreshCompletion(deviceCfg.deviceID, folder);
                 });
+
+                if ($scope.foldersGrouped[$scope.folders[folder].group] === undefined) {
+                    $scope.foldersGrouped[$scope.folders[folder].group] = [];
+                }
+                $scope.foldersGrouped[$scope.folders[folder].group].push($scope.folders[folder]);
             });
+
+            $scope.foldersGrouped = sortByKeyThenProperty($scope.foldersGrouped, "label", "id");
 
             refreshNoAuthWarning();
             setDefaultTheme();
@@ -580,6 +610,31 @@ angular.module('syncthing.core')
             if (!hasConfig) {
                 $scope.$emit('ConfigLoaded');
             }
+        }
+
+        // Sort firstly by the top level key of the object and then by
+        // prop name provided for the array of objects for each key.
+        // If the prop returns has an empty value, then use the
+        // fallback prop provided.
+        function sortByKeyThenProperty(obj, prop, fallbackProp) {
+              const sorted = {};
+              Object.keys(obj)
+                .sort()
+                .forEach((key) => {
+                  sorted[key] = obj[key].sort((a, b) => {
+                    let aProp = prop;
+                    let bProp = prop;
+                    if (!a[aProp]) {
+                        aProp = fallbackProp;
+                    }
+                    if (!b[bProp]) {
+                        bProp = fallbackProp;
+                    }
+                    return a[aProp].localeCompare(b[bProp]);
+                  });
+                });
+
+              return sorted;
         }
 
         function refreshSystem() {
@@ -1067,7 +1122,7 @@ angular.module('syncthing.core')
             if (status == 'paused') {
                 return 'default';
             }
-            if (status === 'syncing' || status === 'sync-preparing' || status === 'scanning' || status === 'cleaning') {
+            if (status === 'syncing' || status === 'sync-preparing' || status === 'scanning' || status === 'cleaning' || status === 'starting') {
                 return 'primary';
             }
             if (status === 'unknown') {
@@ -1265,6 +1320,7 @@ angular.module('syncthing.core')
                 case 'scan-waiting':
                 case 'sync-preparing':
                 case 'sync-waiting':
+                case 'starting':
                     return 'fa-hourglass-half';
                 case 'cleaning':
                     return 'fa-recycle';
@@ -1300,6 +1356,8 @@ angular.module('syncthing.core')
                     return $translate.instant('Failed Items');
                 case 'idle':
                     return $translate.instant('Up to Date');
+                case 'starting':
+                    return $translate.instant('Starting');
                 case 'localadditions':
                     return $translate.instant('Local Additions');
                 case 'localunencrypted':
@@ -2279,6 +2337,12 @@ angular.module('syncthing.core')
             } else {
                 $scope.currentFolder.fsWatcherEnabled = true;
             }
+            var type = $scope.currentFolder.type;
+            if ($scope.currentFolder._editing !== 'existing') {
+                // Never automatically change block indexing, only suggest
+                // the value on new folder creation.
+                $scope.currentFolder.blockIndexing = (type === 'sendreceive' || type === 'receiveonly');
+            }
             $scope.setFSWatcherIntervalDefault();
         };
 
@@ -2657,6 +2721,27 @@ angular.module('syncthing.core')
                     });
                 }
             }, $scope.emitHTTPError);
+        };
+        
+        $scope.isFolderTabDisabled = function (tab) {
+            if (!$scope.currentFolder) {
+                return false;
+            }
+            if ($scope.currentFolder._editing === "new-ignores") {
+                return tab !== "ignores";
+            }
+            if (tab === "ignores" && $scope.currentFolder._recvEnc) {
+                return true;
+            }
+            return false;
+        };
+
+        $scope.onFolderTabClick = function ($event, tab) {
+            if ($scope.isFolderTabDisabled(tab)) {
+                $event.preventDefault();
+                $event.stopPropagation();
+                return false;
+            }
         };
 
         function saveFolderIgnoresExisting() {

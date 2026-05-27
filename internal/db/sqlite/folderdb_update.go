@@ -14,6 +14,7 @@ import (
 	"slices"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/gen/dbproto"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/internal/slogutil"
@@ -30,7 +31,7 @@ const (
 	updatePointsThreshold = 250_000
 )
 
-func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) error {
+func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo, options db.UpdateOptions) error {
 	s.updateLock.Lock()
 	defer s.updateLock.Unlock()
 
@@ -151,7 +152,7 @@ func (s *folderDB) Update(device protocol.DeviceID, fs []protocol.FileInfo) erro
 			}
 			if _, err := insertBlockListStmt.Exec(f.BlocksHash, bs); err != nil {
 				return wrap(err, "insert blocklist")
-			} else if device == protocol.LocalDeviceID {
+			} else if device == protocol.LocalDeviceID && !options.SkipBlockIndex {
 				// Insert all blocks
 				if err := s.insertBlocksLocked(txp, f.BlocksHash, f.Blocks); err != nil {
 					return wrap(err, "insert blocks")
@@ -298,6 +299,86 @@ func (s *folderDB) DropFilesNamed(device protocol.DeviceID, names []string) erro
 		if err := s.recalcGlobalForFile(txp, name); err != nil {
 			return wrap(err)
 		}
+	}
+
+	return wrap(tx.Commit())
+}
+
+func (s *folderDB) blockIndexEmpty() (bool, error) {
+	var exists bool
+	err := s.sql.Get(&exists, `SELECT EXISTS (SELECT 1 FROM blocks LIMIT 1)`)
+	if err != nil {
+		return false, wrap(err)
+	}
+	return !exists, nil
+}
+
+func (s *folderDB) DropBlockIndex() error {
+	s.updateLock.Lock()
+	defer s.updateLock.Unlock()
+
+	empty, err := s.blockIndexEmpty()
+	if err != nil || empty {
+		return err
+	}
+
+	if _, err := s.sql.Exec(`DELETE FROM blocks`); err != nil {
+		return wrap(err)
+	}
+
+	return s.vacuumAndOptimize()
+}
+
+func (s *folderDB) PopulateBlockIndex() error {
+	s.updateLock.Lock()
+	defer s.updateLock.Unlock()
+
+	empty, err := s.blockIndexEmpty()
+	if err != nil || !empty {
+		return err
+	}
+
+	tx, err := s.sql.BeginTxx(context.Background(), nil)
+	if err != nil {
+		return wrap(err)
+	}
+	defer tx.Rollback()
+	txp := &txPreparedStmts{Tx: tx}
+
+	// Iterate all local files that have a blocklist
+	rows, err := tx.Queryx(`
+		SELECT f.blocklist_hash, bl.blprotobuf FROM files f
+		INNER JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
+		WHERE f.device_idx = ? AND f.blocklist_hash IS NOT NULL
+	`, s.localDeviceIdx)
+	if err != nil {
+		return wrap(err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var blocklistHash []byte
+		var blProtobuf []byte
+		if err := rows.Scan(&blocklistHash, &blProtobuf); err != nil {
+			return wrap(err)
+		}
+
+		var bl dbproto.BlockList
+		if err := proto.Unmarshal(blProtobuf, &bl); err != nil {
+			return wrap(err, "unmarshal blocklist")
+		}
+
+		blocks := make([]protocol.BlockInfo, len(bl.Blocks))
+		for i, b := range bl.Blocks {
+			blocks[i] = protocol.BlockInfoFromWire(b)
+		}
+
+		if err := s.insertBlocksLocked(txp, blocklistHash, blocks); err != nil {
+			return wrap(err, "insert blocks")
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return wrap(err)
 	}
 
 	return wrap(tx.Commit())

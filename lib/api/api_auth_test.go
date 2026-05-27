@@ -7,6 +7,7 @@
 package api
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -68,48 +69,6 @@ func TestFormatOptionalPercentS(t *testing.T) {
 		templatedDn := formatOptionalPercentS(c.template, c.username)
 		if c.expected != templatedDn {
 			t.Fatalf("result should be %s != %s", c.expected, templatedDn)
-		}
-	}
-}
-
-func TestEscapeForLDAPFilter(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		in  string
-		out string
-	}{
-		{"username", `username`},
-		{"user(name", `user\28name`},
-		{"user)name", `user\29name`},
-		{"user\\name", `user\5Cname`},
-		{"user*name", `user\2Aname`},
-		{"*,CN=asdf", `\2A,CN=asdf`},
-	}
-
-	for _, c := range cases {
-		res := escapeForLDAPFilter(c.in)
-		if c.out != res {
-			t.Fatalf("result should be %s != %s", c.out, res)
-		}
-	}
-}
-
-func TestEscapeForLDAPDN(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		in  string
-		out string
-	}{
-		{"username", `username`},
-		{"* ,CN=asdf", `*\20\2CCN\3Dasdf`},
-	}
-
-	for _, c := range cases {
-		res := escapeForLDAPDN(c.in)
-		if c.out != res {
-			t.Fatalf("result should be %s != %s", c.out, res)
 		}
 	}
 }
@@ -190,5 +149,45 @@ func TestTokenManager(t *testing.T) {
 	}
 	if tm.Check(t3) {
 		t.Errorf("token %q should be invalid", t3)
+	}
+}
+
+func TestTokenManagerNoExpiry(t *testing.T) {
+	t.Parallel()
+
+	mdb, err := sqlite.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		mdb.Close()
+	})
+	kdb := db.NewMiscDB(mdb)
+	clock := &mockClock{now: time.Now()}
+
+	tm := newTokenManager("testTokensNoExpiry", kdb, -1, 3)
+	tm.timeNow = clock.Now
+
+	token := tm.New()
+	if expiry, ok := tm.tokens.Tokens[token]; !ok || expiry != 0 {
+		t.Fatalf("token should have no expiry, got %d", expiry)
+	}
+
+	clock.wind(365 * 24 * time.Hour)
+	if !tm.Check(token) {
+		t.Fatal("token should still be valid after long time when no-expiry is enabled")
+	}
+}
+
+func TestSessionCookieMaxAgeNoExpiry(t *testing.T) {
+	t.Parallel()
+
+	m := tokenCookieManager{
+		guiCfg: config.GUIConfiguration{
+			SessionCookieDurationS: -1,
+		},
+	}
+	if got := m.sessionCookieMaxAge(); got != math.MaxInt32 {
+		t.Fatalf("unexpected max age %d", got)
 	}
 }

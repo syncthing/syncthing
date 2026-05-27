@@ -127,6 +127,7 @@ type Report struct {
 		SyncXattrs              int            `json:"syncXattrs,omitempty" metric:"folder_feature{feature=SyncXattrs},summary" since:"3"`
 		SendOwnership           int            `json:"sendOwnership,omitempty" metric:"folder_feature{feature=SendOwnership},summary" since:"3"`
 		SyncOwnership           int            `json:"syncOwnership,omitempty" metric:"folder_feature{feature=SyncOwnership},summary" since:"3"`
+		NoBlockIndexing         int            `json:"noBlockIndexing,omitempty" metric:"folder_feature{feature=NoBlockIndexing},summary" since:"3"`
 	} `json:"folderUsesV3,omitzero" since:"3"`
 
 	DeviceUsesV3 struct {
@@ -280,4 +281,17 @@ func clear(v interface{}, since int) error {
 		}
 	}
 	return nil
+}
+
+type FailureReport struct {
+	FailureData
+
+	Count   int
+	Version string
+}
+
+type FailureData struct {
+	Description string
+	Goroutines  string
+	Extra       map[string]string
 }

@@ -192,48 +192,78 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 	return err
 }
 
-func dupDirTree(srcFs, dstFs fs.Filesystem, folderPath string) error {
-	// Return early if the folder already exists.
-	_, err := dstFs.Stat(folderPath)
-	if err == nil || !fs.IsNotExist(err) {
-		return err
+// dupDirTree ensures folderPath exists in dstFs, copying permissions mostly
+// from srcFs. Permissions are altered to have the user read, write, and
+// execute bits set so that Syncthing file operations are possible within
+// the destination directory.
+//
+// We want to retain the source group and other bits so that we do not
+// inadvertently open up a directory for users who shouldn't have access to
+// it, but we do not consider it a security issue to open up the permissions
+// for the current user.
+//
+// This is based on os.MkdirAll with our srcFs adjustments.
+func dupDirTree(srcFs, dstFs fs.Filesystem, path string) error {
+	const (
+		allPerms    = 0o777
+		minDirPerms = 0o700
+	)
+
+	// Fast path: if we can tell whether path is a directory or file, stop with success or error.
+	if dir, err := dstFs.Lstat(path); err == nil {
+		if !dir.IsDir() {
+			return errors.New("destination exists but is not a directory")
+		}
+		if dir.Mode()&minDirPerms != minDirPerms {
+			// We want all the required permission bits set
+			_ = dstFs.Chmod(path, dir.Mode()&allPerms|minDirPerms)
+		}
+		return nil
 	}
-	hadParent := true
-	for i := range folderPath {
-		if os.IsPathSeparator(folderPath[i]) {
-			// If the parent folder didn't exist, then this folder doesn't exist
-			// so we can skip the check
-			if hadParent {
-				_, err := dstFs.Stat(folderPath[:i])
-				if err == nil {
-					continue
-				}
-				if !fs.IsNotExist(err) {
-					return err
-				}
-			}
-			hadParent = false
-			err := dupDirWithPerms(srcFs, dstFs, folderPath[:i])
-			if err != nil {
-				return err
-			}
+
+	// Slow path: make sure parent exists and then call Mkdir for path.
+
+	// Extract the parent folder from path by first removing any trailing
+	// path separator and then scanning backward until finding a path
+	// separator or reaching the beginning of the string.
+	i := len(path) - 1
+	for i >= 0 && os.IsPathSeparator(path[i]) {
+		i--
+	}
+	for i >= 0 && !os.IsPathSeparator(path[i]) {
+		i--
+	}
+	if i < 0 {
+		i = 0
+	}
+
+	// If there is a parent directory, and it is not the volume name,
+	// recurse to ensure parent directory exists.
+	if parent := path[:i]; len(parent) > len(filepath.VolumeName(path)) {
+		if err := dupDirTree(srcFs, dstFs, parent); err != nil {
+			return err
 		}
 	}
-	return dupDirWithPerms(srcFs, dstFs, folderPath)
-}
 
-func dupDirWithPerms(srcFs, dstFs fs.Filesystem, folderPath string) error {
-	srcStat, err := srcFs.Stat(folderPath)
-	if err != nil {
+	// Parent now exists; invoke Mkdir and use its result.
+	srcPerms := fs.FileMode(minDirPerms)
+	if srcDir, err := srcFs.Lstat(path); err == nil {
+		srcPerms = srcDir.Mode()&allPerms | minDirPerms
+	}
+	if err := dstFs.Mkdir(path, srcPerms); err != nil {
+		// Handle arguments like "foo/." by
+		// double-checking that directory doesn't exist.
+		dir, err1 := dstFs.Lstat(path)
+		if err1 == nil && dir.IsDir() {
+			return nil
+		}
 		return err
 	}
-	// If we call Mkdir with srcStat.Mode(), we won't get the expected perms because of umask
-	// So, we create the folder with 0700, and then change the perms to the srcStat.Mode()
-	err = dstFs.Mkdir(folderPath, 0o700)
-	if err != nil {
-		return err
-	}
-	return dstFs.Chmod(folderPath, srcStat.Mode())
+
+	// Extra chmod to ensure our permissions override umask
+	_ = dstFs.Chmod(path, srcPerms)
+
+	return nil
 }
 
 func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath string, versionTime time.Time, tagger fileTagger) error {

@@ -968,10 +968,14 @@ func (u upgradeCmd) Run() error {
 		case err != nil && !os.IsNotExist(err):
 			slog.Error("Failed to lock for upgrade", slogutil.Error(err))
 			os.Exit(1)
-		case locked:
-			err = upgradeViaRest()
-		default:
+		case locked || os.IsNotExist(err):
+			// We got the lock, or the config directory didn't exist, so we
+			// can do a direct upgrade
 			err = upgrade.To(release)
+		default:
+			// We didn't get the lock, because Syncthing was running, so
+			// upgrade via REST.
+			err = upgradeViaRest()
 		}
 	}
 	if err != nil {
@@ -1107,7 +1111,7 @@ func (m migratingAPI) Serve(ctx context.Context) error {
 	srv := &http.Server{
 		Addr: m.addr,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "text/plain")
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			w.Write([]byte("*** Database migration in progress ***\n\n"))
 			for _, line := range slogutil.GlobalRecorder.Since(time.Time{}) {
 				_, _ = line.WriteTo(w, slogutil.DefaultLineFormat)

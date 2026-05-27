@@ -7,18 +7,12 @@
 package main
 
 import (
+	"net/http"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
-	buildInfo = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: "syncthing",
-			Subsystem: "discovery",
-			Name:      "build_info",
-			Help:      "A metric with a constant '1' value labeled by version, goversion, builduser and builddate from which stdiscosrv was built.",
-		}, []string{"version", "goversion", "builduser", "builddate"})
-
 	apiRequestsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "syncthing",
@@ -121,18 +115,15 @@ var (
 )
 
 const (
-	dbOpGet             = "get"
-	dbOpPut             = "put"
-	dbOpMerge           = "merge"
-	dbOpDelete          = "delete"
-	dbResSuccess        = "success"
-	dbResNotFound       = "not_found"
-	dbResError          = "error"
-	dbResUnmarshalError = "unmarsh_err"
+	dbOpGet       = "get"
+	dbOpPut       = "put"
+	dbOpMerge     = "merge"
+	dbResSuccess  = "success"
+	dbResNotFound = "not_found"
 )
 
 func init() {
-	prometheus.MustRegister(buildInfo,
+	prometheus.MustRegister(
 		apiRequestsTotal, apiRequestsSeconds,
 		lookupRequestsTotal, announceRequestsTotal,
 		replicationSendsTotal, replicationRecvsTotal,
@@ -140,4 +131,24 @@ func init() {
 		databaseOperations, databaseOperationSeconds,
 		databaseWriteSeconds, databaseLastWritten,
 		retryAfterLevel)
+
+	// Prewarm important counters so they're available with zero values at
+	// startup
+
+	apiRequestsTotal.WithLabelValues(http.MethodGet, "200")
+	apiRequestsTotal.WithLabelValues(http.MethodGet, "404")
+	apiRequestsTotal.WithLabelValues(http.MethodPost, "204")
+	apiRequestsTotal.WithLabelValues(http.MethodPost, "400")
+	apiRequestsTotal.WithLabelValues(http.MethodPost, "403")
+
+	lookupRequestsTotal.WithLabelValues("success")
+	lookupRequestsTotal.WithLabelValues("not_found_ever")
+	lookupRequestsTotal.WithLabelValues("not_found_recent")
+
+	announceRequestsTotal.WithLabelValues("success")
+	announceRequestsTotal.WithLabelValues("bad_request")
+	announceRequestsTotal.WithLabelValues("no_certificate")
+
+	replicationSendsTotal.WithLabelValues("success")
+	replicationRecvsTotal.WithLabelValues("success")
 }

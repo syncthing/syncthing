@@ -8,4 +8,4 @@ package pmp
 
 import "github.com/syncthing/syncthing/internal/slogutil"
 
-var l = slogutil.NewAdapter("NAT-PMP discovery and port mapping")
+func init() { slogutil.RegisterPackage("NAT-PMP discovery and port mapping") }

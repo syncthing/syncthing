@@ -25,18 +25,19 @@ import (
 // updated along the way.
 type sharedPullerState struct {
 	// Immutable, does not require locking
-	file        protocol.FileInfo // The new file (desired end state)
-	fs          fs.Filesystem
-	folder      string
-	tempName    string
-	realName    string
-	reused      int // Number of blocks reused from temporary file
-	ignorePerms bool
-	hasCurFile  bool              // Whether curFile is set
-	curFile     protocol.FileInfo // The file as it exists now in our database
-	sparse      bool
-	created     time.Time
-	fsync       bool
+	file          protocol.FileInfo // The new file (desired end state)
+	fs            fs.Filesystem
+	folder        string
+	tempName      string
+	realName      string
+	reused        int // Number of blocks reused from temporary file
+	ignorePerms   bool
+	hasCurFile    bool              // Whether curFile is set
+	curFile       protocol.FileInfo // The file as it exists now in our database
+	curFileBlocks map[string]int    // block hash to index in curFile
+	sparse        bool
+	created       time.Time
+	fsync         bool
 
 	// Mutable, must be locked for access
 	err              error           // The first error we hit
@@ -54,6 +55,12 @@ type sharedPullerState struct {
 }
 
 func newSharedPullerState(file protocol.FileInfo, fs fs.Filesystem, folderID, tempName string, blocks []protocol.BlockInfo, reused []int, ignorePerms, hasCurFile bool, curFile protocol.FileInfo, sparse bool, fsync bool) *sharedPullerState {
+	// Map the existing blocks by hash to block index in the current file
+	blocksMap := make(map[string]int, len(curFile.Blocks))
+	for idx, block := range curFile.Blocks {
+		blocksMap[string(block.Hash)] = idx
+	}
+
 	return &sharedPullerState{
 		file:             file,
 		fs:               fs,
@@ -69,6 +76,7 @@ func newSharedPullerState(file protocol.FileInfo, fs fs.Filesystem, folderID, te
 		ignorePerms:      ignorePerms,
 		hasCurFile:       hasCurFile,
 		curFile:          curFile,
+		curFileBlocks:    blocksMap,
 		sparse:           sparse,
 		fsync:            fsync,
 		created:          time.Now(),
