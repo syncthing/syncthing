@@ -30,8 +30,6 @@ $ docker run --network=host  -e STGUIADDRESS= \
 
 **Docker compose**
 ```yml
----
-version: "3"
 services:
   syncthing:
     image: syncthing/syncthing
