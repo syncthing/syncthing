@@ -305,21 +305,6 @@ func (c *serveCmd) Run() error {
 		osutil.HideConsole()
 	}
 
-	if build.IsWindows {
-		isService, err := osutil.IsWindowsService()
-		if err != nil {
-			slog.Warn("Failed to check Windows service status", slogutil.Error(err))
-		} else if isService {
-			serviceName := "syncthing"
-
-			serviceMain := func(ctx context.Context) {
-				c.runWithContext(ctx)
-			}
-
-			return osutil.RunService(serviceName, serviceMain)
-		}
-	}
-
 	// Customize the logging early
 	slogutil.SetLineFormat(slogutil.LineFormat{
 		TimestampFormat: c.LogFormatTimestamp,
@@ -355,6 +340,21 @@ func (c *serveCmd) Run() error {
 		if err := syncthing.EnsureDir(locations.GetBaseDir(loc), 0o700); err != nil {
 			slog.Error("Failed to ensure directory exists", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())
+		}
+	}
+
+	if build.IsWindows {
+		isService, err := osutil.IsWindowsService()
+		if err != nil {
+			slog.Warn("Failed to check Windows service status", slogutil.Error(err))
+		} else if isService {
+			serviceName := "syncthing"
+
+			serviceMain := func(ctx context.Context) {
+				c.runWithContext(ctx)
+			}
+
+			return osutil.RunService(serviceName, serviceMain)
 		}
 	}
 
