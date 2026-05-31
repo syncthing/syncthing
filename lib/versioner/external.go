@@ -27,7 +27,7 @@ func init() {
 	factories["external"] = newExternal
 }
 
-const unixSpecialChars = "`" + `"'<>;!#$&*?`
+const unixSpecialChars = "`" + `"'<>;!#$&*? `
 
 type external struct {
 	command    string

@@ -86,11 +86,13 @@ func TestExternalCommandSplit(t *testing.T) {
 		safe bool
 	}{
 		{`echo %FOLDER_PATH% %FILE_PATH%`, true},
+		{`echo "%FOLDER_PATH% %FILE_PATH%"`, false},
 		{`echo %FOLDER_PATH%/%FILE_PATH%`, true},
 		{`echo "%FOLDER_PATH%/%FILE_PATH%"`, true},
 		{`echo '%FOLDER_PATH%/%FILE_PATH%'`, true},
 		{`echo "'%FOLDER_PATH%/%FILE_PATH%'"`, false},
 		{`sh -c "echo '%FOLDER_PATH%/%FILE_PATH%'"`, false},
+		{`sh -c "echo %FOLDER_PATH%/%FILE_PATH%"`, false},
 	}
 
 	for _, tc := range cases {
