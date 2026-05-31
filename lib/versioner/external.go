@@ -104,8 +104,8 @@ func (external) Clean(_ context.Context) error {
 	return nil
 }
 
-// prepareCommandLine returns the command words and extra command
-// environment variables
+// prepareCommand returns the command with environment for the given file
+// path.
 func (v external) prepareCommand(filePath string) (*exec.Cmd, error) {
 	words, err := shellquote.Split(v.command)
 	if err != nil {
