@@ -150,7 +150,7 @@ func (v external) prepareCommand(filePath string) (*exec.Cmd, error) {
 		filteredEnv = append(filteredEnv, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	cmd := exec.Command(words[0], words[1:]...)
+	cmd := exec.Command(words[0], words[1:]...) //nolint:gosec // execution with user tainted data, by design
 	cmd.Env = filteredEnv
 	return cmd, nil
 }
