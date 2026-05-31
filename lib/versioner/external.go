@@ -121,6 +121,12 @@ func (v external) prepareCommand(filePath string) (*exec.Cmd, error) {
 	for i, word := range words {
 		unsafe := strings.ContainsAny(word, unixSpecialChars)
 		for key, val := range context {
+			// If the parameter contains both an unsafe character and a
+			// template placeholder, we consider it unsafe and reject it.
+			// Note that the shell splitting will have already removed outer
+			// quotes, so that a command like `foo "%FILE_PATH%"` is fine
+			// here, despite the double quote being one of our unsafe
+			// characters.
 			if unsafe && strings.Contains(word, key) {
 				return nil, errors.New("unsafe external versioning command; see https://docs.syncthing.net/users/versioning.html#external-file-versioning")
 			}
