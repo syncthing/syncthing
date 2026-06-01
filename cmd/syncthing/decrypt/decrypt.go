@@ -167,7 +167,7 @@ func (c *CLI) process(srcFs fs.Filesystem, dstFs fs.Filesystem, path string) err
 
 	var plainFd fs.File
 	if dstFs != nil {
-		if err := dstFs.MkdirAll(filepath.Dir(plainFi.Name), 0o700); err != nil {
+		if err := dstFs.MkdirAll(filepath.Dir(plainFi.Name), fs.ModePerm); err != nil {
 			return fmt.Errorf("%s: %w", plainFi.Name, err)
 		}
 

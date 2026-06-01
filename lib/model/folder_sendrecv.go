@@ -701,7 +701,7 @@ func (f *sendReceiveFolder) checkParent(file string, scanChan chan<- string) boo
 		return true
 	}
 	f.sl.Debug("Creating parent directory", slogutil.FilePath(file))
-	if err := f.mtimefs.MkdirAll(parent, 0o755); err != nil {
+	if err := f.mtimefs.MkdirAll(parent, fs.ModePerm); err != nil {
 		f.newPullError(file, fmt.Errorf("creating parent dir: %w", err))
 		return false
 	}

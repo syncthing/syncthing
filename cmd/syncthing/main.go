@@ -673,7 +673,7 @@ func auditWriter(auditFile string) io.Writer {
 		} else {
 			auditFlags = os.O_WRONLY | os.O_CREATE | os.O_APPEND
 		}
-		fd, err = os.OpenFile(auditFile, auditFlags, 0o600)
+		fd, err = os.OpenFile(auditFile, auditFlags, 0o666)
 		if err != nil {
 			slog.Error("Failed to open audit file", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt())

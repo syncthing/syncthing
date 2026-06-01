@@ -174,7 +174,7 @@ func (f *BasicFilesystem) MkdirAll(path string, perm FileMode) error {
 		return err
 	}
 
-	return f.mkdirAll(path, os.FileMode(perm))
+	return os.MkdirAll(path, os.FileMode(perm))
 }
 
 func (f *BasicFilesystem) Lstat(name string) (FileInfo, error) {

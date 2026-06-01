@@ -18,7 +18,6 @@ import (
 	"sync"
 
 	"github.com/syncthing/syncthing/internal/slogutil"
-	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/netutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
@@ -224,27 +223,20 @@ func migrateToConfigV24(cfg *Configuration) {
 }
 
 func migrateToConfigV23(cfg *Configuration) {
-	permBits := fs.FileMode(0o777)
-	if build.IsWindows {
-		// Windows has no umask so we must chose a safer set of bits to
-		// begin with.
-		permBits = 0o700
-	}
-
 	// Upgrade code remains hardcoded for .stfolder despite configurable
 	// marker name in later versions.
 
 	for i := range cfg.Folders {
-		fs := cfg.Folders[i].Filesystem()
+		ffs := cfg.Folders[i].Filesystem()
 		// Invalid config posted, or tests.
-		if fs == nil {
+		if ffs == nil {
 			continue
 		}
-		if stat, err := fs.Stat(DefaultMarkerName); err == nil && !stat.IsDir() {
-			err = fs.Remove(DefaultMarkerName)
+		if stat, err := ffs.Stat(DefaultMarkerName); err == nil && !stat.IsDir() {
+			err = ffs.Remove(DefaultMarkerName)
 			if err == nil {
-				err = fs.Mkdir(DefaultMarkerName, permBits)
-				fs.Hide(DefaultMarkerName) // ignore error
+				err = ffs.Mkdir(DefaultMarkerName, fs.ModePerm)
+				ffs.Hide(DefaultMarkerName) // ignore error
 			}
 			if err != nil {
 				slog.Warn("Failed to upgrade folder marker", slogutil.Error(err))

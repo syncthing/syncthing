@@ -1784,7 +1784,7 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 
 			// Attempt to create it to make sure it does, now.
 			fullPath := filepath.Join(defaultFolderCfg.Path, path)
-			if err := defaultPathFs.MkdirAll(path, 0o700); err != nil {
+			if err := defaultPathFs.MkdirAll(path, fs.ModePerm); err != nil {
 				slog.Error("Failed to create path for auto-accepted folder", folder.LogAttr(), slogutil.FilePath(fullPath), slogutil.Error(err))
 				continue
 			}
