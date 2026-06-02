@@ -553,3 +553,7 @@ html[lang|="ko"] i {
     -webkit-user-select: all;
     user-select: all;
 }
+
+.pull-right .btn {
+    margin-bottom: 5px;
+}
