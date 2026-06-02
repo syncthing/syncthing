@@ -554,6 +554,6 @@ html[lang|="ko"] i {
     user-select: all;
 }
 
-.pull-right .btn {
+.pull-right:not(.panel-footer .pull-right) .btn {
     margin-bottom: 10px;
 }
