@@ -827,6 +827,11 @@ func (s *service) logListenAddressesChangedEvent(l ListenerAddresses) {
 func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	newDevices := make(map[protocol.DeviceID]bool, len(to.Devices))
 	for _, dev := range to.Devices {
+		if dev.DeviceID == s.myID {
+			// Do not report connection metrics for ourselves
+			continue
+		}
+
 		newDevices[dev.DeviceID] = true
 		registerDeviceMetrics(dev.DeviceID.String())
 	}
