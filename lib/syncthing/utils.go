@@ -135,7 +135,7 @@ func copyFile(src, dst string) error {
 		return err
 	}
 
-	if err := os.WriteFile(dst, bs, 0o666); err != nil {
+	if err := os.WriteFile(dst, bs, 0o600); err != nil {
 		// Attempt to clean up
 		os.Remove(dst)
 		return err

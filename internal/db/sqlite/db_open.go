@@ -8,7 +8,6 @@ package sqlite
 
 import (
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -66,7 +65,7 @@ func Open(path string, opts ...Option) (*DB, error) {
 		"sql/migrations/main/*",
 	}
 
-	_ = os.MkdirAll(path, fs.ModePerm)
+	_ = os.MkdirAll(path, 0o700)
 	initTmpDir(path)
 
 	mainPath := filepath.Join(path, "main.db")
@@ -117,7 +116,7 @@ func OpenForMigration(path string) (*DB, error) {
 		"sql/migrations/main/*",
 	}
 
-	_ = os.MkdirAll(path, fs.ModePerm)
+	_ = os.MkdirAll(path, 0o700)
 	initTmpDir(path)
 
 	mainPath := filepath.Join(path, "main.db")
@@ -164,7 +163,7 @@ func initTmpDir(path string) {
 	// enough space there for the operations it needs to perform, as
 	// opposed to /tmp and similar, on some systems.
 	dbTmpDir := filepath.Join(path, ".tmp")
-	if err := os.MkdirAll(dbTmpDir, fs.ModePerm); err == nil {
+	if err := os.MkdirAll(dbTmpDir, 0o700); err == nil {
 		os.Setenv("SQLITE_TMPDIR", dbTmpDir)
 	} else {
 		slog.Warn("Failed to create temp directory for SQLite", slogutil.FilePath(dbTmpDir), slogutil.Error(err))
