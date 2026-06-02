@@ -732,9 +732,18 @@ func shouldBuildSyso(dir string) (string, error) {
 	sysoPath := filepath.Join(dir, "cmd", "syncthing", "resource.syso")
 
 	// See https://github.com/josephspurrier/goversioninfo#command-line-flags
-	arm := strings.HasPrefix(goarch, "arm")
-	a64 := strings.Contains(goarch, "64")
-	if _, err := runError("goversioninfo", "-o", sysoPath, fmt.Sprintf("-arm=%v", arm), fmt.Sprintf("-64=%v", a64)); err != nil {
+	// For manifest see https://learn.microsoft.com/en-us/windows/console/console-allocation-policy
+	isARM := strings.HasPrefix(goarch, "arm")
+	is64Bit := strings.Contains(goarch, "64")
+
+	args := []string{
+		"-manifest=assets/windows/syncthing.exe.manifest", // console-allocation-policy
+		"-o", sysoPath, // output path
+		fmt.Sprintf("-arm=%v", isARM),
+		fmt.Sprintf("-64=%v", is64Bit),
+	}
+
+	if _, err := runError("goversioninfo", args...); err != nil {
 		return "", errors.New("failed to create " + sysoPath + ": " + err.Error())
 	}
 
