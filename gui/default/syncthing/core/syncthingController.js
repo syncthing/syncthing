@@ -2997,6 +2997,9 @@ angular.module('syncthing.core')
                             $scope.restoreVersions.tree = $("#restoreTree").fancytree({
                                 extensions: ["table", "filter", "glyph"],
                                 quicksearch: true,
+                                // Node titles are remote-controlled file/path
+                                // components; render them as text, not HTML.
+                                escapeTitles: true,
                                 filter: {
                                     hideExpanders: true,
                                     mode: "hide"
