@@ -612,7 +612,7 @@ func saveRelays(file string, relays []*relay) error {
 	for _, relay := range relays {
 		content += relay.uri.String() + "\n"
 	}
-	return os.WriteFile(file, []byte(content), 0o777)
+	return os.WriteFile(file, []byte(content), 0o666)
 }
 
 func createTestCertificate() tls.Certificate {

@@ -155,7 +155,7 @@ func archiveFile(method fs.CopyRangeMethod, srcFs, dstFs fs.Filesystem, filePath
 	if err != nil {
 		if fs.IsNotExist(err) {
 			slog.Debug("Creating versions dir")
-			err := dstFs.MkdirAll(".", 0o755)
+			err := dstFs.MkdirAll(".", fs.ModePerm)
 			if err != nil {
 				return err
 			}
@@ -328,7 +328,7 @@ func restoreFile(method fs.CopyRangeMethod, src, dst fs.Filesystem, filePath str
 		return err
 	}
 
-	_ = dst.MkdirAll(filepath.Dir(filePath), 0o755)
+	_ = dst.MkdirAll(filepath.Dir(filePath), fs.ModePerm)
 	err := osutil.RenameOrCopy(method, src, dst, sourceFile, filePath)
 	_ = dst.Chtimes(filePath, sourceMtime, sourceMtime)
 	return err

@@ -479,7 +479,7 @@ func (f *autoclosedFile) ensureOpenLocked() error {
 	// We open the file for write only, and create it if it doesn't exist.
 	flags := os.O_WRONLY | os.O_CREATE | os.O_APPEND
 
-	fd, err := os.OpenFile(f.name, flags, 0o644)
+	fd, err := os.OpenFile(f.name, flags, 0o666)
 	if err != nil {
 		return err
 	}

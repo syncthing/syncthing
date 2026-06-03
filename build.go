@@ -718,7 +718,7 @@ func shouldBuildSyso(dir string) (string, error) {
 	}
 
 	jsonPath := filepath.Join(dir, "versioninfo.json")
-	err = os.WriteFile(jsonPath, bs, 0o644)
+	err = os.WriteFile(jsonPath, bs, 0o666)
 	if err != nil {
 		return "", errors.New("failed to create " + jsonPath + ": " + err.Error())
 	}
@@ -783,7 +783,7 @@ func copyFile(src, dst string, perm os.FileMode) error {
 	}
 
 copy:
-	os.MkdirAll(filepath.Dir(dst), 0o777)
+	os.MkdirAll(filepath.Dir(dst), os.ModePerm)
 	if err := os.WriteFile(dst, in, perm); err != nil {
 		return err
 	}
@@ -1432,7 +1432,7 @@ func writeCompatJSON() {
 			continue
 		}
 		bs, _ := json.MarshalIndent(e, "", "  ")
-		if err := os.WriteFile("compat.json", bs, 0o644); err != nil {
+		if err := os.WriteFile("compat.json", bs, 0o666); err != nil {
 			log.Fatal("Writing compat.json:", err)
 		}
 		return
