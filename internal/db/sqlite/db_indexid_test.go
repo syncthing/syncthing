@@ -78,4 +78,43 @@ func TestIndexIDs(t *testing.T) {
 			t.Fatal("should get the ID we set")
 		}
 	})
+
+	t.Run("DropAllFilesClearsOtherDeviceID", func(t *testing.T) {
+		t.Parallel()
+
+		device := protocol.DeviceID{99}
+		newID := protocol.NewIndexID()
+
+		if err := db.Update("drop-index-id", device, []protocol.FileInfo{
+			genFile("test1", 1, 1),
+		}); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := db.SetIndexID("drop-index-id", device, newID); err != nil {
+			t.Fatal(err)
+		}
+
+		again, err := db.GetIndexID("drop-index-id", device)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if again != newID {
+			t.Log(again, newID)
+			t.Fatal("should get the ID we set")
+		}
+
+		if err := db.DropAllFiles("drop-index-id", device); err != nil {
+			t.Fatal(err)
+		}
+
+		dropped, err := db.GetIndexID("drop-index-id", device)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if dropped != 0 {
+			t.Log(dropped)
+			t.Fatal("should clear the ID when dropping all files")
+		}
+	})
 }

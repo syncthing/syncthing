@@ -235,6 +235,13 @@ func (s *folderDB) DropAllFiles(device protocol.DeviceID) error {
 	defer tx.Rollback() //nolint:errcheck
 	txp := &txPreparedStmts{Tx: tx}
 
+	if _, err := tx.Exec(`
+		DELETE FROM indexids
+		WHERE device_idx = ?
+	`, deviceIdx); err != nil {
+		return wrap(err)
+	}
+
 	// Drop all the file entries
 
 	result, err := tx.Exec(`
