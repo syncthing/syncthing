@@ -1,13 +1,28 @@
 version: 2
 updates:
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: monthly
-    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 14
+    groups:
+      actions:
+        applies-to: version-updates
+        patterns:
+          - "*"
 
   - package-ecosystem: "gomod"
     directory: "/"
     schedule:
       interval: monthly
-    open-pull-requests-limit: 10
+    allow:
+      - dependency-type: direct
+    cooldown:
+      default-days: 14
+    groups:
+      dependencies:
+        applies-to: version-updates
+        patterns:
+          - "*"

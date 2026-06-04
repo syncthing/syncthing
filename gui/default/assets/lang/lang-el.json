@@ -397,7 +397,7 @@
     "Sync Protocol Listen Addresses": "Διευθύνσεις για το πρωτόκολλο συγχρονισμού",
     "Sync Status": "Κατάσταση συγχρονισμού",
     "Syncing": "Συγχρονίζω",
-    "Syncthing device ID for \"{%devicename%}\"": "Συγχρονισμός αναγνωριστικού συσκευής για \"{{devicename}}\"",
+    "Syncthing device ID for \"{%devicename%}\"": "Αναγνωριστικό Syncthing για συσκευή \"{{devicename}}\"",
     "Syncthing has been shut down.": "Το Syncthing έχει απενεργοποιηθεί.",
     "Syncthing includes the following software or portions thereof:": "Το Syncthing περιλαμβάνει τα παρακάτω λογισμικά ή μέρη αυτών:",
     "Syncthing is Free and Open Source Software licensed as MPL v2.0.": "Το Syncthing είναι ελεύθερο λογισμικό και ανοικτού κώδικα, με άδεια MPL v2.0.",

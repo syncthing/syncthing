@@ -63,6 +63,7 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 	}
 
 	sqlDB.SetMaxOpenConns(maxConns)
+	sqlDB.SetMaxIdleConns(maxConns)
 
 	for _, pragma := range pragmas {
 		if _, err := sqlDB.Exec("PRAGMA " + pragma); err != nil {

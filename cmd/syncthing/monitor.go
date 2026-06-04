@@ -137,17 +137,8 @@ func (c *serveCmd) monitorMain() {
 
 		var wg sync.WaitGroup
 
-		wg.Add(1)
-		go func() {
-			copyStderr(stderr, dst)
-			wg.Done()
-		}()
-
-		wg.Add(1)
-		go func() {
-			copyStdout(stdout, dst)
-			wg.Done()
-		}()
+		wg.Go(func() { copyStderr(stderr, dst) })
+		wg.Go(func() { copyStdout(stdout, dst) })
 
 		exit := make(chan error)
 
@@ -242,7 +233,7 @@ func copyStderr(stderr io.Reader, dst io.Writer) {
 
 		dst.Write([]byte(line))
 
-		if panicFd == nil && (strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:")) {
+		if panicFd == nil && (strings.HasPrefix(line, "panic:") || strings.HasPrefix(line, "fatal error:") || strings.HasPrefix(line, "runtime:")) {
 			panicFd, err = os.Create(locations.GetTimestamped(locations.PanicLog))
 			if err != nil {
 				slog.Error("Failed to create panic log", slogutil.Error(err))

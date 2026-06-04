@@ -1,0 +1,76 @@
+2026-05-21 10:03:01 INF syncthing v2.1.1-dev.9.gb3b7d228.dirty-morecrashrep "Hafnium Hornet" (go1.26.3 darwin-arm64) jb@jbo-m3wl72rv 2026-05-21 07:58:11 UTC [stnoupgrade] (log.pkg=main)
+2026-05-21 10:03:01 INF No automatic upgrades; STNOUPGRADE environment variable defined (log.pkg=main)
+2026-05-21 10:03:01 INF Calculated our device ID (device=I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU log.pkg=syncthing)
+2026-05-21 10:03:01 INF Overall rate limit in use (send="is unlimited" recv="is unlimited" log.pkg=connections)
+2026-05-21 10:03:01 INF Using discovery mechanism (identity="IPv4 local broadcast discovery on port 21027" log.pkg=discover)
+2026-05-21 10:03:01 INF Using discovery mechanism (identity="IPv6 local multicast discovery on address [ff12::8384]:21027" log.pkg=discover)
+2026-05-21 10:03:01 INF TCP listener starting (address=127.0.0.1:22001 log.pkg=connections)
+2026-05-21 10:03:01 INF Ready to synchronize (folder.id=default folder.type=sendreceive log.pkg=model)
+2026-05-21 10:03:01 INF QUIC listener starting (address=127.0.0.1:22001 log.pkg=connections)
+2026-05-21 10:03:01 INF GUI and API listening (address=127.0.0.1:8081 log.pkg=api)
+...
+2026-05-21 10:03:01 INF Access the GUI via the following URL: http://127.0.0.1:8081/ (log.pkg=api)
+2026-05-21 10:03:01 INF Loaded configuration (name=s1 log.pkg=syncthing)
+2026-05-21 10:03:01 INF Loaded peer device configuration (device=MRIW7OK name=s2 address="[tcp://127.0.0.1:22002 quic://127.0.0.1:22002]" log.pkg=syncthing)
+2026-05-21 10:03:01 INF Completed initial scan (folder.id=default folder.type=sendreceive log.pkg=model)
+0xee9de1fe260
+2026-05-21 10:03:02 INF Measured hashing performance (perf="2789.71 MB/s" log.pkg=syncthing)
+Panic at 2026-05-21T10:03:02+02:00
+runtime: marked free object in span 0x108b34d20, elemsize=8 freeindex=34 (bad use of unsafe.Pointer or having race conditions? try -d=checkptr or -race)
+0xee9de1fe000 alloc marked
+0xee9de1fe008 alloc marked
+...
+0xee9de1fe250 free  unmarked
+0xee9de1fe258 free  unmarked
+0xee9de1fe260 free  marked   zombie
+                   7 6 5 4  3 2 1 0   f e d c  b a 9 8  0123456789abcdef
+00000ee9de1fe260: 00000000 00000000                     ........
+0xee9de1fe268 free  unmarked
+0xee9de1fe270 free  unmarked
+...
+0xee9de1fff60 free  unmarked
+0xee9de1fff68 free  unmarked
+0xee9de1fff70 free  unmarked
+0xee9de1fff78 free  unmarked
+fatal error: found pointer to free object
+
+runtime stack:
+runtime.throw({0x105881781?, 0x8?})
+	runtime/panic.go:1229 +0x38 fp=0x16bf82bb0 sp=0x16bf82b80 pc=0x104f0ca48
+runtime.(*mspan).reportZombies(0x108b34d20)
+	runtime/mgcsweep.go:893 +0x314 fp=0x16bf82c30 sp=0x16bf82bb0 pc=0x104ec10b4
+runtime.(*sweepLocked).sweep(0x16bf82d88?, 0x0)
+	runtime/mgcsweep.go:673 +0xbd0 fp=0x16bf82d50 sp=0x16bf82c30 pc=0x104ec0840
+runtime.(*mcentral).uncacheSpan(0x16bf82db8?, 0x104ea4954?)
+	runtime/mcentral.go:237 +0xbc fp=0x16bf82d80 sp=0x16bf82d50 pc=0x104eaac3c
+runtime.(*mcache).releaseAll(0x1089a85f0)
+	runtime/mcache.go:322 +0x188 fp=0x16bf82df0 sp=0x16bf82d80 pc=0x104eaa4e8
+runtime.(*mcache).prepareForSweep(0x1089a85f0)
+	runtime/mcache.go:366 +0x4c fp=0x16bf82e20 sp=0x16bf82df0 pc=0x104eaa61c
+runtime.gcMarkTermination.func4(0xee9de005808)
+	runtime/mgc.go:1546 +0x24 fp=0x16bf82e50 sp=0x16bf82e20 pc=0x104f076e4
+runtime.forEachPInternal(0x10656f798)
+	runtime/proc.go:2167 +0x178 fp=0x16bf82ee0 sp=0x16bf82e50 pc=0x104eda728
+runtime.gcMarkTermination.forEachP.func7()
+	runtime/proc.go:2126 +0x40 fp=0x16bf82f10 sp=0x16bf82ee0 pc=0x104eb3130
+runtime.systemstack(0x7fc000)
+	runtime/asm_arm64.s:399 +0x68 fp=0x16bf82f20 sp=0x16bf82f10 pc=0x104f12888
+
+goroutine 84 gp=0xee9de45c1e0 m=3 mp=0xee9de019008 [flushing proc caches]:
+runtime.systemstack_switch()
+	runtime/asm_arm64.s:347 +0x8 fp=0xee9de805c40 sp=0xee9de805c30 pc=0x104f12808
+runtime.forEachP(...)
+	runtime/proc.go:2112
+runtime.gcMarkTermination({0xc0?, 0x1331f928480ca?, 0xc?, 0x0?})
+	runtime/mgc.go:1545 +0x5f4 fp=0xee9de805e80 sp=0xee9de805c40 pc=0x104eb28c4
+runtime.gcMarkDone()
+	runtime/mgc.go:1173 +0x364 fp=0xee9de805f20 sp=0xee9de805e80 pc=0x104eb1bc4
+runtime.gcBgMarkWorker(0xee9de341810)
+	runtime/mgc.go:1912 +0x29c fp=0xee9de805fb0 sp=0xee9de805f20 pc=0x104eb372c
+runtime.gcBgMarkStartWorkers.gowrap1()
+	runtime/mgc.go:1695 +0x20 fp=0xee9de805fd0 sp=0xee9de805fb0 pc=0x104eb3470
+runtime.goexit({})
+	runtime/asm_arm64.s:1447 +0x4 fp=0xee9de805fd0 sp=0xee9de805fd0 pc=0x104f14a04
+created by runtime.gcBgMarkStartWorkers in goroutine 1
+	runtime/mgc.go:1695 +0x134
+

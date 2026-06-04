@@ -22,7 +22,6 @@ import (
 
 	"golang.org/x/time/rate"
 
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -72,9 +71,13 @@ var (
 
 // httpClient is the HTTP client we use for outbound requests. It has a
 // timeout and may get further options set during initialization.
-var httpClient = &http.Client{
-	Timeout: 30 * time.Second,
-}
+var (
+	httpTransport = &http.Transport{}
+	httpClient    = &http.Client{
+		Timeout:   30 * time.Second,
+		Transport: httpTransport,
+	}
+)
 
 func main() {
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
@@ -133,9 +136,7 @@ func main() {
 		// also come from that address.
 		laddr.Port = 0
 		boundDialer := &net.Dialer{LocalAddr: laddr}
-		httpClient.Transport = &http.Transport{
-			DialContext: boundDialer.DialContext,
-		}
+		httpTransport.DialContext = boundDialer.DialContext
 	}
 
 	log.Println(longVer)
@@ -162,6 +163,11 @@ func main() {
 		if err != nil {
 			log.Fatalln("Failed to generate X509 key pair:", err)
 		}
+	}
+
+	// Outgoing HTTPS requests may use our certificate for authentication
+	httpTransport.TLSClientConfig = &tls.Config{
+		Certificates: []tls.Certificate{cert},
 	}
 
 	tlsCfg := &tls.Config{
@@ -278,7 +284,7 @@ func main() {
 	for _, pool := range pools {
 		pool = strings.TrimSpace(pool)
 		if len(pool) > 0 {
-			go poolHandler(pool, uri, mapping, cert)
+			go poolHandler(pool, uri, mapping)
 		}
 	}
 

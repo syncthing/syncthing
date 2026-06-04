@@ -14,8 +14,6 @@ import (
 	"net/http"
 	"os"
 	"time"
-
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 )
 
 type event struct {

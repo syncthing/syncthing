@@ -39,3 +39,10 @@
     darwin: "21"
     linux: "3.2"
     windows: "10.0"
+
+- runtime: go1.26 # no changes from 1.25
+  requirements:
+    darwin: "21"
+    linux: "3.2"
+    windows: "10.0"
+

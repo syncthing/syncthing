@@ -9,26 +9,33 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
 func TestParseReport(t *testing.T) {
-	bs, err := os.ReadFile("_testdata/panic.log")
+	files, err := filepath.Glob("_testdata/*.log")
 	if err != nil {
 		t.Fatal(err)
 	}
+	for _, file := range files {
+		bs, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	pkt, err := parseCrashReport("1/2/345", bs)
-	if err != nil {
-		t.Fatal(err)
+		pkt, err := parseCrashReport("1/2/345", bs)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		bs, err = pkt.JSON()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		fmt.Printf("%s\n", bs)
 	}
-
-	bs, err = pkt.JSON()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	fmt.Printf("%s\n", bs)
 }
 
 func TestCrashReportFingerprint(t *testing.T) {

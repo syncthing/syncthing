@@ -202,9 +202,8 @@ func (f *sendReceiveFolder) pull(ctx context.Context) (bool, error) {
 		f.sl.DebugContext(ctx, "Pull iteration completed", "changed", changed, "try", tries+1)
 
 		if changed == 0 {
-			// No files were changed by the puller, so we are in
-			// sync (except for unrecoverable stuff like invalid
-			// filenames on windows).
+			// No files were changed by the puller, so we are in sync, or we
+			// are unable to make further progress for the moment.
 			break
 		}
 	}
@@ -231,7 +230,9 @@ func (f *sendReceiveFolder) pull(ctx context.Context) (bool, error) {
 		})
 	}
 
-	return changed == 0, nil
+	// We're done if we didn't change anything and didn't fail to change
+	// anything
+	return changed == 0 && pullErrNum == 0, nil
 }
 
 // pullerIteration runs a single puller iteration for the given folder and
@@ -255,37 +256,30 @@ func (f *sendReceiveFolder) pullerIteration(ctx context.Context, scanChan chan<-
 
 	f.sl.DebugContext(ctx, "Starting puller iteration", "copiers", f.Copiers, "pullerPendingKiB", f.PullerMaxPendingKiB)
 
-	updateWg.Add(1)
-	go func() {
+	var changed int // only read after updateWg closes
+	updateWg.Go(func() {
 		// dbUpdaterRoutine finishes when dbUpdateChan is closed
-		f.dbUpdaterRoutine(dbUpdateChan)
-		updateWg.Done()
-	}()
+		changed = f.dbUpdaterRoutine(dbUpdateChan)
+	})
 
 	for range f.Copiers {
-		copyWg.Add(1)
-		go func() {
+		copyWg.Go(func() {
 			// copierRoutine finishes when copyChan is closed
 			f.copierRoutine(ctx, copyChan, pullChan, finisherChan)
-			copyWg.Done()
-		}()
+		})
 	}
 
-	pullWg.Add(1)
-	go func() {
+	pullWg.Go(func() {
 		// pullerRoutine finishes when pullChan is closed
 		f.pullerRoutine(ctx, pullChan, finisherChan)
-		pullWg.Done()
-	}()
+	})
 
-	doneWg.Add(1)
 	// finisherRoutine finishes when finisherChan is closed
-	go func() {
+	doneWg.Go(func() {
 		f.finisherRoutine(ctx, finisherChan, dbUpdateChan, scanChan)
-		doneWg.Done()
-	}()
+	})
 
-	changed, fileDeletions, dirDeletions, err := f.processNeeded(ctx, dbUpdateChan, copyChan, scanChan)
+	fileDeletions, dirDeletions, err := f.processNeeded(ctx, dbUpdateChan, copyChan, scanChan)
 
 	// Signal copy and puller routines that we are done with the in data for
 	// this iteration. Wait for them to finish.
@@ -312,8 +306,7 @@ func (f *sendReceiveFolder) pullerIteration(ctx context.Context, scanChan chan<-
 	return changed, err
 }
 
-func (f *sendReceiveFolder) processNeeded(ctx context.Context, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
-	changed := 0
+func (f *sendReceiveFolder) processNeeded(ctx context.Context, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, scanChan chan<- string) (map[string]protocol.FileInfo, []protocol.FileInfo, error) {
 	var dirDeletions []protocol.FileInfo
 	fileDeletions := map[string]protocol.FileInfo{}
 	buckets := map[string][]protocol.FileInfo{}
@@ -325,7 +318,7 @@ func (f *sendReceiveFolder) processNeeded(ctx context.Context, dbUpdateChan chan
 loop:
 	for file, err := range itererr.Zip(f.model.sdb.AllNeededGlobalFiles(f.folderID, protocol.LocalDeviceID, f.Order, 0, 0)) {
 		if err != nil {
-			return changed, nil, nil, err
+			return nil, nil, err
 		}
 		select {
 		case <-ctx.Done():
@@ -337,8 +330,6 @@ loop:
 			f.sl.DebugContext(ctx, "Ignoring file deletion per config", slogutil.FilePath(file.FileName()))
 			continue
 		}
-
-		changed++
 
 		switch {
 		case f.ignores.Match(file.Name).IsIgnored():
@@ -357,8 +348,6 @@ loop:
 				// We can't pull an invalid file. Grab the error again since
 				// we couldn't assign it directly in the case clause.
 				f.newPullError(file.Name, fs.WindowsInvalidFilename(file.Name))
-				// No reason to retry for this
-				changed--
 			}
 
 		case file.IsDeleted():
@@ -372,7 +361,7 @@ loop:
 			default:
 				df, ok, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
 				if err != nil {
-					return changed, nil, nil, err
+					return nil, nil, err
 				}
 				// Local file can be already deleted, but with a lower version
 				// number, hence the deletion coming in again as part of
@@ -391,7 +380,7 @@ loop:
 		case file.Type == protocol.FileInfoTypeFile:
 			curFile, hasCurFile, err := f.model.sdb.GetDeviceFile(f.folderID, protocol.LocalDeviceID, file.Name)
 			if err != nil {
-				return changed, nil, nil, err
+				return nil, nil, err
 			}
 			if hasCurFile && file.BlocksEqual(curFile) {
 				// We are supposed to copy the entire file, and then fetch nothing. We
@@ -431,7 +420,7 @@ loop:
 
 	select {
 	case <-ctx.Done():
-		return changed, nil, nil, ctx.Err()
+		return nil, nil, ctx.Err()
 	default:
 	}
 
@@ -441,7 +430,7 @@ nextFile:
 	for {
 		select {
 		case <-ctx.Done():
-			return changed, fileDeletions, dirDeletions, ctx.Err()
+			return fileDeletions, dirDeletions, ctx.Err()
 		default:
 		}
 
@@ -452,7 +441,7 @@ nextFile:
 
 		fi, ok, err := f.model.sdb.GetGlobalFile(f.folderID, fileName)
 		if err != nil {
-			return changed, nil, nil, err
+			return nil, nil, err
 		}
 		if !ok {
 			// File is no longer in the index. Mark it as done and drop it.
@@ -515,7 +504,7 @@ nextFile:
 		}
 	}
 
-	return changed, fileDeletions, dirDeletions, nil
+	return fileDeletions, dirDeletions, nil
 }
 
 func popCandidate(buckets map[string][]protocol.FileInfo, key string) (protocol.FileInfo, bool) {
@@ -1177,6 +1166,7 @@ func (f *sendReceiveFolder) handleFile(ctx context.Context, file protocol.FileIn
 		blocks:            blocks,
 		have:              len(have),
 	}
+
 	copyChan <- cs
 	return nil
 }
@@ -1333,7 +1323,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 func (f *sendReceiveFolder) copierRoutine(ctx context.Context, in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
 	otherFolderFilesystems := make(map[string]fs.Filesystem)
 	for folder, cfg := range f.model.cfg.Folders() {
-		if folder == f.ID {
+		if folder == f.ID || !cfg.BlockIndexing {
 			continue
 		}
 		otherFolderFilesystems[folder] = cfg.Filesystem()
@@ -1353,6 +1343,12 @@ func (f *sendReceiveFolder) copierRoutine(ctx context.Context, in <-chan copyBlo
 				state.fail(fmt.Errorf("folder stopped: %w", ctx.Err()))
 				break blocks
 			default:
+			}
+
+			if block.Size == 0 {
+				// Copying zero bytes is a no-op.
+				state.copyDone(block)
+				continue
 			}
 
 			if !f.DisableSparseFiles && state.reused == 0 && block.IsEmpty() {
@@ -1401,13 +1397,26 @@ func (f *sendReceiveFolder) copyBlock(ctx context.Context, block protocol.BlockI
 	buf := protocol.BufferPool.Get(block.Size)
 	defer protocol.BufferPool.Put(buf)
 
-	// Hope that it's usually in the same folder, so start with that
-	// one. Also possibly more efficient copy (same filesystem).
-	if f.copyBlockFromFolder(ctx, f.ID, block, state, f.mtimefs, buf) {
-		return true
+	// Check for the block in the current version of the file
+	if idx, ok := state.curFileBlocks[string(block.Hash)]; ok {
+		if f.copyBlockFromFile(ctx, state.curFile.Name, state.curFile.Blocks[idx].Offset, state, f.mtimefs, block, buf) {
+			state.copiedFromOrigin(block.Size)
+			return true
+		}
+		if state.failed() != nil {
+			return false
+		}
 	}
-	if state.failed() != nil {
-		return false
+
+	if f.folder.BlockIndexing {
+		// Hope that it's usually in the same folder, so start with that
+		// one. Also possibly more efficient copy (same filesystem).
+		if f.copyBlockFromFolder(ctx, f.ID, block, state, f.mtimefs, buf) {
+			return true
+		}
+		if state.failed() != nil {
+			return false
+		}
 	}
 
 	for folderID, ffs := range otherFolderFilesystems {
@@ -1531,20 +1540,23 @@ func (f *sendReceiveFolder) pullerRoutine(ctx context.Context, in <-chan pullBlo
 
 		bytes := state.block.Size
 
+		if bytes == 0 {
+			// Pulling zero bytes is a no-op.
+			state.pullDone(state.block)
+			out <- state.sharedPullerState
+			continue
+		}
+
 		if err := requestLimiter.TakeWithContext(ctx, bytes); err != nil {
 			state.fail(err)
 			out <- state.sharedPullerState
 			continue
 		}
 
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			defer requestLimiter.Give(bytes)
-
 			f.pullBlock(ctx, state, out)
-		}()
+		})
 	}
 	wg.Wait()
 }
@@ -1559,10 +1571,21 @@ func (f *sendReceiveFolder) pullBlock(ctx context.Context, state pullBlockState,
 		return
 	}
 
-	if !f.DisableSparseFiles && state.reused == 0 && state.block.IsEmpty() {
+	if state.block.IsEmpty() {
 		// There is no need to request a block of all zeroes. Pretend we
 		// requested it and handled it correctly.
-		state.pullDone(state.block)
+		if state.reused != 0 || f.DisableSparseFiles {
+			// We are reusing a file (contents apparently weren't all-zeroes
+			// previously), or sparse files are disabled, so we need to
+			// actually write the block.
+			zeroes := make([]byte, state.block.Size)
+			err = f.limitedWriteAt(ctx, fd, zeroes, state.block.Offset)
+		}
+		if err != nil {
+			state.fail(fmt.Errorf("save: %w", err))
+		} else {
+			state.pullDone(state.block)
+		}
 		out <- state.sharedPullerState
 		return
 	}
@@ -1608,11 +1631,10 @@ loop:
 		}
 
 		// Verify that the received block matches the desired hash, if not
-		// try pulling it from another device.
-		// For receive-only folders, the hash is not SHA256 as it's an
-		// encrypted hash token. In that case we can't verify the block
-		// integrity so we'll take it on trust. (The other side can and
-		// will verify.)
+		// try pulling it from another device. For receive-encrypted
+		// folders, the hash is not SHA256 as it's an encrypted hash token.
+		// In that case we can't verify the block integrity so we'll take it
+		// on trust. (The other side can and will verify.)
 		if f.Type != config.FolderTypeReceiveEncrypted {
 			lastError = f.verifyBuffer(buf, state.block)
 		}
@@ -1741,9 +1763,10 @@ func (f *sendReceiveFolder) Jobs(page, perpage int) ([]string, []string, int) {
 
 // dbUpdaterRoutine aggregates db updates and commits them in batches no
 // larger than 1000 items, and no more delayed than 2 seconds.
-func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
+func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) int {
 	const maxBatchTime = 2 * time.Second
 
+	changed := 0
 	changedDirs := make(map[string]struct{})
 	found := false
 	var lastFile protocol.FileInfo
@@ -1803,24 +1826,11 @@ loop:
 				lastFile = job.file
 			}
 
-			if !job.file.IsDeleted() && !job.file.IsInvalid() {
-				// Now that the file is finalized, grab possibly updated
-				// inode change time from disk into the local FileInfo. We
-				// use this change time to check for changes to xattrs etc
-				// on next scan.
-				if err := f.updateFileInfoChangeTime(&job.file); err != nil {
-					// This means on next scan the likely incorrect change time
-					// (resp. whatever caused the error) will cause this file to
-					// change. Log at info level to leave a trace if a user
-					// notices, but no need to warn
-					f.sl.Warn("Failed to update metadata at database commit", slogutil.FilePath(job.file.Name), slogutil.Error(err))
-				}
-			}
 			job.file.Sequence = 0
 
 			batch.Append(job.file)
-
 			batch.FlushIfFull()
+			changed++
 
 		case <-tick.C:
 			batch.Flush()
@@ -1828,6 +1838,7 @@ loop:
 	}
 
 	batch.Flush()
+	return changed
 }
 
 // pullScannerRoutine aggregates paths to be scanned after pulling. The scan is
@@ -2198,22 +2209,6 @@ func (f *sendReceiveFolder) withLimiter(ctx context.Context, fn func() error) er
 	}
 	defer f.writeLimiter.Give(1)
 	return fn()
-}
-
-// updateFileInfoChangeTime updates the inode change time in the FileInfo,
-// because that depends on the current, new, state of the file on disk.
-func (f *sendReceiveFolder) updateFileInfoChangeTime(file *protocol.FileInfo) error {
-	info, err := f.mtimefs.Lstat(file.Name)
-	if err != nil {
-		return err
-	}
-
-	if ct := info.InodeChangeTime(); !ct.IsZero() {
-		file.InodeChangeNs = ct.UnixNano()
-	} else {
-		file.InodeChangeNs = 0
-	}
-	return nil
 }
 
 // A []FileError is sent as part of an event and will be JSON serialized.

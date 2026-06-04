@@ -1,6 +1,6 @@
 <modal id="remove-folder-confirmation" status="warning" icon="fas fa-question-circle" heading="{{'Remove Folder' | translate}}" large="no" closeable="yes">
   <div class="modal-body">
-    <p translate translate-value-label="{{currentFolder.label}}">
+    <p translate translate-value-label="{{currentFolder.label || currentFolder.id}}">
       Are you sure you want to remove folder {%label%}?
     </p>
     <p translate>

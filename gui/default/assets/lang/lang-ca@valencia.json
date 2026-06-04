@@ -67,7 +67,7 @@
     "Connection Type": "Tipus de connexió",
     "Connections": "Connexions",
     "Connections via relays might be rate limited by the relay": "Les connexions mitjançant relés poden estar limitades pel relé",
-    "Continuously watching for changes is now available within Syncthing. This will detect changes on disk and issue a scan on only the modified paths. The benefits are that changes are propagated quicker and that less full scans are required.": "Ara està disponible la revisió continua de canvix dins de Syncthing. Acò detectarà els canvis i llençarà un escaneig sols a les rutes modificades. Els beneficis són que els canvis es propaguen mé ràpidamente i es necessiten menys escanejos complets.",
+    "Continuously watching for changes is now available within Syncthing. This will detect changes on disk and issue a scan on only the modified paths. The benefits are that changes are propagated quicker and that less full scans are required.": "Ara està disponible la revisió continua de canvis dins de Syncthing. Això detectarà els canvis i llançarà un escaneig sols a les rutes modificades. Els beneficis són que els canvis es propaguen més ràpidament i es necessiten menys escanejos complets.",
     "Copied from elsewhere": "Copiat de qualsevol lloc",
     "Copied from original": "Copiat de l'original",
     "Copied!": "Copiat!",

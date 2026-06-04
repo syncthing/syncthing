@@ -410,7 +410,7 @@
     "Syncthing is listening on the following network addresses for connection attempts from other devices:": "Syncthing ожидает подключения от других устройств на следующих сетевых адресах:",
     "Syncthing is not listening for connection attempts from other devices on any address.  Only outgoing connections from this device may work.": "Syncthing не ожидает попыток подключения ни на каких адресах. Только исходящие подключения могут работать на этом устройстве.",
     "Syncthing is restarting.": "Перезапуск Syncthing.",
-    "Syncthing is saving changes.": "Синхронизация это сохранение изменений.",
+    "Syncthing is saving changes.": "Syncthing сохраняет изменения.",
     "Syncthing is upgrading.": "Обновление Syncthing.",
     "Syncthing now supports automatically reporting crashes to the developers. This feature is enabled by default.": "Syncthing теперь поддерживает автоматическую отправку отчетов о сбоях разработчикам. Эта функция включена по умолчанию.",
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Кажется, Syncthing не запущен или есть проблемы с подключением к Интернету. Переподключаюсь…",

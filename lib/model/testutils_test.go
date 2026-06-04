@@ -110,6 +110,7 @@ func newFolderConfig() config.FolderConfiguration {
 	cfg.FSWatcherEnabled = false
 	cfg.PullerDelayS = 0
 	cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{DeviceID: device1})
+	cfg.BlockIndexing = true
 	return cfg
 }
 

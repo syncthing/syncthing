@@ -76,6 +76,9 @@ linters:
       # Don't necessarily rewrite !(foo || bar) to !foo && !bar
       - linters: [staticcheck]
         text: QF1001
+      # Don't necessarily pass the context just for the sake of the logger
+      - linters: [contextcheck]
+        text: "->log`"
   settings:
     sloglint:
       context: "scope"

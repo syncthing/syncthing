@@ -7,5 +7,5 @@
 package main
 
 type buildSpecificOptions struct {
-	HideConsole bool `name:"no-console" help:"Hide console window" env:"STHIDECONSOLE"`
+	HideConsole bool `name:"no-console" help:"Hide console window (Always enabled on Windows 11 24H2 and later)" env:"STHIDECONSOLE"`
 }

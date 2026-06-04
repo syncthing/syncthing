@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package db // import "github.com/syncthing/syncthing/internal/db/sqlite"
+package db
 
 import (
 	"iter"
@@ -15,11 +15,41 @@ import (
 	"github.com/thejerf/suture/v4"
 )
 
+type DBService interface {
+	suture.Service
+
+	// Starts maintenance asynchronously, if not already running
+	// Returns a channel that will receive the result when the requested maintenance finishes
+	StartMaintenance() <-chan error
+
+	// Returns the last time database maintenance completed
+	// This will return time zero when database maintenance has never completed successfully.
+	LastMaintenanceTime() time.Time
+}
+
+// UpdateOption modifies the behavior of a DB Update call.
+type UpdateOption func(*UpdateOptions)
+
+// UpdateOptions holds options for a DB Update call.
+type UpdateOptions struct {
+	SkipBlockIndex bool
+}
+
+// WithSkipBlockIndex skips inserting individual blocks into the block
+// index (the "blocks" table). Blocklists are still stored.
+func WithSkipBlockIndex() UpdateOption {
+	return func(o *UpdateOptions) {
+		o.SkipBlockIndex = true
+	}
+}
+
 type DB interface {
-	Service(maintenanceInterval time.Duration) suture.Service
+	// Create a service that performs database maintenance periodically (no
+	// more often than the requested interval)
+	Service(maintenanceInterval time.Duration) DBService
 
 	// Basics
-	Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error
+	Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo, opts ...UpdateOption) error
 	Close() error
 
 	// Single files
@@ -42,6 +72,10 @@ type DB interface {
 	AllLocalFilesWithBlocksHash(folder string, h []byte) (iter.Seq[FileMetadata], func() error)
 	AllNeededGlobalFiles(folder string, device protocol.DeviceID, order config.PullOrder, limit, offset int) (iter.Seq[protocol.FileInfo], func() error)
 	AllLocalBlocksWithHash(folder string, hash []byte) (iter.Seq[BlockMapEntry], func() error)
+
+	// Block index management
+	DropBlockIndex(folder string) error
+	PopulateBlockIndex(folder string) error
 
 	// Cleanup
 	DropAllFiles(folder string, device protocol.DeviceID) error

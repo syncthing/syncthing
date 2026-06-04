@@ -45,7 +45,6 @@ type Filesystem interface {
 	RemoveAll(name string) error
 	Rename(oldname, newname string) error
 	Stat(name string) (FileInfo, error)
-	SymlinksSupported() bool
 	Walk(name string, walkFn WalkFunc) error
 	// If setup fails, returns non-nil error, and if afterwards a fatal (!)
 	// error occurs, sends that error on the channel. Afterwards this watch
@@ -101,7 +100,6 @@ type FileInfo interface {
 	IsSymlink() bool
 	Owner() int
 	Group() int
-	InodeChangeTime() time.Time // may be zero if not supported
 }
 
 // FileMode is similar to os.FileMode

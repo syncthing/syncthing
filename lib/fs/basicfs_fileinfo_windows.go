@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 var execExts map[string]bool
@@ -56,10 +55,6 @@ func (e basicFileInfo) Owner() int {
 
 func (e basicFileInfo) Group() int {
 	return -1
-}
-
-func (basicFileInfo) InodeChangeTime() time.Time {
-	return time.Time{}
 }
 
 // osFileInfo converts e to os.FileInfo that is suitable

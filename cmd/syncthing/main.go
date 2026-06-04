@@ -42,7 +42,6 @@ import (
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/internal/slogutil"
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
@@ -155,7 +154,7 @@ type serveCmd struct {
 	AllowNewerConfig          bool          `help:"Allow loading newer than current config version" env:"STALLOWNEWERCONFIG"`
 	Audit                     bool          `help:"Write events to audit file" env:"STAUDIT"`
 	AuditFile                 string        `name:"auditfile" help:"Specify audit file (use \"-\" for stdout, \"--\" for stderr)" placeholder:"PATH" env:"STAUDITFILE"`
-	DBMaintenanceInterval     time.Duration `help:"Database maintenance interval" default:"8h" env:"STDBMAINTENANCEINTERVAL"`
+	DBMaintenanceInterval     time.Duration `help:"Database maintenance interval; set to zero to disable periodic maintenance" default:"8h" env:"STDBMAINTENANCEINTERVAL"`
 	DBDeleteRetentionInterval time.Duration `help:"Database deleted item retention interval" default:"10920h" env:"STDBDELETERETENTIONINTERVAL"`
 	GUIAddress                string        `name:"gui-address" help:"Override GUI address (e.g. \"http://192.0.2.42:8443\")" placeholder:"URL" env:"STGUIADDRESS"`
 	GUIAPIKey                 string        `name:"gui-apikey" help:"Override GUI API key" placeholder:"API-KEY" env:"STGUIAPIKEY"`
@@ -748,8 +747,13 @@ func autoUpgrade(cfg config.Wrapper, app *syncthing.App, evLogger events.Logger)
 			continue
 		}
 		sub.Unsubscribe()
+		restartDelay := time.Minute
+		evLogger.Log(events.UpgradeRestartScheduled, map[string]any{
+			"delayS":     int(restartDelay / time.Second),
+			"newVersion": rel.Tag,
+		})
 		slog.Error("Automatically upgraded, restarting in 1 minute", slog.String("newVersion", rel.Tag))
-		time.Sleep(time.Minute)
+		time.Sleep(restartDelay)
 		app.Stop(svcutil.ExitUpgrade)
 		return
 	}
@@ -911,10 +915,14 @@ func (u upgradeCmd) Run() error {
 		case err != nil && !os.IsNotExist(err):
 			slog.Error("Failed to lock for upgrade", slogutil.Error(err))
 			os.Exit(1)
-		case locked:
-			err = upgradeViaRest()
-		default:
+		case locked || os.IsNotExist(err):
+			// We got the lock, or the config directory didn't exist, so we
+			// can do a direct upgrade
 			err = upgrade.To(release)
+		default:
+			// We didn't get the lock, because Syncthing was running, so
+			// upgrade via REST.
+			err = upgradeViaRest()
 		}
 	}
 	if err != nil {
@@ -1050,7 +1058,7 @@ func (m migratingAPI) Serve(ctx context.Context) error {
 	srv := &http.Server{
 		Addr: m.addr,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "text/plain")
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 			w.Write([]byte("*** Database migration in progress ***\n\n"))
 			for _, line := range slogutil.GlobalRecorder.Since(time.Time{}) {
 				_, _ = line.WriteTo(w, slogutil.DefaultLineFormat)

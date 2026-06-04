@@ -20,6 +20,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -28,9 +29,8 @@ import (
 	"github.com/alecthomas/kong"
 	raven "github.com/getsentry/raven-go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	_ "github.com/syncthing/syncthing/lib/automaxprocs"
 	"github.com/syncthing/syncthing/lib/build"
-	"github.com/syncthing/syncthing/lib/ur"
+	"github.com/syncthing/syncthing/lib/ur/contract"
 )
 
 const maxRequestSize = 1 << 20 // 1 MiB
@@ -90,6 +90,7 @@ func main() {
 	if params.MetricsListen != "" {
 		mmux := http.NewServeMux()
 		mmux.Handle("/metrics", promhttp.Handler())
+		mmux.HandleFunc("/debug/pprof/", pprof.Index)
 		go func() {
 			if err := http.ListenAndServe(params.MetricsListen, mmux); err != nil {
 				log.Fatalln("HTTP serve metrics:", err)
@@ -102,6 +103,8 @@ func main() {
 	}
 
 	log.SetOutput(os.Stdout)
+	log.Println(build.LongVersionFor("stcrashreceiver"))
+
 	if err := http.ListenAndServe(params.Listen, mux); err != nil {
 		log.Fatalln("HTTP serve:", err)
 	}
@@ -122,12 +125,13 @@ func handleFailureFn(dsn, failureDir string, ignore *ignorePatterns) func(w http
 			return
 		}
 
-		if ignore.match(bs) {
+		if pat, ok := ignore.match(bs); ok {
+			metricIgnoreMatchesTotal.WithLabelValues(pat).Inc()
 			result = "ignored"
 			return
 		}
 
-		var reports []ur.FailureReport
+		var reports []contract.FailureReport
 		err = json.Unmarshal(bs, &reports)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -175,7 +179,7 @@ func handleFailureFn(dsn, failureDir string, ignore *ignorePatterns) func(w http
 	}
 }
 
-func saveFailureWithGoroutines(data ur.FailureData, failureDir string) (string, error) {
+func saveFailureWithGoroutines(data contract.FailureData, failureDir string) (string, error) {
 	bs := make([]byte, len(data.Description)+len(data.Goroutines))
 	copy(bs, data.Description)
 	copy(bs[len(data.Description):], data.Goroutines)
@@ -215,14 +219,14 @@ func loadIgnorePatterns(path string) (*ignorePatterns, error) {
 	return &ignorePatterns{patterns: patterns}, nil
 }
 
-func (i *ignorePatterns) match(report []byte) bool {
+func (i *ignorePatterns) match(report []byte) (string, bool) {
 	if i == nil {
-		return false
+		return "", false
 	}
 	for _, re := range i.patterns {
 		if re.Match(report) {
-			return true
+			return re.String(), true
 		}
 	}
-	return false
+	return "", false
 }

@@ -13,7 +13,6 @@ import (
 	"errors"
 	"iter"
 	"os"
-	"path"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -863,12 +862,10 @@ func TestConcurrentUpdate(t *testing.T) {
 	const n = 32
 	res := make([]error, n)
 	var wg sync.WaitGroup
-	wg.Add(n)
 	for i := range n {
-		go func() {
+		wg.Go(func() {
 			res[i] = db.Update(folderID, protocol.DeviceID{byte(i), byte(i), byte(i)}, files)
-			wg.Done()
-		}()
+		})
 	}
 	wg.Wait()
 	for i, err := range res {
@@ -1170,7 +1167,7 @@ func TestOpenSpecialName(t *testing.T) {
 
 	// Create a "base" dir that is in the way if the path becomes
 	// incorrectly truncated in the next steps.
-	base := path.Join(dir, "test")
+	base := filepath.Join(dir, "test")
 	if err := os.Mkdir(base, 0o755); err != nil {
 		t.Fatal(err)
 	}
