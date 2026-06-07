@@ -445,6 +445,20 @@ ul.three-columns li, ul.two-columns li {
         -moz-column-count: 1;
         column-count: 1;
     }
+      /* All buttons, except panel headings, get bottom margin, as they
+       won't fit beside each other anymore. Reduce footer padding to
+       compensate for the margin. */
+    .btn:not(.panel-heading),
+    .btn:not(.panel-heading) + .btn:not(.panel-heading) {
+        margin-bottom: 10px;
+    }
+    
+    .panel-footer {
+        padding-bottom: 0;
+    }
+    .modal-footer {
+        padding-bottom: 5px;
+    }
 }
 
 @media (max-width:479px) {
@@ -475,20 +489,6 @@ ul.three-columns li, ul.two-columns li {
         display: block;
         max-width: 100%;
         width: 100%;
-    }
-
-    /* All buttons, except panel headings, get bottom margin, as they
-       won't fit beside each other anymore. Reduce footer padding to
-       compensate for the margin. */
-    .btn:not(.panel-heading),
-    .btn:not(.panel-heading) + .btn:not(.panel-heading) {
-        margin-bottom: 10px;
-    }
-    .panel-footer {
-        padding-bottom: 0;
-    }
-    .modal-footer {
-        padding-bottom: 5px;
     }
 
     table.table-auto td,
@@ -552,8 +552,4 @@ html[lang|="ko"] i {
 .select-on-click {
     -webkit-user-select: all;
     user-select: all;
-}
-
-.pull-right:not(.panel-footer .pull-right) .btn {
-    margin-bottom: 10px;
 }
