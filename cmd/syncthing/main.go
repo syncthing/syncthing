@@ -185,6 +185,8 @@ type serveCmd struct {
 	// Internal options, not shown to users
 	InternalRestarting   bool `env:"STRESTART" hidden:"1"`
 	InternalInnerProcess bool `env:"STMONITORED" hidden:"1"`
+
+	openGUIOnLockFailure bool
 }
 
 func defaultVars() kong.Vars {
@@ -230,6 +232,8 @@ func main() {
 	kongplete.Complete(parser)
 	ctx, err := parser.Parse(os.Args[1:])
 	parser.FatalIfErrorf(err)
+
+	entrypoint.Serve.openGUIOnLockFailure = ctx.Command() == "serve" && len(ctx.Args) == 0
 
 	if entrypoint.VersionFlag {
 		_ = versionCmd{}.Run()
@@ -449,6 +453,10 @@ func (c *serveCmd) syncthingMain() {
 		slog.Error("Failed to acquire lock", slogutil.Error(err))
 		os.Exit(1)
 	} else if !locked {
+		if c.openGUIOnLockFailure {
+			_ = (browserCmd{}).Run()
+			os.Exit(svcutil.ExitSuccess.AsInt())
+		}
 		slog.Error("Failed to acquire lock: is another Syncthing instance already running?")
 		os.Exit(1)
 	}
