@@ -99,7 +99,9 @@ func isNoAuthPath(path string, metricsWithoutAuth bool) bool {
 		"/",
 		"/index.html",
 		"/modal.html",
-		"/rest/svc/lang", // Required to load language settings on login page
+		"/new-ui/",          // Svelte UI handles auth via metadata check and login form
+		"/new-ui/index.html", // Same as above, explicit path
+		"/rest/svc/lang",    // Required to load language settings on login page
 	}
 
 	if metricsWithoutAuth {
@@ -113,6 +115,7 @@ func isNoAuthPath(path string, metricsWithoutAuth bool) bool {
 		"/syncthing/",
 		"/vendor/",
 		"/theme-assets/", // This leaks information from config, but probably not sensitive
+		"/new-ui/assets/", // Svelte UI static assets (JS/CSS bundles)
 
 		// No-auth API endpoints
 		"/rest/noauth",

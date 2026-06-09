@@ -41,6 +41,11 @@ async function request(method, path, body, opts = {}) {
   });
 
   if (!response.ok) {
+    if (response.status === 403) {
+      // Session expired — reload to show login form
+      location.reload();
+      return;
+    }
     const err = new Error(`HTTP ${response.status}: ${response.statusText}`);
     err.status = response.status;
     err.response = response;
