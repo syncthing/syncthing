@@ -9,9 +9,10 @@ package protocol
 import "errors"
 
 var (
-	ErrGeneric    = errors.New("generic error")
-	ErrNoSuchFile = errors.New("no such file")
-	ErrInvalid    = errors.New("file is invalid")
+	ErrGeneric          = errors.New("generic error")
+	ErrNoSuchFile       = errors.New("no such file")
+	ErrInvalid          = errors.New("file is invalid")
+	ErrMissingBlockHash = errors.New("missing block hash")
 )
 
 func codeToError(code ErrorCode) error {
