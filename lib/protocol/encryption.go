@@ -93,6 +93,9 @@ func (e encryptedModel) Request(req *Request) (RequestResponse, error) {
 	}
 	realSize := req.Size - blockOverhead
 	realOffset := req.Offset - int64(req.BlockNo*blockOverhead)
+	if realOffset < 0 {
+		panic("bug: realOffset underflow")
+	}
 
 	if req.Size < minPaddedSize {
 		return nil, errors.New("short request")
@@ -101,7 +104,7 @@ func (e encryptedModel) Request(req *Request) (RequestResponse, error) {
 	// Decrypt the block hash.
 	fileKey := e.keyGen.FileKey(realName, folderKey)
 	var additional [8]byte
-	binary.BigEndian.PutUint64(additional[:], uint64(realOffset)) //nolint:gosec // will not overflow
+	binary.BigEndian.PutUint64(additional[:], uint64(realOffset))
 	realHash, err := decryptDeterministic(req.Hash, fileKey, additional[:])
 	if err != nil {
 		// "Legacy", no offset additional data?
