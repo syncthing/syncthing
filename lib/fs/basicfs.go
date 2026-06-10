@@ -257,6 +257,7 @@ func (f *BasicFilesystem) OpenFile(name string, flags int, mode FileMode) (File,
 	if err != nil {
 		return nil, err
 	}
+	flags |= alwaysOpenFlags
 	fd, err := os.OpenFile(rootedName, flags, os.FileMode(mode))
 	if err != nil {
 		return nil, err

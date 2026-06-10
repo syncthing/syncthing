@@ -21,6 +21,8 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+const alwaysOpenFlags = 0 // no extra flags
+
 var errNotSupported = errors.New("symlinks not supported")
 
 func (BasicFilesystem) ReadSymlink(path string) (string, error) {

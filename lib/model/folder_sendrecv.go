@@ -382,7 +382,7 @@ loop:
 			if err != nil {
 				return nil, nil, err
 			}
-			if hasCurFile && file.BlocksEqual(curFile) {
+			if hasCurFile && curFile.Type == file.Type && file.BlocksEqual(curFile) {
 				// We are supposed to copy the entire file, and then fetch nothing. We
 				// are only updating metadata, so we don't actually *need* to make the
 				// copy.
