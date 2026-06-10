@@ -68,15 +68,16 @@ const (
 )
 
 var (
-	ErrClosed             = errors.New("connection closed")
-	ErrTimeout            = errors.New("read timeout")
-	errNotCompressible    = errors.New("not compressible")
-	errUnknownMessage     = errors.New("unknown message")
-	errInvalidFilename    = errors.New("filename is invalid")
-	errUncleanFilename    = errors.New("filename not in canonical format")
-	errDeletedHasBlocks   = errors.New("deleted file with non-empty block list")
-	errDirectoryHasBlocks = errors.New("directory with non-empty block list")
-	errFileHasNoBlocks    = errors.New("file with empty block list")
+	ErrClosed           = errors.New("connection closed")
+	ErrTimeout          = errors.New("read timeout")
+	errNotCompressible  = errors.New("not compressible")
+	errUnknownMessage   = errors.New("unknown message")
+	errInvalidFilename  = errors.New("filename is invalid")
+	errUncleanFilename  = errors.New("filename not in canonical format")
+	errDeletedHasBlocks = errors.New("deleted file with non-empty block list")
+	errNonFileHasBlocks = errors.New("non-file type with non-empty block list")
+	errNonFileHasSize   = errors.New("non-file type with nonzero size")
+	errFileHasNoBlocks  = errors.New("file with empty block list")
 )
 
 type Model interface {
@@ -629,9 +630,13 @@ func checkFileInfoConsistency(f FileInfo) error {
 		// Deleted files should have no blocks
 		return errDeletedHasBlocks
 
-	case f.Type == FileInfoTypeDirectory && len(f.Blocks) != 0:
-		// Directories should have no blocks
-		return errDirectoryHasBlocks
+	case f.Type != FileInfoTypeFile && len(f.Blocks) != 0:
+		// Only files should have blocks
+		return errNonFileHasBlocks
+
+	case f.Type != FileInfoTypeFile && f.Size != 0:
+		// Only files should have a size
+		return errNonFileHasSize
 
 	case !f.Deleted && !f.IsInvalid() && f.Type == FileInfoTypeFile && len(f.Blocks) == 0:
 		// Non-deleted, non-invalid files should have at least one block
