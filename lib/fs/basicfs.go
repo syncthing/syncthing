@@ -249,7 +249,7 @@ func (f *BasicFilesystem) OpenFile(name string, flags int, mode FileMode) (File,
 	if err != nil {
 		return nil, err
 	}
-	flags |= alwaysOpenFlags
+	flags |= alwaysOpenFlags // enforce extra bits in flags
 	fd, err := os.OpenFile(rootedName, flags, os.FileMode(mode))
 	if err != nil {
 		return nil, err
