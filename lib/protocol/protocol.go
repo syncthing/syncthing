@@ -489,6 +489,12 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 			if msg.Size > MaxRequestSize {
 				return newProtocolError(fmt.Errorf("request size %d exceeds maximum allowed", msg.Size), msgContext)
 			}
+			if len(msg.Hash) == 0 {
+				// Syncthing versions older than v1.28.1 omit the hash in
+				// encrypted requests from trusted devices (a rare config)
+				// and will run into this.
+				return newProtocolError(errors.New("request missing block hash"), msgContext)
+			}
 			go c.handleRequest(requestFromWire(msg))
 
 		case *bep.Response:

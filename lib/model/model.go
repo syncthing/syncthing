@@ -1965,12 +1965,6 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 	if req.Size < 0 || req.Offset < 0 {
 		return nil, protocol.ErrInvalid
 	}
-	if len(req.Hash) == 0 {
-		// We require a hash on all requests. Syncthing versions older than
-		// v1.28.1 omit the encrypted hash in requests from trusted devices
-		// and will run into this.
-		return nil, protocol.ErrMissingBlockHash
-	}
 
 	deviceID := conn.DeviceID()
 

@@ -98,13 +98,7 @@ func (e encryptedModel) Request(req *Request) (RequestResponse, error) {
 		return nil, errors.New("short request")
 	}
 
-	// Decrypt the block hash. Requests without a hash are rejected.
-
-	if len(req.Hash) == 0 {
-		// Syncthing versions older than v1.28.1 omit the encrypted hash in
-		// requests from trusted devices and will run into this.
-		return nil, ErrMissingBlockHash
-	}
+	// Decrypt the block hash.
 	fileKey := e.keyGen.FileKey(realName, folderKey)
 	var additional [8]byte
 	binary.BigEndian.PutUint64(additional[:], uint64(realOffset))
