@@ -101,7 +101,7 @@ func (e encryptedModel) Request(req *Request) (RequestResponse, error) {
 	// Decrypt the block hash.
 	fileKey := e.keyGen.FileKey(realName, folderKey)
 	var additional [8]byte
-	binary.BigEndian.PutUint64(additional[:], uint64(realOffset))
+	binary.BigEndian.PutUint64(additional[:], uint64(realOffset)) //nolint:gosec // will not overflow
 	realHash, err := decryptDeterministic(req.Hash, fileKey, additional[:])
 	if err != nil {
 		// "Legacy", no offset additional data?
