@@ -120,24 +120,11 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 	return blocks, nil
 }
 
-// Validate validates the hash, if len(hash)>0.
+// Validate validates the hash.
 func Validate(buf, hash []byte) bool {
-	if len(hash) > 0 {
-		hbuf := sha256.Sum256(buf)
-		return bytes.Equal(hbuf[:], hash)
-	}
-
-	return true
+	hbuf := sha256.Sum256(buf)
+	return bytes.Equal(hbuf[:], hash)
 }
-
-type noopHash struct{}
-
-func (noopHash) Sum32() uint32             { return 0 }
-func (noopHash) BlockSize() int            { return 0 }
-func (noopHash) Size() int                 { return 0 }
-func (noopHash) Reset()                    {}
-func (noopHash) Sum([]byte) []byte         { return nil }
-func (noopHash) Write([]byte) (int, error) { return 0, nil }
 
 type noopCounter struct{}
 

@@ -9,6 +9,7 @@ package model
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -93,8 +94,10 @@ func TestRequest(t *testing.T) {
 
 	m.ScanFolder("default")
 
+	foobarHash := sha256.Sum256([]byte("foobar"))
+
 	// Existing, shared file
-	res, err := m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 6})
+	res, err := m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 6, Hash: foobarHash[:]})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,35 +107,42 @@ func TestRequest(t *testing.T) {
 	}
 
 	// Existing, nonshared file
-	_, err = m.Request(device2Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 6})
+	_, err = m.Request(device2Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 6, Hash: foobarHash[:]})
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Nonexistent file
-	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "nonexistent", Size: 6})
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "nonexistent", Size: 6, Hash: foobarHash[:]})
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Shared folder, but disallowed file name
-	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "../walk.go", Size: 6})
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "../walk.go", Size: 6, Hash: foobarHash[:]})
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Negative size
-	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: -4})
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: -4, Hash: foobarHash[:]})
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
-	// Larger block than available
+	// Missing hash
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 6})
+	if err == nil {
+		t.Error("Unexpected nil error on request without hash")
+	}
+
+	// Larger block than available, with a mismatched hash
 	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 42, Hash: []byte("hash necessary but not checked")})
 	if err == nil {
 		t.Error("Unexpected nil error on read past end of file")
 	}
-	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 42})
+	// Larger block than available, with the matching hash of the short read
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 42, Hash: foobarHash[:]})
 	if err != nil {
 		t.Error("Unexpected error when large read should be permitted")
 	}
@@ -2979,15 +2989,16 @@ func TestRequestLimit(t *testing.T) {
 	defer cleanupModel(m)
 	m.ScanFolder("default")
 
+	emptyHash := sha256.Sum256(nil)
 	befReq := time.Now()
-	first, err := m.Request(conn, &protocol.Request{Folder: "default", Name: file, Size: 2000})
+	first, err := m.Request(conn, &protocol.Request{Folder: "default", Name: file, Size: 2000, Hash: emptyHash[:]})
 	if err != nil {
 		t.Fatalf("First request failed: %v", err)
 	}
 	reqDur := time.Since(befReq)
 	returned := make(chan struct{})
 	go func() {
-		second, err := m.Request(conn, &protocol.Request{Folder: "default", Name: file, Size: 2000})
+		second, err := m.Request(conn, &protocol.Request{Folder: "default", Name: file, Size: 2000, Hash: emptyHash[:]})
 		if err != nil {
 			t.Errorf("Second request failed: %v", err)
 		}

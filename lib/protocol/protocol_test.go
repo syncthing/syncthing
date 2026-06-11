@@ -560,6 +560,7 @@ func TestRequestMaxSize(t *testing.T) {
 				Id:   1,
 				Name: "valid",
 				Size: MaxRequestSize,
+				Hash: []byte{42},
 			}
 
 			res := <-c.outbox
@@ -573,6 +574,7 @@ func TestRequestMaxSize(t *testing.T) {
 				Id:   2,
 				Name: "invalid",
 				Size: int32(s),
+				Hash: []byte{42},
 			}
 
 			select {
@@ -606,6 +608,7 @@ func TestRequestZeroSize(t *testing.T) {
 		Id:   1,
 		Name: "valid",
 		Size: 0,
+		Hash: []byte{42},
 	}
 
 	select {
@@ -632,6 +635,7 @@ func TestRequestInvalidFilename(t *testing.T) {
 		Id:   1,
 		Name: "../escape",
 		Size: 1024,
+		Hash: []byte{42},
 	}
 
 	select {
