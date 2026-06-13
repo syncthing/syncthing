@@ -451,6 +451,61 @@ func TestCheckConsistency(t *testing.T) {
 			},
 			ok: false,
 		},
+		{
+			// directory with zero size
+			fi: FileInfo{
+				Name: "foo",
+				Type: FileInfoTypeDirectory,
+			},
+			ok: true,
+		},
+		{
+			// directory with synthetic size
+			fi: FileInfo{
+				Name: "foo",
+				Type: FileInfoTypeDirectory,
+				Size: SyntheticDirectorySize,
+			},
+			ok: true,
+		},
+		{
+			// directory with arbitrary size
+			fi: FileInfo{
+				Name: "foo",
+				Type: FileInfoTypeDirectory,
+				Size: 42,
+			},
+			ok: false,
+		},
+		{
+			// symlink with zero size
+			fi: FileInfo{
+				Name:          "foo",
+				Type:          FileInfoTypeSymlink,
+				SymlinkTarget: []byte("bar"),
+			},
+			ok: true,
+		},
+		{
+			// symlink with synthetic directory size (not permitted)
+			fi: FileInfo{
+				Name:          "foo",
+				Type:          FileInfoTypeSymlink,
+				SymlinkTarget: []byte("bar"),
+				Size:          SyntheticDirectorySize,
+			},
+			ok: false,
+		},
+		{
+			// symlink with arbitrary size
+			fi: FileInfo{
+				Name:          "foo",
+				Type:          FileInfoTypeSymlink,
+				SymlinkTarget: []byte("bar"),
+				Size:          42,
+			},
+			ok: false,
+		},
 	}
 
 	for _, tc := range cases {
