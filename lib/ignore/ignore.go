@@ -8,7 +8,6 @@ package ignore
 
 import (
 	"bufio"
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -30,7 +29,16 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 )
 
-const escapePrefix = "#escape"
+const (
+	escapePrefix = "#escape"
+
+	// IgnoreFile is the name of the per-folder ignore pattern file.
+	IgnoreFile = ".stignore"
+
+	// globalIgnoreFile is automatically loaded from the folder root alongside
+	// IgnoreFile. Unlike IgnoreFile it is synced between devices.
+	globalIgnoreFile = ".stglobalignore"
+)
 
 var defaultEscapeChar = '\\'
 
@@ -181,14 +189,25 @@ func (m *Matcher) Load(file string) error {
 
 	fd, info, err := loadIgnoreFile(m.fs, file)
 	if err != nil {
-		m.parseLocked(&bytes.Buffer{}, file)
+		m.applyPatterns(nil, nil, err)
 		return err
 	}
 	defer fd.Close()
 
 	m.changeDetector.Reset()
 
-	err = m.parseLocked(fd, file)
+	// Parse the main ignore file.
+	linesSeen := make(map[string]struct{})
+	lines, patterns, parseErr := parseIgnoreFile(m.fs, fd, file, m.changeDetector, linesSeen)
+
+	// Append patterns from globalIgnoreFile if present. Local patterns are
+	// checked first, so .stignore can override global ones (e.g. a
+	// !.git/config in .stignore overrides .git/** in .stglobalignore).
+	if globalPatterns, gerr := loadParseIncludeFile(m.fs, globalIgnoreFile, m.changeDetector, linesSeen); gerr == nil {
+		patterns = append(patterns, globalPatterns...)
+	}
+
+	err = m.applyPatterns(lines, patterns, parseErr)
 	// If we failed to parse, don't cache, as next time Load is called
 	// we'll pretend it's all good.
 	if err == nil {
@@ -208,7 +227,13 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 	lines, patterns, err := parseIgnoreFile(m.fs, r, file, m.changeDetector, make(map[string]struct{}))
 	// Error is saved and returned at the end. We process the patterns
 	// (possibly blank) anyway.
+	return m.applyPatterns(lines, patterns, err)
+}
 
+// applyPatterns updates the matcher state from a combined set of lines and
+// patterns. lines reflects the raw .stignore content (used by the GUI);
+// patterns is the full evaluated set including any global patterns.
+func (m *Matcher) applyPatterns(lines []string, patterns []Pattern, err error) error {
 	m.lines = lines
 
 	newHash := hashPatterns(patterns)

@@ -1731,3 +1731,136 @@ func testEscape(t *testing.T, tests []escapeTest, noErrors bool) {
 		}
 	}
 }
+
+// TestGlobalIgnore verifies that .stglobalignore patterns are applied and
+// that local .stignore takes precedence over global patterns on conflict.
+func TestGlobalIgnore(t *testing.T) {
+	t.Run("LocalNegationBeatsGlobalIgnore", func(t *testing.T) {
+		testFS := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32)+"?content=true&nostfolder=true")
+
+		// Global ignores the whole .git dir; local carves out config.
+		fs.WriteFile(testFS, ".stglobalignore", []byte(".git/**\n"), 0o666)
+		fs.WriteFile(testFS, ".stignore", []byte("!.git/config\n"), 0o666)
+
+		pats := New(testFS)
+		if err := pats.Load(".stignore"); err != nil {
+			t.Fatal(err)
+		}
+
+		if pats.Match(".git/config").IsIgnored() {
+			t.Error(".git/config should not be ignored (local negation overrides global)")
+		}
+		if !pats.Match(".git/HEAD").IsIgnored() {
+			t.Error(".git/HEAD should be ignored (matched by global pattern)")
+		}
+		if !pats.Match(".git/objects/abc123").IsIgnored() {
+			t.Error(".git/objects/abc123 should be ignored (matched by global pattern)")
+		}
+	})
+
+	t.Run("LocalIgnoreBeatsGlobalNegation", func(t *testing.T) {
+		testFS := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32)+"?content=true&nostfolder=true")
+
+		// Local ignores a file that global tries to un-ignore; local wins.
+		fs.WriteFile(testFS, ".stglobalignore", []byte("!secret\n"), 0o666)
+		fs.WriteFile(testFS, ".stignore", []byte("secret\n"), 0o666)
+
+		pats := New(testFS)
+		if err := pats.Load(".stignore"); err != nil {
+			t.Fatal(err)
+		}
+
+		if !pats.Match("secret").IsIgnored() {
+			t.Error("secret should be ignored (local ignore beats global negation)")
+		}
+	})
+}
+
+func TestGlobalIgnoreMissing(t *testing.T) {
+	testFS := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32)+"?content=true&nostfolder=true")
+	fs.WriteFile(testFS, ".stignore", []byte("somefile\n"), 0o666)
+
+	// No .stglobalignore — should load without error.
+	pats := New(testFS)
+	if err := pats.Load(".stignore"); err != nil {
+		t.Fatalf("unexpected error loading without .stglobalignore: %v", err)
+	}
+	if !pats.Match("somefile").IsIgnored() {
+		t.Error("somefile should be ignored")
+	}
+}
+
+func TestGlobalIgnoreCacheBusting(t *testing.T) {
+	testFS := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32)+"?content=true&nostfolder=true")
+	fs.WriteFile(testFS, ".stignore", []byte(""), 0o666)
+	fs.WriteFile(testFS, ".stglobalignore", []byte("globalfile\n"), 0o666)
+
+	pats := New(testFS, WithCache(true))
+	if err := pats.Load(".stignore"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Populate the cache.
+	pats.Match("globalfile")
+	pats.Match("otherfile")
+	if pats.matches.len() != 2 {
+		t.Fatalf("expected 2 cached results, got %d", pats.matches.len())
+	}
+
+	// Reload with no changes — cache should be preserved.
+	if err := pats.Load(".stignore"); err != nil {
+		t.Fatal(err)
+	}
+	if pats.matches.len() != 2 {
+		t.Fatalf("expected cache to be preserved on unchanged reload, got %d entries", pats.matches.len())
+	}
+
+	// Modify .stglobalignore — cache should be busted.
+	fs.WriteFile(testFS, ".stglobalignore", []byte("otherfile\n"), 0o666)
+	fakeTime := time.Now().Add(5 * time.Second)
+	testFS.Chtimes(".stglobalignore", fakeTime, fakeTime)
+
+	if err := pats.Load(".stignore"); err != nil {
+		t.Fatal(err)
+	}
+	if pats.matches.len() != 0 {
+		t.Fatalf("expected cache to be cleared after .stglobalignore change, got %d entries", pats.matches.len())
+	}
+
+	// Verify new patterns are active.
+	if pats.Match("globalfile").IsIgnored() {
+		t.Error("globalfile should no longer be ignored")
+	}
+	if !pats.Match("otherfile").IsIgnored() {
+		t.Error("otherfile should now be ignored")
+	}
+}
+
+func TestGlobalIgnoreChangeDetection(t *testing.T) {
+	testFS := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32)+"?content=true&nostfolder=true")
+	fs.WriteFile(testFS, ".stignore", []byte(""), 0o666)
+	fs.WriteFile(testFS, ".stglobalignore", []byte("globalfile\n"), 0o666)
+
+	pats := New(testFS)
+	if err := pats.Load(".stignore"); err != nil {
+		t.Fatal(err)
+	}
+	if !pats.Match("globalfile").IsIgnored() {
+		t.Error("globalfile should be ignored after initial load")
+	}
+
+	// Update .stglobalignore with a future modtime so change detection fires.
+	fs.WriteFile(testFS, ".stglobalignore", []byte("otherfile\n"), 0o666)
+	fakeTime := time.Now().Add(5 * time.Second)
+	testFS.Chtimes(".stglobalignore", fakeTime, fakeTime)
+
+	if err := pats.Load(".stignore"); err != nil {
+		t.Fatal(err)
+	}
+	if pats.Match("globalfile").IsIgnored() {
+		t.Error("globalfile should no longer be ignored after .stglobalignore update")
+	}
+	if !pats.Match("otherfile").IsIgnored() {
+		t.Error("otherfile should now be ignored after .stglobalignore update")
+	}
+}
