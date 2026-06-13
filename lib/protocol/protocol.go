@@ -640,8 +640,12 @@ func checkFileInfoConsistency(f FileInfo) error {
 		// Only files should have blocks
 		return errNonFileHasBlocks
 
-	case f.Type != FileInfoTypeFile && f.Size != 0:
-		// Only files should have a size
+	case f.IsDirectory() && f.Size != 0 && f.Size != SyntheticDirectorySize:
+		// Directories should be size zero or the synthetic directory size
+		return errNonFileHasSize
+
+	case f.IsSymlink() && f.Size != 0:
+		// Symlinks should be size zero
 		return errNonFileHasSize
 
 	case !f.Deleted && !f.IsInvalid() && f.Type == FileInfoTypeFile && len(f.Blocks) == 0:
