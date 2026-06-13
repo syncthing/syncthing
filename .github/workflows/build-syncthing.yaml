@@ -192,7 +192,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: "~1.25.7" # temporarily stay on Go 1.25 due to linker error on Go 1.26
+          go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
