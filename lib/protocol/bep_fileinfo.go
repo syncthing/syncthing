@@ -389,16 +389,6 @@ func (f FileInfo) HasPermissionBits() bool {
 	return !f.NoPermissions
 }
 
-func (f FileInfo) FileSize() int64 {
-	if f.Deleted {
-		return 0
-	}
-	if f.IsDirectory() || f.IsSymlink() {
-		return SyntheticDirectorySize
-	}
-	return f.Size
-}
-
 func (f FileInfo) BlockSize() int {
 	if f.RawBlockSize < MinBlockSize {
 		return MinBlockSize
