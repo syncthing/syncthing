@@ -199,11 +199,10 @@ func (s *sharedPullerState) tempFileInWritableDir(_ string) error {
 	// Don't truncate symlink files, as that will mean that the path will
 	// contain a bunch of nulls.
 	if s.sparse && !s.file.IsSymlink() {
-		size := s.file.Size
-		// Trailer added to encrypted files
-		if len(s.file.Encrypted) > 0 {
-			size += encryptionTrailerSize(s.file)
-		}
+		// Mark sparse before sizing so unwritten regions are real holes; this
+		// lets an interrupted pull resume (see reuseBlocksEncrypted, SetSparse).
+		fs.SetSparse(fd)
+		size := onDiskSize(s.file)
 		// Truncate sets the size of the file. This creates a sparse file or a
 		// space reservation, depending on the underlying filesystem.
 		if err := fd.Truncate(size); err != nil {
@@ -406,6 +405,17 @@ func writeEncryptionTrailer(file protocol.FileInfo, writer io.WriterAt) (int64, 
 
 func encryptionTrailerSize(file protocol.FileInfo) int64 {
 	return int64(proto.Size(file.ToWire(false))) + 4 // XXX: Inefficient
+}
+
+// onDiskSize is the size a fully written temp occupies: the plaintext size plus
+// the encryption trailer for receive-encrypted files. The temp is pre-allocated
+// to it, so reuseBlocksEncrypted uses it to match a temp to this file version.
+func onDiskSize(file protocol.FileInfo) int64 {
+	size := file.Size
+	if len(file.Encrypted) > 0 {
+		size += encryptionTrailerSize(file)
+	}
+	return size
 }
 
 // Progress returns the momentarily progress for the puller
