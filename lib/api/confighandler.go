@@ -338,10 +338,59 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 }
 
 func (c *configMuxBuilder) adjustFolder(w http.ResponseWriter, r *http.Request, folder config.FolderConfiguration, defaults bool) {
-	if err := unmarshalTo(r.Body, &folder); err != nil {
+	bs, err := io.ReadAll(r.Body)
+	r.Body.Close()
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	if !defaults {
+		// PATCH: merge body into current folder config.
+		// FolderConfiguration.UnmarshalJSON calls structutil.SetDefaults
+		// which resets unspecified fields to their defaults. To preserve
+		// current values for fields not present in the request body,
+		// we merge the current folder JSON with the patch before
+		// unmarshaling.
+		currentJSON, err := json.Marshal(folder)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var current map[string]json.RawMessage
+		if err := json.Unmarshal(currentJSON, &current); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var patch map[string]json.RawMessage
+		if err := json.Unmarshal(bs, &patch); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		for k, v := range patch {
+			current[k] = v
+		}
+
+		mergedJSON, err := json.Marshal(current)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if err := json.Unmarshal(mergedJSON, &folder); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	} else {
+		if err := json.Unmarshal(bs, &folder); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
 	waiter, err := c.cfg.Modify(func(cfg *config.Configuration) {
 		if defaults {
 			cfg.Defaults.Folder = folder
