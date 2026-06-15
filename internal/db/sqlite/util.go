@@ -106,6 +106,10 @@ func (i indirectFI) FileInfo() (protocol.FileInfo, error) {
 		fi.Blocks = bl.Blocks
 	}
 	fi.Name = osutil.NativeFilename(fi.Name)
+	// Undo earlier behaviour of setting a synthetic size on dirs.
+	if fi.Type != protocol.FileInfoTypeFile && fi.Size > 0 {
+		fi.Size = 0
+	}
 	return protocol.FileInfoFromDB(&fi), nil
 }
 
