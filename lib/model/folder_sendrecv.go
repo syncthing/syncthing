@@ -1136,6 +1136,10 @@ func (f *sendReceiveFolder) handleFile(ctx context.Context, file protocol.FileIn
 
 	if f.Type != config.FolderTypeReceiveEncrypted {
 		blocks, reused = f.reuseBlocks(ctx, blocks, reused, file, tempName)
+	} else if !f.DisableSparseFiles {
+		// Resume via sparse-allocation detection; needs a pre-allocated sparse
+		// temp, so it is skipped when sparse files are disabled.
+		blocks, reused = f.reuseBlocksEncrypted(blocks, reused, file, tempName)
 	}
 
 	// The sharedpullerstate will know which flags to use when opening the
@@ -1207,6 +1211,66 @@ func (f *sendReceiveFolder) reuseBlocks(ctx context.Context, blocks []protocol.B
 		}
 	}
 
+	return blocks, reused
+}
+
+// reuseBlocksEncrypted resumes an interrupted receive-encrypted download by
+// reusing blocks already in the temp. Encrypted blocks are opaque and can't be
+// hash-verified (the block "hash" is an encryption token), so reuseBlocks is
+// unusable; instead a block counts as present when its byte range is fully
+// allocated, each block being written with a single WriteAt that leaves a hole
+// in any unwritten tail.
+//
+// Reused blocks can't be verified locally, so two rules keep it safe:
+//   - Size: only a temp matching this version's on-disk size is reused. A
+//     same-size in-place edit can't be told apart and is caught when a trusted
+//     device reads the file back.
+//   - No holes: if the scan finds no hole at all, reuse is refused. A
+//     half-written temp on a filesystem without hole support (HFS+, FAT,
+//     network mounts) reads as fully allocated, indistinguishable from a
+//     complete one, and reusing it would splice in un-downloaded regions.
+func (f *sendReceiveFolder) reuseBlocksEncrypted(blocks []protocol.BlockInfo, reused []int, file protocol.FileInfo, tempName string) ([]protocol.BlockInfo, []int) {
+	fd, err := f.mtimefs.Open(tempName)
+	if err != nil {
+		return blocks, reused // no temp; nothing to reuse
+	}
+	defer fd.Close()
+
+	// Size guard: the temp is pre-allocated to onDiskSize, so a mismatch is a
+	// different version and must not be reused unverified.
+	if info, err := fd.Stat(); err != nil || info.Size() != onDiskSize(file) {
+		return blocks, reused
+	}
+
+	present := make([]bool, len(file.Blocks))
+	holeFound := false
+	for i, block := range file.Blocks {
+		if block.Size <= 0 {
+			continue
+		}
+		hole, ok := fs.NextHole(fd, block.Offset)
+		if !ok {
+			return blocks, reused // no hole detection here; reuse nothing
+		}
+		// Present iff the whole range is allocated (next hole is at/after end).
+		present[i] = hole >= block.Offset+int64(block.Size)
+		if !present[i] {
+			holeFound = true
+		}
+	}
+
+	if !holeFound {
+		return blocks, reused // no holes: refuse reuse, see doc comment
+	}
+
+	blocks = blocks[:0]
+	for i, block := range file.Blocks {
+		if present[i] {
+			reused = append(reused, i)
+		} else {
+			blocks = append(blocks, block)
+		}
+	}
 	return blocks, reused
 }
 
