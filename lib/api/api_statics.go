@@ -82,6 +82,13 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 
 	if file == "" {
 		file = "index.html"
+	} else if strings.HasSuffix(file, "/") {
+		file += "index.html"
+	}
+
+	// Svelte UI: serve from Vite build output (dist/) directory
+	if strings.HasPrefix(file, "new-ui/") {
+		file = "new-ui/dist/" + file[len("new-ui/"):]
 	}
 
 	s.mut.RLock()
