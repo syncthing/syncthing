@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-REST-API" "7" "Jun 07, 2026" "v2.1.0" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Jun 08, 2026" "v2.1.0" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .sp
@@ -665,8 +665,10 @@ curl \-X POST \-H \(dqX\-API\-Key: abc123\(dq http://localhost:8384/rest/system/
 .UNINDENT
 .UNINDENT
 .sp
-\fBCaution\fP: See \fB\-\-reset\-database\fP for \fB\&.stfolder\fP creation
-side\-effect and caution regarding mountpoints.
+Creates \fB\&.stfolder\fP folders in each sync folder if they do not already exist.
+\fBCaution\fP: Ensure that all sync folders which are mountpoints are already
+mounted.  Inconsistent versions may result if the mountpoint is later mounted
+and contains older versions.
 .SS POST /rest/system/restart
 .sp
 Post with empty body to immediately restart Syncthing.
