@@ -222,11 +222,7 @@ func (f *BasicFilesystem) Stat(name string) (FileInfo, error) {
 }
 
 func (f *BasicFilesystem) DirNames(name string) ([]string, error) {
-	name, err := f.rooted(name)
-	if err != nil {
-		return nil, err
-	}
-	fd, err := os.OpenFile(name, OptReadOnly, 0o777)
+	fd, err := f.OpenFile(name, OptReadOnly, 0o777)
 	if err != nil {
 		return nil, err
 	}
