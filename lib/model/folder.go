@@ -975,10 +975,13 @@ func (f *folder) scanTimerFired(ctx context.Context) error {
 	select {
 	case <-f.initialScanFinished:
 	default:
-		if err != nil {
-			f.sl.ErrorContext(ctx, "Failed initial scan", slogutil.Error(err))
-		} else {
+		switch {
+		case err == nil:
 			f.sl.InfoContext(ctx, "Completed initial scan")
+		case errors.Is(err, context.Canceled):
+			// Suppressed: context was canceled (e.g. by user)
+		default:
+			f.sl.ErrorContext(ctx, "Failed initial scan", slogutil.Error(err))
 		}
 		close(f.initialScanFinished)
 	}
