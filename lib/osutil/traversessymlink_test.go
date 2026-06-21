@@ -8,8 +8,10 @@ package osutil_test
 
 import (
 	"path/filepath"
+	"slices"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -59,11 +61,16 @@ func TestTraversesSymlink(t *testing.T) {
 	}
 }
 
-func TestIssue4875(t *testing.T) {
-	testFsPath := rand.String(32)
-	testFs := fs.NewFilesystem(fs.FilesystemTypeFake, testFsPath)
+func TestSymlinkedFSRootTraversal(t *testing.T) {
+	// Normal FS operations should work inside a folder root that is a symlink
+	if build.IsWindows {
+		t.Skip("symlinks unavailable")
+	}
+
+	testFsPath := t.TempDir()
+	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, testFsPath)
 	testFs.MkdirAll(filepath.Join("a", "b", "c"), 0o755)
-	if err := testFs.CreateSymlink(filepath.Join("a", "b"), filepath.Join("a", "l")); err != nil {
+	if err := testFs.CreateSymlink("b", filepath.Join("a", "l")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -76,9 +83,20 @@ func TestIssue4875(t *testing.T) {
 		t.Fatal("error in setup, a/l/c should be a directory")
 	}
 
-	testFs = fs.NewFilesystem(fs.FilesystemTypeFake, filepath.Join(testFsPath, "a/l"))
+	testFs = fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Join(testFsPath, "a/l"))
 	if err := osutil.TraversesSymlink(testFs, "."); err != nil {
 		t.Error(`TraversesSymlink on filesystem with symlink at root returned error for ".":`, err)
+	}
+
+	// We should be able to create and list files within the symlinked root
+	if _, err := testFs.Create("test"); err != nil {
+		t.Fatal(err)
+	}
+	if names, err := testFs.DirNames("."); err != nil {
+		t.Fatal(err)
+	} else if !slices.Contains(names, "test") {
+		t.Log(names)
+		t.Error("missing test file in listing")
 	}
 }
 
