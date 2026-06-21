@@ -24,6 +24,7 @@ import (
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/cmdutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -599,9 +600,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 			// archiving.
 			// Symlinks aren't checked for conflicts.
 
-			err = f.inWritableDir(func(name string) error {
-				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
-			}, curFile.Name)
+			err = f.handleConflict(curFile.Name, file.Name, file.ModifiedBy.String(), scanChan)
 		} else {
 			err = f.deleteItemOnDisk(curFile, scanChan)
 		}
@@ -797,9 +796,7 @@ func (f *sendReceiveFolder) handleSymlinkCheckExisting(file protocol.FileInfo, s
 		// archiving.
 		// Directories and symlinks aren't checked for conflicts.
 
-		return f.inWritableDir(func(name string) error {
-			return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
-		}, curFile.Name)
+		return f.handleConflict(curFile.Name, file.Name, file.ModifiedBy.String(), scanChan)
 	} else {
 		return f.deleteItemOnDisk(curFile, scanChan)
 	}
@@ -1682,14 +1679,12 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 			// archiving.
 			// Directories and symlinks aren't checked for conflicts.
 
-			err = f.inWritableDir(func(name string) error {
-				return f.moveForConflict(name, file.ModifiedBy.String(), scanChan)
-			}, curFile.Name)
+			err = f.handleConflict(file.Name, tempName, file.ModifiedBy.String(), scanChan)
 		} else {
 			err = f.deleteItemOnDisk(curFile, scanChan)
 		}
 		if err != nil {
-			return fmt.Errorf("moving for conflict: %w", err)
+			return fmt.Errorf("handling conflict: %w", err)
 		}
 	} else if !fs.IsNotExist(err) {
 		return fmt.Errorf("checking existing file: %w", err)
@@ -1706,6 +1701,14 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 
 	// Record the updated file in the index
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleFile}
+
+	if f.ConflictHandlingCommand != "" && isConflict(file.Name) {
+		deconflictifiedName := deconflictifyName(file.Name)
+		if _, err := f.mtimefs.Lstat(deconflictifiedName); !fs.IsNotExist(err) {
+			f.performExternalConflictHandling(file.Name, deconflictifiedName, scanChan)
+		}
+	}
+
 	return nil
 }
 
@@ -1903,6 +1906,47 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 		scanChan <- newName
 	}
 	return err
+}
+
+func (f *sendReceiveFolder) performExternalConflictHandling(conflictName, fileName string, scanChan chan<- string) {
+	keywords := map[string]string{
+		"%FOLDER_PATH%":   f.mtimefs.URI(),
+		"%CONFLICT_PATH%": conflictName,
+		"%FILE_PATH%":     fileName,
+	}
+
+	cmd, err := cmdutil.FormattedCommand(f.ConflictHandlingCommand, keywords)
+	if err != nil {
+		return
+	}
+
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		slog.Info("External conflict handling command succeeded", f.LogAttr(), slogutil.FilePath(fileName), slog.String("conflictpath", conflictName), slog.String("output", string(output)))
+	} else {
+		slog.Error("External conflict handling command failed", f.LogAttr(), slogutil.FilePath(fileName), slog.String("conflictpath", conflictName), slogutil.Error(err), slog.String("output", string(output)))
+	}
+
+	scanChan <- fileName
+	scanChan <- conflictName
+}
+
+func (f *sendReceiveFolder) handleConflict(conflictName, fileName, lastModBy string, scanChan chan<- string) error {
+	moveForConflictInWritableDir := func(name string) error {
+		return f.moveForConflict(name, lastModBy, scanChan)
+	}
+
+	if f.ConflictHandlingCommand == "" {
+		return f.inWritableDir(moveForConflictInWritableDir, conflictName)
+	}
+
+	f.performExternalConflictHandling(conflictName, fileName, scanChan)
+
+	if _, err := f.mtimefs.Lstat(conflictName); !fs.IsNotExist(err) {
+		return f.inWritableDir(moveForConflictInWritableDir, conflictName)
+	}
+
+	return nil
 }
 
 func (f *sendReceiveFolder) newPullError(path string, err error) {
@@ -2220,6 +2264,13 @@ type FileError struct {
 func conflictName(name, lastModBy string) string {
 	ext := filepath.Ext(name)
 	return name[:len(name)-len(ext)] + time.Now().Format(".sync-conflict-20060102-150405-") + lastModBy + ext
+}
+
+func deconflictifyName(name string) string {
+	deconflictifiedName, _, _ := strings.Cut(name, ".sync-conflict-")
+	deconflictifiedName += filepath.Ext(name)
+
+	return deconflictifiedName
 }
 
 func isConflict(name string) bool {
