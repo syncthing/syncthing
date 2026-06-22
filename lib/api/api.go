@@ -1774,7 +1774,7 @@ func fileIntfJSONMap(f protocol.FileInfo) map[string]interface{} {
 	out := map[string]interface{}{
 		"name":               f.FileName(),
 		"type":               f.FileType().String(),
-		"size":               f.FileSize(),
+		"size":               f.Size,
 		"deleted":            f.IsDeleted(),
 		"invalid":            f.IsInvalid(),
 		"ignored":            f.IsIgnored(),

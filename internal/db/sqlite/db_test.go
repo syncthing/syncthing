@@ -29,7 +29,6 @@ import (
 const (
 	folderID  = "test"
 	blockSize = 128 << 10
-	dirSize   = 128
 )
 
 func TestBasics(t *testing.T) {
@@ -72,11 +71,11 @@ func TestBasics(t *testing.T) {
 		t.Fatal(err)
 	}
 	const (
-		localSize      = (1+2+3)*blockSize + dirSize
+		localSize      = (1+2+3)*blockSize
 		remoteSize     = (3 + 4 + 5) * blockSize
-		globalSize     = (2+3+3+4+5)*blockSize + dirSize
+		globalSize     = (2+3+3+4+5)*blockSize
 		needSizeLocal  = remoteSize
-		needSizeRemote = (2+3)*blockSize + dirSize
+		needSizeRemote = (2+3)*blockSize
 	)
 
 	t.Run("SchemaVersion", func(t *testing.T) {

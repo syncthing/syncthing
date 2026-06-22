@@ -56,7 +56,8 @@ const (
 	// DesiredPerFileBlocks is the number of blocks we aim for per file
 	DesiredPerFileBlocks = 2000
 
-	SyntheticDirectorySize = 128
+	// We used to send this size for directories and still accept that for compat.
+	deprecatedSyntheticDirectorySize = 128
 
 	// don't bother compressing messages smaller than this many bytes
 	compressionThreshold = 128
@@ -640,7 +641,7 @@ func checkFileInfoConsistency(f FileInfo) error {
 		// Only files should have blocks
 		return errNonFileHasBlocks
 
-	case f.IsDirectory() && f.Size != 0 && f.Size != SyntheticDirectorySize:
+	case f.IsDirectory() && f.Size != 0 && f.Size != deprecatedSyntheticDirectorySize:
 		// Directories should be size zero or the synthetic directory size
 		return errNonFileHasSize
 

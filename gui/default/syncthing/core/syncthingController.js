@@ -1139,20 +1139,20 @@ angular.module('syncthing.core')
         };
 
         $scope.syncPercentage = function (folder) {
-            if (typeof $scope.model[folder] === 'undefined') {
+            var model = $scope.model[folder];
+            if (typeof model === 'undefined') {
                 return 100;
             }
-            if ($scope.model[folder].needTotalItems === 0) {
+            if (model.needTotalItems === 0) {
                 return 100;
             }
-            if (($scope.model[folder].needBytes == 0 && $scope.model[folder].needDeletes > 0) || $scope.model[folder].globalBytes == 0) {
-                // We don't need any data, but we have deletes that we need
-                // to do. Drop down the completion percentage to indicate
-                // that we have stuff to do.
-                // Do the same thing in case we only have zero byte files to sync.
+            if (model.needBytes == 0 && model.needTotalItems > 0) {
+                // We don't need any data, but we have deletes, directories,
+                // symlinks or zero byte files that we need to do. Drop down the
+                // completion percentage to indicate that we have stuff to do.
                 return 95;
             }
-            return progressIntegerPercentage($scope.model[folder].inSyncBytes, $scope.model[folder].globalBytes);
+            return progressIntegerPercentage(model.inSyncBytes, model.globalBytes);
         };
 
         $scope.scanPercentage = function (folder) {

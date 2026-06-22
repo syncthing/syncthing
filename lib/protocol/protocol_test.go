@@ -464,7 +464,7 @@ func TestCheckConsistency(t *testing.T) {
 			fi: FileInfo{
 				Name: "foo",
 				Type: FileInfoTypeDirectory,
-				Size: SyntheticDirectorySize,
+				Size: deprecatedSyntheticDirectorySize,
 			},
 			ok: true,
 		},
@@ -492,7 +492,7 @@ func TestCheckConsistency(t *testing.T) {
 				Name:          "foo",
 				Type:          FileInfoTypeSymlink,
 				SymlinkTarget: []byte("bar"),
-				Size:          SyntheticDirectorySize,
+				Size:          deprecatedSyntheticDirectorySize,
 			},
 			ok: false,
 		},

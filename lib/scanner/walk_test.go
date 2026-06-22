@@ -41,9 +41,9 @@ type testfileList []testfile
 
 var testdata = testfileList{
 	{"afile", 4, "b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c"},
-	{"dir1", 128, ""},
+	{"dir1", 0, ""},
 	{filepath.Join("dir1", "dfile"), 5, "49ae93732fcf8d63fe1cce759664982dbd5b23161f007dba8561862adc96d063"},
-	{"dir2", 128, ""},
+	{"dir2", 0, ""},
 	{filepath.Join("dir2", "cfile"), 4, "bf07a7fbb825fc0aae7bf4a1177b2b31fcf8a3feeaf7092761e18c859ee52a9c"},
 	{"excludes", 37, "df90b52f0c55dba7a7a940affe482571563b1ac57bd5be4d8a0291e7de928e06"},
 	{"further-excludes", 5, "7eb0a548094fa6295f7fd9200d69973e5f5ec5c04f2a86d998080ac43ecf89f1"},
@@ -601,7 +601,7 @@ func (l fileList) testfiles() testfileList {
 		if len(f.Blocks) > 1 {
 			panic("simple test case stuff only supports a single block per file")
 		}
-		testfiles[i] = testfile{name: f.Name, length: f.FileSize()}
+		testfiles[i] = testfile{name: f.Name, length: f.Size}
 		if len(f.Blocks) == 1 {
 			testfiles[i].hash = fmt.Sprintf("%x", f.Blocks[0].Hash)
 		}

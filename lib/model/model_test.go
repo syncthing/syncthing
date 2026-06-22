@@ -1787,10 +1787,12 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	b := func(isfile bool, path ...string) protocol.FileInfo {
 		typ := protocol.FileInfoTypeDirectory
 		var blocks []protocol.BlockInfo
+		var size int64
 
 		if isfile {
 			typ = protocol.FileInfoTypeFile
 			blocks = []protocol.BlockInfo{{Offset: 0x0, Size: 0xa, Hash: []uint8{0x2f, 0x72, 0xcc, 0x11, 0xa6, 0xfc, 0xd0, 0x27, 0x1e, 0xce, 0xf8, 0xc6, 0x10, 0x56, 0xee, 0x1e, 0xb1, 0x24, 0x3b, 0xe3, 0x80, 0x5b, 0xf9, 0xa9, 0xdf, 0x98, 0xf9, 0x2f, 0x76, 0x36, 0xb0, 0x5c}}}
+			size = 0xa
 		}
 		seq++
 		return protocol.FileInfo{
@@ -1798,7 +1800,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 			Type:      typ,
 			ModifiedS: 0x666,
 			Blocks:    blocks,
-			Size:      0xa,
+			Size:      size,
 			Sequence:  seq,
 		}
 	}
@@ -1814,7 +1816,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		return &TreeEntry{
 			Name:     name,
 			ModTime:  time.Unix(0x666, 0),
-			Size:     128,
+			Size:     0,
 			Type:     protocol.FileInfoTypeDirectory.String(),
 			Children: entries,
 		}
