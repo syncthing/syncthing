@@ -14,6 +14,13 @@
       <hr />
     </div>
 
+    <div id="action-legend" class="text-muted small" style="margin-bottom: 8px;">
+      <strong><span translate>Legend</span>:&nbsp;</strong>
+      <span class="far fa-fw fa-arrow-alt-circle-down"></span>&nbsp;<span translate>Sync</span>&ensp;
+      <span class="fas fa-fw fa-asterisk"></span>&nbsp;<span translate>Update</span>&ensp;
+      <span class="far fa-fw fa-trash-alt"></span>&nbsp;<span translate>Delete</span>
+    </div>
+
     <table class="table table-striped table-condensed">
 
       <tr dir-paginate="f in needed.items | itemsPerPage: needed.perpage" current-page="needed.page" total-items="model[neededFolder].needTotalItems" pagination-id="needed">
