@@ -338,7 +338,17 @@ func (c *configMuxBuilder) adjustConfig(w http.ResponseWriter, r *http.Request) 
 }
 
 func (c *configMuxBuilder) adjustFolder(w http.ResponseWriter, r *http.Request, folder config.FolderConfiguration, defaults bool) {
-	if err := unmarshalTo(r.Body, &folder); err != nil {
+	bs, err := io.ReadAll(r.Body)
+	r.Body.Close()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	// Use type alias to avoid FolderConfiguration.UnmarshalJSON which calls
+	// SetDefaults and resets all fields before applying the JSON body.
+	// This preserves existing field values for fields not present in PATCH.
+	type noCustomUnmarshal config.FolderConfiguration
+	if err := json.Unmarshal(bs, (*noCustomUnmarshal)(&folder)); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
