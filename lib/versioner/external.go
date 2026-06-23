@@ -27,6 +27,8 @@ func init() {
 	factories["external"] = newExternal
 }
 
+const unixSpecialChars = "`" + `"'<>;!#$&*? `
+
 type external struct {
 	command    string
 	filesystem fs.Filesystem
@@ -68,36 +70,11 @@ func (v external) Archive(filePath string) error {
 		return errors.New("command is empty, please enter a valid command")
 	}
 
-	words, err := shellquote.Split(v.command)
+	cmd, err := v.prepareCommand(filePath)
 	if err != nil {
-		return fmt.Errorf("command is invalid: %w", err)
+		return err
 	}
 
-	context := map[string]string{
-		"%FOLDER_FILESYSTEM%": string(v.filesystem.Type()),
-		"%FOLDER_PATH%":       v.filesystem.URI(),
-		"%FILE_PATH%":         filePath,
-	}
-
-	for i, word := range words {
-		for key, val := range context {
-			word = strings.ReplaceAll(word, key, val)
-		}
-
-		words[i] = word
-	}
-
-	cmd := exec.Command(words[0], words[1:]...)
-	env := os.Environ()
-	// filter STGUIAUTH and STGUIAPIKEY from environment variables
-	var filteredEnv []string
-
-	for _, x := range env {
-		if !strings.HasPrefix(x, "STGUIAUTH=") && !strings.HasPrefix(x, "STGUIAPIKEY=") {
-			filteredEnv = append(filteredEnv, x)
-		}
-	}
-	cmd.Env = filteredEnv
 	combinedOutput, err := cmd.CombinedOutput()
 	l.Debugln("external command output:", string(combinedOutput))
 	if err != nil {
@@ -125,4 +102,55 @@ func (external) Restore(_ string, _ time.Time) error {
 
 func (external) Clean(_ context.Context) error {
 	return nil
+}
+
+// prepareCommand returns the command with environment for the given file
+// path.
+func (v external) prepareCommand(filePath string) (*exec.Cmd, error) {
+	words, err := shellquote.Split(v.command)
+	if err != nil {
+		return nil, fmt.Errorf("command is invalid: %w", err)
+	}
+
+	context := map[string]string{
+		"%FOLDER_FILESYSTEM%": string(v.filesystem.Type()),
+		"%FOLDER_PATH%":       v.filesystem.URI(),
+		"%FILE_PATH%":         filePath,
+	}
+
+	for i, word := range words {
+		unsafe := strings.ContainsAny(word, unixSpecialChars)
+		for key, val := range context {
+			// If the parameter contains both an unsafe character and a
+			// template placeholder, we consider it unsafe and reject it.
+			// Note that the shell splitting will have already removed outer
+			// quotes, so that a command like `foo "%FILE_PATH%"` is fine
+			// here, despite the double quote being one of our unsafe
+			// characters.
+			if unsafe && strings.Contains(word, key) {
+				return nil, errors.New("unsafe external versioning command; see https://docs.syncthing.net/users/versioning.html#external-file-versioning")
+			}
+			word = strings.ReplaceAll(word, key, val)
+		}
+
+		words[i] = word
+	}
+
+	// filter STGUIAUTH and STGUIAPIKEY from environment variables, and add
+	// our folder info.
+	env := os.Environ()
+	var filteredEnv []string
+	for _, x := range env {
+		if !strings.HasPrefix(x, "STGUIAUTH=") && !strings.HasPrefix(x, "STGUIAPIKEY=") {
+			filteredEnv = append(filteredEnv, x)
+		}
+	}
+	for k, v := range context {
+		k = strings.Trim(k, "%")
+		filteredEnv = append(filteredEnv, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	cmd := exec.Command(words[0], words[1:]...) //nolint:gosec // execution with user tainted data, by design
+	cmd.Env = filteredEnv
+	return cmd, nil
 }
