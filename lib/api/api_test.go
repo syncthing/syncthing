@@ -1762,9 +1762,10 @@ func TestConfigChanges(t *testing.T) {
 
 	folder2Path := "/rest/config/folders/folder2"
 
-	// Create a folder and add another
+	// Create a folder and add another. Give folder2 a non-default
+	// RescanIntervalS so we can verify it survives a later partial PATCH.
 	mod(http.MethodPut, "/rest/config/folders", []config.FolderConfiguration{{ID: "folder1", Path: "folder1"}})
-	mod(http.MethodPut, folder2Path, config.FolderConfiguration{ID: "folder2", Path: "folder2"})
+	mod(http.MethodPut, folder2Path, config.FolderConfiguration{ID: "folder2", Path: "folder2", RescanIntervalS: 1234})
 
 	// Check they are there
 	get("/rest/config/folders/folder1").Body.Close()
@@ -1779,8 +1780,13 @@ func TestConfigChanges(t *testing.T) {
 	if err := unmarshalTo(resp.Body, &folder); err != nil {
 		t.Fatal(err)
 	}
-	if !dev.Paused {
+	if !folder.Paused {
 		t.Error("Expected folder to be paused")
+	}
+	// A partial PATCH must not reset other (default-tagged) attributes to
+	// their default values.
+	if folder.RescanIntervalS != 1234 {
+		t.Error("Expected RescanIntervalS to be preserved as 1234, got", folder.RescanIntervalS)
 	}
 
 	// Delete folder2
