@@ -213,7 +213,7 @@ may no longer correspond to the defaults.
         <trafficClass>0</trafficClass>
         <setLowPriority>true</setLowPriority>
         <maxFolderConcurrency>0</maxFolderConcurrency>
-        <scanRateLimitKiBps>0</scanRateLimitKiBps>
+        <maxDiskIOKbps>0</maxDiskIOKbps>
         <crashReportingURL>https://crash.syncthing.net/newcrash</crashReportingURL>
         <crashReportingEnabled>true</crashReportingEnabled>
         <stunKeepaliveStartS>180</stunKeepaliveStartS>
@@ -1220,7 +1220,7 @@ Search filter for user searches.
     <trafficClass>0</trafficClass>
     <setLowPriority>true</setLowPriority>
     <maxFolderConcurrency>0</maxFolderConcurrency>
-    <scanRateLimitKiBps>0</scanRateLimitKiBps>
+    <maxDiskIOKbps>0</maxDiskIOKbps>
     <crashReportingURL>https://crash.syncthing.net/newcrash</crashReportingURL>
     <crashReportingEnabled>true</crashReportingEnabled>
     <stunKeepaliveStartS>180</stunKeepaliveStartS>
@@ -1504,13 +1504,15 @@ detail in a \fI\%separate chapter\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B scanRateLimitKiBps
-This option limits the total disk read throughput used by all folder scans
-combined, in KiB/s.  The limit is global \- it is shared across all folders
-scanning concurrently via a single token\-bucket rate limiter.  Set to
-\fB0\fP (the default) to allow unlimited scan I/O.  Useful on systems with
-slow mechanical hard drives to avoid saturating the disk during scans.
-Example: set \fB5120\fP to limit scan reads to 5 MiB/s.
+.B maxDiskIOKbps
+This option limits the total disk I/O throughput used by all folder operations
+combined (scanning and syncing), in KiB/s.  The limit is global \- it is shared
+across all folders via a single token\-bucket rate limiter, covering both disk
+reads (scan hashing and local block copies) and writes (synced file data).
+Set to
+\fB0\fP (the default) to allow unlimited disk I/O.  Useful on systems with
+slow mechanical hard drives to avoid saturating the disk.
+Example: set \fB5120\fP to limit disk I/O to 5 MiB/s.
 .UNINDENT
 .INDENT 0.0
 .TP

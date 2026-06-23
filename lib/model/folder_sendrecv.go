@@ -1174,12 +1174,13 @@ func (f *sendReceiveFolder) handleFile(ctx context.Context, file protocol.FileIn
 func (f *sendReceiveFolder) reuseBlocks(ctx context.Context, blocks []protocol.BlockInfo, reused []int, file protocol.FileInfo, tempName string) ([]protocol.BlockInfo, []int) {
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
-	tempBlocks, err := scanner.HashFile(ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil, nil)
+	limiter := f.model.diskIOLimiter.Load()
+	tempBlocks, err := scanner.HashFile(ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil, limiter)
 	if err != nil {
 		var caseErr *fs.CaseConflictError
 		if errors.As(err, &caseErr) {
 			if rerr := f.mtimefs.Rename(caseErr.Real, tempName); rerr == nil {
-				tempBlocks, err = scanner.HashFile(ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil, nil)
+				tempBlocks, err = scanner.HashFile(ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil, limiter)
 			}
 		}
 	}
@@ -1476,6 +1477,10 @@ func (f *sendReceiveFolder) copyBlockFromFile(ctx context.Context, srcName strin
 		f.sl.DebugContext(ctx, "Failed to read block from file", slogutil.FilePath(srcName), "blockHash", block.Hash, slogutil.Error(err))
 		return false
 	}
+	if err := f.diskIOThrottle(ctx, len(buf)); err != nil {
+		state.fail(fmt.Errorf("disk I/O throttle: %w", err))
+		return false
+	}
 
 	// Hash is not SHA256 as it's an encrypted hash token. In that
 	// case we can't verify the block integrity so we'll take it on
@@ -1499,6 +1504,9 @@ func (f *sendReceiveFolder) copyBlockFromFile(ctx context.Context, srcName strin
 			defer dstFd.mut.Unlock()
 			return fs.CopyRange(f.CopyRangeMethod.ToFS(), fd, dstFd.fd, srcOffset, block.Offset, int64(block.Size))
 		})
+		if err == nil {
+			err = f.diskIOThrottle(ctx, block.Size)
+		}
 	} else {
 		err = f.limitedWriteAt(ctx, dstFd, buf, block.Offset)
 	}
@@ -2197,10 +2205,13 @@ func (f *sendReceiveFolder) inWritableDir(fn func(string) error, path string) er
 }
 
 func (f *sendReceiveFolder) limitedWriteAt(ctx context.Context, fd io.WriterAt, data []byte, offset int64) error {
-	return f.withLimiter(ctx, func() error {
+	if err := f.withLimiter(ctx, func() error {
 		_, err := fd.WriteAt(data, offset)
 		return err
-	})
+	}); err != nil {
+		return err
+	}
+	return f.diskIOThrottle(ctx, len(data))
 }
 
 func (f *sendReceiveFolder) withLimiter(ctx context.Context, fn func() error) error {
@@ -2209,6 +2220,30 @@ func (f *sendReceiveFolder) withLimiter(ctx context.Context, fn func() error) er
 	}
 	defer f.writeLimiter.Give(1)
 	return fn()
+}
+
+// diskIOThrottle waits for the global disk I/O rate limiter to allow n bytes
+// through. It is a no-op if n is zero or the limiter is nil (unlimited).
+func (f *sendReceiveFolder) diskIOThrottle(ctx context.Context, n int) error {
+	if n <= 0 {
+		return nil
+	}
+	limiter := f.model.diskIOLimiter.Load()
+	if limiter == nil {
+		return nil
+	}
+	burst := limiter.Burst()
+	for n > 0 {
+		take := n
+		if take > burst {
+			take = burst
+		}
+		if err := limiter.WaitN(ctx, take); err != nil {
+			return err
+		}
+		n -= take
+	}
+	return nil
 }
 
 // A []FileError is sent as part of an event and will be JSON serialized.

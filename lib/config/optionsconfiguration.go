@@ -58,7 +58,7 @@ type OptionsConfiguration struct {
 	DeprecatedDefaultFolderPath string   `json:"-" xml:"defaultFolderPath,omitempty"` // Deprecated: Do not use.
 	SetLowPriority              bool     `json:"setLowPriority" xml:"setLowPriority" default:"true"`
 	RawMaxFolderConcurrency     int      `json:"maxFolderConcurrency" xml:"maxFolderConcurrency"`
-	ScanRateLimitKiBps          int      `json:"scanRateLimitKiBps" xml:"scanRateLimitKiBps"`
+	MaxDiskIOKbps               int      `json:"maxDiskIOKbps" xml:"maxDiskIOKbps"`
 	CRURL                       string   `json:"crURL" xml:"crashReportingURL" default:"https://crash.syncthing.net/newcrash"`
 	CREnabled                   bool     `json:"crashReportingEnabled" xml:"crashReportingEnabled" default:"true"`
 	StunKeepaliveStartS         int      `json:"stunKeepaliveStartS" xml:"stunKeepaliveStartS" default:"180"`
