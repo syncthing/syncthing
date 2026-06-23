@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/thejerf/suture/v4"
+	"golang.org/x/time/rate"
 
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
@@ -151,6 +152,9 @@ type model struct {
 	// folderIOLimiter limits the number of concurrent I/O heavy operations,
 	// such as scans and pulls.
 	folderIOLimiter *semaphore.Semaphore
+	// scanRateLimiter limits total disk read throughput across all concurrent
+	// folder scans. nil means unlimited.
+	scanRateLimiter atomic.Pointer[rate.Limiter]
 	fatalChan       chan error
 	started         chan struct{}
 	keyGen          *protocol.KeyGenerator
@@ -257,6 +261,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb db.DB, protectedFile
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(db.NewTyped(sdb, "devicestats/"+devID.String()))
 		m.setConnRequestLimitersLocked(cfg)
 	}
+	m.scanRateLimiter.Store(newScanRateLimiter(cfg.Options().ScanRateLimitKiBps))
 	m.Add(m.folderRunners)
 	m.Add(m.progressEmitter)
 	m.Add(m.indexHandlers)
@@ -2579,6 +2584,24 @@ func (m *model) numHashers(folder string) int {
 	return 1
 }
 
+// newScanRateLimiter returns a rate.Limiter for scan I/O throttling, or nil
+// if kiBps is zero (meaning unlimited).
+func newScanRateLimiter(kiBps int) *rate.Limiter {
+	if kiBps <= 0 {
+		return nil
+	}
+	bps := rate.Limit(kiBps * 1024)
+	// Burst must be at least as large as the maximum single Read call (32 KiB,
+	// matching bufSize in lib/scanner/blocks.go), otherwise WaitN returns an
+	// error when n exceeds the burst size.
+	const minBurst = 32 << 10 // 32 KiB
+	burst := kiBps * 1024
+	if burst < minBurst {
+		burst = minBurst
+	}
+	return rate.NewLimiter(bps, burst)
+}
+
 // generateClusterConfig returns a ClusterConfigMessage that is correct and the
 // set of folder passwords for the given peer device
 func (m *model) generateClusterConfig(device protocol.DeviceID) (*protocol.ClusterConfig, map[string]string) {
@@ -3118,6 +3141,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 	m.globalRequestLimiter.SetCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
 	m.folderIOLimiter.SetCapacity(to.Options.MaxFolderConcurrency())
+	m.scanRateLimiter.Store(newScanRateLimiter(to.Options.ScanRateLimitKiBps))
 
 	// Some options don't require restart as those components handle it fine
 	// by themselves. Compare the options structs containing only the

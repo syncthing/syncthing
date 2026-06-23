@@ -1174,12 +1174,12 @@ func (f *sendReceiveFolder) handleFile(ctx context.Context, file protocol.FileIn
 func (f *sendReceiveFolder) reuseBlocks(ctx context.Context, blocks []protocol.BlockInfo, reused []int, file protocol.FileInfo, tempName string) ([]protocol.BlockInfo, []int) {
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
-	tempBlocks, err := scanner.HashFile(ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil)
+	tempBlocks, err := scanner.HashFile(ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil, nil)
 	if err != nil {
 		var caseErr *fs.CaseConflictError
 		if errors.As(err, &caseErr) {
 			if rerr := f.mtimefs.Rename(caseErr.Real, tempName); rerr == nil {
-				tempBlocks, err = scanner.HashFile(ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil)
+				tempBlocks, err = scanner.HashFile(ctx, f.ID, f.mtimefs, tempName, file.BlockSize(), nil, nil)
 			}
 		}
 	}

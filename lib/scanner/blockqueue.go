@@ -9,14 +9,35 @@ package scanner
 import (
 	"context"
 	"errors"
+	"io"
 	"sync"
+
+	"golang.org/x/time/rate"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
+// rateLimitedReader wraps an io.Reader and throttles reads using a rate.Limiter.
+type rateLimitedReader struct {
+	ctx     context.Context
+	r       io.Reader
+	limiter *rate.Limiter
+}
+
+func (rl *rateLimitedReader) Read(p []byte) (n int, err error) {
+	n, err = rl.r.Read(p)
+	if n > 0 && rl.limiter != nil {
+		if waitErr := rl.limiter.WaitN(rl.ctx, n); waitErr != nil {
+			return n, waitErr
+		}
+	}
+	return
+}
+
 // HashFile hashes the files and returns a list of blocks representing the file.
-func HashFile(ctx context.Context, folderID string, fs fs.Filesystem, path string, blockSize int, counter Counter) ([]protocol.BlockInfo, error) {
+// If limiter is not nil, disk reads are throttled to the given rate.
+func HashFile(ctx context.Context, folderID string, fs fs.Filesystem, path string, blockSize int, counter Counter, limiter *rate.Limiter) ([]protocol.BlockInfo, error) {
 	fd, err := fs.Open(path)
 	if err != nil {
 		l.Debugln("open:", err)
@@ -36,7 +57,11 @@ func HashFile(ctx context.Context, folderID string, fs fs.Filesystem, path strin
 
 	// Hash the file. This may take a while for large files.
 
-	blocks, err := Blocks(ctx, fd, blockSize, size, counter)
+	var r io.Reader = fd
+	if limiter != nil {
+		r = &rateLimitedReader{ctx: ctx, r: fd, limiter: limiter}
+	}
+	blocks, err := Blocks(ctx, r, blockSize, size, counter)
 	if err != nil {
 		l.Debugln("blocks:", err)
 		return nil, err
@@ -64,23 +89,25 @@ func HashFile(ctx context.Context, folderID string, fs fs.Filesystem, path strin
 // workers are used in parallel. The outbox will become closed when the inbox
 // is closed and all items handled.
 type parallelHasher struct {
-	folderID string
-	fs       fs.Filesystem
-	outbox   chan<- ScanResult
-	inbox    <-chan protocol.FileInfo
-	counter  Counter
-	done     chan<- struct{}
-	wg       sync.WaitGroup
+	folderID    string
+	fs          fs.Filesystem
+	outbox      chan<- ScanResult
+	inbox       <-chan protocol.FileInfo
+	counter     Counter
+	done        chan<- struct{}
+	rateLimiter *rate.Limiter
+	wg          sync.WaitGroup
 }
 
-func newParallelHasher(ctx context.Context, folderID string, fs fs.Filesystem, workers int, outbox chan<- ScanResult, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}) {
+func newParallelHasher(ctx context.Context, folderID string, fs fs.Filesystem, workers int, outbox chan<- ScanResult, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}, limiter *rate.Limiter) {
 	ph := &parallelHasher{
-		folderID: folderID,
-		fs:       fs,
-		outbox:   outbox,
-		inbox:    inbox,
-		counter:  counter,
-		done:     done,
+		folderID:    folderID,
+		fs:          fs,
+		outbox:      outbox,
+		inbox:       inbox,
+		counter:     counter,
+		done:        done,
+		rateLimiter: limiter,
 	}
 
 	ph.wg.Add(workers)
@@ -107,7 +134,7 @@ func (ph *parallelHasher) hashFiles(ctx context.Context) {
 				panic("Bug. Asked to hash a directory or a deleted file.")
 			}
 
-			blocks, err := HashFile(ctx, ph.folderID, ph.fs, f.Name, f.BlockSize(), ph.counter)
+			blocks, err := HashFile(ctx, ph.folderID, ph.fs, f.Name, f.BlockSize(), ph.counter, ph.rateLimiter)
 			if err != nil {
 				handleError(ctx, "hashing", f.Name, err, ph.outbox)
 				continue
