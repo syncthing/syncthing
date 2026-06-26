@@ -10,9 +10,9 @@ package fs
 
 import (
 	"errors"
+	"math/bits"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"syscall"
 
@@ -70,18 +70,17 @@ func (f *BasicFilesystem) Hide(name string) error {
 }
 
 func (f *BasicFilesystem) Roots() ([]string, error) {
-	buffer := make([]uint16, 1024)
-
-	n, err := windows.GetLogicalDriveStrings(uint32(len(buffer)), &buffer[0])
+	mask, err := windows.GetLogicalDrives()
 	if err != nil {
 		return nil, err
 	}
 
-	drives := make([]string, 0, n)
-	for range n {
-		null := slices.Index(buffer, 0)
-		drives = append(drives, syscall.UTF16ToString(buffer[:null]))
-		buffer = buffer[null+1:]
+	drives := make([]string, 0, bits.OnesCount32(mask))
+	for i := range byte(26) {
+		if mask&1 == 1 {
+			drives = append(drives, string([]byte{i + 'A', ':', '\\'}))
+		}
+		mask >>= 1
 	}
 
 	return drives, nil
