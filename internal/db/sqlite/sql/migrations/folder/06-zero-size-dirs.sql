@@ -10,3 +10,7 @@ UPDATE files
     SET size = 0
     WHERE type != 0
 ;
+UPDATE counts
+    SET size = 0
+    WHERE type != 0
+;
