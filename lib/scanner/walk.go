@@ -19,7 +19,6 @@ import (
 
 	metrics "github.com/rcrowley/go-metrics"
 	"golang.org/x/text/unicode/norm"
-	"golang.org/x/time/rate"
 
 	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
@@ -68,8 +67,6 @@ type Config struct {
 	ScanXattrs bool
 	// Filter for extended attributes
 	XattrFilter XattrFilter
-	// If RateLimiter is not nil, scan disk reads are throttled to this rate.
-	RateLimiter *rate.Limiter
 }
 
 type CurrentFiler interface {
@@ -139,7 +136,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
-		newParallelHasher(ctx, w.Folder, w.Filesystem, w.Hashers, finishedChan, toHashChan, nil, nil, w.RateLimiter)
+		newParallelHasher(ctx, w.Folder, w.Filesystem, w.Hashers, finishedChan, toHashChan, nil, nil)
 		return finishedChan
 	}
 
@@ -173,7 +170,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		done := make(chan struct{})
 		progress := newByteCounter()
 
-		newParallelHasher(ctx, w.Folder, w.Filesystem, w.Hashers, finishedChan, realToHashChan, progress, done, w.RateLimiter)
+		newParallelHasher(ctx, w.Folder, w.Filesystem, w.Hashers, finishedChan, realToHashChan, progress, done)
 
 		// A routine which actually emits the FolderScanProgress events
 		// every w.ProgressTicker ticks, until the hasher routines terminate.

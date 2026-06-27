@@ -213,7 +213,7 @@ may no longer correspond to the defaults.
         <trafficClass>0</trafficClass>
         <setLowPriority>true</setLowPriority>
         <maxFolderConcurrency>0</maxFolderConcurrency>
-        <maxDiskIOKbps>0</maxDiskIOKbps>
+        <maxDiskIOPS>0</maxDiskIOPS>
         <crashReportingURL>https://crash.syncthing.net/newcrash</crashReportingURL>
         <crashReportingEnabled>true</crashReportingEnabled>
         <stunKeepaliveStartS>180</stunKeepaliveStartS>
@@ -1220,7 +1220,7 @@ Search filter for user searches.
     <trafficClass>0</trafficClass>
     <setLowPriority>true</setLowPriority>
     <maxFolderConcurrency>0</maxFolderConcurrency>
-    <maxDiskIOKbps>0</maxDiskIOKbps>
+    <maxDiskIOPS>0</maxDiskIOPS>
     <crashReportingURL>https://crash.syncthing.net/newcrash</crashReportingURL>
     <crashReportingEnabled>true</crashReportingEnabled>
     <stunKeepaliveStartS>180</stunKeepaliveStartS>
@@ -1504,15 +1504,15 @@ detail in a \fI\%separate chapter\fP\&.
 .UNINDENT
 .INDENT 0.0
 .TP
-.B maxDiskIOKbps
-This option limits the total disk I/O throughput used by all folder operations
-combined (scanning and syncing), in KiB/s.  The limit is global \- it is shared
-across all folders via a single token\-bucket rate limiter, covering both disk
-reads (scan hashing and local block copies) and writes (synced file data).
-Set to
+.B maxDiskIOPS
+This option limits the total disk I/O operations per second (IOPS) used by all
+folder operations combined (scanning and syncing).  A global limiter is shared
+across all folders, and an optional per\-folder limiter can be set via the
+\fBmaxDiskIOPS\fP field in each folder configuration.  Each filesystem or file
+operation (open, read, write, stat, rename, etc.) consumes one token.  Set to
 \fB0\fP (the default) to allow unlimited disk I/O.  Useful on systems with
 slow mechanical hard drives to avoid saturating the disk.
-Example: set \fB5120\fP to limit disk I/O to 5 MiB/s.
+Example: set \fB100\fP to limit disk I/O to 100 operations per second.
 .UNINDENT
 .INDENT 0.0
 .TP

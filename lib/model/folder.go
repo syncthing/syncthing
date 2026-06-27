@@ -112,7 +112,7 @@ func newFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfigura
 		shortID:       model.shortID,
 		db:            model.sdb,
 		ignores:       ignores,
-		mtimefs:       cfg.Filesystem(fs.NewMtimeOption(model.sdb, cfg.ID)),
+		mtimefs:       cfg.Filesystem(fs.NewMtimeOption(model.sdb, cfg.ID), fs.NewIOLimiterOption(&model.diskIOPS, fs.NewAtomicIOPSLimiter(cfg.MaxDiskIOPS))),
 		modTimeWindow: cfg.ModTimeWindow(),
 		done:          make(chan struct{}),
 		sl:            slog.Default().With(cfg.LogAttr()),
@@ -702,7 +702,6 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 		ScanOwnership:         f.SendOwnership || f.SyncOwnership,
 		ScanXattrs:            f.SendXattrs || f.SyncXattrs,
 		XattrFilter:           f.XattrFilter,
-		RateLimiter:           f.model.diskIOLimiter.Load(),
 	}
 	var fchan chan scanner.ScanResult
 	if f.Type == config.FolderTypeReceiveEncrypted {
