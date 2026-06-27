@@ -76,9 +76,9 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 	}
 
 	drives := make([]string, 0, bits.OnesCount32(mask))
-	for i := range byte(26) {
+	for letter := byte('A'); mask != 0; letter++ {
 		if mask&1 == 1 {
-			drives = append(drives, string([]byte{i + 'A', ':', '\\'}))
+			drives = append(drives, string([]byte{letter, ':', '\\'}))
 		}
 		mask >>= 1
 	}
