@@ -234,3 +234,29 @@ func TestRepro9677MissingMtimeFS(t *testing.T) {
 	newFS := NewFilesystem(FilesystemTypeFake, fmt.Sprintf("%v?insens=true&timeprecisionsecond=true", t.Name()), &OptionDetectCaseConflicts{}, NewMtimeOption(mtimeDB, ""))
 	checkMtime(newFS)
 }
+
+func TestBasicFilesystemRoots(t *testing.T) {
+	var bfs BasicFilesystem
+	roots, err := bfs.Roots()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The expected results depends on the system and we can't say too much,
+	// but do some sanity checking.
+	t.Logf("%d roots: %+v", len(roots), roots)
+	if len(roots) > 25 {
+		t.Errorf("suspiciously large number of filesystem roots: %d", len(roots))
+	}
+	rm := make(map[string]struct{})
+	for _, root := range roots {
+		if root == "" {
+			t.Error("empty root")
+			continue
+		}
+		if _, ok := rm[root]; ok {
+			t.Errorf("duplicate root %q", root)
+			continue
+		}
+		rm[root] = struct{}{}
+	}
+}

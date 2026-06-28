@@ -5,18 +5,16 @@
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //go:build windows
-// +build windows
 
 package fs
 
 import (
-	"bytes"
 	"errors"
+	"math/bits"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
-	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
@@ -72,30 +70,17 @@ func (f *BasicFilesystem) Hide(name string) error {
 }
 
 func (f *BasicFilesystem) Roots() ([]string, error) {
-	kernel32, err := syscall.LoadDLL("kernel32.dll")
-	if err != nil {
-		return nil, err
-	}
-	getLogicalDriveStringsHandle, err := kernel32.FindProc("GetLogicalDriveStringsA")
+	mask, err := windows.GetLogicalDrives()
 	if err != nil {
 		return nil, err
 	}
 
-	buffer := [1024]byte{}
-	bufferSize := uint32(len(buffer))
-
-	hr, _, _ := getLogicalDriveStringsHandle.Call(uintptr(unsafe.Pointer(&bufferSize)), uintptr(unsafe.Pointer(&buffer)))
-	if hr == 0 {
-		return nil, errors.New("syscall failed")
-	}
-
-	var drives []string
-	parts := bytes.Split(buffer[:], []byte{0})
-	for _, part := range parts {
-		if len(part) == 0 {
-			break
+	drives := make([]string, 0, bits.OnesCount32(mask))
+	for letter := byte('A'); mask != 0; letter++ {
+		if mask&1 == 1 {
+			drives = append(drives, string([]byte{letter, ':', '\\'}))
 		}
-		drives = append(drives, string(part))
+		mask >>= 1
 	}
 
 	return drives, nil
@@ -119,14 +104,14 @@ func (f *BasicFilesystem) Lchown(name, uid, gid string) error {
 	// SetSecurityInfo.
 
 	var si windows.SECURITY_INFORMATION
-	var ownerSID, groupSID *syscall.SID
+	var ownerSID, groupSID *windows.SID
 	if uid != "" {
-		ownerSID, err = syscall.StringToSid(uid)
+		ownerSID, err = windows.StringToSid(uid)
 		if err == nil {
 			si |= windows.OWNER_SECURITY_INFORMATION
 		}
 	} else if gid != "" {
-		groupSID, err = syscall.StringToSid(uid)
+		groupSID, err = windows.StringToSid(uid)
 		if err == nil {
 			si |= windows.GROUP_SECURITY_INFORMATION
 		}
@@ -134,7 +119,7 @@ func (f *BasicFilesystem) Lchown(name, uid, gid string) error {
 		return errors.New("neither uid nor gid specified")
 	}
 
-	return windows.SetSecurityInfo(hdl, windows.SE_FILE_OBJECT, si, (*windows.SID)(ownerSID), (*windows.SID)(groupSID), nil, nil)
+	return windows.SetSecurityInfo(hdl, windows.SE_FILE_OBJECT, si, ownerSID, groupSID, nil, nil)
 }
 
 func (f *BasicFilesystem) Remove(name string) error {
@@ -218,47 +203,35 @@ func getFinalPathName(in string) (string, error) {
 	// Wrap the call to GetFinalPathNameByHandleW
 	// The string returned by this function uses the \?\ syntax
 	// Implies GetFullPathName + GetLongPathName
-	kernel32, err := syscall.LoadDLL("kernel32.dll")
-	if err != nil {
-		return "", err
-	}
-	GetFinalPathNameByHandleW, err := kernel32.FindProc("GetFinalPathNameByHandleW")
-	// https://github.com/golang/go/blob/ff048033e4304898245d843e79ed1a0897006c6d/src/internal/syscall/windows/syscall_windows.go#L303
-	if err != nil {
-		return "", err
-	}
 	inPath, err := syscall.UTF16PtrFromString(in)
 	if err != nil {
 		return "", err
 	}
-	// Get a file handler
-	h, err := syscall.CreateFile(inPath,
-		syscall.GENERIC_READ,
-		syscall.FILE_SHARE_READ,
+	// Get a file handle
+	h, err := windows.CreateFile(inPath,
+		windows.GENERIC_READ,
+		windows.FILE_SHARE_READ,
 		nil,
-		syscall.OPEN_EXISTING,
-		uint32(syscall.FILE_FLAG_BACKUP_SEMANTICS),
+		windows.OPEN_EXISTING,
+		windows.FILE_FLAG_BACKUP_SEMANTICS,
 		0)
 	if err != nil {
 		return "", err
 	}
-	defer syscall.CloseHandle(h)
-	// Call GetFinalPathNameByHandleW
-	var VOLUME_NAME_DOS uint32 = 0x0      // not yet defined in syscall
-	var bufSize uint32 = syscall.MAX_PATH // 260
+	defer windows.CloseHandle(h)
+
+	const VOLUME_NAME_DOS = 0x0 // not yet defined in x/sys/windows
+	var bufSize uint32 = windows.MAX_PATH
+
 	for i := 0; i < 2; i++ {
 		buf := make([]uint16, bufSize)
-		var ret uintptr
-		ret, _, err = GetFinalPathNameByHandleW.Call(
-			uintptr(h),                       // HANDLE hFile
-			uintptr(unsafe.Pointer(&buf[0])), // LPWSTR lpszFilePath
-			uintptr(bufSize),                 // DWORD  cchFilePath
-			uintptr(VOLUME_NAME_DOS),         // DWORD  dwFlags
-		)
+		var ret uint32
+		ret, err = windows.GetFinalPathNameByHandle(
+			h, &buf[0], bufSize, VOLUME_NAME_DOS)
 		// The returned value is the actual length of the norm path
 		// After Win 10 build 1607, MAX_PATH limitations have been removed
 		// so it is necessary to check newBufSize
-		newBufSize := uint32(ret) + 1
+		newBufSize := ret + 1
 		if ret == 0 || newBufSize > bufSize*100 {
 			break
 		}
