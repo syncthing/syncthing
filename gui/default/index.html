@@ -686,8 +686,8 @@
                 <div class="panel-title-text">{{deviceName(deviceCfg)}}</div>
               </h4>
             </button>
-            <div id="device-this" class="panel-collapse collapse in">
-              <div class="panel-body less-padding">
+            <div id="device-this" class="panel-collapse collapse in" lazy-collapse>
+              <div class="panel-body less-padding" ng-if="lazyReady">
                 <table class="table table-condensed table-striped table-auto">
                   <tbody>
                     <tr>
