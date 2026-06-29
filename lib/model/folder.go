@@ -403,6 +403,15 @@ func (f *folder) pull(ctx context.Context) (success bool, err error) {
 		}
 	}()
 
+	// Abort early (before acquiring a limiter token) if there's a folder
+	// error. This must happen before the "nothing to do" check below so
+	// that up-to-date folders are also periodically health-checked.
+	err = f.getHealthErrorWithoutIgnores()
+	if err != nil {
+		f.sl.DebugContext(ctx, "Skipping pull due to folder error", slogutil.Error(err))
+		return false, err
+	}
+
 	// If there is nothing to do, don't even enter sync-waiting state.
 	needCount, err := f.db.CountNeed(f.folderID, protocol.LocalDeviceID)
 	if err != nil {
@@ -414,13 +423,6 @@ func (f *folder) pull(ctx context.Context) (success bool, err error) {
 		f.pullErrors = nil
 		f.errorsMut.Unlock()
 		return true, nil
-	}
-
-	// Abort early (before acquiring a token) if there's a folder error
-	err = f.getHealthErrorWithoutIgnores()
-	if err != nil {
-		f.sl.DebugContext(ctx, "Skipping pull due to folder error", slogutil.Error(err))
-		return false, err
 	}
 
 	// Send only folder doesn't do any io, it only checks for out-of-sync
