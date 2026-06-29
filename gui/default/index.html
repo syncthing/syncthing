@@ -410,8 +410,8 @@
                     </div>
                   </h4>
                 </button>
-                <div id="folder-{{$parent.$index}}-{{$index}}" class="panel-collapse collapse">
-                  <div class="panel-body less-padding">
+                <div id="folder-{{$parent.$index}}-{{$index}}" class="panel-collapse collapse" lazy-collapse>
+                  <div class="panel-body less-padding" ng-if="lazyReady">
                     <table class="table table-condensed table-striped table-auto">
                       <tbody>
                         <tr class="visible-xs">
@@ -805,8 +805,8 @@
                       <div class="panel-title-text">{{deviceName(deviceCfg)}}</div>
                     </h4>
                   </button>
-                  <div id="device-{{$parent.$index}}-{{$index}}" class="panel-collapse collapse">
-                    <div class="panel-body less-padding">
+                  <div id="device-{{$parent.$index}}-{{$index}}" class="panel-collapse collapse" lazy-collapse>
+                    <div class="panel-body less-padding" ng-if="lazyReady">
                       <table class="table table-condensed table-striped table-auto">
                         <tbody>
                           <tr class="visible-xs">
@@ -1083,6 +1083,7 @@
   <script type="text/javascript" src="syncthing/core/popoverDirective.js"></script>
   <script type="text/javascript" src="syncthing/core/syncthingController.js"></script>
   <script type="text/javascript" src="syncthing/core/tooltipDirective.js"></script>
+  <script type="text/javascript" src="syncthing/core/lazyCollapseDirective.js"></script>
   <script type="text/javascript" src="syncthing/core/uncamelFilter.js"></script>
   <script type="text/javascript" src="syncthing/core/uniqueFolderDirective.js"></script>
   <script type="text/javascript" src="syncthing/core/validDeviceidDirective.js"></script>
