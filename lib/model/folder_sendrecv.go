@@ -1620,12 +1620,14 @@ loop:
 
 		// Fetch the block, while marking the selected device as in use so that
 		// leastBusy can select another device when someone else asks.
-		activity.using(selected)
 		var buf []byte
 		blockNo := int(state.block.Offset / int64(state.file.BlockSize()))
+		tok := activity.using(selected.ID, state.block.Size, time.Now())
 		buf, lastError = f.model.RequestGlobal(ctx, selected.ID, f.folderID, state.file.Name, blockNo, state.block.Offset, state.block.Size, state.block.Hash, selected.FromTemporary)
-		activity.done(selected)
-		if lastError != nil {
+		if lastError == nil {
+			activity.done(tok, time.Now())
+		} else {
+			activity.skip(tok)
 			f.sl.DebugContext(ctx, "Block request returned error", slogutil.FilePath(state.file.Name), "offset", state.block.Offset, "size", state.block.Size, "device", selected.ID.Short(), slogutil.Error(lastError))
 			continue
 		}
