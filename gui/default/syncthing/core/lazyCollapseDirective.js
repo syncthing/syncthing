@@ -3,15 +3,21 @@ angular.module('syncthing.core')
         return {
             restrict: 'A',
             link: function (scope, element) {
-                // Start collapsed: content is not rendered until first expand.
-                // Once expanded, content stays in DOM (Bootstrap needs it for
-                // the collapse animation). This avoids thousands of idle
-                // watchers for panels that are never opened.
+                // Render panel content only while expanded. Collapsed panels
+                // contribute zero watchers. Bootstrap's show/hidden events
+                // fire before/after the animation, so the DOM is present
+                // during the transition.
                 scope.lazyReady = element.hasClass('in');
 
                 $(element).on('show.bs.collapse', function () {
                     scope.$apply(function () {
                         scope.lazyReady = true;
+                    });
+                });
+
+                $(element).on('hidden.bs.collapse', function () {
+                    scope.$apply(function () {
+                        scope.lazyReady = false;
                     });
                 });
             }
