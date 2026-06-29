@@ -56,3 +56,103 @@
     white-space: normal;
     word-break: break-all;
 }
+
+/*
+ * Shared container style for scrollable, resizable trees containers
+ */
+
+.tree-container {
+    overflow-y: scroll;
+    resize: vertical;
+    /* Always fit at least one folder with dropdown open. */
+    min-height: 136px;
+}
+
+/* Remove table outline as rows have own focus style already. */
+.tree-container .tree:focus {
+    outline: 0;
+}
+
+/* Ignore fixed height when manually resized. */
+.tree-container[style*="height"] {
+    max-height: none !important;
+}
+
+/*
+ * Max height adjustment for trees in modals
+ * This ensures tree containers don't overflow vertically on the screen.
+ * The constants can be found using the browser's developer tools to calculate
+ * the maximum possible height.
+ * If you add/remove elements in the modal, you may need to adjust these values.
+ */
+
+#restoreTree-container {
+    max-height: calc(100vh - 390px);
+}
+
+#folderTree-container {
+    max-height: calc(100vh - 293px);
+}
+
+@media (min-width: 768px) {
+    #restoreTree-container {
+        max-height: calc(100vh - 401px);
+    }
+
+    #folderTree-container {
+        max-height: calc(100vh - 333px);
+    }
+}
+
+@media (min-width: 992px) {
+    #restoreTree-container {
+        max-height: calc(100vh - 333px);
+    }
+}
+
+/*
+ * Specific tweaks for restoreTree component
+ */
+
+/* Align dropdown with title first line. */
+#restoreTree td + td {
+    padding-top: 4px;
+    vertical-align: top;
+}
+
+/* Reduce space between toggle and menu on mobile. */
+#restoreTree .dropdown-toggle {
+    margin-bottom: 0;
+}
+
+/* Change direction to remain on screen on mobile. */
+#restoreTree .dropdown-menu {
+    left: auto;
+    right: 0;
+}
+
+/* Ensure maximum space for filtering and date range. */
+#restoreVersions .form-group,
+#restoreVersions .form-control {
+    width: 100%;
+}
+
+/*
+ * Specific tweaks for folderTree component
+ */
+
+.folderTree-new-folder {
+    color: #626262;
+    font-style: italic;
+}
+
+html[lang|="zh"] .folderTree-new-folder,
+html[lang="ja"] .folderTree-new-folder,
+html[lang|="ko"] .folderTree-new-folder {
+    font-style: normal;
+}
+
+/* Maintain consistent padding with the restoreTree component */
+#folderTree td {
+    padding: 2px 0;
+}
