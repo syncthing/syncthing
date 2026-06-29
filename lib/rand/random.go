@@ -10,12 +10,12 @@ package rand
 
 import (
 	"io"
-	mathRand "math/rand"
+	mrand "math/rand/v2"
 	"reflect"
 	"strings"
 )
 
-// Reader is the standard crypto/rand.Reader with added buffering.
+// Reader produces cryptographically secure, uniformly random bytes.
 var Reader = defaultSecureSource
 
 func Read(p []byte) (int, error) {
@@ -30,8 +30,8 @@ var (
 	// math/rand.Source.
 	defaultSecureSource = newSecureSource()
 
-	// defaultSecureRand is a math/rand.Rand based on the secure source.
-	defaultSecureRand = mathRand.New(defaultSecureSource)
+	// defaultSecureRand is a math/rand/v2.Rand based on the secure source.
+	defaultSecureRand = mrand.New(defaultSecureSource)
 )
 
 // String returns a cryptographically secure random string of characters
@@ -42,14 +42,14 @@ func String(l int) string {
 	sb.Grow(l)
 
 	for range l {
-		sb.WriteByte(randomCharset[defaultSecureRand.Intn(len(randomCharset))])
+		sb.WriteByte(randomCharset[defaultSecureRand.IntN(len(randomCharset))])
 	}
 	return sb.String()
 }
 
 // Int63 returns a cryptographically secure random int63.
 func Int63() int64 {
-	return defaultSecureSource.Int63()
+	return defaultSecureRand.Int64()
 }
 
 // Uint64 returns a cryptographically secure strongly random uint64.
@@ -60,7 +60,7 @@ func Uint64() uint64 {
 // Intn returns, as an int, a cryptographically secure non-negative
 // random number in [0,n). It panics if n <= 0.
 func Intn(n int) int {
-	return defaultSecureRand.Intn(n)
+	return defaultSecureRand.IntN(n)
 }
 
 // Shuffle the order of elements in slice.

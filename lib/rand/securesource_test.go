@@ -18,16 +18,16 @@ func TestSecureSource(t *testing.T) {
 
 	// Create a new source and sample values from it.
 	s := newSecureSource()
-	res0 := make([]int64, nsamples)
+	res0 := make([]uint64, nsamples)
 	for i := range res0 {
-		res0[i] = s.Int63()
+		res0[i] = s.Uint64()
 	}
 
 	// Do it again
 	s = newSecureSource()
-	res1 := make([]int64, nsamples)
+	res1 := make([]uint64, nsamples)
 	for i := range res1 {
-		res1[i] = s.Int63()
+		res1[i] = s.Uint64()
 	}
 
 	// There should (statistically speaking) be no repetition of the values,
@@ -54,10 +54,9 @@ func TestSecureSource(t *testing.T) {
 		}
 	}
 
-	// Count how many times each bit was set. On average each bit ought to
-	// be set in half of the samples, except the topmost bit which must
-	// never be set (int63). We raise an alarm if a single bit is set in
-	// fewer than 1/3 of the samples or more often than 2/3 of the samples.
+	// Count how many times each bit was set. On average each bit ought to be
+	// set in half of the samples. We raise an alarm if a single bit is set
+	// in fewer than 1/3 of the samples or more often than 2/3 of the samples.
 	var bits [64]int
 	for _, v := range res0 {
 		for i := range bits {
@@ -68,29 +67,21 @@ func TestSecureSource(t *testing.T) {
 		}
 	}
 	for bit, count := range bits {
-		switch bit {
-		case 63:
-			// The topmost bit is never set
-			if count != 0 {
-				t.Errorf("The topmost bit was set %d times in %d samples (should be 0)", count, nsamples)
-			}
-		default:
-			if count < nsamples/3 {
-				t.Errorf("Bit %d was set only %d times out of %d", bit, count, nsamples)
-			}
-			if count > nsamples/3*2 {
-				t.Errorf("Bit %d was set fully %d times out of %d", bit, count, nsamples)
-			}
+		if count < nsamples/3 {
+			t.Errorf("Bit %d was set only %d times out of %d", bit, count, nsamples)
+		}
+		if count > nsamples/3*2 {
+			t.Errorf("Bit %d was set fully %d times out of %d", bit, count, nsamples)
 		}
 	}
 }
 
-var sink int64
+var sink uint64
 
 func BenchmarkSecureSource(b *testing.B) {
 	s := newSecureSource()
 	for i := 0; i < b.N; i++ {
-		sink = s.Int63()
+		sink = s.Uint64()
 	}
 	b.ReportAllocs()
 }
