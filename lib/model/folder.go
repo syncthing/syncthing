@@ -257,8 +257,10 @@ func (f *folder) Serve(ctx context.Context) error {
 			err = f.restartWatch(ctx)
 
 		case <-f.versionCleanupTimer.C:
-			f.sl.DebugContext(ctx, "Doing version cleanup")
-			f.versionCleanupTimerFired(ctx)
+			if _, _, err := f.getState(); err == nil {
+				f.sl.DebugContext(ctx, "Doing version cleanup")
+				f.versionCleanupTimerFired(ctx)
+			}
 		}
 
 		if svcutil.IsFatal(err) {
