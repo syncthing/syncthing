@@ -184,8 +184,9 @@ func (f *folder) Serve(ctx context.Context) error {
 
 	f.setState(FolderIdle)
 
+	errUnset := errors.New("placeholder for unset error (which is different from nil)")
 	for {
-		var err error
+		err := errUnset
 
 		select {
 		case <-ctx.Done():
@@ -195,11 +196,16 @@ func (f *folder) Serve(ctx context.Context) error {
 		case <-f.pullScheduled:
 			if f.PullerDelayS > 0 {
 				// Wait for incoming updates to settle before doing the
-				// actual pull. Only set the state to SyncWaiting if we have
-				// reason to believe there is something to sync, to avoid
-				// unnecessary flashing in the GUI.
-				if needCount, err := f.db.CountNeed(f.folderID, protocol.LocalDeviceID); err == nil && needCount.TotalItems() > 0 {
-					f.setState(FolderSyncWaiting)
+				// actual pull.
+				//
+				// Only set the state to SyncWaiting if we are Idle (and
+				// not, e.g., Stopped) have reason to believe there is
+				// something to sync, to avoid unnecessary flashing in the
+				// GUI.
+				if cur, _, _ := f.getState(); cur == FolderIdle {
+					if needCount, err := f.db.CountNeed(f.folderID, protocol.LocalDeviceID); err == nil && needCount.TotalItems() > 0 {
+						f.setState(FolderSyncWaiting)
+					}
 				}
 				pullTimer.Reset(time.Duration(float64(time.Second) * f.PullerDelayS))
 			} else {
@@ -207,7 +213,6 @@ func (f *folder) Serve(ctx context.Context) error {
 			}
 
 		case <-pullTimer.C:
-			f.setState(FolderIdle)
 			_, err = f.pull(ctx)
 
 		case <-f.pullFailTimer.C:
@@ -256,10 +261,14 @@ func (f *folder) Serve(ctx context.Context) error {
 			f.versionCleanupTimerFired(ctx)
 		}
 
-		if err != nil {
-			if svcutil.IsFatal(err) {
-				return err
-			}
+		if svcutil.IsFatal(err) {
+			return err
+		}
+
+		// We always setError if it was updated, regardless if the error is
+		// nil or non-nil. In the nil case this corresponds to going back to
+		// FolderIdle.
+		if !errors.Is(err, errUnset) {
 			f.setError(ctx, err)
 		}
 	}
