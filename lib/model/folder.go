@@ -258,7 +258,7 @@ func (f *folder) Serve(ctx context.Context) error {
 
 		case <-f.versionCleanupTimer.C:
 			f.sl.DebugContext(ctx, "Doing version cleanup")
-			err = f.versionCleanupTimerFired(ctx)
+			f.versionCleanupTimerFired(ctx)
 		}
 
 		if svcutil.IsFatal(err) {
@@ -1001,23 +1001,21 @@ func (f *folder) scanTimerFired(ctx context.Context) error {
 	return err
 }
 
-func (f *folder) versionCleanupTimerFired(ctx context.Context) error {
+func (f *folder) versionCleanupTimerFired(ctx context.Context) {
 	f.setState(FolderCleanWaiting)
 
 	if err := f.ioLimiter.TakeWithContext(ctx, 1); err != nil {
-		return err
+		return
 	}
 	defer f.ioLimiter.Give(1)
 
 	f.setState(FolderCleaning)
 
-	err := f.versioner.Clean(ctx)
-	if err != nil {
+	if err := f.versioner.Clean(ctx); err != nil {
 		f.sl.WarnContext(ctx, "Failed to clean versions", slogutil.Error(err))
 	}
 
 	f.versionCleanupTimer.Reset(f.versionCleanupInterval)
-	return err
 }
 
 func (f *folder) WatchError() error {
