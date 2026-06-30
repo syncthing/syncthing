@@ -265,11 +265,10 @@ func (f *folder) Serve(ctx context.Context) error {
 			return err
 		}
 
-		if err == nil {
-			f.setError(ctx, nil)
-			f.setState(FolderIdle)
-		} else if !errors.Is(err, errUnset) {
-			// Error is non-nil, state will be FolderError
+		// Always call setError when the error is not unset, in order to
+		// both set the state to FolderError when it's non-nil and reset it
+		// back to FolderIdle when nil.
+		if !errors.Is(err, errUnset) {
 			f.setError(ctx, err)
 		}
 	}
@@ -1196,8 +1195,13 @@ func (f *folder) setError(ctx context.Context, err error) {
 	default:
 	}
 
-	_, _, oldErr := f.getState()
-	if (err != nil && oldErr != nil && oldErr.Error() == err.Error()) || (err == nil && oldErr == nil) {
+	state, _, oldErr := f.getState()
+	switch {
+	case err != nil && oldErr != nil && oldErr.Error() == err.Error():
+		// The error is the same as the old error, no change is required
+		return
+	case err == nil && oldErr == nil && state == FolderIdle:
+		// No error before or now, and we are already Idle
 		return
 	}
 
@@ -1207,7 +1211,7 @@ func (f *folder) setError(ctx context.Context, err error) {
 		} else {
 			f.sl.InfoContext(ctx, "Folder error changed", slogutil.Error(err), slog.Any("previously", oldErr))
 		}
-	} else {
+	} else if oldErr != nil {
 		f.sl.InfoContext(ctx, "Folder error cleared")
 		f.SchedulePull()
 	}
@@ -1215,7 +1219,7 @@ func (f *folder) setError(ctx context.Context, err error) {
 	if f.FSWatcherEnabled {
 		if err != nil {
 			f.stopWatch()
-		} else {
+		} else if oldErr != nil {
 			f.scheduleWatchRestart()
 		}
 	}
