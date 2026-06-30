@@ -258,17 +258,18 @@ func (f *folder) Serve(ctx context.Context) error {
 
 		case <-f.versionCleanupTimer.C:
 			f.sl.DebugContext(ctx, "Doing version cleanup")
-			f.versionCleanupTimerFired(ctx)
+			err = f.versionCleanupTimerFired(ctx)
 		}
 
 		if svcutil.IsFatal(err) {
 			return err
 		}
 
-		// We always setError if it was updated, regardless if the error is
-		// nil or non-nil. In the nil case this corresponds to going back to
-		// FolderIdle.
-		if !errors.Is(err, errUnset) {
+		if err == nil {
+			f.setError(ctx, nil)
+			f.setState(FolderIdle)
+		} else if !errors.Is(err, errUnset) {
+			// Error is non-nil, state will be FolderError
 			f.setError(ctx, err)
 		}
 	}
@@ -498,7 +499,6 @@ func (f *folder) scanSubdirs(ctx context.Context, subDirs []string) error {
 	}()
 
 	f.setState(FolderScanWaiting)
-	defer f.setState(FolderIdle)
 
 	if err := f.ioLimiter.TakeWithContext(ctx, 1); err != nil {
 		return err
@@ -1002,22 +1002,23 @@ func (f *folder) scanTimerFired(ctx context.Context) error {
 	return err
 }
 
-func (f *folder) versionCleanupTimerFired(ctx context.Context) {
+func (f *folder) versionCleanupTimerFired(ctx context.Context) error {
 	f.setState(FolderCleanWaiting)
-	defer f.setState(FolderIdle)
 
 	if err := f.ioLimiter.TakeWithContext(ctx, 1); err != nil {
-		return
+		return err
 	}
 	defer f.ioLimiter.Give(1)
 
 	f.setState(FolderCleaning)
 
-	if err := f.versioner.Clean(ctx); err != nil {
+	err := f.versioner.Clean(ctx)
+	if err != nil {
 		f.sl.WarnContext(ctx, "Failed to clean versions", slogutil.Error(err))
 	}
 
 	f.versionCleanupTimer.Reset(f.versionCleanupInterval)
+	return err
 }
 
 func (f *folder) WatchError() error {

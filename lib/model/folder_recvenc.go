@@ -44,7 +44,6 @@ func (f *receiveEncryptedFolder) revert(ctx context.Context) error {
 	f.sl.InfoContext(ctx, "Reverting unexpected items")
 
 	f.setState(FolderScanning)
-	defer f.setState(FolderIdle)
 
 	batch := NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		f.updateLocalsFromScanning(fs)
