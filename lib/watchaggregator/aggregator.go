@@ -193,6 +193,16 @@ func (a *aggregator) newEvent(event fs.Event, inProgress map[string]struct{}) {
 
 func (a *aggregator) aggregateEvent(event fs.Event, evTime time.Time) {
 	if event.Name == "." || a.counts.total() == maxFiles {
+		// Prevent CPU thrashing on continuous buffer overflows:
+		// If a full scan is already pending, just update the time and debounce,
+		// bypassing the expensive state wipe and reallocation.
+		if existing, ok := a.root.events["."]; ok {
+			existing.lastModTime = evTime
+			existing.evType = event.Type
+			a.resetNotifyTimerIfNeeded()
+			return
+		}
+
 		l.Debugln(a, "Scan entire folder")
 		firstModTime := evTime
 		if a.root.childCount() != 0 {

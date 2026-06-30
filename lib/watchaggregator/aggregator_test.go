@@ -370,3 +370,27 @@ func testAggregatorOutput(t *testing.T, fsWatchChan <-chan []string, expectedBat
 		}
 	}
 }
+
+func TestAggregatorContinuousOverflow(t *testing.T) {
+	inProgress := make(map[string]struct{})
+	folderCfg := defaultFolderCfg.Copy()
+	folderCfg.ID = "ContinuousOverflow"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	a := newAggregator(ctx, folderCfg)
+
+	start := time.Now()
+	for i := 0; i < 10000; i++ {
+		a.newEvent(fs.Event{
+			Name: ".",
+			Type: fs.NonRemove,
+		}, inProgress)
+	}
+	
+	if time.Since(start) > 5*time.Second {
+		t.Fatalf("Aggregator continuous overflow test took too long, likely CPU thrashing")
+	}
+
+	compareBatchToExpectedDirect(t, getEventPaths(a.root, ".", a), []string{"."})
+}
+
