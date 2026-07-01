@@ -8,20 +8,19 @@ package model
 
 import (
 	"github.com/syncthing/syncthing/lib/protocol"
-	"google.golang.org/protobuf/proto"
 )
 
-// How many files to send in each Index/IndexUpdate message.
+// How many files & blocks to send in each Index/IndexUpdate message.
 const (
-	MaxBatchSizeBytes = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
-	MaxBatchSizeFiles = 1000       // Either way, don't include more files than this
+	MaxBatchSizeFiles  = 1000
+	MaxBatchSizeBlocks = 5000
 )
 
 // FileInfoBatch is a utility to do file operations on the database in suitably
 // sized batches.
 type FileInfoBatch struct {
 	infos   []protocol.FileInfo
-	size    int
+	nblocks int
 	flushFn func([]protocol.FileInfo) error
 	error   error
 }
@@ -47,11 +46,11 @@ func (b *FileInfoBatch) Append(f protocol.FileInfo) {
 		b.infos = make([]protocol.FileInfo, 0, MaxBatchSizeFiles)
 	}
 	b.infos = append(b.infos, f)
-	b.size += proto.Size(f.ToWire(true))
+	b.nblocks += len(f.Blocks)
 }
 
 func (b *FileInfoBatch) Full() bool {
-	return len(b.infos) >= MaxBatchSizeFiles || b.size >= MaxBatchSizeBytes
+	return len(b.infos) >= MaxBatchSizeFiles || b.nblocks >= MaxBatchSizeBlocks
 }
 
 func (b *FileInfoBatch) FlushIfFull() error {
@@ -82,9 +81,5 @@ func (b *FileInfoBatch) Flush() error {
 func (b *FileInfoBatch) Reset() {
 	b.infos = nil
 	b.error = nil
-	b.size = 0
-}
-
-func (b *FileInfoBatch) Size() int {
-	return b.size
+	b.nblocks = 0
 }
