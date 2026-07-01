@@ -112,7 +112,7 @@ func newFolder(model *model, ignores *ignore.Matcher, cfg config.FolderConfigura
 		shortID:       model.shortID,
 		db:            model.sdb,
 		ignores:       ignores,
-		mtimefs:       cfg.Filesystem(fs.NewMtimeOption(model.sdb, cfg.ID)),
+		mtimefs:       cfg.Filesystem(fs.NewMtimeOption(model.sdb, cfg.ID), fs.NewIOLimiterOption(&model.diskIOPS, fs.NewAtomicIOPSLimiter(cfg.MaxDiskIOPS))),
 		modTimeWindow: cfg.ModTimeWindow(),
 		done:          make(chan struct{}),
 		sl:            slog.Default().With(cfg.LogAttr()),
