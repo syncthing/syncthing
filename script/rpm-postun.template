@@ -1,0 +1,8 @@
+#!/bin/sh
+# RPM post-uninstall script
+
+systemctl daemon-reload >/dev/null 2>&1 || :
+if [ $1 -ge 1 ] ; then
+    # Package upgrade
+    systemctl try-restart '{{.Service}}' >/dev/null 2>&1 || :
+fi
