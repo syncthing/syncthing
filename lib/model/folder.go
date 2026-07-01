@@ -184,8 +184,9 @@ func (f *folder) Serve(ctx context.Context) error {
 
 	f.setState(FolderIdle)
 
+	errUnset := errors.New("placeholder for unset error (which is different from nil)")
 	for {
-		var err error
+		err := errUnset
 
 		select {
 		case <-ctx.Done():
@@ -195,11 +196,16 @@ func (f *folder) Serve(ctx context.Context) error {
 		case <-f.pullScheduled:
 			if f.PullerDelayS > 0 {
 				// Wait for incoming updates to settle before doing the
-				// actual pull. Only set the state to SyncWaiting if we have
-				// reason to believe there is something to sync, to avoid
-				// unnecessary flashing in the GUI.
-				if needCount, err := f.db.CountNeed(f.folderID, protocol.LocalDeviceID); err == nil && needCount.TotalItems() > 0 {
-					f.setState(FolderSyncWaiting)
+				// actual pull.
+				//
+				// Only set the state to SyncWaiting if we are Idle (and
+				// not, e.g., Stopped) have reason to believe there is
+				// something to sync, to avoid unnecessary flashing in the
+				// GUI.
+				if cur, _, _ := f.getState(); cur == FolderIdle {
+					if needCount, err := f.db.CountNeed(f.folderID, protocol.LocalDeviceID); err == nil && needCount.TotalItems() > 0 {
+						f.setState(FolderSyncWaiting)
+					}
 				}
 				pullTimer.Reset(time.Duration(float64(time.Second) * f.PullerDelayS))
 			} else {
@@ -207,7 +213,6 @@ func (f *folder) Serve(ctx context.Context) error {
 			}
 
 		case <-pullTimer.C:
-			f.setState(FolderIdle)
 			_, err = f.pull(ctx)
 
 		case <-f.pullFailTimer.C:
@@ -252,14 +257,20 @@ func (f *folder) Serve(ctx context.Context) error {
 			err = f.restartWatch(ctx)
 
 		case <-f.versionCleanupTimer.C:
-			f.sl.DebugContext(ctx, "Doing version cleanup")
-			f.versionCleanupTimerFired(ctx)
+			if _, _, err := f.getState(); err == nil {
+				f.sl.DebugContext(ctx, "Doing version cleanup")
+				f.versionCleanupTimerFired(ctx)
+			}
 		}
 
-		if err != nil {
-			if svcutil.IsFatal(err) {
-				return err
-			}
+		if svcutil.IsFatal(err) {
+			return err
+		}
+
+		// Always call setError when the error is not unset, in order to
+		// both set the state to FolderError when it's non-nil and reset it
+		// back to FolderIdle when nil.
+		if !errors.Is(err, errUnset) {
 			f.setError(ctx, err)
 		}
 	}
@@ -403,6 +414,15 @@ func (f *folder) pull(ctx context.Context) (success bool, err error) {
 		}
 	}()
 
+	// Abort early (before acquiring a limiter token) if there's a folder
+	// error. This must happen before the "nothing to do" check below so
+	// that up-to-date folders are also periodically health-checked.
+	err = f.getHealthErrorWithoutIgnores()
+	if err != nil {
+		f.sl.DebugContext(ctx, "Skipping pull due to folder error", slogutil.Error(err))
+		return false, err
+	}
+
 	// If there is nothing to do, don't even enter sync-waiting state.
 	needCount, err := f.db.CountNeed(f.folderID, protocol.LocalDeviceID)
 	if err != nil {
@@ -414,13 +434,6 @@ func (f *folder) pull(ctx context.Context) (success bool, err error) {
 		f.pullErrors = nil
 		f.errorsMut.Unlock()
 		return true, nil
-	}
-
-	// Abort early (before acquiring a token) if there's a folder error
-	err = f.getHealthErrorWithoutIgnores()
-	if err != nil {
-		f.sl.DebugContext(ctx, "Skipping pull due to folder error", slogutil.Error(err))
-		return false, err
 	}
 
 	// Send only folder doesn't do any io, it only checks for out-of-sync
@@ -487,7 +500,6 @@ func (f *folder) scanSubdirs(ctx context.Context, subDirs []string) error {
 	}()
 
 	f.setState(FolderScanWaiting)
-	defer f.setState(FolderIdle)
 
 	if err := f.ioLimiter.TakeWithContext(ctx, 1); err != nil {
 		return err
@@ -993,7 +1005,6 @@ func (f *folder) scanTimerFired(ctx context.Context) error {
 
 func (f *folder) versionCleanupTimerFired(ctx context.Context) {
 	f.setState(FolderCleanWaiting)
-	defer f.setState(FolderIdle)
 
 	if err := f.ioLimiter.TakeWithContext(ctx, 1); err != nil {
 		return
@@ -1184,8 +1195,13 @@ func (f *folder) setError(ctx context.Context, err error) {
 	default:
 	}
 
-	_, _, oldErr := f.getState()
-	if (err != nil && oldErr != nil && oldErr.Error() == err.Error()) || (err == nil && oldErr == nil) {
+	state, _, oldErr := f.getState()
+	switch {
+	case err != nil && oldErr != nil && oldErr.Error() == err.Error():
+		// The error is the same as the old error, no change is required
+		return
+	case err == nil && oldErr == nil && state == FolderIdle:
+		// No error before or now, and we are already Idle
 		return
 	}
 
@@ -1195,7 +1211,7 @@ func (f *folder) setError(ctx context.Context, err error) {
 		} else {
 			f.sl.InfoContext(ctx, "Folder error changed", slogutil.Error(err), slog.Any("previously", oldErr))
 		}
-	} else {
+	} else if oldErr != nil {
 		f.sl.InfoContext(ctx, "Folder error cleared")
 		f.SchedulePull()
 	}
@@ -1203,7 +1219,7 @@ func (f *folder) setError(ctx context.Context, err error) {
 	if f.FSWatcherEnabled {
 		if err != nil {
 			f.stopWatch()
-		} else {
+		} else if oldErr != nil {
 			f.scheduleWatchRestart()
 		}
 	}

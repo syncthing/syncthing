@@ -74,7 +74,6 @@ func (f *receiveOnlyFolder) revert(ctx context.Context) error {
 	f.sl.InfoContext(ctx, "Reverting folder")
 
 	f.setState(FolderScanning)
-	defer f.setState(FolderIdle)
 
 	scanChan := make(chan string)
 	go f.pullScannerRoutine(ctx, scanChan)

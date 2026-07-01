@@ -98,7 +98,6 @@ func (f *sendOnlyFolder) override(ctx context.Context) error {
 	f.sl.InfoContext(ctx, "Overriding global state ")
 
 	f.setState(FolderScanning)
-	defer f.setState(FolderIdle)
 
 	batch := NewFileInfoBatch(func(files []protocol.FileInfo) error {
 		f.updateLocalsFromScanning(files)
