@@ -41,8 +41,8 @@ func SetDefaultLevel(level slog.Level) {
 }
 
 func SetLevelOverrides(sttrace string) {
-	pkgs := strings.Split(sttrace, ",")
-	for _, pkg := range pkgs {
+	pkgs := strings.SplitSeq(sttrace, ",")
+	for pkg := range pkgs {
 		pkg = strings.TrimSpace(pkg)
 		if pkg == "" {
 			continue

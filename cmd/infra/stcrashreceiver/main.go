@@ -203,7 +203,7 @@ func loadIgnorePatterns(path string) (*ignorePatterns, error) {
 	}
 
 	var patterns []*regexp.Regexp
-	for _, line := range strings.Split(string(bs), "\n") {
+	for line := range strings.SplitSeq(string(bs), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
