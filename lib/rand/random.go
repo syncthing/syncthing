@@ -31,7 +31,7 @@ var (
 	defaultSecureSource = newSecureSource()
 
 	// defaultSecureRand is a math/rand/v2.Rand based on the secure source.
-	defaultSecureRand = mrand.New(defaultSecureSource)
+	defaultSecureRand = mrand.New(defaultSecureSource) //nolint:gosec
 )
 
 // String returns a cryptographically secure random string of characters
@@ -49,6 +49,7 @@ func String(l int) string {
 
 // Int63 returns a cryptographically secure random int63.
 func Int63() int64 {
+	// rand/v2 renames Int63 to Int64. The return value is still always >=0.
 	return defaultSecureRand.Int64()
 }
 
