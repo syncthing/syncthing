@@ -32,10 +32,6 @@ func newSecureSource() *secureSource {
 	return s
 }
 
-func (*secureSource) Seed(int64) {
-	panic("SecureSource is not seedable")
-}
-
 func (s *secureSource) Read(p []byte) (int, error) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
