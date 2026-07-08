@@ -174,7 +174,7 @@ func (f *BasicFilesystem) MkdirAll(path string, perm FileMode) error {
 		return err
 	}
 
-	return f.mkdirAll(path, os.FileMode(perm))
+	return os.MkdirAll(path, os.FileMode(perm))
 }
 
 func (f *BasicFilesystem) Lstat(name string) (FileInfo, error) {
@@ -241,15 +241,7 @@ func (f *BasicFilesystem) DirNames(name string) ([]string, error) {
 }
 
 func (f *BasicFilesystem) Open(name string) (File, error) {
-	rootedName, err := f.rooted(name)
-	if err != nil {
-		return nil, err
-	}
-	fd, err := os.Open(rootedName)
-	if err != nil {
-		return nil, err
-	}
-	return basicFile{fd, name}, err
+	return f.OpenFile(name, os.O_RDONLY, 0)
 }
 
 func (f *BasicFilesystem) OpenFile(name string, flags int, mode FileMode) (File, error) {
@@ -257,6 +249,7 @@ func (f *BasicFilesystem) OpenFile(name string, flags int, mode FileMode) (File,
 	if err != nil {
 		return nil, err
 	}
+	flags |= alwaysOpenFlags // enforce extra bits in flags
 	fd, err := os.OpenFile(rootedName, flags, os.FileMode(mode))
 	if err != nil {
 		return nil, err
@@ -265,15 +258,7 @@ func (f *BasicFilesystem) OpenFile(name string, flags int, mode FileMode) (File,
 }
 
 func (f *BasicFilesystem) Create(name string) (File, error) {
-	rootedName, err := f.rooted(name)
-	if err != nil {
-		return nil, err
-	}
-	fd, err := os.Create(rootedName)
-	if err != nil {
-		return nil, err
-	}
-	return basicFile{fd, name}, err
+	return f.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o666)
 }
 
 func (*BasicFilesystem) Walk(_ string, _ WalkFunc) error {

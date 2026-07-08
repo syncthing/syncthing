@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-VERSIONING" "7" "Apr 04, 2026" "v2.0.0" "Syncthing"
+.TH "SYNCTHING-VERSIONING" "7" "Jun 23, 2026" "v2.1.0" "Syncthing"
 .SH NAME
 syncthing-versioning \- Keep automatic backups of deleted files by other nodes
 .sp
@@ -122,13 +122,13 @@ This versioning strategy delegates the decision on what to do to an
 command line script).  Just prior to a file being replaced, the command will be
 executed.  The file needs to be removed from the folder in the process, or
 otherwise Syncthing will report an error.  The command can use the following
-templated arguments:
+templated arguments or environment variables:
 .INDENT 0.0
 .TP
-.B %FOLDER_PATH%
+.B \fB%FOLDER_PATH%\fP (\fB$FOLDER_PATH\fP)
 Path to the folder
 .TP
-.B %FILE_PATH%
+.B \fB%FILE_PATH%\fP (\fB$FILE_PATH\fP)
 Path to the file within the folder
 .UNINDENT
 .sp
@@ -138,6 +138,28 @@ the default \fBSync\fP folder in Windows, and the full path to the file is
 \fBC:\eUsers\eUser\eSync\eFamily photos\eIMG_2021\-03\-01.jpg\fP, then the
 \fB%FOLDER_PATH%\fP will be \fBC:\eUsers\eUser\eSync\fP, and the
 \fB%FILE_PATH%\fP will be \fBFamily photos\eIMG_2021\-03\-01.jpg\fP\&.
+.sp
+\fBWARNING:\fP
+.INDENT 0.0
+.INDENT 3.5
+You should consider file paths as untrusted user input and treat them
+accordingly. Do not assume that they are free from malicious characters
+or commands.
+.sp
+Syncthing will properly ensure unquoted template variables are passed as
+individual parameter values, as in \fBsomecommand %FOLDER_PATH%
+%FILE_PATH%\fP\&. An unquoted combination such as
+\fB%FOLDER_PATH%/%FILE_PATH%\fP is also valid.
+.sp
+Any form of shell wrapping in the command, such as sh \-c “echo
+%FOLDER_PATH%/%FILE_PATH%”, is invalid. Syncthing may reject such
+commands as unsafe.
+.UNINDENT
+.UNINDENT
+.sp
+Added in version 2.1.2: The environment variables \fB$FOLDER_PATH\fP and \fB$FILE_PATH\fP which can
+be used in the script instead of the command line template placeholders.
+
 .SS Example for Unixes
 .sp
 Let’s say I want to keep the latest version of each file as they are replaced

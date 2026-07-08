@@ -265,7 +265,7 @@ func readAll(path string) []byte {
 }
 
 func writeFile(path string, data string) {
-	err := os.WriteFile(path, []byte(data), 0o644)
+	err := os.WriteFile(path, []byte(data), 0o666)
 	if err != nil {
 		log.Fatal(err)
 	}

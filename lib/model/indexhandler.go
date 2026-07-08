@@ -20,7 +20,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/svcutil"
-	"github.com/syncthing/syncthing/lib/ur"
+	"github.com/syncthing/syncthing/lib/ur/contract"
 )
 
 type indexHandler struct {
@@ -276,7 +276,7 @@ func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 			// can't happen, once an error is returned the index sender exits
 			panic(fmt.Sprintf("bug: once failed it should stay failed (%v)", batchError))
 		}
-		l.Debugf("%v: Sending %d files (<%d bytes)", s, len(fs), batch.Size())
+		l.Debugf("%v: Sending %d files", s, len(fs))
 
 		lastSequence := fs[len(fs)-1].Sequence
 		var err error
@@ -470,7 +470,7 @@ func (s *indexHandler) logSequenceAnomaly(msg string, extra map[string]any) {
 		extraStrs[k] = fmt.Sprint(v)
 	}
 
-	s.evLogger.Log(events.Failure, ur.FailureData{
+	s.evLogger.Log(events.Failure, contract.FailureData{
 		Description: msg,
 		Extra:       extraStrs,
 	})

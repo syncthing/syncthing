@@ -570,14 +570,23 @@ angular.module('syncthing.core')
 
             };
 
-            $scope.devicesGrouped = {};
-            const otherDevices = $scope.otherDevices();
-            for (var id in otherDevices) {
-                if ($scope.devicesGrouped[otherDevices[id].group] === undefined) {
-                    $scope.devicesGrouped[otherDevices[id].group] = []; 
+            // myID is watched as $scope.otherDevices() relies on this
+            // and it can potenitally not be loaded due to this function
+            // scope being called in an undetermistic manner
+            $scope.$watch('myID', function(myID) {
+                if (myID) {
+                    $scope.devicesGrouped = {};
+                    const otherDevices = $scope.otherDevices();
+                    for (var id in otherDevices) {
+                        if ($scope.devicesGrouped[otherDevices[id].group] === undefined) {
+                            $scope.devicesGrouped[otherDevices[id].group] = [];
+                        }
+                        $scope.devicesGrouped[otherDevices[id].group].push(otherDevices[id]);
+                    };
+
+                    $scope.devicesGrouped = sortByKeyThenProperty($scope.devicesGrouped, "name", "deviceID");
                 }
-                $scope.devicesGrouped[otherDevices[id].group].push(otherDevices[id]);
-            };
+            });
 
             $scope.folders = folderMap($scope.config.folders);
             $scope.foldersGrouped = {};
@@ -586,22 +595,14 @@ angular.module('syncthing.core')
                 $scope.folders[folder].devices.forEach(function (deviceCfg) {
                     refreshCompletion(deviceCfg.deviceID, folder);
                 });
-                
+
                 if ($scope.foldersGrouped[$scope.folders[folder].group] === undefined) {
                     $scope.foldersGrouped[$scope.folders[folder].group] = [];
                 }
                 $scope.foldersGrouped[$scope.folders[folder].group].push($scope.folders[folder]);
             });
 
-            // Sort with blank group first if any then alphabetically
-            const blankSort = (a, b) => {
-                if (a[0] === "" && b[0] !== "") return -1;
-                if (b[0] === "" && a[0] !== "") return 1;
-                return a[0].localeCompare(b[0]);
-            };
-
-            $scope.foldersGrouped = Object.fromEntries(Object.entries($scope.foldersGrouped).sort(blankSort));
-            $scope.devicesGrouped = Object.fromEntries(Object.entries($scope.devicesGrouped).sort(blankSort));
+            $scope.foldersGrouped = sortByKeyThenProperty($scope.foldersGrouped, "label", "id");
 
             refreshNoAuthWarning();
             setDefaultTheme();
@@ -609,6 +610,31 @@ angular.module('syncthing.core')
             if (!hasConfig) {
                 $scope.$emit('ConfigLoaded');
             }
+        }
+
+        // Sort firstly by the top level key of the object and then by
+        // prop name provided for the array of objects for each key.
+        // If the prop returns has an empty value, then use the
+        // fallback prop provided.
+        function sortByKeyThenProperty(obj, prop, fallbackProp) {
+              const sorted = {};
+              Object.keys(obj)
+                .sort()
+                .forEach((key) => {
+                  sorted[key] = obj[key].sort((a, b) => {
+                    let aProp = prop;
+                    let bProp = prop;
+                    if (!a[aProp]) {
+                        aProp = fallbackProp;
+                    }
+                    if (!b[bProp]) {
+                        bProp = fallbackProp;
+                    }
+                    return a[aProp].localeCompare(b[bProp]);
+                  });
+                });
+
+              return sorted;
         }
 
         function refreshSystem() {
@@ -1096,7 +1122,7 @@ angular.module('syncthing.core')
             if (status == 'paused') {
                 return 'default';
             }
-            if (status === 'syncing' || status === 'sync-preparing' || status === 'scanning' || status === 'cleaning') {
+            if (status === 'syncing' || status === 'sync-preparing' || status === 'scanning' || status === 'cleaning' || status === 'starting') {
                 return 'primary';
             }
             if (status === 'unknown') {
@@ -1113,20 +1139,20 @@ angular.module('syncthing.core')
         };
 
         $scope.syncPercentage = function (folder) {
-            if (typeof $scope.model[folder] === 'undefined') {
+            var model = $scope.model[folder];
+            if (typeof model === 'undefined') {
                 return 100;
             }
-            if ($scope.model[folder].needTotalItems === 0) {
+            if (model.needTotalItems === 0) {
                 return 100;
             }
-            if (($scope.model[folder].needBytes == 0 && $scope.model[folder].needDeletes > 0) || $scope.model[folder].globalBytes == 0) {
-                // We don't need any data, but we have deletes that we need
-                // to do. Drop down the completion percentage to indicate
-                // that we have stuff to do.
-                // Do the same thing in case we only have zero byte files to sync.
+            if (model.needBytes == 0 && model.needTotalItems > 0) {
+                // We don't need any data, but we have deletes, directories,
+                // symlinks or zero byte files that we need to do. Drop down the
+                // completion percentage to indicate that we have stuff to do.
                 return 95;
             }
-            return progressIntegerPercentage($scope.model[folder].inSyncBytes, $scope.model[folder].globalBytes);
+            return progressIntegerPercentage(model.inSyncBytes, model.globalBytes);
         };
 
         $scope.scanPercentage = function (folder) {
@@ -1294,6 +1320,7 @@ angular.module('syncthing.core')
                 case 'scan-waiting':
                 case 'sync-preparing':
                 case 'sync-waiting':
+                case 'starting':
                     return 'fa-hourglass-half';
                 case 'cleaning':
                     return 'fa-recycle';
@@ -1329,6 +1356,8 @@ angular.module('syncthing.core')
                     return $translate.instant('Failed Items');
                 case 'idle':
                     return $translate.instant('Up to Date');
+                case 'starting':
+                    return $translate.instant('Starting');
                 case 'localadditions':
                     return $translate.instant('Local Additions');
                 case 'localunencrypted':
@@ -2308,6 +2337,12 @@ angular.module('syncthing.core')
             } else {
                 $scope.currentFolder.fsWatcherEnabled = true;
             }
+            var type = $scope.currentFolder.type;
+            if ($scope.currentFolder._editing !== 'existing') {
+                // Never automatically change block indexing, only suggest
+                // the value on new folder creation.
+                $scope.currentFolder.blockIndexing = (type === 'sendreceive' || type === 'receiveonly');
+            }
             $scope.setFSWatcherIntervalDefault();
         };
 
@@ -2687,6 +2722,27 @@ angular.module('syncthing.core')
                 }
             }, $scope.emitHTTPError);
         };
+        
+        $scope.isFolderTabDisabled = function (tab) {
+            if (!$scope.currentFolder) {
+                return false;
+            }
+            if ($scope.currentFolder._editing === "new-ignores") {
+                return tab !== "ignores";
+            }
+            if (tab === "ignores" && $scope.currentFolder._recvEnc) {
+                return true;
+            }
+            return false;
+        };
+
+        $scope.onFolderTabClick = function ($event, tab) {
+            if ($scope.isFolderTabDisabled(tab)) {
+                $event.preventDefault();
+                $event.stopPropagation();
+                return false;
+            }
+        };
 
         function saveFolderIgnoresExisting() {
             if ($scope.ignores.disabled) {
@@ -2941,6 +2997,9 @@ angular.module('syncthing.core')
                             $scope.restoreVersions.tree = $("#restoreTree").fancytree({
                                 extensions: ["table", "filter", "glyph"],
                                 quicksearch: true,
+                                // Node titles are remote-controlled file/path
+                                // components; render them as text, not HTML.
+                                escapeTitles: true,
                                 filter: {
                                     hideExpanders: true,
                                     mode: "hide"

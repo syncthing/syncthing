@@ -127,12 +127,6 @@ func (fs *logFilesystem) Stat(name string) (FileInfo, error) {
 	return info, err
 }
 
-func (fs *logFilesystem) SymlinksSupported() bool {
-	supported := fs.Filesystem.SymlinksSupported()
-	l.Debugln(fs.getCaller(), fs.Type(), fs.URI(), "SymlinksSupported", supported)
-	return supported
-}
-
 func (fs *logFilesystem) Walk(root string, walkFn WalkFunc) error {
 	err := fs.Filesystem.Walk(root, walkFn)
 	l.Debugln(fs.getCaller(), fs.Type(), fs.URI(), "Walk", root, walkFn, err)

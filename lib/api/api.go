@@ -1248,7 +1248,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	zipFilePath := filepath.Join(locations.GetBaseDir(locations.ConfigBaseDir), zipFileName)
 
 	// Write buffer zip to local zip file (back up)
-	if err := os.WriteFile(zipFilePath, zipFilesBuffer.Bytes(), 0o600); err != nil {
+	if err := os.WriteFile(zipFilePath, zipFilesBuffer.Bytes(), 0o666); err != nil {
 		slog.Warn("Failed to create support bundle zip (file)", slogutil.FilePath(zipFilePath), slogutil.Error(err))
 	}
 
@@ -1774,7 +1774,7 @@ func fileIntfJSONMap(f protocol.FileInfo) map[string]interface{} {
 	out := map[string]interface{}{
 		"name":               f.FileName(),
 		"type":               f.FileType().String(),
-		"size":               f.FileSize(),
+		"size":               f.Size,
 		"deleted":            f.IsDeleted(),
 		"invalid":            f.IsInvalid(),
 		"ignored":            f.IsIgnored(),

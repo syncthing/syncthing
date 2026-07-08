@@ -9,6 +9,7 @@ package model
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -93,8 +94,10 @@ func TestRequest(t *testing.T) {
 
 	m.ScanFolder("default")
 
+	foobarHash := sha256.Sum256([]byte("foobar"))
+
 	// Existing, shared file
-	res, err := m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 6})
+	res, err := m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 6, Hash: foobarHash[:]})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,35 +107,42 @@ func TestRequest(t *testing.T) {
 	}
 
 	// Existing, nonshared file
-	_, err = m.Request(device2Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 6})
+	_, err = m.Request(device2Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 6, Hash: foobarHash[:]})
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Nonexistent file
-	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "nonexistent", Size: 6})
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "nonexistent", Size: 6, Hash: foobarHash[:]})
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Shared folder, but disallowed file name
-	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "../walk.go", Size: 6})
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "../walk.go", Size: 6, Hash: foobarHash[:]})
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Negative size
-	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: -4})
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: -4, Hash: foobarHash[:]})
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
-	// Larger block than available
+	// Missing hash
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 6})
+	if err == nil {
+		t.Error("Unexpected nil error on request without hash")
+	}
+
+	// Larger block than available, with a mismatched hash
 	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 42, Hash: []byte("hash necessary but not checked")})
 	if err == nil {
 		t.Error("Unexpected nil error on read past end of file")
 	}
-	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 42})
+	// Larger block than available, with the matching hash of the short read
+	_, err = m.Request(device1Conn, &protocol.Request{Folder: "default", Name: "foo", Size: 42, Hash: foobarHash[:]})
 	if err != nil {
 		t.Error("Unexpected error when large read should be permitted")
 	}
@@ -1667,8 +1677,6 @@ func waitForState(t *testing.T, sub events.Subscription, folder, expected string
 				}
 				if err == expected {
 					return
-				} else {
-					t.Error(ev)
 				}
 			}
 		case <-timeout:
@@ -1779,10 +1787,12 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	b := func(isfile bool, path ...string) protocol.FileInfo {
 		typ := protocol.FileInfoTypeDirectory
 		var blocks []protocol.BlockInfo
+		var size int64
 
 		if isfile {
 			typ = protocol.FileInfoTypeFile
 			blocks = []protocol.BlockInfo{{Offset: 0x0, Size: 0xa, Hash: []uint8{0x2f, 0x72, 0xcc, 0x11, 0xa6, 0xfc, 0xd0, 0x27, 0x1e, 0xce, 0xf8, 0xc6, 0x10, 0x56, 0xee, 0x1e, 0xb1, 0x24, 0x3b, 0xe3, 0x80, 0x5b, 0xf9, 0xa9, 0xdf, 0x98, 0xf9, 0x2f, 0x76, 0x36, 0xb0, 0x5c}}}
+			size = 0xa
 		}
 		seq++
 		return protocol.FileInfo{
@@ -1790,7 +1800,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 			Type:      typ,
 			ModifiedS: 0x666,
 			Blocks:    blocks,
-			Size:      0xa,
+			Size:      size,
 			Sequence:  seq,
 		}
 	}
@@ -1806,7 +1816,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		return &TreeEntry{
 			Name:     name,
 			ModTime:  time.Unix(0x666, 0),
-			Size:     128,
+			Size:     0,
 			Type:     protocol.FileInfoTypeDirectory.String(),
 			Children: entries,
 		}
@@ -2981,15 +2991,16 @@ func TestRequestLimit(t *testing.T) {
 	defer cleanupModel(m)
 	m.ScanFolder("default")
 
+	emptyHash := sha256.Sum256(nil)
 	befReq := time.Now()
-	first, err := m.Request(conn, &protocol.Request{Folder: "default", Name: file, Size: 2000})
+	first, err := m.Request(conn, &protocol.Request{Folder: "default", Name: file, Size: 2000, Hash: emptyHash[:]})
 	if err != nil {
 		t.Fatalf("First request failed: %v", err)
 	}
 	reqDur := time.Since(befReq)
 	returned := make(chan struct{})
 	go func() {
-		second, err := m.Request(conn, &protocol.Request{Folder: "default", Name: file, Size: 2000})
+		second, err := m.Request(conn, &protocol.Request{Folder: "default", Name: file, Size: 2000, Hash: emptyHash[:]})
 		if err != nil {
 			t.Errorf("Second request failed: %v", err)
 		}
@@ -3344,6 +3355,87 @@ func TestRenameSameFile(t *testing.T) {
 	}
 }
 
+// TestRenameBatchFlush verifies that rename detection works correctly when
+// a batch flush happens mid-scan. With enough files to exceed
+// MaxBatchSizeFiles the scan batch flushes at least once, clearing the
+// in-memory deleted-tracking map. After the flush the database itself
+// guards against reusing an already-consumed rename source. The fake
+// filesystem iterates in non-deterministic order, so the two rename pairs
+// may or may not straddle a flush boundary on any given run; with
+// 2*MaxBatchSizeFiles filler files the cross-flush case is hit roughly half
+// the time.
+func TestRenameBatchFlush(t *testing.T) {
+	wcfg, fcfg := newDefaultCfgWrapper(t)
+	m := setupModel(t, wcfg)
+	defer cleanupModel(m)
+
+	ffs := fcfg.Filesystem()
+
+	// Two source files with identical content so they share a blocks hash.
+	content := []byte("shared-content-for-rename-detection")
+	writeFile(t, ffs, "src-a", content)
+	writeFile(t, ffs, "src-b", content)
+
+	m.ScanFolders()
+
+	// Delete the sources and create two new destinations with the same
+	// content plus enough filler files to force at least one batch flush.
+	must(t, ffs.Remove("src-a"))
+	must(t, ffs.Remove("src-b"))
+	writeFile(t, ffs, "dst-a", content)
+	writeFile(t, ffs, "dst-b", content)
+	for i := range MaxBatchSizeFiles * 2 {
+		writeFile(t, ffs, fmt.Sprintf("filler-%04d", i), []byte(fmt.Sprintf("filler-%04d", i)))
+	}
+
+	m.ScanFolders()
+
+	// Collect all files keyed by name.
+	files := make(map[string]protocol.FileInfo)
+	it, errFn := m.LocalFilesSequenced("default", protocol.LocalDeviceID, 0)
+	for fi := range it {
+		files[fi.FileName()] = fi
+	}
+	if err := errFn(); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"src-a", "src-b"} {
+		fi, ok := files[name]
+		if !ok {
+			t.Fatalf("%q not found in DB", name)
+		}
+		if !fi.IsDeleted() {
+			t.Fatalf("%q should be deleted", name)
+		}
+	}
+
+	for _, name := range []string{"dst-a", "dst-b"} {
+		fi, ok := files[name]
+		if !ok {
+			t.Fatalf("%q not found in DB", name)
+		}
+		if fi.IsDeleted() {
+			t.Fatalf("%q should not be deleted", name)
+		}
+	}
+
+	// When rename detection works the deleted source is appended to the
+	// batch right after its destination, so their sequences are adjacent
+	// (src.seq == dst.seq + 1). If detection failed the sources would
+	// only be deleted in a later scan phase with much higher sequences.
+	dstSeqs := map[int64]bool{
+		files["dst-a"].SequenceNo(): true,
+		files["dst-b"].SequenceNo(): true,
+	}
+	for _, name := range []string{"src-a", "src-b"} {
+		srcSeq := files[name].SequenceNo()
+		if !dstSeqs[srcSeq-1] {
+			t.Errorf("deleted %q (seq %d) not adjacent to a destination file; rename was not detected", name, srcSeq)
+		}
+	}
+}
+
 func TestBlockListMap(t *testing.T) {
 	wcfg, fcfg := newDefaultCfgWrapper(t)
 	m := setupModel(t, wcfg)
@@ -3599,15 +3691,17 @@ func testConfigChangeTriggersClusterConfigs(t *testing.T, expectFirst, expectSec
 	m.promoteConnections()
 
 	// Initial CCs
+	initTimeout := time.NewTimer(time.Second)
+	defer initTimeout.Stop()
 	select {
 	case <-cc1:
-	default:
-		t.Fatal("missing initial CC from device1")
+	case <-initTimeout.C:
+		t.Fatal("timed out waiting for initial CC from device1")
 	}
 	select {
 	case <-cc2:
-	default:
-		t.Fatal("missing initial CC from device2")
+	case <-initTimeout.C:
+		t.Fatal("timed out waiting for initial CC from device2")
 	}
 
 	t.Log("Applying config change")
@@ -3700,13 +3794,19 @@ func TestIssue6961(t *testing.T) {
 }
 
 func TestCompletionEmptyGlobal(t *testing.T) {
-	m, conn, fcfg := setupModelWithConnection(t)
+	m, _, fcfg := setupModelWithConnection(t)
 	defer cleanupModelAndRemoveDir(m, fcfg.Filesystem().URI())
+
+	// Insert a local file
 	files := []protocol.FileInfo{{Name: "foo", Version: protocol.Vector{}.Update(myID.Short()), Sequence: 1}}
-	m.sdb.Update(fcfg.ID, protocol.LocalDeviceID, files)
+	must(t, m.sdb.Update(fcfg.ID, protocol.LocalDeviceID, files))
+
+	// A remote announces it deleted
 	files[0].Deleted = true
 	files[0].Version = files[0].Version.Update(device1.Short())
-	must(t, m.IndexUpdate(conn, &protocol.IndexUpdate{Folder: fcfg.ID, Files: files}))
+	must(t, m.sdb.Update(fcfg.ID, device1, files))
+
+	// Our completion should be 95%
 	comp := m.testCompletion(protocol.LocalDeviceID, fcfg.ID)
 	if comp.CompletionPct != 95 {
 		t.Error("Expected completion of 95%, got", comp.CompletionPct)

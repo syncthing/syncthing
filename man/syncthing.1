@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING" "1" "Apr 04, 2026" "v2.0.0" "Syncthing"
+.TH "SYNCTHING" "1" "Jun 23, 2026" "v2.1.0" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .SH SYNOPSIS
@@ -404,13 +404,35 @@ acknowledge (clear) them.
 .TP
 .B debug
 Various tools to aid in diagnosing problems or collection information for
-bug reports.  Some of these commands access the database directly and can
-therefore only work when Syncthing is not running.
+bug reports.
 .TP
 .B \fB\-\fP (a single dash)
 Reads subsequent commands from the standard input stream, without needing to
 call the \fBsyncthing cli\fP command over and over.  Exits on any invalid
 command or when EOF (end\-of\-file) is received.
+.UNINDENT
+.sp
+For troubleshooting issues, the \fBdebug\fP subcommand provides some commonly
+needed actions for data analysis and repair.  Some of these commands access the
+database directly and can therefore only work when Syncthing is not running.
+Not to be confused with the \fBcli debug\fP subcommand group, which works via the
+REST API.
+.INDENT 0.0
+.TP
+.B debug reset\-database
+Reset the database, forcing a full rescan and resync.  \fBMust only be used
+when Syncthing is not running.\fP  More granular reset operations are
+available on the REST API while Syncthing is running:
+\fI\%POST /rest/system/reset\fP
+.TP
+.B debug database\-statistics
+Display database size statistics.
+.TP
+.B debug database\-counts
+Display database folder counts.
+.TP
+.B debug database\-file
+Display database file metadata.
 .UNINDENT
 .SH PROXIES
 .sp

@@ -382,7 +382,7 @@
         <div class="col-md-6" aria-labelledby="folder_list" role="region" >
           <h3 id="folder_list"><span translate>Folders</span><span ng-if="folderList().length > 1"> ({{folderList().length}})</span></h3>
           <div ng-repeat="(folderGroupName, groupedFolders) in foldersGrouped">
-            <h4 ng-if="folderGroupName !== ''">{{ folderGroupName }} 
+            <h4 ng-if="folderGroupName !== ''">{{ folderGroupName }}
               <span ng-if="groupedFolders.length > 1 && folderGroupName.length > 0"> ({{groupedFolders.length}})</span>
             </h4>
             <div class="panel-group" id="folders-{{ $index }}">
@@ -499,6 +499,13 @@
                             <span ng-if="folder.type == 'sendonly'" translate>Send Only</span>
                             <span ng-if="folder.type == 'receiveonly'" translate>Receive Only</span>
                             <span ng-if="folder.type == 'receiveencrypted'" translate>Receive Encrypted</span>
+                          </td>
+                        </tr>
+                        <tr>
+                          <th><span class="far fa-fw fa-book"></span>&nbsp;<span translate>Block Indexing</span></th>
+                          <td class="text-right">
+                            <span ng-if="folder.blockIndexing" translate>Yes</span>
+                            <span ng-if="!folder.blockIndexing" translate>No</span>
                           </td>
                         </tr>
                         <tr ng-if="folder.ignorePerms">
@@ -776,7 +783,7 @@
           <!-- Remote devices -->
           <h3><span translate>Remote Devices</span> <span ng-if="otherDevices().length > 1"> ({{otherDevices().length}})</span></h3>
           <div ng-repeat="(deviceGroupName, groupedDevices) in devicesGrouped">
-            <h4>{{ deviceGroupName }} 
+            <h4>{{ deviceGroupName }}
               <span ng-if="groupedDevices.length > 1 && deviceGroupName.length > 0"> ({{groupedDevices.length}})</span>
             </h4>
             <div class="panel-group" id="devices-{{ $index }}">
@@ -1044,7 +1051,7 @@
   <ng-include src="'syncthing/device/shareDeviceIdDialogView.html'"></ng-include>
 
   <!-- vendor scripts -->
-  <script type="text/javascript" src="vendor/jquery/jquery-2.2.2.js"></script>
+  <script type="text/javascript" src="vendor/jquery/jquery-3.7.1.js"></script>
   <script type="text/javascript" src="vendor/angular/angular.js"></script>
   <script type="text/javascript" src="vendor/angular/angular-sanitize.js"></script>
   <script type="text/javascript" src="vendor/angular/angular-translate.js"></script>

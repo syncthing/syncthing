@@ -11,11 +11,10 @@ import "testing"
 var keywords = map[string]string{
 	"AFFIXLESS_KEYWORD":   "bare",
 	"%DOS_STYLE_KEYWORD%": "dos",
-	"$UNIX_STYLE_KEYWORD": "unix",
 }
 
 func TestFormattedCommandSuccessRealKeywords(t *testing.T) {
-	cmd, err := FormattedCommand("echo AFFIXLESS_KEYWORD %DOS_STYLE_KEYWORD% $UNIX_STYLE_KEYWORD", keywords)
+	cmd, err := FormattedCommand("echo AFFIXLESS_KEYWORD %DOS_STYLE_KEYWORD%", keywords)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +24,7 @@ func TestFormattedCommandSuccessRealKeywords(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	const expectedOutput = "bare dos unix\n"
+	const expectedOutput = "bare dos\n"
 
 	if string(output) != expectedOutput {
 		t.Errorf("expected %s as command output, got %s", expectedOutput, string(output))
@@ -61,5 +60,38 @@ func TestFormattedCommandFailBlankCommandNilKeywords(t *testing.T) {
 	_, err := FormattedCommand("", nil)
 	if err == nil {
 		t.Error("blank commands should fail even if keywords are nil")
+	}
+}
+
+func TestUnsafeFormattedCommand(t *testing.T) {
+	context := map[string]string{
+		"%FOLDER_PATH%":       "/home/testuser/Sync",
+		"%FILE_PATH%":         "TestUnsafeFormattedCommand",
+	}
+
+	cases := []struct {
+		cmd  string
+		safe bool
+	}{
+		{`echo %FOLDER_PATH% %FILE_PATH%`, true},
+		{`echo "%FOLDER_PATH% %FILE_PATH%"`, false},
+		{`echo %FOLDER_PATH%/%FILE_PATH%`, true},
+		{`echo "%FOLDER_PATH%/%FILE_PATH%"`, true},
+		{`echo '%FOLDER_PATH%/%FILE_PATH%'`, true},
+		{`echo "'%FOLDER_PATH%/%FILE_PATH%'"`, false},
+		{`sh -c "echo '%FOLDER_PATH%/%FILE_PATH%'"`, false},
+		{`sh -c "echo %FOLDER_PATH%/%FILE_PATH%"`, false},
+	}
+
+	for _, tc := range cases {
+		res, err := FormattedCommand(tc.cmd, context)
+		if tc.safe && err != nil {
+			t.Fatal(err)
+		}
+		if !tc.safe && err == nil {
+			t.Logf("%q", res.Path)
+			t.Logf("%q", res.Args)
+			t.Errorf("should be unsafe: %q", tc.cmd)
+		}
 	}
 }

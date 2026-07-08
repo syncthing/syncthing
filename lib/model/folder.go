@@ -153,11 +153,18 @@ func (f *folder) Serve(ctx context.Context) error {
 	f.sl.DebugContext(ctx, "Folder starting")
 	defer f.sl.DebugContext(ctx, "Folder exiting")
 
+	f.setState(FolderStarting)
+
 	defer func() {
 		f.scanTimer.Stop()
 		f.versionCleanupTimer.Stop()
 		f.setState(FolderIdle)
 	}()
+
+	if err := f.reconcileBlockIndex(ctx); err != nil {
+		f.setError(ctx, err)
+		return err // will get restarted by suture
+	}
 
 	if f.FSWatcherEnabled && f.getHealthErrorAndLoadIgnores() == nil {
 		f.startWatch(ctx)
@@ -174,6 +181,8 @@ func (f *folder) Serve(ctx context.Context) error {
 	initialCompleted := f.initialScanFinished
 	pullTimer := time.NewTimer(0)
 	pullTimer.Stop()
+
+	f.setState(FolderIdle)
 
 	for {
 		var err error
@@ -254,6 +263,15 @@ func (f *folder) Serve(ctx context.Context) error {
 			f.setError(ctx, err)
 		}
 	}
+}
+
+func (f *folder) reconcileBlockIndex(ctx context.Context) error {
+	if !f.BlockIndexing {
+		f.sl.DebugContext(ctx, "Dropping block index (block indexing disabled)")
+		return f.db.DropBlockIndex(f.folderID)
+	}
+	f.sl.DebugContext(ctx, "Populating block index if empty")
+	return f.db.PopulateBlockIndex(f.folderID)
 }
 
 func (*folder) BringToFront(string) {}
@@ -556,12 +574,14 @@ type scanBatch struct {
 	f           *folder
 	updateBatch *FileInfoBatch
 	toRemove    []string
+	deleted     map[string]struct{}
 }
 
 func (f *folder) newScanBatch() *scanBatch {
 	b := &scanBatch{
 		f:        f,
 		toRemove: make([]string, 0, maxToRemove),
+		deleted:  make(map[string]struct{}),
 	}
 	b.updateBatch = NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		if err := b.f.getHealthErrorWithoutIgnores(); err != nil {
@@ -569,6 +589,7 @@ func (f *folder) newScanBatch() *scanBatch {
 			return err
 		}
 		b.f.updateLocalsFromScanning(fs)
+		clear(b.deleted)
 		return nil
 	})
 	return b
@@ -602,6 +623,15 @@ func (b *scanBatch) FlushIfFull() error {
 		}
 	}
 	return b.updateBatch.FlushIfFull()
+}
+
+func (b *scanBatch) markDeleted(name string) {
+	b.deleted[name] = struct{}{}
+}
+
+func (b *scanBatch) hasDeleted(name string) bool {
+	_, ok := b.deleted[name]
+	return ok
 }
 
 // Update adds the fileinfo to the batch for updating, and does a few checks.
@@ -680,7 +710,6 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 		fchan = scanner.Walk(scanCtx, scanConfig)
 	}
 
-	alreadyUsedOrExisting := make(map[string]struct{})
 	for res := range fchan {
 		if res.Err != nil {
 			f.newScanError(res.Path, res.Err)
@@ -705,11 +734,12 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 		switch f.Type {
 		case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
 		default:
-			if nf, ok := f.findRename(ctx, res.File, alreadyUsedOrExisting); ok {
+			if nf, ok := f.findRename(ctx, res.File, batch); ok {
 				if ok, err := batch.Update(nf); err != nil {
 					return 0, err
 				} else if ok {
 					changes++
+					batch.markDeleted(nf.Name)
 				}
 			}
 		}
@@ -878,7 +908,7 @@ outer:
 	return changes, nil
 }
 
-func (f *folder) findRename(ctx context.Context, file protocol.FileInfo, alreadyUsedOrExisting map[string]struct{}) (protocol.FileInfo, bool) {
+func (f *folder) findRename(ctx context.Context, file protocol.FileInfo, batch *scanBatch) (protocol.FileInfo, bool) {
 	if len(file.Blocks) == 0 || file.Size == 0 {
 		return protocol.FileInfo{}, false
 	}
@@ -899,11 +929,10 @@ loop:
 		}
 
 		if fi.Name == file.Name {
-			alreadyUsedOrExisting[fi.Name] = struct{}{}
 			continue
 		}
 
-		if _, ok := alreadyUsedOrExisting[fi.Name]; ok {
+		if batch.hasDeleted(fi.Name) {
 			continue
 		}
 
@@ -921,8 +950,6 @@ loop:
 		if file.Size != fi.Size {
 			continue
 		}
-
-		alreadyUsedOrExisting[fi.Name] = struct{}{}
 
 		if !osutil.IsDeleted(f.mtimefs, fi.Name) {
 			continue
@@ -948,10 +975,13 @@ func (f *folder) scanTimerFired(ctx context.Context) error {
 	select {
 	case <-f.initialScanFinished:
 	default:
-		if err != nil {
-			f.sl.ErrorContext(ctx, "Failed initial scan", slogutil.Error(err))
-		} else {
+		switch {
+		case err == nil:
 			f.sl.InfoContext(ctx, "Completed initial scan")
+		case errors.Is(err, context.Canceled):
+			// Suppressed: context was canceled (e.g. by user)
+		default:
+			f.sl.ErrorContext(ctx, "Failed initial scan", slogutil.Error(err))
 		}
 		close(f.initialScanFinished)
 	}
@@ -1264,7 +1294,11 @@ func (f *folder) updateLocalsFromPulling(fs []protocol.FileInfo) error {
 }
 
 func (f *folder) updateLocals(fs []protocol.FileInfo) error {
-	if err := f.db.Update(f.folderID, protocol.LocalDeviceID, fs); err != nil {
+	var opts []db.UpdateOption
+	if !f.BlockIndexing {
+		opts = append(opts, db.WithSkipBlockIndex())
+	}
+	if err := f.db.Update(f.folderID, protocol.LocalDeviceID, fs, opts...); err != nil {
 		return err
 	}
 

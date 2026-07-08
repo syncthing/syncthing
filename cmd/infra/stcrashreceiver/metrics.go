@@ -37,4 +37,24 @@ var (
 		Subsystem: "crashreceiver",
 		Name:      "diskstore_oldest_age_seconds",
 	})
+	metricSentryReportsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "syncthing",
+		Subsystem: "crashreceiver",
+		Name:      "sentry_reports_total",
+	}, []string{"result"})
+	metricIgnoreMatchesTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "syncthing",
+		Subsystem: "crashreceiver",
+		Name:      "ignore_matches_total",
+	}, []string{"pattern"})
+	metricSourceCodeLoadsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "syncthing",
+		Subsystem: "crashreceiver",
+		Name:      "source_code_loads_total",
+	}, []string{"result"})
+	metricSourceCodeCacheSize = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "syncthing",
+		Subsystem: "crashreceiver",
+		Name:      "source_code_cache_size",
+	})
 )

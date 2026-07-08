@@ -56,7 +56,8 @@ const (
 	// DesiredPerFileBlocks is the number of blocks we aim for per file
 	DesiredPerFileBlocks = 2000
 
-	SyntheticDirectorySize = 128
+	// We used to send this size for directories and still accept that for compat.
+	deprecatedSyntheticDirectorySize = 128
 
 	// don't bother compressing messages smaller than this many bytes
 	compressionThreshold = 128
@@ -68,15 +69,16 @@ const (
 )
 
 var (
-	ErrClosed             = errors.New("connection closed")
-	ErrTimeout            = errors.New("read timeout")
-	errNotCompressible    = errors.New("not compressible")
-	errUnknownMessage     = errors.New("unknown message")
-	errInvalidFilename    = errors.New("filename is invalid")
-	errUncleanFilename    = errors.New("filename not in canonical format")
-	errDeletedHasBlocks   = errors.New("deleted file with non-empty block list")
-	errDirectoryHasBlocks = errors.New("directory with non-empty block list")
-	errFileHasNoBlocks    = errors.New("file with empty block list")
+	ErrClosed           = errors.New("connection closed")
+	ErrTimeout          = errors.New("read timeout")
+	errNotCompressible  = errors.New("not compressible")
+	errUnknownMessage   = errors.New("unknown message")
+	errInvalidFilename  = errors.New("filename is invalid")
+	errUncleanFilename  = errors.New("filename not in canonical format")
+	errDeletedHasBlocks = errors.New("deleted file with non-empty block list")
+	errNonFileHasBlocks = errors.New("non-file type with non-empty block list")
+	errNonFileHasSize   = errors.New("non-file type with nonzero size")
+	errFileHasNoBlocks  = errors.New("file with empty block list")
 )
 
 type Model interface {
@@ -483,11 +485,17 @@ func (c *rawConnection) dispatcherLoop() (err error) {
 			if err := checkFilename(msg.Name); err != nil {
 				return newProtocolError(err, msgContext)
 			}
-			if msg.Size <= 0 {
+			if msg.Size < 0 {
 				return newProtocolError(fmt.Errorf("request size %d too small", msg.Size), msgContext)
 			}
 			if msg.Size > MaxRequestSize {
 				return newProtocolError(fmt.Errorf("request size %d exceeds maximum allowed", msg.Size), msgContext)
+			}
+			if len(msg.Hash) == 0 {
+				// Syncthing versions older than v1.28.1 omit the hash in
+				// encrypted requests from trusted devices (a rare config)
+				// and will run into this.
+				return newProtocolError(errors.New("request missing block hash"), msgContext)
 			}
 			go c.handleRequest(requestFromWire(msg))
 
@@ -629,9 +637,17 @@ func checkFileInfoConsistency(f FileInfo) error {
 		// Deleted files should have no blocks
 		return errDeletedHasBlocks
 
-	case f.Type == FileInfoTypeDirectory && len(f.Blocks) != 0:
-		// Directories should have no blocks
-		return errDirectoryHasBlocks
+	case f.Type != FileInfoTypeFile && len(f.Blocks) != 0:
+		// Only files should have blocks
+		return errNonFileHasBlocks
+
+	case f.IsDirectory() && f.Size != 0 && f.Size != deprecatedSyntheticDirectorySize:
+		// Directories should be size zero or the synthetic directory size
+		return errNonFileHasSize
+
+	case f.IsSymlink() && f.Size != 0:
+		// Symlinks should be size zero
+		return errNonFileHasSize
 
 	case !f.Deleted && !f.IsInvalid() && f.Type == FileInfoTypeFile && len(f.Blocks) == 0:
 		// Non-deleted, non-invalid files should have at least one block

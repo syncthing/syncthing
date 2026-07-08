@@ -13,7 +13,6 @@ import (
 	"errors"
 	"iter"
 	"os"
-	"path"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -30,7 +29,6 @@ import (
 const (
 	folderID  = "test"
 	blockSize = 128 << 10
-	dirSize   = 128
 )
 
 func TestBasics(t *testing.T) {
@@ -73,11 +71,11 @@ func TestBasics(t *testing.T) {
 		t.Fatal(err)
 	}
 	const (
-		localSize      = (1+2+3)*blockSize + dirSize
+		localSize      = (1+2+3)*blockSize
 		remoteSize     = (3 + 4 + 5) * blockSize
-		globalSize     = (2+3+3+4+5)*blockSize + dirSize
+		globalSize     = (2+3+3+4+5)*blockSize
 		needSizeLocal  = remoteSize
-		needSizeRemote = (2+3)*blockSize + dirSize
+		needSizeRemote = (2+3)*blockSize
 	)
 
 	t.Run("SchemaVersion", func(t *testing.T) {
@@ -799,6 +797,13 @@ func TestDropAllFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// The sequence is non-zero before the drop
+	if seq, err := db.GetDeviceSequence("a", protocol.DeviceID{1}); err != nil {
+		t.Fatal(err)
+	} else if seq == 0 {
+		t.Error("expected non-zero sequence before drop")
+	}
+
 	// Drop folder A
 	if err := db.DropAllFiles("a", protocol.DeviceID{1}); err != nil {
 		t.Fatal(err)
@@ -826,6 +831,20 @@ func TestDropAllFiles(t *testing.T) {
 		t.Error("expected count to be two")
 	}
 
+	// The device sequence for the dropped folder is reset to zero.
+	if seq, err := db.GetDeviceSequence("a", protocol.DeviceID{1}); err != nil {
+		t.Fatal(err)
+	} else if seq != 0 {
+		t.Log(seq)
+		t.Error("expected sequence to be reset to zero after DropAllFiles")
+	}
+	// Sequence for the untouched folder is unaffected.
+	if seq, err := db.GetDeviceSequence("b", protocol.DeviceID{1}); err != nil {
+		t.Fatal(err)
+	} else if seq == 0 {
+		t.Error("expected non-zero sequence for untouched folder")
+	}
+
 	// Drop things that don't exist
 	if err := db.DropAllFiles("a", protocol.DeviceID{99}); err != nil {
 		t.Fatal(err)
@@ -835,6 +854,67 @@ func TestDropAllFiles(t *testing.T) {
 	}
 	if err := db.DropAllFiles("trolol", protocol.DeviceID{99}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestDropFolderDevice(t *testing.T) {
+	db, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	// Files from device 1 in folder a
+	err = db.Update("a", protocol.DeviceID{1}, []protocol.FileInfo{
+		genFile("test1", 1, 101),
+		genFile("test2", 2, 102),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Device 1 has an index ID.
+	if err := db.SetIndexID("a", protocol.DeviceID{1}, protocol.IndexID(0xdeadbeef)); err != nil {
+		t.Fatal(err)
+	}
+	if id, err := db.GetIndexID("a", protocol.DeviceID{1}); err != nil {
+		t.Fatal(err)
+	} else if id != protocol.IndexID(0xdeadbeef) {
+		t.Errorf("expected index ID to be set, got %v", id)
+	}
+
+	// Drop device 1 from folder a
+	if err := db.DropFolderDevice("a", protocol.DeviceID{1}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Files for device 1 in folder a are gone
+	if _, ok, err := db.GetDeviceFile("a", protocol.DeviceID{1}, "test1"); err != nil || ok {
+		t.Log(err, ok)
+		t.Error("expected device 1 file in folder A to not exist")
+	}
+	if c, err := db.CountLocal("a", protocol.DeviceID{1}); err != nil {
+		t.Fatal(err)
+	} else if c.Files != 0 {
+		t.Log(c)
+		t.Error("expected device 1 count in folder A to be zero")
+	}
+
+	// The index ID for device 1 in folder A is gone.
+	if id, err := db.GetIndexID("a", protocol.DeviceID{1}); err != nil {
+		t.Fatal(err)
+	} else if id != 0 {
+		t.Errorf("expected index ID to be cleared, got %v", id)
+	}
+	if seq, err := db.GetDeviceSequence("a", protocol.DeviceID{1}); err != nil {
+		t.Fatal(err)
+	} else if seq != 0 {
+		t.Log(seq)
+		t.Error("expected sequence to be zero after DropFolderDevice")
 	}
 }
 
@@ -1168,7 +1248,7 @@ func TestOpenSpecialName(t *testing.T) {
 
 	// Create a "base" dir that is in the way if the path becomes
 	// incorrectly truncated in the next steps.
-	base := path.Join(dir, "test")
+	base := filepath.Join(dir, "test")
 	if err := os.Mkdir(base, 0o755); err != nil {
 		t.Fatal(err)
 	}

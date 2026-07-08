@@ -8,7 +8,6 @@
 package cmdutil
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -18,23 +17,10 @@ import (
 	"github.com/kballard/go-shellquote"
 )
 
-func commandWithFilteredEnv(progname string, args ...string) *exec.Cmd {
-	cmd := exec.CommandContext(context.Background(), progname, args...)
-	env := os.Environ()
-	// filter STGUIAUTH and STGUIAPIKEY from environment variables
-	var filteredEnv []string
 
-	for _, x := range env {
-		if !strings.HasPrefix(x, "STGUIAUTH=") && !strings.HasPrefix(x, "STGUIAPIKEY=") {
-			filteredEnv = append(filteredEnv, x)
-		}
-	}
-	cmd.Env = filteredEnv
+const unixSpecialChars = "`" + `"'<>;!#$&*? `
 
-	return cmd
-}
-
-func FormattedCommand(command string, keywords map[string]string) (*exec.Cmd, error) {
+func FormattedCommand(command string, context map[string]string) (*exec.Cmd, error) {
 	if command == "" {
 		return nil, errors.New("command is empty, please enter a valid command")
 	}
@@ -45,12 +31,38 @@ func FormattedCommand(command string, keywords map[string]string) (*exec.Cmd, er
 	}
 
 	for i, word := range words {
-		for key, val := range keywords {
+		unsafe := strings.ContainsAny(word, unixSpecialChars)
+		for key, val := range context {
+			// If the parameter contains both an unsafe character and a
+			// template placeholder, we consider it unsafe and reject it.
+			// Note that the shell splitting will have already removed outer
+			// quotes, so that a command like `foo "%FILE_PATH%"` is fine
+			// here, despite the double quote being one of our unsafe
+			// characters.
+			if unsafe && strings.Contains(word, key) {
+				return nil, errors.New("unsafe external command; see https://docs.syncthing.net/users/versioning.html#external-file-versioning")
+			}
 			word = strings.ReplaceAll(word, key, val)
 		}
 
 		words[i] = word
 	}
 
-	return commandWithFilteredEnv(words[0], words[1:]...), nil
+	// filter STGUIAUTH and STGUIAPIKEY from environment variables, and add
+	// our folder info.
+	env := os.Environ()
+	var filteredEnv []string
+	for _, x := range env {
+		if !strings.HasPrefix(x, "STGUIAUTH=") && !strings.HasPrefix(x, "STGUIAPIKEY=") {
+			filteredEnv = append(filteredEnv, x)
+		}
+	}
+	for k, v := range context {
+		k = strings.Trim(k, "%")
+		filteredEnv = append(filteredEnv, fmt.Sprintf("%s=%s", k, v))
+	}
+
+	cmd := exec.Command(words[0], words[1:]...) //nolint:gosec // execution with user tainted data, by design
+	cmd.Env = filteredEnv
+	return cmd, nil
 }

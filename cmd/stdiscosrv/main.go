@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/alecthomas/kong"
@@ -168,6 +169,7 @@ func main() {
 	// Cancel on signal
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt)
+	signal.Notify(signalChan, syscall.SIGTERM)
 	go func() {
 		sig := <-signalChan
 		slog.Info("Received signal; shutting down", "signal", sig, "delay", cli.ShutdownDelay)

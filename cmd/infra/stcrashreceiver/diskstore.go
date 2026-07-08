@@ -42,7 +42,7 @@ type currentFile struct {
 }
 
 func (d *diskStore) Serve(ctx context.Context) {
-	if err := os.MkdirAll(d.dir, 0o700); err != nil {
+	if err := os.MkdirAll(d.dir, os.ModePerm); err != nil {
 		log.Println("Creating directory:", err)
 		return
 	}
@@ -62,7 +62,7 @@ func (d *diskStore) Serve(ctx context.Context) {
 		case entry := <-d.inbox:
 			path := d.fullPath(entry.path)
 
-			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
 				log.Println("Creating directory:", err)
 				continue
 			}
@@ -77,7 +77,7 @@ func (d *diskStore) Serve(ctx context.Context) {
 				log.Println("Failed to compress crash report:", err)
 				continue
 			}
-			if err := os.WriteFile(path, buf.Bytes(), 0o600); err != nil {
+			if err := os.WriteFile(path, buf.Bytes(), 0o666); err != nil {
 				log.Printf("Failed to write %s: %v", entry.path, err)
 				_ = os.Remove(path)
 				continue
@@ -136,15 +136,25 @@ func (d *diskStore) Exists(path string) bool {
 }
 
 func (d *diskStore) clean() {
-	for len(d.currentFiles) > 0 && (len(d.currentFiles) > d.maxFiles || d.currentSize > d.maxBytes) {
-		f := d.currentFiles[0]
+	numDeleted := 0
+	for idx := range d.currentFiles {
+		if len(d.currentFiles)-numDeleted < d.maxFiles && d.currentSize < d.maxBytes {
+			break
+		}
+
+		f := d.currentFiles[idx]
 		log.Println("Removing", f.path)
 		if err := os.Remove(f.path); err != nil {
 			log.Println("Failed to remove file:", err)
 		}
-		d.currentFiles = d.currentFiles[1:]
 		d.currentSize -= f.size
+		numDeleted = idx + 1
 	}
+
+	// Compact currentFiles
+	copy(d.currentFiles, d.currentFiles[numDeleted:])
+	d.currentFiles = d.currentFiles[:len(d.currentFiles)-numDeleted]
+
 	var oldest time.Duration
 	if len(d.currentFiles) > 0 {
 		oldest = time.Since(time.Unix(d.currentFiles[0].mtime, 0)).Truncate(time.Minute)
@@ -158,7 +168,7 @@ func (d *diskStore) clean() {
 }
 
 func (d *diskStore) inventory() error {
-	d.currentFiles = nil
+	d.currentFiles = d.currentFiles[:0]
 	d.currentSize = 0
 	err := filepath.Walk(d.dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {

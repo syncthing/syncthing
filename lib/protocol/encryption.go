@@ -93,31 +93,25 @@ func (e encryptedModel) Request(req *Request) (RequestResponse, error) {
 	}
 	realSize := req.Size - blockOverhead
 	realOffset := req.Offset - int64(req.BlockNo*blockOverhead)
+	if realOffset < 0 {
+		panic("bug: realOffset underflow")
+	}
 
 	if req.Size < minPaddedSize {
 		return nil, errors.New("short request")
 	}
 
-	// Attempt to decrypt the block hash; it may be nil depending on what
-	// type of device the request comes from. Trusted devices with
-	// encryption enabled know the hash but don't bother to encrypt & send
-	// it to us. Untrusted devices have the hash from the encrypted index
-	// data and do send it. The model knows to only verify the hash if it
-	// actually gets one.
-
-	var realHash []byte
+	// Decrypt the block hash.
 	fileKey := e.keyGen.FileKey(realName, folderKey)
-	if len(req.Hash) > 0 {
-		var additional [8]byte
-		binary.BigEndian.PutUint64(additional[:], uint64(realOffset))
-		realHash, err = decryptDeterministic(req.Hash, fileKey, additional[:])
-		if err != nil {
-			// "Legacy", no offset additional data?
-			realHash, err = decryptDeterministic(req.Hash, fileKey, nil)
-		}
-		if err != nil {
-			return nil, fmt.Errorf("decrypting block hash: %w", err)
-		}
+	var additional [8]byte
+	binary.BigEndian.PutUint64(additional[:], uint64(realOffset))
+	realHash, err := decryptDeterministic(req.Hash, fileKey, additional[:])
+	if err != nil {
+		// "Legacy", no offset additional data?
+		realHash, err = decryptDeterministic(req.Hash, fileKey, nil)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("decrypting block hash: %w", err)
 	}
 
 	// Perform that request and grab the data.

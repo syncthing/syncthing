@@ -92,12 +92,35 @@ func (s *DB) getFolderDB(folder string, create bool) (*folderDB, error) {
 	return fdb, nil
 }
 
-func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo) error {
+func (s *DB) Update(folder string, device protocol.DeviceID, fs []protocol.FileInfo, opts ...db.UpdateOption) error {
 	fdb, err := s.getFolderDB(folder, true)
 	if err != nil {
 		return err
 	}
-	return fdb.Update(device, fs)
+	var options db.UpdateOptions
+	for _, o := range opts {
+		o(&options)
+	}
+	return fdb.Update(device, fs, options)
+}
+
+func (s *DB) DropBlockIndex(folder string) error {
+	fdb, err := s.getFolderDB(folder, false)
+	if errors.Is(err, errNoSuchFolder) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return fdb.DropBlockIndex()
+}
+
+func (s *DB) PopulateBlockIndex(folder string) error {
+	fdb, err := s.getFolderDB(folder, true)
+	if err != nil {
+		return err
+	}
+	return fdb.PopulateBlockIndex()
 }
 
 func (s *DB) GetDeviceFile(folder string, device protocol.DeviceID, file string) (protocol.FileInfo, bool, error) {
@@ -230,6 +253,17 @@ func (s *DB) DropAllFiles(folder string, device protocol.DeviceID) error {
 		return err
 	}
 	return fdb.DropAllFiles(device)
+}
+
+func (s *DB) DropFolderDevice(folder string, device protocol.DeviceID) error {
+	fdb, err := s.getFolderDB(folder, false)
+	if errors.Is(err, errNoSuchFolder) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return fdb.DropDevice(device)
 }
 
 func (s *DB) DropFilesNamed(folder string, device protocol.DeviceID, names []string) error {

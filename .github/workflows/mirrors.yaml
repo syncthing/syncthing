@@ -2,6 +2,9 @@ name: Mirrors
 
 on: [push, delete]
 
+permissions:
+  contents: read
+
 jobs:
   codeberg:
     name: Mirror to Codeberg

@@ -14,11 +14,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 )
 
-func (*BasicFilesystem) SymlinksSupported() bool {
-	return true
-}
+const alwaysOpenFlags = syscall.O_NOFOLLOW // never open symlinks as the final path component
 
 func (f *BasicFilesystem) CreateSymlink(target, name string) error {
 	name, err := f.rooted(name)
@@ -34,10 +33,6 @@ func (f *BasicFilesystem) ReadSymlink(name string) (string, error) {
 		return "", err
 	}
 	return os.Readlink(name)
-}
-
-func (*BasicFilesystem) mkdirAll(path string, perm os.FileMode) error {
-	return os.MkdirAll(path, perm)
 }
 
 // Unhide is a noop on unix, as unhiding files requires renaming them.

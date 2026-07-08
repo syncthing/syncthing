@@ -9,7 +9,6 @@ package config
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -88,6 +87,7 @@ type FolderConfiguration struct {
 	SendOwnership           bool                        `json:"sendOwnership" xml:"sendOwnership"`
 	SyncXattrs              bool                        `json:"syncXattrs" xml:"syncXattrs"`
 	SendXattrs              bool                        `json:"sendXattrs" xml:"sendXattrs"`
+	BlockIndexing           bool                        `json:"blockIndexing" xml:"blockIndexing" default:"true"`
 	XattrFilter             XattrFilter                 `json:"xattrFilter" xml:"xattrFilter"`
 	// Legacy deprecated
 	DeprecatedReadOnly       bool    `json:"-" xml:"ro,attr,omitempty"`        // Deprecated: Do not use.
@@ -168,7 +168,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 	ffs := f.Filesystem()
 
 	// Create the marker as a directory
-	err := ffs.Mkdir(DefaultMarkerName, 0o755)
+	err := ffs.Mkdir(DefaultMarkerName, fs.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -176,7 +176,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 	// Create a file inside it, reducing the risk of the marker directory
 	// being removed by automated cleanup tools.
 	markerFile := filepath.Join(DefaultMarkerName, f.markerFilename())
-	if err := fs.WriteFile(ffs, markerFile, f.markerContents(), 0o644); err != nil {
+	if err := fs.WriteFile(ffs, markerFile, f.markerContents(), 0o666); err != nil {
 		return err
 	}
 
@@ -246,19 +246,10 @@ func (f *FolderConfiguration) checkFilesystemPath(ffs fs.Filesystem, path string
 }
 
 func (f *FolderConfiguration) CreateRoot() (err error) {
-	// Directory permission bits. Will be filtered down to something
-	// sane by umask on Unixes.
-	permBits := fs.FileMode(0o777)
-	if build.IsWindows {
-		// Windows has no umask so we must chose a safer set of bits to
-		// begin with.
-		permBits = 0o700
-	}
-
 	filesystem := f.Filesystem()
 
 	if _, err = filesystem.Stat("."); fs.IsNotExist(err) {
-		err = filesystem.MkdirAll(".", permBits)
+		err = filesystem.MkdirAll(".", fs.ModePerm)
 	}
 
 	return err
@@ -402,16 +393,6 @@ func (f XattrFilter) GetMaxSingleEntrySize() int {
 
 func (f XattrFilter) GetMaxTotalSize() int {
 	return f.MaxTotalSize
-}
-
-func (f *FolderConfiguration) UnmarshalJSON(data []byte) error {
-	structutil.SetDefaults(f)
-
-	// avoid recursing into this method
-	type noCustomUnmarshal FolderConfiguration
-	ptr := (*noCustomUnmarshal)(f)
-
-	return json.Unmarshal(data, ptr)
 }
 
 func (f *FolderConfiguration) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {

@@ -371,7 +371,7 @@ func (m *model) addAndStartFolderLockedWithIgnores(cfg config.FolderConfiguratio
 	for _, available := range devs {
 		if _, ok := expected[available]; !ok {
 			l.Debugln("dropping", folder, "state for", available)
-			_ = m.sdb.DropAllFiles(folder, available)
+			_ = m.sdb.DropFolderDevice(folder, available)
 		}
 	}
 
@@ -1784,7 +1784,7 @@ func (m *model) handleAutoAccepts(deviceID protocol.DeviceID, folder protocol.Fo
 
 			// Attempt to create it to make sure it does, now.
 			fullPath := filepath.Join(defaultFolderCfg.Path, path)
-			if err := defaultPathFs.MkdirAll(path, 0o700); err != nil {
+			if err := defaultPathFs.MkdirAll(path, fs.ModePerm); err != nil {
 				slog.Error("Failed to create path for auto-accepted folder", folder.LogAttr(), slogutil.FilePath(fullPath), slogutil.Error(err))
 				continue
 			}
@@ -2079,7 +2079,7 @@ func (m *model) Request(conn protocol.Connection, req *protocol.Request) (out pr
 		return nil, protocol.ErrGeneric
 	}
 
-	if folderCfg.Type != config.FolderTypeReceiveEncrypted && len(req.Hash) > 0 && !scanner.Validate(res.data[:n], req.Hash) {
+	if folderCfg.Type != config.FolderTypeReceiveEncrypted && !scanner.Validate(res.data[:n], req.Hash) {
 		m.recheckFile(deviceID, req.Folder, req.Name, req.Offset, req.Hash)
 		l.Debugf("%v REQ(in) failed validating data: %s: %q / %q o=%d s=%d", m, deviceID.Short(), req.Folder, req.Name, req.Offset, req.Size)
 		return nil, protocol.ErrNoSuchFile
@@ -2548,13 +2548,6 @@ func (m *model) DelayScan(folder string, next time.Duration) {
 func (m *model) numHashers(folder string) int {
 	m.mut.RLock()
 	folderCfg := m.folderCfgs[folder]
-	numFolders := max(1, len(m.folderCfgs))
-	// MaxFolderConcurrency already limits the number of scanned folders, so
-	// prefer it over the overall number of folders to avoid limiting performance
-	// further for no reason.
-	if concurrency := m.cfg.Options().MaxFolderConcurrency(); concurrency > 0 {
-		numFolders = min(numFolders, concurrency)
-	}
 	m.mut.RUnlock()
 
 	if folderCfg.Hashers > 0 {
@@ -2562,21 +2555,15 @@ func (m *model) numHashers(folder string) int {
 		return folderCfg.Hashers
 	}
 
-	numCpus := runtime.GOMAXPROCS(-1)
-	if build.IsWindows || build.IsDarwin || build.IsIOS || build.IsAndroid {
-		// Interactive operating systems; don't load the system too heavily by
-		// default.
-		numCpus = max(1, numCpus/4)
+	numCPUs := runtime.GOMAXPROCS(-1)
+	switch {
+	case build.IsWindows || build.IsIOS || build.IsAndroid:
+		// Use a quarter of the CPU cores on interactive or constrained OSes
+		return max(1, numCPUs/4)
+	default:
+		// Otherwise use up to half
+		return max(1, numCPUs/2)
 	}
-
-	// For other operating systems and architectures, lets try to get some
-	// work done... Divide the available CPU cores among the configured
-	// folders.
-	if perFolder := numCpus / numFolders; perFolder > 0 {
-		return perFolder
-	}
-
-	return 1
 }
 
 // generateClusterConfig returns a ClusterConfigMessage that is correct and the

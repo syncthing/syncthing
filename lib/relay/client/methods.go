@@ -133,13 +133,17 @@ func TestRelay(ctx context.Context, uri *url.URL, certs []tls.Certificate, sleep
 	}()
 	defer cancel()
 
+	// Give the join a moment to happen, increasing the chance the
+	// invitation check works on the first try
+	time.Sleep(sleep / 10)
+
 	for range times {
 		_, err = GetInvitationFromRelay(ctx, uri, id, certs, timeout)
 		if err == nil {
 			return nil
 		}
 		incorrectResponseCodeErr := &incorrectResponseCodeErr{}
-		if errors.As(err, &incorrectResponseCodeErr) {
+		if errors.As(err, &incorrectResponseCodeErr) && incorrectResponseCodeErr.code != protocol.ResponseNotFound.Code {
 			return fmt.Errorf("getting invitation: %w", err)
 		}
 		time.Sleep(sleep)

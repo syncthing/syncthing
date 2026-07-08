@@ -153,7 +153,7 @@ func newFakeFilesystem(rootURI string, _ ...Option) *fakeFS {
 		for (files == 0 || createdFiles < files) && (maxsize == 0 || writtenData>>20 < int64(maxsize)) {
 			dir := filepath.Join(fmt.Sprintf("%02x", rng.Intn(255)), fmt.Sprintf("%02x", rng.Intn(255)))
 			file := fmt.Sprintf("%016x", rng.Int63())
-			_ = fs.MkdirAll(dir, 0o755)
+			_ = fs.MkdirAll(dir, ModePerm)
 
 			fd, _ := fs.Create(filepath.Join(dir, file))
 			createdFiles++
@@ -169,7 +169,7 @@ func newFakeFilesystem(rootURI string, _ ...Option) *fakeFS {
 
 	if !nostfolder {
 		// Also create a default folder marker for good measure
-		_ = fs.Mkdir(".stfolder", 0o700)
+		_ = fs.Mkdir(".stfolder", ModePerm)
 	}
 
 	// We only set the latency after doing the operations required to create
@@ -627,10 +627,6 @@ func (fs *fakeFS) Rename(oldname, newname string) error {
 
 func (fs *fakeFS) Stat(name string) (FileInfo, error) {
 	return fs.Lstat(name)
-}
-
-func (*fakeFS) SymlinksSupported() bool {
-	return false
 }
 
 func (*fakeFS) Walk(_ string, _ WalkFunc) error {

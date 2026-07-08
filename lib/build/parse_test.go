@@ -57,6 +57,20 @@ func TestParseVersion(t *testing.T) {
 				Extra:    []string{"Some Wrapper", "purego", "stnoupgrade"},
 			},
 		},
+		{
+			longVersion: `2026-05-18 14:53:32 INF syncthing v2.0.3 "Hafnium Hornet" (go1.25.0 darwin-amd64) builder@github.syncthing.net 2025-08-22 07:00:05 UTC [stnoupgrade] (log.pkg=main)`,
+			parsed: VersionParts{
+				Version:  "v2.0.3",
+				Tag:      "v2.0.3",
+				Commit:   "",
+				Codename: "Hafnium Hornet",
+				Runtime:  "go1.25.0",
+				GOOS:     "darwin",
+				GOARCH:   "amd64",
+				Builder:  "builder@github.syncthing.net",
+				Extra:    []string{"stnoupgrade"},
+			},
+		},
 	}
 
 	for _, tc := range cases {

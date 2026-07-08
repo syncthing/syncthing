@@ -451,6 +451,61 @@ func TestCheckConsistency(t *testing.T) {
 			},
 			ok: false,
 		},
+		{
+			// directory with zero size
+			fi: FileInfo{
+				Name: "foo",
+				Type: FileInfoTypeDirectory,
+			},
+			ok: true,
+		},
+		{
+			// directory with synthetic size
+			fi: FileInfo{
+				Name: "foo",
+				Type: FileInfoTypeDirectory,
+				Size: deprecatedSyntheticDirectorySize,
+			},
+			ok: true,
+		},
+		{
+			// directory with arbitrary size
+			fi: FileInfo{
+				Name: "foo",
+				Type: FileInfoTypeDirectory,
+				Size: 42,
+			},
+			ok: false,
+		},
+		{
+			// symlink with zero size
+			fi: FileInfo{
+				Name:          "foo",
+				Type:          FileInfoTypeSymlink,
+				SymlinkTarget: []byte("bar"),
+			},
+			ok: true,
+		},
+		{
+			// symlink with synthetic directory size (not permitted)
+			fi: FileInfo{
+				Name:          "foo",
+				Type:          FileInfoTypeSymlink,
+				SymlinkTarget: []byte("bar"),
+				Size:          deprecatedSyntheticDirectorySize,
+			},
+			ok: false,
+		},
+		{
+			// symlink with arbitrary size
+			fi: FileInfo{
+				Name:          "foo",
+				Type:          FileInfoTypeSymlink,
+				SymlinkTarget: []byte("bar"),
+				Size:          42,
+			},
+			ok: false,
+		},
 	}
 
 	for _, tc := range cases {
@@ -544,7 +599,7 @@ func TestDispatcherToCloseDeadlock(t *testing.T) {
 }
 
 func TestRequestMaxSize(t *testing.T) {
-	invalidSize := []int{-65536, 0, MaxRequestSize + 1}
+	invalidSize := []int{-65536, -1, MaxRequestSize + 1}
 	for _, s := range invalidSize {
 		t.Run(fmt.Sprintf("invalid/%d", s), func(t *testing.T) {
 			m := newTestModel()
@@ -560,6 +615,7 @@ func TestRequestMaxSize(t *testing.T) {
 				Id:   1,
 				Name: "valid",
 				Size: MaxRequestSize,
+				Hash: []byte{42},
 			}
 
 			res := <-c.outbox
@@ -573,6 +629,7 @@ func TestRequestMaxSize(t *testing.T) {
 				Id:   2,
 				Name: "invalid",
 				Size: int32(s),
+				Hash: []byte{42},
 			}
 
 			select {
@@ -592,6 +649,35 @@ func TestRequestMaxSize(t *testing.T) {
 	}
 }
 
+func TestRequestZeroSize(t *testing.T) {
+	// A zero-sized request should be accepted, since current versions of
+	// Syncthing send these. See https://github.com/syncthing/syncthing/issues/10709.
+	m := newTestModel()
+	rw := testutil.NewBlockingRW()
+	c := getRawConnection(NewConnection(c0ID, rw, &testutil.NoopRW{}, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionAlways, testKeyGen))
+	c.Start()
+	defer closeAndWait(c, rw)
+
+	c.inbox <- &bep.ClusterConfig{}
+	c.inbox <- &bep.Request{
+		Id:   1,
+		Name: "valid",
+		Size: 0,
+		Hash: []byte{42},
+	}
+
+	select {
+	case res := <-c.outbox:
+		if msg, ok := res.msg.(*bep.Response); !ok || msg.Id != 1 {
+			t.Errorf("bad response %#v", msg)
+		}
+	case <-c.dispatcherLoopStopped:
+		t.Fatal("dispatcher loop terminated, expected zero-sized request to be accepted")
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for response")
+	}
+}
+
 func TestRequestInvalidFilename(t *testing.T) {
 	m := newTestModel()
 	rw := testutil.NewBlockingRW()
@@ -604,6 +690,7 @@ func TestRequestInvalidFilename(t *testing.T) {
 		Id:   1,
 		Name: "../escape",
 		Size: 1024,
+		Hash: []byte{42},
 	}
 
 	select {
