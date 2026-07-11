@@ -8,6 +8,7 @@
 package cmdutil
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -20,7 +21,7 @@ import (
 
 const unixSpecialChars = "`" + `"'<>;!#$&*? `
 
-func TemplatedCommand(command string, context map[string]string) (*exec.Cmd, error) {
+func TemplatedCommand(ctx context.Context, command string, keywords map[string]string) (*exec.Cmd, error) {
 	if command == "" {
 		return nil, errors.New("command is empty, please enter a valid command")
 	}
@@ -36,7 +37,7 @@ func TemplatedCommand(command string, context map[string]string) (*exec.Cmd, err
 
 	for i, word := range words {
 		unsafe := strings.ContainsAny(word, unixSpecialChars)
-		for key, val := range context {
+		for key, val := range keywords {
 			// If the parameter contains both an unsafe character and a
 			// template placeholder, we consider it unsafe and reject it.
 			// Note that the shell splitting will have already removed outer
@@ -46,7 +47,7 @@ func TemplatedCommand(command string, context map[string]string) (*exec.Cmd, err
 			if unsafe && strings.Contains(word, key) {
 				return nil, errors.New("unsafe external command; see https://docs.syncthing.net/users/versioning.html#external-file-versioning")
 			}
-			word = strings.ReplaceAll(word, key, val)
+			word = strings.ReplaceAll(word, "%"+key+"%", val)
 		}
 
 		words[i] = word
@@ -61,12 +62,11 @@ func TemplatedCommand(command string, context map[string]string) (*exec.Cmd, err
 			filteredEnv = append(filteredEnv, x)
 		}
 	}
-	for k, v := range context {
-		k = strings.Trim(k, "%")
+	for k, v := range keywords {
 		filteredEnv = append(filteredEnv, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	cmd := exec.Command(words[0], words[1:]...) //nolint:gosec // execution with user tainted data, by design
+	cmd := exec.CommandContext(ctx, words[0], words[1:]...) //nolint:gosec // execution with user tainted data, by design
 	cmd.Env = filteredEnv
 	return cmd, nil
 }

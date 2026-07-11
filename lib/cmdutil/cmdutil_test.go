@@ -6,16 +6,19 @@
 
 package cmdutil
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
-var context = map[string]string{
-	"%FOLDER_PATH%":   "folder",
-	"%CONFLICT_PATH%": "conflict",
-	"%FILE_PATH%":     "file",
+var keywords = map[string]string{
+	"FOLDER_PATH":   "folder",
+	"CONFLICT_PATH": "conflict",
+	"FILE_PATH":     "file",
 }
 
 func TestFormattedCommandSuccessRealKeywords(t *testing.T) {
-	cmd, err := TemplatedCommand("echo %FOLDER_PATH%/%FILE_PATH% %FOLDER_PATH%/%CONFLICT_PATH%", context)
+	cmd, err := TemplatedCommand(context.Background(), "echo %FOLDER_PATH%/%FILE_PATH% %FOLDER_PATH%/%CONFLICT_PATH%", keywords)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +37,7 @@ func TestFormattedCommandSuccessRealKeywords(t *testing.T) {
 
 func TestFormattedCommandSuccessNilKeywords(t *testing.T) {
 	const testText = "this command should be executed verbatim"
-	cmd, err := TemplatedCommand("echo "+testText, nil)
+	cmd, err := TemplatedCommand(context.Background(), "echo "+testText, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +54,7 @@ func TestFormattedCommandSuccessNilKeywords(t *testing.T) {
 }
 
 func TestFormattedCommandFailBlankCommand(t *testing.T) {
-	_, err := TemplatedCommand("", nil)
+	_, err := TemplatedCommand(context.Background(), "", nil)
 	if err == nil {
 		t.Error("blank commands should fail")
 	}
@@ -73,7 +76,7 @@ func TestUnsafeFormattedCommand(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		res, err := TemplatedCommand(tc.cmd, context)
+		res, err := TemplatedCommand(context.Background(), tc.cmd, keywords)
 		if tc.safe && err != nil {
 			t.Fatal(err)
 		}

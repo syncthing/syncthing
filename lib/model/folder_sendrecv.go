@@ -1901,14 +1901,14 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 	return err
 }
 
-func (f *sendReceiveFolder) performExternalConflictHandling(conflictName, fileName string, scanChan chan<- string) (string, error) {
+func (f *sendReceiveFolder) performExternalConflictHandling(ctx context.Context, conflictName, fileName string, scanChan chan<- string) (string, error) {
 	keywords := map[string]string{
-		"%FOLDER_PATH%":   f.mtimefs.URI(),
-		"%CONFLICT_PATH%": conflictName,
-		"%FILE_PATH%":     fileName,
+		"FOLDER_PATH":   f.mtimefs.URI(),
+		"CONFLICT_PATH": conflictName,
+		"FILE_PATH":     fileName,
 	}
 
-	cmd, err := cmdutil.TemplatedCommand(f.ConflictHandlingCommand, keywords)
+	cmd, err := cmdutil.TemplatedCommand(ctx, f.ConflictHandlingCommand, keywords)
 	if err != nil {
 		return "", err
 	}
@@ -1930,7 +1930,7 @@ func (f *sendReceiveFolder) handleConflict(conflictName, fileName, lastModBy str
 		return f.inWritableDir(moveForConflictByName, conflictName)
 	}
 
-	if output, err := f.performExternalConflictHandling(conflictName, fileName, scanChan); err == nil {
+	if output, err := f.performExternalConflictHandling(context.TODO(), conflictName, fileName, scanChan); err == nil {
 		slog.Info("External conflict handling command succeeded", f.LogAttr(), slogutil.FilePath(fileName), slog.String("conflictpath", conflictName), slog.String("output", output))
 		_ = f.inWritableDir(f.mtimefs.Remove, conflictName)
 	} else {

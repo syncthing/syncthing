@@ -56,13 +56,13 @@ func (v external) Archive(filePath string) error {
 
 	l.Debugln("archiving", filePath)
 
-	context := map[string]string{
-		"%FOLDER_FILESYSTEM%": string(v.filesystem.Type()),
-		"%FOLDER_PATH%":       v.filesystem.URI(),
-		"%FILE_PATH%":         filePath,
+	keywords := map[string]string{
+		"FOLDER_FILESYSTEM": string(v.filesystem.Type()),
+		"FOLDER_PATH":       v.filesystem.URI(),
+		"FILE_PATH":         filePath,
 	}
 
-	cmd, err := cmdutil.TemplatedCommand(v.command, context)
+	cmd, err := cmdutil.TemplatedCommand(context.TODO(), v.command, keywords)
 	if err != nil {
 		return err
 	}
