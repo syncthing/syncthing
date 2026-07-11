@@ -1,4 +1,4 @@
-// Copyright (C) 2025 The Syncthing Authors.
+// Copyright (C) 2026 The Syncthing Authors.
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -15,14 +15,18 @@ import (
 	"strings"
 
 	"github.com/kballard/go-shellquote"
+	"github.com/syncthing/syncthing/lib/build"
 )
-
 
 const unixSpecialChars = "`" + `"'<>;!#$&*? `
 
-func FormattedCommand(command string, context map[string]string) (*exec.Cmd, error) {
+func TemplatedCommand(command string, context map[string]string) (*exec.Cmd, error) {
 	if command == "" {
 		return nil, errors.New("command is empty, please enter a valid command")
+	}
+
+	if build.IsWindows {
+		command = strings.ReplaceAll(command, `\`, `\\`)
 	}
 
 	words, err := shellquote.Split(command)
@@ -62,7 +66,7 @@ func FormattedCommand(command string, context map[string]string) (*exec.Cmd, err
 		filteredEnv = append(filteredEnv, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	cmd := exec.Command(words[0], words[1:]...) //nolint:gosec // execution with user tainted data, by design
+	cmd := exec.Command(words[0], words[1:]...)
 	cmd.Env = filteredEnv
 	return cmd, nil
 }

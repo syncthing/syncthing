@@ -1702,13 +1702,6 @@ func (f *sendReceiveFolder) performFinish(file, curFile protocol.FileInfo, hasCu
 	// Record the updated file in the index
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleFile}
 
-	if f.ConflictHandlingCommand != "" && isConflict(file.Name) {
-		deconflictifiedName := deconflictifyName(file.Name)
-		if _, err := f.mtimefs.Lstat(deconflictifiedName); !fs.IsNotExist(err) {
-			f.performExternalConflictHandling(file.Name, deconflictifiedName, scanChan)
-		}
-	}
-
 	return nil
 }
 
@@ -1908,42 +1901,43 @@ func (f *sendReceiveFolder) moveForConflict(name, lastModBy string, scanChan cha
 	return err
 }
 
-func (f *sendReceiveFolder) performExternalConflictHandling(conflictName, fileName string, scanChan chan<- string) {
+func (f *sendReceiveFolder) performExternalConflictHandling(conflictName, fileName string, scanChan chan<- string) (string, error) {
 	keywords := map[string]string{
 		"%FOLDER_PATH%":   f.mtimefs.URI(),
 		"%CONFLICT_PATH%": conflictName,
 		"%FILE_PATH%":     fileName,
 	}
 
-	cmd, err := cmdutil.FormattedCommand(f.ConflictHandlingCommand, keywords)
+	cmd, err := cmdutil.TemplatedCommand(f.ConflictHandlingCommand, keywords)
 	if err != nil {
-		return
+		return "", err
 	}
 
 	output, err := cmd.CombinedOutput()
-	if err == nil {
-		slog.Info("External conflict handling command succeeded", f.LogAttr(), slogutil.FilePath(fileName), slog.String("conflictpath", conflictName), slog.String("output", string(output)))
-	} else {
-		slog.Error("External conflict handling command failed", f.LogAttr(), slogutil.FilePath(fileName), slog.String("conflictpath", conflictName), slogutil.Error(err), slog.String("output", string(output)))
-	}
 
 	scanChan <- fileName
 	scanChan <- conflictName
+
+	return string(output), err
 }
 
 func (f *sendReceiveFolder) handleConflict(conflictName, fileName, lastModBy string, scanChan chan<- string) error {
-	moveForConflictInWritableDir := func(name string) error {
+	moveForConflictByName := func(name string) error {
 		return f.moveForConflict(name, lastModBy, scanChan)
 	}
 
 	if f.ConflictHandlingCommand == "" {
-		return f.inWritableDir(moveForConflictInWritableDir, conflictName)
+		return f.inWritableDir(moveForConflictByName, conflictName)
 	}
 
-	f.performExternalConflictHandling(conflictName, fileName, scanChan)
-
-	if _, err := f.mtimefs.Lstat(conflictName); !fs.IsNotExist(err) {
-		return f.inWritableDir(moveForConflictInWritableDir, conflictName)
+	if output, err := f.performExternalConflictHandling(conflictName, fileName, scanChan); err == nil {
+		slog.Info("External conflict handling command succeeded", f.LogAttr(), slogutil.FilePath(fileName), slog.String("conflictpath", conflictName), slog.String("output", string(output)))
+		f.inWritableDir(f.mtimefs.Remove, conflictName)
+	} else {
+		slog.Error("External conflict handling command failed", f.LogAttr(), slogutil.FilePath(fileName), slog.String("conflictpath", conflictName), slogutil.Error(err), slog.String("output", string(output)))
+		if _, err := f.mtimefs.Lstat(conflictName); !fs.IsNotExist(err) {
+			return f.inWritableDir(moveForConflictByName, conflictName)
+		}
 	}
 
 	return nil
@@ -2264,13 +2258,6 @@ type FileError struct {
 func conflictName(name, lastModBy string) string {
 	ext := filepath.Ext(name)
 	return name[:len(name)-len(ext)] + time.Now().Format(".sync-conflict-20060102-150405-") + lastModBy + ext
-}
-
-func deconflictifyName(name string) string {
-	deconflictifiedName, _, _ := strings.Cut(name, ".sync-conflict-")
-	deconflictifiedName += filepath.Ext(name)
-
-	return deconflictifiedName
 }
 
 func isConflict(name string) bool {

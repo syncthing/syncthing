@@ -11,10 +11,8 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
-	"strings"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/cmdutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -32,10 +30,6 @@ type external struct {
 
 func newExternal(cfg config.FolderConfiguration) Versioner {
 	command := cfg.Versioning.Params["command"]
-
-	if build.IsWindows {
-		command = strings.ReplaceAll(command, `\`, `\\`)
-	}
 
 	s := external{
 		command:    command,
@@ -68,7 +62,7 @@ func (v external) Archive(filePath string) error {
 		"%FILE_PATH%":         filePath,
 	}
 
-	cmd, err := cmdutil.FormattedCommand(v.command, context)
+	cmd, err := cmdutil.TemplatedCommand(v.command, context)
 	if err != nil {
 		return err
 	}
