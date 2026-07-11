@@ -39,6 +39,7 @@ type Filesystem interface {
 	Mkdir(name string, perm FileMode) error
 	MkdirAll(name string, perm FileMode) error
 	Open(name string) (File, error)
+	OpenFollow(name string) (File, error)
 	OpenFile(name string, flags int, mode FileMode) (File, error)
 	ReadSymlink(name string) (string, error)
 	Remove(name string) error

@@ -38,6 +38,7 @@ func (fs *errorFilesystem) Lstat(_ string) (FileInfo, error)             { retur
 func (fs *errorFilesystem) Mkdir(_ string, _ FileMode) error             { return fs.err }
 func (fs *errorFilesystem) MkdirAll(_ string, _ FileMode) error          { return fs.err }
 func (fs *errorFilesystem) Open(_ string) (File, error)                  { return nil, fs.err }
+func (fs *errorFilesystem) OpenFollow(_ string) (File, error)            { return nil, fs.err }
 func (fs *errorFilesystem) OpenFile(string, int, FileMode) (File, error) { return nil, fs.err }
 func (fs *errorFilesystem) ReadSymlink(_ string) (string, error)         { return "", fs.err }
 func (fs *errorFilesystem) Remove(_ string) error                        { return fs.err }
