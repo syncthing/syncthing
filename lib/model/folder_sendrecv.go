@@ -1931,10 +1931,10 @@ func (f *sendReceiveFolder) handleConflict(conflictName, fileName, lastModBy str
 	}
 
 	if output, err := f.performExternalConflictHandling(conflictName, fileName, scanChan); err == nil {
-		slog.Info("External conflict handling command succeeded", f.LogAttr(), slogutil.FilePath(fileName), slog.String("conflictpath", conflictName), slog.String("output", string(output)))
-		f.inWritableDir(f.mtimefs.Remove, conflictName)
+		slog.Info("External conflict handling command succeeded", f.LogAttr(), slogutil.FilePath(fileName), slog.String("conflictpath", conflictName), slog.String("output", output))
+		_ = f.inWritableDir(f.mtimefs.Remove, conflictName)
 	} else {
-		slog.Error("External conflict handling command failed", f.LogAttr(), slogutil.FilePath(fileName), slog.String("conflictpath", conflictName), slogutil.Error(err), slog.String("output", string(output)))
+		slog.Error("External conflict handling command failed", f.LogAttr(), slogutil.FilePath(fileName), slog.String("conflictpath", conflictName), slogutil.Error(err), slog.String("output", output))
 		if _, err := f.mtimefs.Lstat(conflictName); !fs.IsNotExist(err) {
 			return f.inWritableDir(moveForConflictByName, conflictName)
 		}
