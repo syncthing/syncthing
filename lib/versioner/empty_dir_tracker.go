@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/syncthing/syncthing/internal/slogutil"
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
@@ -20,6 +21,13 @@ type emptyDirTracker map[string]struct{}
 
 func (t emptyDirTracker) addDir(path string) {
 	if path == "." {
+		return
+	}
+	// Never treat a folder marker (".stfolder" by default) as a removable
+	// empty directory. A versions path can itself be, or contain, another
+	// shared folder; removing its marker stops that folder from syncing.
+	// See https://github.com/syncthing/syncthing/issues/8783.
+	if filepath.Base(path) == config.DefaultMarkerName {
 		return
 	}
 	t[path] = struct{}{}

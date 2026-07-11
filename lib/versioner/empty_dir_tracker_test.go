@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/d4l3k/messagediff"
+
+	"github.com/syncthing/syncthing/lib/config"
 )
 
 // TestEmptyDirs models the following .stversions structure:
@@ -72,5 +74,39 @@ func TestEmptyDirs(t *testing.T) {
 	result := dirTracker.emptyDirs()
 	if diff, equal := messagediff.PrettyDiff(expected, result); !equal {
 		t.Errorf("Incorrect empty directories list; got %v, expected %v\n%v", result, expected, diff)
+	}
+}
+
+// TestEmptyDirsKeepsFolderMarker verifies that a folder marker (".stfolder"
+// by default) is never treated as a removable empty directory. A versions
+// path can itself be, or contain, another shared folder; removing its marker
+// stops that folder from syncing. See #8783.
+func TestEmptyDirsKeepsFolderMarker(t *testing.T) {
+	paths := []struct {
+		path   string
+		isFile bool
+	}{
+		{".", false},
+		{config.DefaultMarkerName, false}, // empty folder marker at the versions root
+		{filepath.Join("sub", config.DefaultMarkerName), false}, // empty folder marker in a subdirectory
+		{"remove", false}, // a genuinely empty, removable directory
+	}
+
+	// Only the genuinely empty directory should be reported for removal; the
+	// folder markers must be kept.
+	expected := []string{filepath.FromSlash("remove")}
+
+	dirTracker := make(emptyDirTracker)
+	for _, p := range paths {
+		if p.isFile {
+			dirTracker.addFile(filepath.FromSlash(p.path))
+		} else {
+			dirTracker.addDir(filepath.FromSlash(p.path))
+		}
+	}
+
+	result := dirTracker.emptyDirs()
+	if diff, equal := messagediff.PrettyDiff(expected, result); !equal {
+		t.Errorf("Folder marker should be kept; got %v, expected %v\n%v", result, expected, diff)
 	}
 }
