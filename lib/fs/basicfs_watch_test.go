@@ -477,12 +477,12 @@ func TestTruncateFileOnly(t *testing.T) {
 	file := createTestFile(name, "file")
 	modifyTestFile(name, file, "syncthing")
 
-	// modified the content to empty use os.WriteFile will first truncate the file
+	// modifying the content to empty using os.WriteFile will first truncate the file
 	// (/os/file.go:696) then write nothing. This logic is also used in many editors,
-	// such as when emptying a file in VSCode or JetBrain
+	// such as when emptying a file in VSCode or JetBrains
 	//
-	// darwin will only modified the inode's metadata, such us mtime, file size, etc.
-	// but would not modified the file directly, so FSEvent 'FSEventsModified' will not
+	// darwin will only modify the inode's metadata, such as mtime, file size, etc.
+	// but would not modify the file directly, so FSEvent 'FSEventsModified' will not
 	// be received
 	//
 	// we should watch the FSEvent 'FSEventsInodeMetaMod' to watch the Inode metadata,

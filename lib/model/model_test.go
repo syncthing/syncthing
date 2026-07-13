@@ -510,7 +510,7 @@ func TestClusterConfigEncrypted(t *testing.T) {
 			Path:           "testdata2",
 			Devices: []config.FolderDeviceConfiguration{
 				{DeviceID: device1, EncryptionPassword: "trololol"}, // not included, untrusted
-				{DeviceID: device2, EncryptionPassword: "trololol"}, // included, is destinationd device
+				{DeviceID: device2, EncryptionPassword: "trololol"}, // included, is destination device
 			},
 		},
 		{

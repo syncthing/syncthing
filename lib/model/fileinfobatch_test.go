@@ -32,7 +32,7 @@ func TestFileInfoBatchError(t *testing.T) {
 		t.Fatalf("expected 1, got %d", called)
 	}
 
-	// Flush should fail with an error retur
+	// Flush should fail with an error return
 	errReturn = errors.New("problem")
 	b.Append(protocol.FileInfo{Name: "test"})
 	if err := b.Flush(); err != errReturn {

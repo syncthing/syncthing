@@ -1311,7 +1311,7 @@ func (m *model) ClusterConfig(conn protocol.Connection, cm *protocol.ClusterConf
 		}
 		m.mut.RUnlock()
 		// In case we've got ClusterConfig, and the connection disappeared
-		// from infront of our nose.
+		// from in front of our nose.
 		if connOK {
 			m.progressEmitter.temporaryIndexSubscribe(conn, tempIndexFolders)
 		}

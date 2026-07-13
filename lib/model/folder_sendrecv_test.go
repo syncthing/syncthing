@@ -347,7 +347,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 
 	m, f := setupSendReceiveFolder(t)
 
-	// Set up our evet subscription early
+	// Set up our event subscription early
 	s := m.evLogger.Subscribe(events.ItemFinished)
 
 	// queue.Done should be called by the finisher routine
@@ -445,7 +445,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 
 	m, f := setupSendReceiveFolder(t)
 
-	// Set up our evet subscription early
+	// Set up our event subscription early
 	s := m.evLogger.Subscribe(events.ItemFinished)
 
 	// queue.Done should be called by the finisher routine

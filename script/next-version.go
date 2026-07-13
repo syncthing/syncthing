@@ -38,7 +38,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Get the latest "v1.22.3" style tag, excludeing prereleases.
+	// Get the latest "v1.22.3" style tag, excluding prereleases.
 	latestStableTag, err := cmd("git", "describe", "--abbrev=0", "--match", "v[0-9].*", "--exclude", "*-*")
 	if err != nil {
 		fmt.Println(err)

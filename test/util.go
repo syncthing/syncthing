@@ -548,7 +548,7 @@ func symlinksSupported() bool {
 	return err == nil
 }
 
-// checkRemoteInSync checks if the devices associated twith the given processes
+// checkRemoteInSync checks if the devices associated with the given processes
 // are in sync according to the remote status on both sides.
 func checkRemoteInSync(folder string, p1, p2 *rc.Process) error {
 	if inSync, err := p1.RemoteInSync(folder, p2.ID()); err != nil {

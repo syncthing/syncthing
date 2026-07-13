@@ -189,7 +189,7 @@ func TestArchiveFoldersCreationPermission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// chmod incase umask changes the create permissions
+	// chmod in case umask changes the create permissions
 	err = os.Chmod(folder1Path, folder1Perms)
 	if err != nil {
 		t.Fatal(err)
@@ -202,7 +202,7 @@ func TestArchiveFoldersCreationPermission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// chmod incase umask changes the create permissions
+	// chmod in case umask changes the create permissions
 	err = os.Chmod(folder2Path, folder2Perms)
 	if err != nil {
 		t.Fatal(err)
