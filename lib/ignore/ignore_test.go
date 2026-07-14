@@ -1732,11 +1732,11 @@ func testEscape(t *testing.T, tests []escapeTest, noErrors bool) {
 	}
 }
 
-// TestIgnoreThroughSymlink verifies that an ignore file can be loaded when it
-// is itself a symlink pointing at the real file. This exercises the
-// OpenFollow path, as our normal Open enforces O_NOFOLLOW. We use a real
-// filesystem here because the fake one does not implement the O_NOFOLLOW
-// semantics that make this distinction meaningful.
+// TestIgnoreThroughSymlink verifies that an ignore file can be loaded when
+// it is itself a symlink pointing at the real file. This exercises the
+// SkipDefaultOpenFlags path, as our normal Open enforces O_NOFOLLOW. We use
+// a real filesystem here because the fake one does not implement the
+// O_NOFOLLOW semantics that make this distinction meaningful.
 func TestIgnoreThroughSymlink(t *testing.T) {
 	if build.IsWindows {
 		t.Skip("symlinks not supported on Windows")

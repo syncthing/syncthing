@@ -357,8 +357,8 @@ func hashPatterns(patterns []Pattern) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func loadIgnoreFile(fs fs.Filesystem, file string) (fs.File, fs.FileInfo, error) {
-	fd, err := fs.OpenFollow(file)
+func loadIgnoreFile(ffs fs.Filesystem, file string) (fs.File, fs.FileInfo, error) {
+	fd, err := ffs.OpenFile(file, fs.SkipDefaultOpenFlags, 0o666)
 	if err != nil {
 		return fd, nil, err
 	}

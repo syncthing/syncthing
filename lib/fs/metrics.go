@@ -48,7 +48,6 @@ const (
 	metricOpMkdir         = "mdkir"
 	metricOpMkdirAll      = "mkdirall"
 	metricOpOpen          = "open"
-	metricOpOpenFollow    = "openfollow"
 	metricOpOpenFile      = "openfile"
 	metricOpReadSymlink   = "readsymlink"
 	metricOpRemove        = "remove"
@@ -154,15 +153,6 @@ func (m *metricsFS) MkdirAll(name string, perm FileMode) error {
 func (m *metricsFS) Open(name string) (File, error) {
 	defer m.account(metricOpOpen)(-1)
 	f, err := m.next.Open(name)
-	if err != nil {
-		return nil, err
-	}
-	return &metricsFile{next: f, fs: m}, nil
-}
-
-func (m *metricsFS) OpenFollow(name string) (File, error) {
-	defer m.account(metricOpOpen)(-1)
-	f, err := m.next.OpenFollow(name)
 	if err != nil {
 		return nil, err
 	}

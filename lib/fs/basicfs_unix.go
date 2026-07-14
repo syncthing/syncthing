@@ -17,7 +17,10 @@ import (
 	"syscall"
 )
 
-const alwaysOpenFlags = syscall.O_NOFOLLOW // never open symlinks as the final path component
+const (
+	DefaultOpenFlags     = syscall.O_NOFOLLOW // never open symlinks as the final path component
+	SkipDefaultOpenFlags = -1                 // skip applying DefaultOpenFlags
+)
 
 func (f *BasicFilesystem) CreateSymlink(target, name string) error {
 	name, err := f.rooted(name)

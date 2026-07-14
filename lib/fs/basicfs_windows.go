@@ -19,7 +19,10 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-const alwaysOpenFlags = 0 // no extra flags
+const (
+	DefaultOpenFlags     = 0 // no extra flags
+	SkipDefaultOpenFlags = 0 // no default-open flags anyway
+)
 
 var errNotSupported = errors.New("symlinks not supported")
 
