@@ -57,6 +57,11 @@
     word-break: break-all;
 }
 
+.fancytree-container tr:hover,
+.fancytree-focused {
+    background-color: #eeeeee;
+}
+
 /*
  * Shared container style for scrollable, resizable trees containers
  */
