@@ -154,6 +154,60 @@ func testCaseFSStat(t *testing.T, fsys Filesystem) {
 	}
 }
 
+// vanishedRealCaser mimics an item existing when it is lstat'ed, but having
+// vanished by the time its real casing is resolved against the parent's
+// directory listing (https://github.com/syncthing/syncthing/issues/10465).
+type vanishedRealCaser struct{}
+
+func (vanishedRealCaser) realCase(_ string) (string, error) { return "", ErrNotExist }
+
+func (vanishedRealCaser) dropCache() {}
+
+func TestCaseFSWalkRootVanished(t *testing.T) {
+	// An item vanishing between the walk being requested and its casing
+	// being checked must be reported to the walk function, like all other
+	// errors arising while walking, not returned directly.
+
+	fsys := newFakeFilesystem(t.Name())
+	fd, err := fsys.Create("foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+
+	testFs := &caseFilesystem{
+		Filesystem: fsys,
+		realCaser:  vanishedRealCaser{},
+	}
+
+	calls := 0
+	err = testFs.Walk("foo", func(path string, info FileInfo, err error) error {
+		calls++
+		if path != "foo" {
+			t.Errorf(`walk function got path %q, expected "foo"`, path)
+		}
+		if info != nil {
+			t.Errorf("walk function got info %v, expected nil", info)
+		}
+		if !IsNotExist(err) {
+			t.Errorf("walk function got error %v, expected a not-exist error", err)
+		}
+		return nil // tolerate the vanished item, like the scanner does
+	})
+	if calls != 1 {
+		t.Errorf("walk function called %d times, expected 1", calls)
+	}
+	if err != nil {
+		t.Errorf("Walk returned error %v, expected nil as the walk function tolerated the error", err)
+	}
+
+	// A walk function passing the error on must still surface it.
+	err = testFs.Walk("foo", func(_ string, _ FileInfo, err error) error { return err })
+	if !IsNotExist(err) {
+		t.Errorf("Walk returned error %v, expected a not-exist error", err)
+	}
+}
+
 func BenchmarkWalkCaseFakeFS100k(b *testing.B) {
 	const entries = 100_000
 	fsys, paths, err := fakefsForTest(entries, 0)

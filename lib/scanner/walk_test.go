@@ -829,17 +829,56 @@ func TestIssue4841(t *testing.T) {
 // TestNotExistingError reproduces https://github.com/syncthing/syncthing/issues/5385
 func TestNotExistingError(t *testing.T) {
 	sub := "notExisting"
-	testFs := newTestFs()
-	if _, err := testFs.Lstat(sub); !fs.IsNotExist(err) {
-		t.Fatalf("Lstat returned error %v, while nothing should exist there.", err)
+
+	testWalk := func(t *testing.T, testFs fs.Filesystem) {
+		t.Helper()
+		if _, err := testFs.Lstat(sub); !fs.IsNotExist(err) {
+			t.Fatalf("Lstat returned error %v, while nothing should exist there.", err)
+		}
+
+		cfg, cancel := testConfig()
+		defer cancel()
+		cfg.Filesystem = testFs
+		cfg.Subs = []string{sub}
+		fchan := Walk(context.TODO(), cfg)
+		for f := range fchan {
+			t.Fatalf("Expected no result from scan, got %v", f)
+		}
 	}
 
-	cfg, cancel := testConfig()
-	defer cancel()
-	cfg.Subs = []string{sub}
-	fchan := Walk(context.TODO(), cfg)
-	for f := range fchan {
-		t.Fatalf("Expected no result from scan, got %v", f)
+	t.Run("basic", func(t *testing.T) {
+		testWalk(t, newTestFs())
+	})
+	// The case filesystem checks the walk root before walking
+	// (https://github.com/syncthing/syncthing/issues/10465)
+	t.Run("case", func(t *testing.T) {
+		testWalk(t, newTestFs(new(fs.OptionDetectCaseConflicts)))
+	})
+}
+
+func TestIsWarnableError(t *testing.T) {
+	testFs := newTestFs()
+	_, lstatErr := testFs.Lstat("notExisting")
+	if lstatErr == nil {
+		t.Fatal("expected an error from Lstat on a non-existing item")
+	}
+
+	cases := []struct {
+		err      error
+		warnable bool
+	}{
+		{nil, false},
+		{fs.SkipDir, false},
+		{context.Canceled, false},
+		{fmt.Errorf("wrapped: %w", context.Canceled), false},
+		{fs.ErrNotExist, false},
+		{lstatErr, false},
+		{errors.New("something bad happened"), true},
+	}
+	for _, tc := range cases {
+		if res := isWarnableError(tc.err); res != tc.warnable {
+			t.Errorf("isWarnableError(%v) == %v, expected %v", tc.err, res, tc.warnable)
+		}
 	}
 }
 

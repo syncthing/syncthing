@@ -269,7 +269,8 @@ func (w *walker) scan(ctx context.Context, toHashChan chan<- protocol.FileInfo, 
 func isWarnableError(err error) bool {
 	return err != nil &&
 		!errors.Is(err, fs.SkipDir) && // intentional skip
-		!errors.Is(err, context.Canceled) // folder restarting
+		!errors.Is(err, context.Canceled) && // folder restarting
+		!fs.IsNotExist(err) // item vanished before we got to scan it, e.g. after a watcher event
 }
 
 func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) fs.WalkFunc {

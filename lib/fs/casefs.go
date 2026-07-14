@@ -327,7 +327,11 @@ func (f *caseFilesystem) Walk(root string, walkFn WalkFunc) error {
 	// to pick up external changes, for which caching is undesirable.
 	f.dropCache()
 	if err := f.checkCase(root); err != nil {
-		return err
+		// The error must be filtered by the walk function, like all other
+		// errors arising while walking: the root may legitimately have
+		// vanished since the walk was requested, which the walk function
+		// may want to tolerate (e.g. the scanner does).
+		return walkFn(root, nil, err)
 	}
 	return f.Filesystem.Walk(root, walkFn)
 }
