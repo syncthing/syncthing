@@ -267,9 +267,22 @@ func (w *walker) scan(ctx context.Context, toHashChan chan<- protocol.FileInfo, 
 // isWarnableError returns true if err is a kind of error we should warn
 // about receiving from the folder walk.
 func isWarnableError(err error) bool {
-	return err != nil &&
-		!errors.Is(err, fs.SkipDir) && // intentional skip
-		!errors.Is(err, context.Canceled) // folder restarting
+	switch {
+	case err == nil:
+		return false
+	case errors.Is(err, fs.SkipDir):
+		// intentional skip
+		return false
+	case errors.Is(err, context.Canceled):
+		// folder restarting
+		return false
+	case fs.IsNotExist(err):
+		// sudden does-not-exist is fine for deleted files, deleted folder
+		// root triggers health check error instead
+		return false
+	default:
+		return true
+	}
 }
 
 func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) fs.WalkFunc {
