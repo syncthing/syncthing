@@ -3,6 +3,7 @@ Description=Syncthing - Open Source Continuous File Synchronization
 Documentation=man:syncthing(1)
 StartLimitIntervalSec=60
 StartLimitBurst=4
+ConditionUser=!@system
 
 [Service]
 Environment="STLOGFORMATTIMESTAMP="
