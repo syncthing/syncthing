@@ -7,6 +7,7 @@
 package model
 
 import (
+	"slices"
 	"sync"
 	"time"
 )
@@ -65,6 +66,28 @@ func (q *jobQueue) BringToFront(filename string) {
 			return
 		}
 	}
+}
+
+func (q *jobQueue) BringMatchingToFront(match func(string) bool) {
+	q.mut.Lock()
+	defer q.mut.Unlock()
+
+	reordered := make([]jobQueueEntry, len(q.queued))
+	front, back := 0, len(reordered)-1
+	for _, entry := range q.queued {
+		if match(entry.name) {
+			reordered[front] = entry
+			front++
+		} else {
+			reordered[back] = entry
+			back--
+		}
+	}
+	// Unmatched entries were added from the end backwards. Restore their
+	// original order so prioritizing does not disturb the configured pull
+	// order within either group.
+	slices.Reverse(reordered[front:])
+	q.queued = reordered
 }
 
 func (q *jobQueue) Done(file string) {

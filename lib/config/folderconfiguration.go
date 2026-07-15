@@ -66,6 +66,7 @@ type FolderConfiguration struct {
 	PullerMaxPendingKiB     int                         `json:"pullerMaxPendingKiB" xml:"pullerMaxPendingKiB"`
 	Hashers                 int                         `json:"hashers" xml:"hashers"`
 	Order                   PullOrder                   `json:"order" xml:"order"`
+	PriorityGlobs           []string                    `json:"priorityGlobs" xml:"priorityGlob"`
 	IgnoreDelete            bool                        `json:"ignoreDelete" xml:"ignoreDelete"`
 	ScanProgressIntervalS   int                         `json:"scanProgressIntervalS" xml:"scanProgressIntervalS"`
 	PullerPauseS            int                         `json:"pullerPauseS" xml:"pullerPauseS"`
@@ -116,6 +117,7 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 	c := f
 	c.Devices = make([]FolderDeviceConfiguration, len(f.Devices))
 	copy(c.Devices, f.Devices)
+	c.PriorityGlobs = slices.Clone(f.PriorityGlobs)
 	c.Versioning = f.Versioning.Copy()
 	return c
 }

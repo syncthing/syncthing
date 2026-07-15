@@ -106,6 +106,7 @@ func TestDefaultValues(t *testing.T) {
 				Path:             "",
 				Type:             FolderTypeSendReceive,
 				Devices:          []FolderDeviceConfiguration{{DeviceID: device1}},
+				PriorityGlobs:    []string{},
 				RescanIntervalS:  3600,
 				FSWatcherEnabled: true,
 				FSWatcherDelayS:  10,
@@ -182,6 +183,7 @@ func TestDeviceConfig(t *testing.T) {
 				FilesystemType:   FilesystemTypeBasic,
 				Path:             "testdata",
 				Devices:          []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
+				PriorityGlobs:    []string{},
 				Type:             FolderTypeSendOnly,
 				RescanIntervalS:  600,
 				FSWatcherEnabled: true,
@@ -667,6 +669,7 @@ func TestCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := wrapper.RawCopy()
+	cfg.Folders[0].PriorityGlobs = []string{"urgent/**", "*.pdf"}
 
 	bsOrig, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
@@ -677,6 +680,7 @@ func TestCopy(t *testing.T) {
 
 	cfg.Devices[0].Addresses[0] = "wrong"
 	cfg.Folders[0].Devices[0].DeviceID = protocol.DeviceID{0, 1, 2, 3}
+	cfg.Folders[0].PriorityGlobs[0] = "wrong"
 	cfg.Options.RawListenAddresses[0] = "wrong"
 	cfg.GUI.APIKey = "wrong"
 
@@ -695,6 +699,35 @@ func TestCopy(t *testing.T) {
 	}
 	if !bytes.Equal(bsOrig, bsCopy) {
 		t.Error("Copy should be unchanged")
+	}
+}
+
+func TestFolderConfigurationPriorityGlobsSerialization(t *testing.T) {
+	want := []string{"urgent/**", "(?i)/*.pdf"}
+	original := FolderConfiguration{PriorityGlobs: slices.Clone(want)}
+
+	jsonData, err := json.Marshal(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fromJSON FolderConfiguration
+	if err := json.Unmarshal(jsonData, &fromJSON); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(fromJSON.PriorityGlobs, want) {
+		t.Errorf("JSON round trip: got %v, want %v", fromJSON.PriorityGlobs, want)
+	}
+
+	xmlData, err := xml.Marshal(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fromXML FolderConfiguration
+	if err := xml.Unmarshal(xmlData, &fromXML); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(fromXML.PriorityGlobs, want) {
+		t.Errorf("XML round trip: got %v, want %v", fromXML.PriorityGlobs, want)
 	}
 }
 

@@ -424,6 +424,10 @@ loop:
 	default:
 	}
 
+	if err := prioritizePullQueue(f.queue, f.mtimefs, f.PriorityGlobs); err != nil {
+		return nil, nil, err
+	}
+
 	// Process the file queue.
 
 nextFile:
@@ -505,6 +509,19 @@ nextFile:
 	}
 
 	return fileDeletions, dirDeletions, nil
+}
+
+func prioritizePullQueue(queue *jobQueue, filesystem fs.Filesystem, patterns []string) error {
+	for i := len(patterns) - 1; i >= 0; i-- {
+		matcher := ignore.New(filesystem)
+		if err := matcher.Parse(strings.NewReader(patterns[i]), ".stignore"); err != nil {
+			return fmt.Errorf("parsing priority glob %q: %w", patterns[i], err)
+		}
+		queue.BringMatchingToFront(func(name string) bool {
+			return matcher.Match(name).IsIgnored()
+		})
+	}
+	return nil
 }
 
 func popCandidate(buckets map[string][]protocol.FileInfo, key string) (protocol.FileInfo, bool) {
