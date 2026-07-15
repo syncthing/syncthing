@@ -7,12 +7,17 @@
 package cli
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/alecthomas/kong"
 )
 
 type showCommand struct {
 	Version      struct{}       `cmd:"" help:"Show syncthing client version"`
 	ConfigStatus struct{}       `cmd:"" help:"Show configuration status, whether or not a restart is required for changes to take effect"`
+	ConfigHealth struct{}       `cmd:"" help:"Check configuration file for syntax errors"`
+	KeyHealth    struct{}       `cmd:"" help:"Check device certificate and key for validity"`
 	System       struct{}       `cmd:"" help:"Show system status"`
 	Connections  struct{}       `cmd:"" help:"Report about connections to other devices"`
 	Discovery    struct{}       `cmd:"" help:"Show the discovered addresses of remote devices (from cache of the running syncthing instance)"`
@@ -28,6 +33,18 @@ func (*showCommand) Run(ctx Context, kongCtx *kong.Context) error {
 		return indexDumpOutput("system/version")
 	case "config-status":
 		return indexDumpOutput("config/restart-required")
+	case "config-health":
+		if err := checkConfigHealth(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return err
+		}
+		fmt.Println("Config OK")
+	case "key-health":
+		if err := checkKeyHealth(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return err
+		}
+		fmt.Println("Key and certificate OK")
 	case "system":
 		return indexDumpOutput("system/status")
 	case "connections":
