@@ -275,6 +275,13 @@ func TryMigrateDatabase(ctx context.Context, deleteRetention time.Duration) erro
 		slog.Warn("Failed to migrate mtimes", slogutil.Error(err))
 	}
 
+	slog.Info("Migrating device statistics...")
+	if err := ll.IterateDeviceStatistics(func(device protocol.DeviceID, key string, value []byte) error {
+		return db.NewTyped(sdb, "devicestats/"+device.String()).PutBytes(key, value)
+	}); err != nil {
+		slog.Warn("Failed to migrate device statistics", slogutil.Error(err))
+	}
+
 	_ = miscDB.PutTime("migrated-from-leveldb-at", time.Now())
 	_ = miscDB.PutString("migrated-from-leveldb-by", build.LongVersion)
 

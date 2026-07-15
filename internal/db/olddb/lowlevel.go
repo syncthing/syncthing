@@ -7,10 +7,12 @@
 package olddb
 
 import (
+	"bytes"
 	"encoding/binary"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db/olddb/backend"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 // deprecatedLowlevel is the lowest level database interface. It has a very simple
@@ -63,6 +65,30 @@ func (db *deprecatedLowlevel) IterateMtimes(fn func(folder, name string, ondisk,
 			continue
 		}
 		if err := fn(string(folderID), string(name), ondisk, virtual); err != nil {
+			return err
+		}
+	}
+	return it.Error()
+}
+
+func (db *deprecatedLowlevel) IterateDeviceStatistics(fn func(device protocol.DeviceID, key string, value []byte) error) error {
+	it, err := db.NewPrefixIterator([]byte{KeyTypeDeviceStatistic})
+	if err != nil {
+		return err
+	}
+	defer it.Release()
+
+	deviceStringLen := len(protocol.LocalDeviceID.String())
+	for it.Next() {
+		key := it.Key()[keyPrefixLen:]
+		if len(key) <= deviceStringLen {
+			continue
+		}
+		device, err := protocol.DeviceIDFromString(string(key[:deviceStringLen]))
+		if err != nil {
+			continue
+		}
+		if err := fn(device, string(key[deviceStringLen:]), bytes.Clone(it.Value())); err != nil {
 			return err
 		}
 	}
