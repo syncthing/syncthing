@@ -19,7 +19,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-const alwaysOpenFlags = 0 // no extra flags
+const optNoFollow = 0 // not defined for Windows
 
 var errNotSupported = errors.New("symlinks not supported")
 
