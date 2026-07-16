@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -29,6 +30,7 @@ import (
 	"github.com/syncthing/syncthing/lib/assets"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/geoip"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/relay/client"
@@ -318,11 +320,12 @@ func handleEndpointFull(rw http.ResponseWriter, r *http.Request) {
 	relays := make([]*relay, len(permanentRelays)+len(knownRelays))
 	n := copy(relays, permanentRelays)
 	copy(relays[n:], knownRelays)
-	mut.RUnlock()
-
-	_ = json.NewEncoder(rw).Encode(map[string][]*relay{
+	bs, _ := json.Marshal(map[string][]*relay{
 		"relays": relays,
 	})
+	mut.RUnlock()
+
+	_, _ = rw.Write(bs)
 }
 
 // handleEndpointShort returns the relay list with only the URL.
@@ -332,7 +335,10 @@ func handleEndpointShort(rw http.ResponseWriter, r *http.Request) {
 
 	mut.RLock()
 	relays := make([]relayShort, 0, len(permanentRelays)+len(knownRelays))
-	for _, r := range append(permanentRelays, knownRelays...) {
+	for _, r := range permanentRelays {
+		relays = append(relays, relayShort{URL: slimURL(r.URL)})
+	}
+	for _, r := range knownRelays {
 		relays = append(relays, relayShort{URL: slimURL(r.URL)})
 	}
 	mut.RUnlock()
@@ -544,7 +550,7 @@ found:
 
 	mut.Unlock()
 
-	if err := saveRelays(knownRelaysFile, knownRelays); err != nil {
+	if err := saveKnownRelays(knownRelaysFile); err != nil {
 		log.Println("Failed to write known relays: " + err.Error())
 	}
 
@@ -607,12 +613,22 @@ func loadRelays(file string, geoip *geoip.Provider) []*relay {
 	return relays
 }
 
-func saveRelays(file string, relays []*relay) error {
-	var content string
-	for _, relay := range relays {
-		content += relay.uri.String() + "\n"
+func saveKnownRelays(file string) error {
+	var buf bytes.Buffer
+	mut.RLock()
+	for _, relay := range knownRelays {
+		fmt.Fprintln(&buf, relay.uri.String())
 	}
-	return os.WriteFile(file, []byte(content), 0o666)
+	mut.RUnlock()
+
+	fd, err := osutil.CreateAtomic(file)
+	if err != nil {
+		return err
+	}
+	if _, err := fd.Write(buf.Bytes()); err != nil {
+		return err
+	}
+	return fd.Close()
 }
 
 func createTestCertificate() tls.Certificate {
