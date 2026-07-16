@@ -17,9 +17,7 @@ import (
 	"syscall"
 )
 
-const (
-	optNoFollow = syscall.O_NOFOLLOW
-)
+const optNoFollow = syscall.O_NOFOLLOW
 
 func (f *BasicFilesystem) CreateSymlink(target, name string) error {
 	name, err := f.rooted(name)

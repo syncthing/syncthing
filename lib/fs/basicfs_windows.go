@@ -19,9 +19,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-const (
-	optNoFollow = 0 // not defined for Windows
-)
+const optNoFollow = 0 // not defined for Windows
 
 var errNotSupported = errors.New("symlinks not supported")
 
