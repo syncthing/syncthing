@@ -559,6 +559,8 @@ angular.module('syncthing.core')
             $scope.config.options._listenAddressesStr = $scope.config.options.listenAddresses.join(', ');
             $scope.config.options._globalAnnounceServersStr = $scope.config.options.globalAnnounceServers.join(', ');
             $scope.config.options._urAcceptedStr = "" + $scope.config.options.urAccepted;
+            $scope.config.options._localAnnounceAllowedInterfacesStr = $scope.config.options.localAnnounceAllowedInterfaces.join(', ');
+            $scope.config.options._localAnnounceIgnoredInterfacesStr = $scope.config.options.localAnnounceIgnoredInterfaces.join(', ');
 
             $scope.devices = deviceMap($scope.config.devices);
             for (var id in $scope.devices) {
@@ -1881,7 +1883,7 @@ angular.module('syncthing.core')
                 }
 
                 // Parse strings to arrays before copying over
-                ['listenAddresses', 'globalAnnounceServers'].forEach(function (key) {
+                ['listenAddresses', 'globalAnnounceServers', 'localAnnounceAllowedInterfaces', 'localAnnounceIgnoredInterfaces'].forEach(function (key) {
                     $scope.tmpOptions[key] = $scope.tmpOptions["_" + key + "Str"].split(/[ ,]+/).map(function (x) {
                         return x.trim();
                     });
