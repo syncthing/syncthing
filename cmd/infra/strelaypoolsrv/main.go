@@ -542,9 +542,12 @@ found:
 	knownRelays = append(knownRelays, request.relay)
 	evictionTimers[request.relay.uri.Host] = time.AfterFunc(evictionTime, evict(request.relay))
 
+	// Save outside the lock, but copy the backing array while it is protected.
+	// Other request processors and eviction timers mutate knownRelays in place.
+	relays := copyRelays(knownRelays)
 	mut.Unlock()
 
-	if err := saveRelays(knownRelaysFile, knownRelays); err != nil {
+	if err := saveRelays(knownRelaysFile, relays); err != nil {
 		log.Println("Failed to write known relays: " + err.Error())
 	}
 
@@ -613,6 +616,10 @@ func saveRelays(file string, relays []*relay) error {
 		content += relay.uri.String() + "\n"
 	}
 	return os.WriteFile(file, []byte(content), 0o666)
+}
+
+func copyRelays(relays []*relay) []*relay {
+	return append([]*relay(nil), relays...)
 }
 
 func createTestCertificate() tls.Certificate {

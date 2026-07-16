@@ -104,3 +104,14 @@ func TestSlimURL(t *testing.T) {
 		}
 	}
 }
+
+func TestCopyRelays(t *testing.T) {
+	relays := []*relay{{URL: "first"}, {URL: "second"}}
+	copied := copyRelays(relays)
+
+	relays[0] = &relay{URL: "replacement"}
+
+	if copied[0].URL != "first" {
+		t.Fatalf("copy aliases the source backing array: got %q", copied[0].URL)
+	}
+}
