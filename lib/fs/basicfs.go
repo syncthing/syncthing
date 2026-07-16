@@ -247,22 +247,16 @@ func (f *BasicFilesystem) Open(name string) (File, error) {
 
 // OpenFile is the generalised file open call, using the flags to determine
 // the open semantics. We always add O_NOFOLLOW, disallowing opening files
-// by following symlinks, unless the specific flag value
-// SkipDefaultOpenFlags is given.
-//
-// SkipDefaultOpenFlags is equivalent to a normal read-only open; there is
-// no method to request a symlink-following create or write open.
+// by following symlinks, unless OptFollow is set.
 func (f *BasicFilesystem) OpenFile(name string, flags int, mode FileMode) (File, error) {
 	rootedName, err := f.rooted(name)
 	if err != nil {
 		return nil, err
 	}
-	if flags == SkipDefaultOpenFlags {
-		// Special variant to indicate opening read only while permitting
-		// following symlink.
-		flags = 0
+	if flags&OptFollow != 0 {
+		flags &^= OptFollow // unset the synthetic OptFollow bit
 	} else {
-		flags |= DefaultOpenFlags // enforce extra bits in flags
+		flags |= optNoFollow
 	}
 	fd, err := os.OpenFile(rootedName, flags, os.FileMode(mode))
 	if err != nil {

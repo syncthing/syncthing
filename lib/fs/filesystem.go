@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math/bits"
 	"os"
 	"path/filepath"
 	"strings"
@@ -173,7 +174,17 @@ const (
 	OptSync       = os.O_SYNC
 	OptTruncate   = os.O_TRUNC
 	OptWriteOnly  = os.O_WRONLY
+	OptFollow     = 1 << (bits.UintSize - 2)
 )
+
+func init() {
+	// Ensure OptFollow doesn't clash with any other flag.
+	flags := OptAppend | OptCreate | OptExclusive | OptReadOnly | OptReadWrite | OptSync | OptTruncate | OptWriteOnly
+	flags &= OptFollow
+	if flags != 0 {
+		panic("bug: flag clash")
+	}
+}
 
 // SkipDir is used as a return value from WalkFuncs to indicate that
 // the directory named in the call is to be skipped. It is not returned

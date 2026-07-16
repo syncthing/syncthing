@@ -20,8 +20,7 @@ import (
 )
 
 const (
-	DefaultOpenFlags     = 0 // no extra flags
-	SkipDefaultOpenFlags = 0 // no default-open flags anyway
+	optNoFollow = 0 // not defined for Windows
 )
 
 var errNotSupported = errors.New("symlinks not supported")

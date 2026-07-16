@@ -10,7 +10,6 @@
 package fs
 
 import (
-	"math/bits"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -19,8 +18,7 @@ import (
 )
 
 const (
-	DefaultOpenFlags     = syscall.O_NOFOLLOW       // never open symlinks as the final path component
-	SkipDefaultOpenFlags = 1 << (bits.UintSize - 2) // skip applying DefaultOpenFlags (highest non-sign bit)
+	optNoFollow = syscall.O_NOFOLLOW
 )
 
 func (f *BasicFilesystem) CreateSymlink(target, name string) error {

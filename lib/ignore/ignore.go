@@ -358,7 +358,7 @@ func hashPatterns(patterns []Pattern) string {
 }
 
 func loadIgnoreFile(ffs fs.Filesystem, file string) (fs.File, fs.FileInfo, error) {
-	fd, err := ffs.OpenFile(file, fs.SkipDefaultOpenFlags, 0o666)
+	fd, err := ffs.OpenFile(file, fs.OptReadOnly|fs.OptFollow, 0o666)
 	if err != nil {
 		return fd, nil, err
 	}

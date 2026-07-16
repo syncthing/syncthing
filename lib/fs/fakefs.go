@@ -474,9 +474,6 @@ func (fs *fakeFS) Open(name string) (File, error) {
 }
 
 func (fs *fakeFS) OpenFile(name string, flags int, mode FileMode) (File, error) {
-	if flags == SkipDefaultOpenFlags {
-		flags = 0
-	}
 	if flags&os.O_CREATE == 0 {
 		return fs.Open(name)
 	}
