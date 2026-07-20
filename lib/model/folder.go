@@ -184,9 +184,8 @@ func (f *folder) Serve(ctx context.Context) error {
 
 	f.setState(FolderIdle)
 
-	errUnset := errors.New("placeholder for unset error (which is different from nil)")
 	for {
-		err := errUnset
+		var err error
 
 		select {
 		case <-ctx.Done():
@@ -208,9 +207,9 @@ func (f *folder) Serve(ctx context.Context) error {
 					}
 				}
 				pullTimer.Reset(time.Duration(float64(time.Second) * f.PullerDelayS))
-			} else {
-				_, err = f.pull(ctx)
+				continue
 			}
+			_, err = f.pull(ctx)
 
 		case <-pullTimer.C:
 			_, err = f.pull(ctx)
@@ -243,10 +242,12 @@ func (f *folder) Serve(ctx context.Context) error {
 		case next := <-f.scanDelay:
 			f.sl.DebugContext(ctx, "Delaying scan")
 			f.scanTimer.Reset(next)
+			continue
 
 		case <-f.scanScheduled:
 			f.sl.DebugContext(ctx, "Scan was scheduled")
 			f.scanTimer.Reset(0)
+			continue
 
 		case fsEvents := <-f.watchChan:
 			f.sl.DebugContext(ctx, "Scan due to watcher")
@@ -257,22 +258,20 @@ func (f *folder) Serve(ctx context.Context) error {
 			err = f.restartWatch(ctx)
 
 		case <-f.versionCleanupTimer.C:
-			if _, _, err := f.getState(); err == nil {
-				f.sl.DebugContext(ctx, "Doing version cleanup")
-				f.versionCleanupTimerFired(ctx)
+			if _, _, healthErr := f.getState(); healthErr != nil {
+				continue
 			}
+			f.sl.DebugContext(ctx, "Doing version cleanup")
+			f.versionCleanupTimerFired(ctx)
 		}
 
 		if svcutil.IsFatal(err) {
 			return err
 		}
 
-		// Always call setError when the error is not unset, in order to
-		// both set the state to FolderError when it's non-nil and reset it
-		// back to FolderIdle when nil.
-		if !errors.Is(err, errUnset) {
-			f.setError(ctx, err)
-		}
+		// Set the state to FolderError when err is non-nil, otherwise reset
+		// it back to FolderIdle.
+		f.setError(ctx, err)
 	}
 }
 
