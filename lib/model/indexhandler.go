@@ -276,7 +276,7 @@ func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 			// can't happen, once an error is returned the index sender exits
 			panic(fmt.Sprintf("bug: once failed it should stay failed (%v)", batchError))
 		}
-		l.Debugf("%v: Sending %d files (<%d bytes)", s, len(fs), batch.Size())
+		l.Debugf("%v: Sending %d files", s, len(fs))
 
 		lastSequence := fs[len(fs)-1].Sequence
 		var err error
