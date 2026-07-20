@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"runtime/pprof"
@@ -39,6 +40,18 @@ var (
 	evChanClosed         = "failure event channel closed"
 	invalidEventDataType = "failure event data is not a string"
 )
+
+// failureReportClient is reused across calls to sendFailureReports instead
+// of building a new client (and TLS connection) for every report, since
+// failures can be reported repeatedly in short succession while the
+// instance is unstable.
+var failureReportClient = &http.Client{
+	Transport: &http.Transport{
+		DialContext:     dialer.DialContext,
+		Proxy:           http.ProxyFromEnvironment,
+		TLSClientConfig: tlsutil.SecureDefaultWithTLS12(),
+	},
+}
 
 func FailureDataWithGoroutines(description string) contract.FailureData {
 	var buf strings.Builder
@@ -198,14 +211,6 @@ func sendFailureReports(ctx context.Context, reports []contract.FailureReport, u
 		panic(err)
 	}
 
-	client := &http.Client{
-		Transport: &http.Transport{
-			DialContext:     dialer.DialContext,
-			Proxy:           http.ProxyFromEnvironment,
-			TLSClientConfig: tlsutil.SecureDefaultWithTLS12(),
-		},
-	}
-
 	reqCtx, reqCancel := context.WithTimeout(ctx, sendTimeout)
 	defer reqCancel()
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, url, &b)
@@ -215,11 +220,14 @@ func sendFailureReports(ctx context.Context, reports []contract.FailureReport, u
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := client.Do(req)
+	resp, err := failureReportClient.Do(req)
 	if err != nil {
 		slog.WarnContext(ctx, "Failed to send failure report", slogutil.Error(err))
 		return
 	}
+	// Drain the body so the underlying connection can be reused for the
+	// next report instead of being closed and re-established from scratch.
+	io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
 }
 

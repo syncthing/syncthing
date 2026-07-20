@@ -11,6 +11,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"math/rand"
 	"net"
@@ -53,6 +54,10 @@ type Service struct {
 	connectionsService connections.Service
 	noUpgrade          bool
 	forceRun           chan struct{}
+
+	clientMut          sync.Mutex
+	client             *http.Client
+	clientPostInsecure bool
 }
 
 func New(cfg config.Wrapper, m Model, connectionsService connections.Service, noUpgrade bool) *Service {
@@ -358,28 +363,45 @@ func (s *Service) sendUsageReport(ctx context.Context) error {
 		return err
 	}
 
-	client := &http.Client{
-		Transport: &http.Transport{
-			DialContext: dialer.DialContext,
-			Proxy:       http.ProxyFromEnvironment,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: s.cfg.Options().URPostInsecurely,
-				MinVersion:         tls.VersionTLS12,
-				ClientSessionCache: tls.NewLRUClientSessionCache(0),
-			},
-		},
-	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.cfg.Options().URURL, &b)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := client.Do(req)
+	resp, err := s.httpClient(s.cfg.Options().URPostInsecurely).Do(req)
 	if err != nil {
 		return err
 	}
+	// Drain the body so the underlying connection can be reused for the
+	// next report instead of being closed and re-established from scratch.
+	io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
 	return nil
+}
+
+// httpClient returns a client to use for posting usage reports. The
+// client (and its connection pool) is reused across calls instead of
+// being rebuilt on every report, except when the insecure-post setting
+// changes underneath us, in which case the TLS config it captured is no
+// longer correct and we need a fresh one.
+func (s *Service) httpClient(postInsecurely bool) *http.Client {
+	s.clientMut.Lock()
+	defer s.clientMut.Unlock()
+	if s.client == nil || s.clientPostInsecure != postInsecurely {
+		s.client = &http.Client{
+			Transport: &http.Transport{
+				DialContext: dialer.DialContext,
+				Proxy:       http.ProxyFromEnvironment,
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: postInsecurely,
+					MinVersion:         tls.VersionTLS12,
+					ClientSessionCache: tls.NewLRUClientSessionCache(0),
+				},
+			},
+		}
+		s.clientPostInsecure = postInsecurely
+	}
+	return s.client
 }
 
 func (s *Service) Serve(ctx context.Context) error {
