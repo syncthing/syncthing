@@ -26,6 +26,8 @@ type OptionsConfiguration struct {
 	LocalAnnEnabled             bool     `json:"localAnnounceEnabled" xml:"localAnnounceEnabled" default:"true"`
 	LocalAnnPort                int      `json:"localAnnouncePort" xml:"localAnnouncePort" default:"21027"`
 	LocalAnnMCAddr              string   `json:"localAnnounceMCAddr" xml:"localAnnounceMCAddr" default:"[ff12::8384]:21027"`
+	RawLocalAnnAllowedIfaces    []string `json:"localAnnounceAllowedInterfaces" xml:"localAnnounceAllowedInterface,omitempty"`
+	RawLocalAnnIgnoredIfaces    []string `json:"localAnnounceIgnoredInterfaces" xml:"localAnnounceIgnoredInterface,omitempty"`
 	MaxSendKbps                 int      `json:"maxSendKbps" xml:"maxSendKbps"`
 	MaxRecvKbps                 int      `json:"maxRecvKbps" xml:"maxRecvKbps"`
 	ReconnectIntervalS          int      `json:"reconnectionIntervalS" xml:"reconnectionIntervalS" default:"20"`
@@ -98,6 +100,10 @@ func (opts OptionsConfiguration) Copy() OptionsConfiguration {
 	copy(optsCopy.RawListenAddresses, opts.RawListenAddresses)
 	optsCopy.RawGlobalAnnServers = make([]string, len(opts.RawGlobalAnnServers))
 	copy(optsCopy.RawGlobalAnnServers, opts.RawGlobalAnnServers)
+	optsCopy.RawLocalAnnAllowedIfaces = make([]string, len(opts.RawLocalAnnAllowedIfaces))
+	copy(optsCopy.RawLocalAnnAllowedIfaces, opts.RawLocalAnnAllowedIfaces)
+	optsCopy.RawLocalAnnIgnoredIfaces = make([]string, len(opts.RawLocalAnnIgnoredIfaces))
+	copy(optsCopy.RawLocalAnnIgnoredIfaces, opts.RawLocalAnnIgnoredIfaces)
 	optsCopy.AlwaysLocalNets = make([]string, len(opts.AlwaysLocalNets))
 	copy(optsCopy.AlwaysLocalNets, opts.AlwaysLocalNets)
 	optsCopy.UnackedNotificationIDs = make([]string, len(opts.UnackedNotificationIDs))
@@ -175,6 +181,30 @@ func (opts OptionsConfiguration) ListenAddresses() []string {
 		}
 	}
 	return stringutil.UniqueTrimmedStrings(addresses)
+}
+
+func (opts OptionsConfiguration) LocalAnnAllowedIfaces() []string {
+	var ifaces []string
+	for _, iface := range opts.RawLocalAnnAllowedIfaces {
+		switch iface {
+		case "":
+		default:
+			ifaces = append(ifaces, iface)
+		}
+	}
+	return stringutil.UniqueTrimmedStrings(ifaces)
+}
+
+func (opts OptionsConfiguration) LocalAnnIgnoredIfaces() []string {
+	var ifaces []string
+	for _, iface := range opts.RawLocalAnnIgnoredIfaces {
+		switch iface {
+		case "":
+		default:
+			ifaces = append(ifaces, iface)
+		}
+	}
+	return stringutil.UniqueTrimmedStrings(ifaces)
 }
 
 func (opts OptionsConfiguration) StunServers() []string {
