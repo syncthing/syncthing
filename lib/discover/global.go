@@ -407,6 +407,7 @@ func (c *idCheckingHTTPClient) Get(ctx context.Context, url string) (*http.Respo
 		return nil, err
 	}
 	if err := c.check(resp); err != nil {
+		resp.Body.Close()
 		return nil, err
 	}
 
@@ -419,6 +420,7 @@ func (c *idCheckingHTTPClient) Post(ctx context.Context, url, ctype string, data
 		return nil, err
 	}
 	if err := c.check(resp); err != nil {
+		resp.Body.Close()
 		return nil, err
 	}
 

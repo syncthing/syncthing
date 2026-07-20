@@ -607,6 +607,7 @@ func soapRequestWithIP(ctx context.Context, url, service, function, message stri
 		l.Debugln("SOAP do:", err)
 		return resp, err
 	}
+	defer r.Body.Close()
 
 	resp, err = io.ReadAll(r.Body)
 	if err != nil {
@@ -615,8 +616,6 @@ func soapRequestWithIP(ctx context.Context, url, service, function, message stri
 	}
 
 	l.Debugf("SOAP Response: %s\n\n%s\n\n", r.Status, resp)
-
-	r.Body.Close()
 
 	if r.StatusCode >= 400 {
 		return resp, errors.New(function + ": " + r.Status)
