@@ -168,7 +168,6 @@ func (f *sendReceiveFolder) pull(ctx context.Context) (bool, error) {
 	go f.pullScannerRoutine(ctx, scanChan)
 	defer func() {
 		close(scanChan)
-		f.setState(FolderIdle)
 	}()
 
 	metricFolderPulls.WithLabelValues(f.ID).Inc()
