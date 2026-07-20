@@ -198,7 +198,7 @@ func (f *folder) Serve(ctx context.Context) error {
 				// actual pull.
 				//
 				// Only set the state to SyncWaiting if we are Idle (and
-				// not, e.g., Stopped) have reason to believe there is
+				// not, e.g., errored) and have reason to believe there is
 				// something to sync, to avoid unnecessary flashing in the
 				// GUI.
 				if cur, _, _ := f.getState(); cur == FolderIdle {
