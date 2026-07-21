@@ -91,7 +91,6 @@ type Report struct {
 	NATType string `json:"natType,omitempty" metric:"nat_detection,gaugeVec:type" since:"3"`
 
 	AlwaysLocalNets            bool `json:"alwaysLocalNets,omitempty" metric:"feature_count{feature=AlwaysLocalNets},gauge" since:"3"`
-	CacheIgnoredFiles          bool `json:"cacheIgnoredFiles,omitempty" metric:"feature_count{feature=CacheIgnoredFiles},gauge" since:"3"`
 	OverwriteRemoteDeviceNames bool `json:"overwriteRemoteDeviceNames,omitempty" metric:"feature_count{feature=OverwriteRemoteDeviceNames},gauge" since:"3"`
 	ProgressEmitterEnabled     bool `json:"progressEmitterEnabled,omitempty" metric:"feature_count{feature=ProgressEmitterEnabled},gauge" since:"3"`
 	CustomDefaultFolderPath    bool `json:"customDefaultFolderPath,omitempty" metric:"feature_count{feature=CustomDefaultFolderPath},gauge" since:"3"`

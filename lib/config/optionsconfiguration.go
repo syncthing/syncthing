@@ -45,7 +45,6 @@ type OptionsConfiguration struct {
 	AutoUpgradeIntervalH        int      `json:"autoUpgradeIntervalH" xml:"autoUpgradeIntervalH" default:"12"`
 	UpgradeToPreReleases        bool     `json:"upgradeToPreReleases" xml:"upgradeToPreReleases"`
 	KeepTemporariesH            int      `json:"keepTemporariesH" xml:"keepTemporariesH" default:"24"`
-	CacheIgnoredFiles           bool     `json:"cacheIgnoredFiles" xml:"cacheIgnoredFiles" default:"false"`
 	ProgressUpdateIntervalS     int      `json:"progressUpdateIntervalS" xml:"progressUpdateIntervalS" default:"5"`
 	LimitBandwidthInLan         bool     `json:"limitBandwidthInLan" xml:"limitBandwidthInLan" default:"false"`
 	MinHomeDiskFree             Size     `json:"minHomeDiskFree" xml:"minHomeDiskFree" default:"1 %"`
