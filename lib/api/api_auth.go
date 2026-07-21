@@ -126,6 +126,7 @@ func isNoAuthPath(path string, metricsWithoutAuth bool) bool {
 
 type basicAuthAndSessionMiddleware struct {
 	tokenCookieManager *tokenCookieManager
+	loginTokens        *tokenManager
 	guiCfg             config.GUIConfiguration
 	ldapCfg            config.LDAPConfiguration
 	next               http.Handler
@@ -135,6 +136,7 @@ type basicAuthAndSessionMiddleware struct {
 func newBasicAuthAndSessionMiddleware(tokenCookieManager *tokenCookieManager, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler, evLogger events.Logger) *basicAuthAndSessionMiddleware {
 	return &basicAuthAndSessionMiddleware{
 		tokenCookieManager: tokenCookieManager,
+		loginTokens:        newTokenManager("logintokens", nil, 10*time.Second, 5),
 		guiCfg:             guiCfg,
 		ldapCfg:            ldapCfg,
 		next:               next,
@@ -143,6 +145,10 @@ func newBasicAuthAndSessionMiddleware(tokenCookieManager *tokenCookieManager, gu
 }
 
 func (m *basicAuthAndSessionMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if m.tryTokenLogin(w, r) {
+		return
+	}
+
 	if hasValidAPIKeyHeader(r, m.guiCfg) {
 		m.next.ServeHTTP(w, r)
 		return
@@ -222,9 +228,31 @@ func attemptBasicAuth(r *http.Request, guiCfg config.GUIConfiguration, ldapCfg c
 	return "", false
 }
 
+func (m *basicAuthAndSessionMiddleware) tryTokenLogin(w http.ResponseWriter, r *http.Request) bool {
+	query := r.URL.Query()
+	if m.loginTokens.Consume(r.URL.Query().Get("token")) {
+		if !m.tokenCookieManager.hasValidSession(r) {
+			m.tokenCookieManager.createSession("", false, w, r)
+		}
+	}
+
+	if query.Has("token") {
+		query.Del("token")
+		r.URL.RawQuery = query.Encode()
+		http.Redirect(w, r, r.URL.String(), http.StatusTemporaryRedirect)
+		return true
+	}
+	return false
+}
+
 func (m *basicAuthAndSessionMiddleware) handleLogout(w http.ResponseWriter, r *http.Request) {
 	m.tokenCookieManager.destroySession(w, r)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (m *basicAuthAndSessionMiddleware) newLoginToken(w http.ResponseWriter, r *http.Request) {
+	token := m.loginTokens.New()
+	sendJSON(w, map[string]string{"token": token})
 }
 
 func auth(username string, password string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration) bool {

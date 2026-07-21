@@ -150,6 +150,17 @@ func TestTokenManager(t *testing.T) {
 	if tm.Check(t3) {
 		t.Errorf("token %q should be invalid", t3)
 	}
+
+	// The token should become invalid after consuming it
+	if !tm.Consume(t1) {
+		t.Errorf("token %q should be valid", t3)
+	}
+	if tm.Check(t1) {
+		t.Errorf("token %q should be invalid", t3)
+	}
+	if tm.Consume(t1) {
+		t.Errorf("token %q should be invalid", t3)
+	}
 }
 
 func TestTokenManagerNoExpiry(t *testing.T) {
@@ -176,6 +187,23 @@ func TestTokenManagerNoExpiry(t *testing.T) {
 	clock.wind(365 * 24 * time.Hour)
 	if !tm.Check(token) {
 		t.Fatal("token should still be valid after long time when no-expiry is enabled")
+	}
+}
+
+func TestTokenManagerNoDB(t *testing.T) {
+	t.Parallel()
+
+	clock := &mockClock{now: time.Now()}
+	tm := newTokenManager("testTokensNoDB", nil, 24*time.Hour, 3)
+	tm.timeNow = clock.Now
+
+	token := tm.New()
+	if !tm.Check(token) {
+		t.Errorf("token %q should be valid", token)
+	}
+	clock.wind(25 * time.Hour)
+	if tm.Check(token) {
+		t.Errorf("token %q should be invalid", token)
 	}
 }
 
