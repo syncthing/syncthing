@@ -980,6 +980,85 @@ func TestHtmlFormLogin(t *testing.T) {
 	})
 }
 
+func TestTokenLogin(t *testing.T) {
+	t.Parallel()
+
+	cfg := newMockedConfig()
+	cfg.GUIReturns(config.GUIConfiguration{
+		User:                "üser",
+		Password:            "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq", // bcrypt of "räksmörgås" in UTF-8
+		APIKey:              testAPIKey,
+		SendBasicAuthPrompt: false,
+	})
+	baseURL := startHTTP(t, cfg)
+
+	acquireToken := func() string {
+		resp := httpRequest(http.MethodPost, baseURL+"/rest/auth/logintoken", nil, "", "", testAPIKey, "", "", "", nil, t)
+		var body map[string]string
+
+		if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+			t.Errorf("Unexpected json decoding failure %v", err)
+		}
+		return body["token"]
+	}
+
+	tryLoadWithToken := func(token string) *http.Response {
+		client := http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		req, err := http.NewRequest(http.MethodGet, baseURL+"/?token="+token, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !(resp.StatusCode >= 300 && resp.StatusCode <= 399) {
+			t.Errorf("Expected redirect, got %+v", resp)
+		}
+		if resp.Header.Get("Location") != "/" {
+			t.Errorf("Expected redirect to /, got %+v", resp)
+		}
+		return resp
+	}
+
+	t.Run("Invalid token is redirected away without logging in", func(t *testing.T) {
+		t.Parallel()
+
+		resp := tryLoadWithToken("aaaaaaa")
+		if hasSessionCookie(resp.Cookies()) {
+			t.Errorf("Unexpected session cookie for invalid token")
+		}
+	})
+
+	t.Run("Token auth works", func(t *testing.T) {
+		t.Parallel()
+
+		token := acquireToken()
+		resp := tryLoadWithToken(token)
+		fmt.Printf("%+v\n", resp)
+		if !hasSessionCookie(resp.Cookies()) {
+			t.Errorf("Expected session cookie for valid token")
+		}
+	})
+
+	t.Run("Logout removes the session cookie", func(t *testing.T) {
+		token := acquireToken()
+		resp := tryLoadWithToken(token)
+		if !hasSessionCookie(resp.Cookies()) {
+			t.Errorf("Expected session cookie for valid token")
+		}
+
+		logoutResp := httpPost(baseURL+"/rest/noauth/auth/logout", nil, resp.Cookies(), t)
+		if !hasDeleteSessionCookie(logoutResp.Cookies()) {
+			t.Errorf("Expected session cookie to be deleted for logout request")
+		}
+	})
+}
+
 func TestApiCache(t *testing.T) {
 	t.Parallel()
 
