@@ -1,0 +1,9 @@
+#!/bin/bash
+# Pre-install script for syncthing-discosrv RPM
+# Creates system user/group for the discovery server
+
+getent group syncthing >/dev/null || groupadd -r syncthing
+getent passwd syncthing-discosrv >/dev/null || \
+    useradd -r -g syncthing -d /var/lib/syncthing-discosrv \
+    -s /sbin/nologin -c "Syncthing Discovery Server" syncthing-discosrv
+exit 0

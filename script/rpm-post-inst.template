@@ -1,0 +1,7 @@
+#!/bin/sh
+# RPM post-install script
+
+if [ $1 -eq 1 ] ; then
+    # Initial installation
+    systemctl daemon-reload >/dev/null 2>&1 || :
+fi
