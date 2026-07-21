@@ -42,7 +42,6 @@
         <restartOnWakeup>true</restartOnWakeup>
         <autoUpgradeIntervalH>0</autoUpgradeIntervalH>
         <keepTemporariesH>24</keepTemporariesH>
-        <cacheIgnoredFiles>true</cacheIgnoredFiles>
         <progressUpdateIntervalS>5</progressUpdateIntervalS>
         <symlinksEnabled>true</symlinksEnabled>
         <limitBandwidthInLan>false</limitBandwidthInLan>

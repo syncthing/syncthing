@@ -124,23 +124,13 @@ type Matcher struct {
 	fs             fs.Filesystem
 	lines          []string  // exact lines read from .stignore
 	patterns       []Pattern // patterns including those from included files
-	withCache      bool
-	matches        *cache
 	curHash        string
-	stop           chan struct{}
 	changeDetector ChangeDetector
 	mut            sync.Mutex
 }
 
 // An Option can be passed to New()
 type Option func(*Matcher)
-
-// WithCache enables or disables lookup caching. The default is disabled.
-func WithCache(v bool) Option {
-	return func(m *Matcher) {
-		m.withCache = v
-	}
-}
 
 // WithChangeDetector sets a custom ChangeDetector. The default is to simply
 // use the on disk modtime for comparison.
@@ -152,17 +142,13 @@ func WithChangeDetector(cd ChangeDetector) Option {
 
 func New(fs fs.Filesystem, opts ...Option) *Matcher {
 	m := &Matcher{
-		fs:   fs,
-		stop: make(chan struct{}),
+		fs: fs,
 	}
 	for _, opt := range opts {
 		opt(m)
 	}
 	if m.changeDetector == nil {
 		m.changeDetector = newModtimeChecker()
-	}
-	if m.withCache {
-		go m.clean(2 * time.Hour)
 	}
 	return m
 }
@@ -219,9 +205,6 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 
 	m.curHash = newHash
 	m.patterns = patterns
-	if m.withCache {
-		m.matches = newCache()
-	}
 
 	return err
 }
@@ -232,7 +215,7 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 // NFC everywhere else). This is always the case in real usage in syncthing, as
 // we ensure native unicode normalisation on all entry points (scanning and from
 // protocol) - so no need to normalize when calling this, except e.g. in tests.
-func (m *Matcher) Match(file string) (result ignoreresult.R) {
+func (m *Matcher) Match(file string) ignoreresult.R {
 	switch {
 	case fs.IsTemporary(file):
 		return ignoreresult.IgnoreAndSkip
@@ -253,19 +236,6 @@ func (m *Matcher) Match(file string) (result ignoreresult.R) {
 
 	// Change backslashes to slashes (on Windows only)
 	file = filepath.ToSlash(file)
-
-	if m.matches != nil {
-		// Check the cache for a known result.
-		res, ok := m.matches.get(file)
-		if ok {
-			return res
-		}
-
-		// Update the cache with the result at return time
-		defer func() {
-			m.matches.set(file, result)
-		}()
-	}
 
 	// Check all the patterns for a match. Track whether the patterns so far
 	// allow skipping matched directories or not. As soon as we hit an
@@ -325,27 +295,6 @@ func (m *Matcher) Hash() string {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 	return m.curHash
-}
-
-func (m *Matcher) Stop() {
-	close(m.stop)
-}
-
-func (m *Matcher) clean(d time.Duration) {
-	t := time.NewTimer(d / 2)
-	for {
-		select {
-		case <-m.stop:
-			return
-		case <-t.C:
-			m.mut.Lock()
-			if m.matches != nil {
-				m.matches.clean(d)
-			}
-			t.Reset(d / 2)
-			m.mut.Unlock()
-		}
-	}
 }
 
 func hashPatterns(patterns []Pattern) string {
