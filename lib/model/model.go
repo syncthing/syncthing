@@ -187,6 +187,10 @@ type folderFactory func(*model, *ignore.Matcher, config.FolderConfiguration, ver
 
 var folderFactories = make(map[config.FolderType]folderFactory)
 
+// remoteIgnoreFileTimeout caps each remote file fetch that backs ignore
+// loading.
+const remoteIgnoreFileTimeout = 30 * time.Second
+
 var (
 	errDeviceUnknown    = errors.New("unknown device")
 	errDevicePaused     = errors.New("device is paused")
@@ -336,7 +340,7 @@ func (m *model) fatal(err error) {
 
 // Need to hold lock on m.mut when calling this.
 func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, cacheIgnoredFiles bool) {
-	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(cacheIgnoredFiles))
+	ignores := ignore.New(m.ignoreFilesystem(cfg), ignore.WithCache(cacheIgnoredFiles))
 	if cfg.Type != config.FolderTypeReceiveEncrypted {
 		if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 			slog.Error("Failed to load ignores", slogutil.Error(err))
@@ -344,6 +348,21 @@ func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, cacheIgn
 	}
 
 	m.addAndStartFolderLockedWithIgnores(cfg, ignores)
+}
+
+// ignoreFilesystem returns the filesystem used to load ignore patterns for
+// cfg. It layers the folder's own filesystem on top of a remote filesystem
+// so that a #include target missing locally — the typical case being during
+// initial sync of a brand-new folder — falls back to fetching the file from
+// a connected device that already has it.
+func (m *model) ignoreFilesystem(cfg config.FolderConfiguration) fs.Filesystem {
+	folderFS := cfg.Filesystem()
+	if cfg.Type == config.FolderTypeReceiveEncrypted {
+		// no ignores, gotta return something but skip the wrapping
+		return folderFS
+	}
+	remoteFS := fs.NewRemoteFilesystem(context.TODO(), m.sdb, m, cfg.ID, remoteIgnoreFileTimeout)
+	return fs.NewLayeredFilesystem(folderFS, remoteFS)
 }
 
 // Only needed for testing, use addAndStartFolderLocked instead.
@@ -2189,7 +2208,7 @@ func (m *model) LoadIgnores(folder string) ([]string, []string, error) {
 	}
 
 	if !ignoresOk {
-		ignores = ignore.New(cfg.Filesystem())
+		ignores = ignore.New(m.ignoreFilesystem(cfg))
 	}
 
 	err := ignores.Load(".stignore")
