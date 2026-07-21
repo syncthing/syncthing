@@ -3608,6 +3608,69 @@ func TestClusterConfigOnFolderUnpause(t *testing.T) {
 	})
 }
 
+type blockingIndexIDDB struct {
+	db.DB
+	entered chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (b *blockingIndexIDDB) GetIndexID(folder string, device protocol.DeviceID) (protocol.IndexID, error) {
+	b.once.Do(func() {
+		close(b.entered)
+		<-b.release
+	})
+	return b.DB.GetIndexID(folder, device)
+}
+
+func TestPromoteConnectionsReleasesModelLockBeforeDatabaseRead(t *testing.T) {
+	wcfg, _ := newDefaultCfgWrapper(t)
+	m := newModel(t, wcfg, myID, nil)
+	defer cleanupModel(m)
+
+	blockedDB := &blockingIndexIDDB{
+		DB:      m.sdb,
+		entered: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	m.sdb = blockedDB
+
+	m.AddConnection(newFakeConnection(device1, m), protocol.Hello{})
+
+	promotionDone := make(chan struct{})
+	go func() {
+		m.promoteConnections()
+		close(promotionDone)
+	}()
+
+	select {
+	case <-blockedDB.entered:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for cluster config database read")
+	}
+
+	lockAcquired := make(chan struct{})
+	go func() {
+		m.mut.Lock()
+		m.mut.Unlock()
+		close(lockAcquired)
+	}()
+
+	select {
+	case <-lockAcquired:
+	case <-time.After(time.Second):
+		close(blockedDB.release)
+		t.Fatal("model mutex remained locked during cluster config database read")
+	}
+
+	close(blockedDB.release)
+	select {
+	case <-promotionDone:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for connection promotion")
+	}
+}
+
 func TestAddFolderCompletion(t *testing.T) {
 	// Empty folders are always 100% complete.
 	comp := newFolderCompletion(db.Counts{}, db.Counts{}, 0, remoteFolderValid)

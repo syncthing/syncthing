@@ -2360,17 +2360,24 @@ func (m *model) scheduleConnectionPromotion() {
 // be called after adding new connections, and after closing a primary
 // device connection.
 func (m *model) promoteConnections() {
-	// Slice of actions to take on connections after releasing the main
-	// mutex. We do this so that we do not perform blocking network actions
-	// inside the loop, and also to avoid a possible deadlock with calling
-	// Start() on connections that are already executing a Close() with a
-	// callback into the model...
-	var postLockActions []func()
+	type promotion struct {
+		deviceID    protocol.DeviceID
+		primary     protocol.Connection
+		secondaries []protocol.Connection
+	}
+
+	// Collect the connections that need work while holding the model mutex,
+	// then build cluster configs and perform network actions after releasing
+	// it. Cluster config generation reads from the database and can block while
+	// waiting for a database connection.
+	var promotions []promotion
 
 	m.mut.Lock()
 
 	for deviceID, connIDs := range m.deviceConnIDs {
-		cm, passwords := m.generateClusterConfigRLocked(deviceID)
+		var p promotion
+		p.deviceID = deviceID
+
 		if m.promotedConnID[deviceID] != connIDs[0] {
 			// The previously promoted connection is not the current
 			// primary; we should promote the primary connection to be the
@@ -2378,14 +2385,7 @@ func (m *model) promoteConnections() {
 			// it, which will cause the other side to start sending us index
 			// messages there. (On our side, we manage index handlers based
 			// on where we get ClusterConfigs from the peer.)
-			conn := m.connections[connIDs[0]]
-			l.Debugf("Promoting connection to %s at %s", deviceID.Short(), conn)
-			postLockActions = append(postLockActions, func() {
-				if conn.Statistics().StartedAt.IsZero() {
-					conn.Start()
-				}
-				conn.ClusterConfig(cm, passwords)
-			})
+			p.primary = m.connections[connIDs[0]]
 			m.promotedConnID[deviceID] = connIDs[0]
 		}
 
@@ -2394,18 +2394,32 @@ func (m *model) promoteConnections() {
 		for _, connID := range connIDs[1:] {
 			conn := m.connections[connID]
 			if conn.Statistics().StartedAt.IsZero() {
-				postLockActions = append(postLockActions, func() {
-					conn.Start()
-					conn.ClusterConfig(&protocol.ClusterConfig{Secondary: true}, passwords)
-				})
+				p.secondaries = append(p.secondaries, conn)
 			}
+		}
+
+		if p.primary != nil || len(p.secondaries) > 0 {
+			promotions = append(promotions, p)
 		}
 	}
 
 	m.mut.Unlock()
 
-	for _, action := range postLockActions {
-		action()
+	for _, p := range promotions {
+		cm, passwords := m.generateClusterConfig(p.deviceID)
+
+		if p.primary != nil {
+			l.Debugf("Promoting connection to %s at %s", p.deviceID.Short(), p.primary)
+			if p.primary.Statistics().StartedAt.IsZero() {
+				p.primary.Start()
+			}
+			p.primary.ClusterConfig(cm, passwords)
+		}
+
+		for _, conn := range p.secondaries {
+			conn.Start()
+			conn.ClusterConfig(&protocol.ClusterConfig{Secondary: true}, passwords)
+		}
 	}
 }
 
@@ -2570,11 +2584,16 @@ func (m *model) numHashers(folder string) int {
 // set of folder passwords for the given peer device
 func (m *model) generateClusterConfig(device protocol.DeviceID) (*protocol.ClusterConfig, map[string]string) {
 	m.mut.RLock()
-	defer m.mut.RUnlock()
-	return m.generateClusterConfigRLocked(device)
+	encryptionPasswordTokens := make(map[string][]byte, len(m.folderEncryptionPasswordTokens))
+	for folder, token := range m.folderEncryptionPasswordTokens {
+		encryptionPasswordTokens[folder] = bytes.Clone(token)
+	}
+	m.mut.RUnlock()
+
+	return m.generateClusterConfigWithTokens(device, encryptionPasswordTokens)
 }
 
-func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protocol.ClusterConfig, map[string]string) {
+func (m *model) generateClusterConfigWithTokens(device protocol.DeviceID, encryptionPasswordTokens map[string][]byte) (*protocol.ClusterConfig, map[string]string) {
 	message := &protocol.ClusterConfig{}
 	folders := m.cfg.FolderList()
 	passwords := make(map[string]string, len(folders))
@@ -2583,7 +2602,7 @@ func (m *model) generateClusterConfigRLocked(device protocol.DeviceID) (*protoco
 			continue
 		}
 
-		encryptionToken, hasEncryptionToken := m.folderEncryptionPasswordTokens[folderCfg.ID]
+		encryptionToken, hasEncryptionToken := encryptionPasswordTokens[folderCfg.ID]
 		if folderCfg.Type == config.FolderTypeReceiveEncrypted && !hasEncryptionToken {
 			// We haven't gotten a token for us yet and without one the other
 			// side can't validate us - pretend we don't have the folder yet.
