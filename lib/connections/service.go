@@ -84,6 +84,7 @@ const (
 	shortLivedConnectionThreshold = 5 * time.Second
 	dialMaxParallel               = 64
 	dialMaxParallelPerDevice      = 8
+	dialRoundTimeout              = 2 * time.Minute
 	maxNumConnections             = 128 // the maximum number of connections we maintain to any given device
 )
 
@@ -602,7 +603,6 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 	dialWG := new(sync.WaitGroup)
 	dialCtx, dialCancel := context.WithCancel(ctx)
 	defer func() {
-		dialWG.Wait()
 		dialCancel()
 	}()
 	for _, entry := range queue {
@@ -629,6 +629,27 @@ func (s *service) dialDevices(ctx context.Context, now time.Time, cfg config.Con
 			}
 			numConnsMut.Unlock()
 		})
+	}
+
+	dialRoundDone := make(chan struct{})
+	go func() {
+		dialWG.Wait()
+		close(dialRoundDone)
+	}()
+
+	timer := time.NewTimer(dialRoundTimeout)
+	defer timer.Stop()
+
+	select {
+	case <-dialRoundDone:
+	case <-ctx.Done():
+		dialCancel()
+	case <-timer.C:
+		// Individual dialers should observe their context deadlines. If one
+		// wedges in lower-level cleanup despite that, keep the connection loop
+		// alive so other devices and transports continue to get attempts.
+		slog.WarnContext(ctx, "Dial round did not complete; continuing connection loop")
+		dialCancel()
 	}
 }
 
@@ -1120,7 +1141,9 @@ func (s *service) dialParallel(ctx context.Context, deviceID protocol.DeviceID, 
 		res := make(chan internalConn, len(tgts))
 		wg := sync.WaitGroup{}
 		for _, tgt := range tgts {
-			sema.Take(1)
+			if err := sema.TakeWithContext(ctx, 1); err != nil {
+				return internalConn{}, false
+			}
 			wg.Go(func() {
 				defer sema.Give(1)
 				conn, err := tgt.Dial(ctx)
