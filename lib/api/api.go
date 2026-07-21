@@ -378,6 +378,8 @@ func (s *service) Serve(ctx context.Context) error {
 
 		// Logout is a no-op without a valid session cookie, so /noauth/ is fine here
 		restMux.Handler(http.MethodPost, "/rest/noauth/auth/logout", http.HandlerFunc(authMW.handleLogout))
+
+		restMux.Handler(http.MethodPost, "/rest/auth/logintoken", http.HandlerFunc(authMW.newLoginToken))
 	}
 
 	// Redirect to HTTPS if we are supposed to

@@ -11,6 +11,7 @@ import (
 	"cmp"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -319,7 +320,24 @@ func openGUI() error {
 		return err
 	}
 	if guiCfg := cfg.GUI(); guiCfg.Enabled {
-		if err := openURL(guiCfg.URL()); err != nil {
+		guiUrl := guiCfg.URL()
+		if guiCfg.IsAuthEnabled()
+			r, err := http.NewRequest(http.MethodPost, guiCfg.URL()+"rest/auth/logintoken", nil)
+			if err != nil {
+				return err
+			}
+			resp, err := makeRestCall(cfg, r)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+			var data map[string]string
+			if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+				return err
+			}
+			url += "?token=" + data["token"]
+		}
+		if err := openURL(guiUrl); err != nil {
 			return err
 		}
 	} else {
@@ -375,19 +393,7 @@ func checkUpgrade() (upgrade.Release, error) {
 	return release, nil
 }
 
-func upgradeViaRest() error {
-	cfg, err := loadOrDefaultConfig()
-	if err != nil {
-		return err
-	}
-
-	u, err := url.Parse(cfg.GUI().URL())
-	if err != nil {
-		return err
-	}
-	u.Path = path.Join(u.Path, "rest/system/upgrade")
-	target := u.String()
-	r, _ := http.NewRequest(http.MethodPost, target, nil)
+func makeRestCall(cfg config.Wrapper, r *http.Request) (*http.Response, error) {
 	r.Header.Set("X-Api-Key", cfg.GUI().APIKey)
 
 	tr := &http.Transport{
@@ -401,19 +407,35 @@ func upgradeViaRest() error {
 	}
 	resp, err := client.Do(r)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		bs, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		return errors.New(string(bs))
+		return nil, errors.New(string(bs))
 	}
 
+	return resp, nil
+}
+
+func upgradeViaRest() error {
+	cfg, err := loadOrDefaultConfig()
+
+	u, err := url.Parse(cfg.GUI().URL())
+	if err != nil {
+		return err
+	}
+	u.Path = path.Join(u.Path, "rest/system/upgrade")
+	target := u.String()
+	r, _ := http.NewRequest(http.MethodPost, target, nil)
+
+	resp, err := makeRestCall(cfg, r)
+	if err != nil {
+		resp.Body.Close()
+	}
 	return err
 }
 
@@ -600,7 +622,11 @@ func (c *serveCmd) syncthingMain() {
 	if cfgWrapper.Options().StartBrowser && !c.NoBrowser && !c.InternalRestarting {
 		// Can potentially block if the utility we are invoking doesn't
 		// fork, and just execs, hence keep it in its own routine.
-		go func() { _ = openURL(cfgWrapper.GUI().URL()) }()
+		go func() {
+			if err := openGUI(); err != nil {
+				slog.Error("Failed to open in browser", slogutil.Error(err))
+			}
+		}()
 	}
 
 	status := app.Wait()
