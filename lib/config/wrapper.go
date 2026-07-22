@@ -502,8 +502,12 @@ func (w *wrapper) Folder(id string) (FolderConfiguration, bool) {
 
 // Save writes the configuration to disk, and generates a ConfigSaved event.
 func (w *wrapper) Save() error {
+	// Copy the config while holding the lock, then release the lock before
+	// doing expensive disk I/O. This prevents blocking config reads during
+	// writes, which can stall the daemon when the disk is slow.
 	w.mut.Lock()
-	defer w.mut.Unlock()
+	cfgCopy := w.cfg.Copy()
+	w.mut.Unlock()
 
 	fd, err := osutil.CreateAtomic(w.path)
 	if err != nil {
@@ -511,7 +515,7 @@ func (w *wrapper) Save() error {
 		return err
 	}
 
-	if err := w.cfg.WriteXML(osutil.LineEndingsWriter(fd)); err != nil {
+	if err := cfgCopy.WriteXML(osutil.LineEndingsWriter(fd)); err != nil {
 		l.Debugln("WriteXML:", err)
 		fd.Close()
 		return err
@@ -522,7 +526,7 @@ func (w *wrapper) Save() error {
 		return err
 	}
 
-	w.evLogger.Log(events.ConfigSaved, w.cfg)
+	w.evLogger.Log(events.ConfigSaved, cfgCopy)
 	return nil
 }
 
