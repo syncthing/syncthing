@@ -18,6 +18,9 @@ type showCommand struct {
 	Discovery    struct{}       `cmd:"" help:"Show the discovered addresses of remote devices (from cache of the running syncthing instance)"`
 	Usage        struct{}       `cmd:"" help:"Show usage report"`
 	Pending      pendingCommand `cmd:"" help:"Pending subcommand group"`
+
+	ConfigHealth configHealthCommand `cmd:"" help:"Check the configuration file syntax (does not require a running instance)"`
+	KeyHealth    keyHealthCommand    `cmd:"" help:"Check the device certificate and key (does not require a running instance)"`
 }
 
 func (*showCommand) Run(ctx Context, kongCtx *kong.Context) error {
