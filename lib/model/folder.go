@@ -582,17 +582,17 @@ func (f *folder) scanSubdirs(ctx context.Context, subDirs []string) error {
 const maxToRemove = 1000
 
 type scanBatch struct {
-	f           *folder
-	updateBatch *FileInfoBatch
-	toRemove    []string
-	deleted     map[string]struct{}
+	f                 *folder
+	updateBatch       *FileInfoBatch
+	toRemove          []string
+	deletedOrExisting map[string]struct{}
 }
 
 func (f *folder) newScanBatch() *scanBatch {
 	b := &scanBatch{
-		f:        f,
-		toRemove: make([]string, 0, maxToRemove),
-		deleted:  make(map[string]struct{}),
+		f:                 f,
+		toRemove:          make([]string, 0, maxToRemove),
+		deletedOrExisting: make(map[string]struct{}),
 	}
 	b.updateBatch = NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		if err := b.f.getHealthErrorWithoutIgnores(); err != nil {
@@ -600,7 +600,7 @@ func (f *folder) newScanBatch() *scanBatch {
 			return err
 		}
 		b.f.updateLocalsFromScanning(fs)
-		clear(b.deleted)
+		clear(b.deletedOrExisting)
 		return nil
 	})
 	return b
@@ -636,12 +636,12 @@ func (b *scanBatch) FlushIfFull() error {
 	return b.updateBatch.FlushIfFull()
 }
 
-func (b *scanBatch) markDeleted(name string) {
-	b.deleted[name] = struct{}{}
+func (b *scanBatch) markDeletedOrExisting(name string) {
+	b.deletedOrExisting[name] = struct{}{}
 }
 
-func (b *scanBatch) hasDeleted(name string) bool {
-	_, ok := b.deleted[name]
+func (b *scanBatch) hasDeletedOrExisting(name string) bool {
+	_, ok := b.deletedOrExisting[name]
 	return ok
 }
 
@@ -756,7 +756,6 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 						return 0, err
 					} else if ok {
 						changes++
-						batch.markDeleted(nf.Name)
 					}
 				}
 			}
@@ -950,7 +949,7 @@ loop:
 			continue
 		}
 
-		if batch.hasDeleted(fi.Name) {
+		if batch.hasDeletedOrExisting(fi.Name) {
 			continue
 		}
 
@@ -970,6 +969,7 @@ loop:
 		}
 
 		if !osutil.IsDeleted(f.mtimefs, fi.Name) {
+			batch.markDeletedOrExisting(fi.Name)
 			continue
 		}
 
@@ -981,6 +981,7 @@ loop:
 		nf.SetDeleted(f.shortID)
 		nf.LocalFlags = f.localFlags
 		found = true
+		batch.markDeletedOrExisting(fi.Name)
 		break
 	}
 
