@@ -110,6 +110,31 @@ func testRealCaseSensitive(t *testing.T, fsys Filesystem) {
 	}
 }
 
+type caseNodeTestFilesystem struct {
+	*errorFilesystem
+	names []string
+}
+
+func (fs *caseNodeTestFilesystem) DirNames(string) ([]string, error) {
+	return fs.names, nil
+}
+
+func TestNewCaseNodeKeepsFirstAdjacentLowercaseMatch(t *testing.T) {
+	fsys := &caseNodeTestFilesystem{
+		errorFilesystem: new(errorFilesystem),
+		names:           []string{"File.txt", "file.txt"},
+	}
+
+	node := newCaseNode(".", fsys)
+
+	if node.err != nil {
+		t.Fatal(node.err)
+	}
+	if got := node.lowerToReal["file.txt"]; got != "File.txt" {
+		t.Fatalf("lowercase lookup = %q, want first adjacent entry %q", got, "File.txt")
+	}
+}
+
 func TestCaseFSStat(t *testing.T) {
 	// Verify that a Stat() lookup behaves in a case sensitive manner
 	// regardless of the underlying fs.
