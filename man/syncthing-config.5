@@ -213,6 +213,7 @@ may no longer correspond to the defaults.
         <trafficClass>0</trafficClass>
         <setLowPriority>true</setLowPriority>
         <maxFolderConcurrency>0</maxFolderConcurrency>
+        <maxDiskIOPS>0</maxDiskIOPS>
         <crashReportingURL>https://crash.syncthing.net/newcrash</crashReportingURL>
         <crashReportingEnabled>true</crashReportingEnabled>
         <stunKeepaliveStartS>180</stunKeepaliveStartS>
@@ -1219,6 +1220,7 @@ Search filter for user searches.
     <trafficClass>0</trafficClass>
     <setLowPriority>true</setLowPriority>
     <maxFolderConcurrency>0</maxFolderConcurrency>
+    <maxDiskIOPS>0</maxDiskIOPS>
     <crashReportingURL>https://crash.syncthing.net/newcrash</crashReportingURL>
     <crashReportingEnabled>true</crashReportingEnabled>
     <stunKeepaliveStartS>180</stunKeepaliveStartS>
@@ -1499,6 +1501,18 @@ as part of launching Syncthing, set this option to \fBfalse\fP\&.
 This option controls how many folders may concurrently be in I/O\-intensive
 operations such as syncing or scanning.  The mechanism is described in
 detail in a \fI\%separate chapter\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B maxDiskIOPS
+This option limits the total disk I/O operations per second (IOPS) used by all
+folder operations combined (scanning and syncing).  A global limiter is shared
+across all folders, and an optional per\-folder limiter can be set via the
+\fBmaxDiskIOPS\fP field in each folder configuration.  Each filesystem or file
+operation (open, read, write, stat, rename, etc.) consumes one token.  Set to
+\fB0\fP (the default) to allow unlimited disk I/O.  Useful on systems with
+slow mechanical hard drives to avoid saturating the disk.
+Example: set \fB100\fP to limit disk I/O to 100 operations per second.
 .UNINDENT
 .INDENT 0.0
 .TP

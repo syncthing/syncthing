@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/thejerf/suture/v4"
+	"golang.org/x/time/rate"
 
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
@@ -151,6 +152,9 @@ type model struct {
 	// folderIOLimiter limits the number of concurrent I/O heavy operations,
 	// such as scans and pulls.
 	folderIOLimiter *semaphore.Semaphore
+	// diskIOPS limits total disk I/O operations per second across all concurrent
+	// folder operations (scans, syncs). nil means unlimited.
+	diskIOPS atomic.Pointer[rate.Limiter]
 	fatalChan       chan error
 	started         chan struct{}
 	keyGen          *protocol.KeyGenerator
@@ -257,6 +261,7 @@ func NewModel(cfg config.Wrapper, id protocol.DeviceID, sdb db.DB, protectedFile
 		m.deviceStatRefs[devID] = stats.NewDeviceStatisticsReference(db.NewTyped(sdb, "devicestats/"+devID.String()))
 		m.setConnRequestLimitersLocked(cfg)
 	}
+	m.diskIOPS.Store(fs.NewIOPSLimiter(cfg.Options().MaxDiskIOPS))
 	m.Add(m.folderRunners)
 	m.Add(m.progressEmitter)
 	m.Add(m.indexHandlers)
@@ -3105,6 +3110,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 	m.globalRequestLimiter.SetCapacity(1024 * to.Options.MaxConcurrentIncomingRequestKiB())
 	m.folderIOLimiter.SetCapacity(to.Options.MaxFolderConcurrency())
+	m.diskIOPS.Store(fs.NewIOPSLimiter(to.Options.MaxDiskIOPS))
 
 	// Some options don't require restart as those components handle it fine
 	// by themselves. Compare the options structs containing only the
