@@ -1,25 +1,14 @@
-## Reporting Bugs
+## Reporting Bugs & Feature Requests
 
-Please file bugs in the [GitHub Issue
-Tracker](https://github.com/syncthing/syncthing/issues). Include at
-least the following:
+For general discussion and troubleshooting, please use the [Support
+Forum](https://forum.syncthing.net/). For actionable bug reports and feature
+requests, please file issues in the [GitHub Issue
+Tracker](https://github.com/syncthing/syncthing/issues), using one of the
+provided templates.
 
- - What happened
-
- - What did you expect to happen instead of what *did* happen, if it's
-   not crazy obvious
-
- - What operating system, operating system version and version of
-   Syncthing you are running
-
- - The same for other connected devices, where relevant
-
- - Screenshot if the issue concerns something visible in the GUI
-
- - Console log entries, where possible and relevant
-
-If you're not sure whether something is relevant, erring on the side of
-too much information will never get you yelled at. :)
+:warning: Do not submit AI generated issues or comments. Report any details
+you experienced as a human, and let anyone who wants to perform AI analysis
+do so on their own.
 
 ## Contributing Translations
 
@@ -42,20 +31,17 @@ repository](https://github.com/syncthing/docs).
 
 ## Contributing Code
 
-Every contribution is welcome. If you want to contribute but are unsure
-where to start, any open issues are fair game! Here's a short rundown of
-what you need to keep in mind:
+We welcome contributions. However:
 
-- Don't worry. You are not expected to get everything right on the first
-  attempt, we'll guide you through it.
+:warning: We do not accept contributions that are wholly or mostly AI
+generated. You may assume that we are fully capable of prompting an AI
+ourselves when so inclined.
 
-- Make sure there is an
-  [issue](https://github.com/syncthing/syncthing/issues) that describes the
-  change you want to do. If the thing you want to do does not have an issue
-  yet, please file one before starting work on it.
-
-- Fork the repository and make your changes in a new branch. Once it's ready
-  for review, create a pull request.
+:warning: We do not accept unsolicited pull requests from new contributors.
+Most such contributions fall afoul of the previous rule. If yours does not,
+please post a message to the relevant issue with a link to your branch and a
+short description of the reasoning behind it. We'll take care of onboarding
+you.
 
 ### Authorship
 
@@ -205,4 +191,3 @@ otherwise stated this means MPLv2, but there are exceptions:
 
 Regardless of the license in effect, you retain the copyright to your
 contribution.
-
