@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/AudriusButkevicius/recli v0.0.7
-	github.com/alecthomas/kong v1.15.0
+	github.com/alecthomas/kong v1.16.0
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/calmh/incontainer v1.0.0
 	github.com/calmh/xdr v1.2.0
