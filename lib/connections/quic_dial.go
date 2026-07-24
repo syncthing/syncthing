@@ -12,9 +12,11 @@ package connections
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/quic-go/quic-go"
@@ -53,22 +55,67 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 		return internalConn{}, err
 	}
 
-	// If we created the conn we need to close it at the end. If we got a
-	// Transport from the registry we have no conn to close.
-	var createdConn net.PacketConn
 	transport, _ := d.registry.Get(uri.Scheme, transportConnUnspecified).(*quic.Transport)
-	if transport == nil {
-		if packetConn, err := net.ListenPacket("udp", ":0"); err != nil {
-			return internalConn{}, err
-		} else {
-			createdConn = packetConn
-			transport = &quic.Transport{Conn: packetConn}
+	if transport != nil {
+		conn, err := d.dial(ctx, transport, nil, addr)
+		if err == nil {
+			return conn, nil
 		}
+		if !isQUICDialTimeout(err) {
+			return internalConn{}, err
+		}
+
+		// The shared listener transport is useful for NAT traversal, but can
+		// get wedged in quic-go cleanup after network sleep/wake. Retry once
+		// with a fresh socket so the connection loop is not tied to that state.
+		l.Debugf("Dial (BEP/quic): shared transport timed out for %s, retrying with fresh transport: %v", uri, err)
 	}
 
+	return d.dialWithFreshTransport(ctx, addr)
+}
+
+type quicDialResult struct {
+	conn internalConn
+	err  error
+}
+
+func (d *quicDialer) dialWithFreshTransport(ctx context.Context, addr *net.UDPAddr) (internalConn, error) {
+	packetConn, err := net.ListenPacket("udp", ":0")
+	if err != nil {
+		return internalConn{}, err
+	}
+	return d.dial(ctx, &quic.Transport{Conn: packetConn}, packetConn, addr)
+}
+
+func (d *quicDialer) dial(ctx context.Context, transport *quic.Transport, createdConn net.PacketConn, addr *net.UDPAddr) (internalConn, error) {
 	ctx, cancel := context.WithTimeout(ctx, quicOperationTimeout)
 	defer cancel()
 
+	res := make(chan quicDialResult)
+	go func() {
+		conn, err := d.dialAndOpenStream(ctx, transport, createdConn, addr)
+		result := quicDialResult{conn: conn, err: err}
+		select {
+		case res <- result:
+		case <-ctx.Done():
+			if err == nil {
+				_ = conn.Close()
+			}
+		}
+	}()
+
+	select {
+	case result := <-res:
+		return result.conn, result.err
+	case <-ctx.Done():
+		if createdConn != nil {
+			_ = createdConn.Close()
+		}
+		return internalConn{}, ctx.Err()
+	}
+}
+
+func (d *quicDialer) dialAndOpenStream(ctx context.Context, transport *quic.Transport, createdConn net.PacketConn, addr *net.UDPAddr) (internalConn, error) {
 	session, err := transport.Dial(ctx, addr, d.tlsCfg, quicConfig)
 	if err != nil {
 		if createdConn != nil {
@@ -79,8 +126,9 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 
 	stream, err := session.OpenStreamSync(ctx)
 	if err != nil {
-		// It's ok to close these, this does not close the underlying packetConn.
-		_ = session.CloseWithError(1, err.Error())
+		// Close asynchronously: quic-go waits for connection teardown here,
+		// and a wedged teardown must not block the dial result.
+		go session.CloseWithError(1, err.Error())
 		if createdConn != nil {
 			_ = createdConn.Close()
 		}
@@ -94,6 +142,17 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 	}
 
 	return newInternalConn(&quicTlsConn{session, stream, createdConn}, connTypeQUICClient, isLocal, priority), nil
+}
+
+func isQUICDialTimeout(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	return strings.Contains(err.Error(), "no recent network activity")
 }
 
 type quicDialerFactory struct{}
