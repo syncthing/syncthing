@@ -76,39 +76,6 @@ func TestExternal(t *testing.T) {
 	}
 }
 
-func TestExternalCommandSplit(t *testing.T) {
-	e := external{
-		filesystem: fs.NewFilesystem(fs.FilesystemTypeFake, "TestExternalCommandSplit"),
-	}
-
-	cases := []struct {
-		cmd  string
-		safe bool
-	}{
-		{`echo %FOLDER_PATH% %FILE_PATH%`, true},
-		{`echo "%FOLDER_PATH% %FILE_PATH%"`, false},
-		{`echo %FOLDER_PATH%/%FILE_PATH%`, true},
-		{`echo "%FOLDER_PATH%/%FILE_PATH%"`, true},
-		{`echo '%FOLDER_PATH%/%FILE_PATH%'`, true},
-		{`echo "'%FOLDER_PATH%/%FILE_PATH%'"`, false},
-		{`sh -c "echo '%FOLDER_PATH%/%FILE_PATH%'"`, false},
-		{`sh -c "echo %FOLDER_PATH%/%FILE_PATH%"`, false},
-	}
-
-	for _, tc := range cases {
-		e.command = tc.cmd
-		res, err := e.prepareCommand("evil file name")
-		if tc.safe && err != nil {
-			t.Fatal(err)
-		}
-		if !tc.safe && err == nil {
-			t.Logf("%q", res.Path)
-			t.Logf("%q", res.Args)
-			t.Errorf("should be unsafe: %q", tc.cmd)
-		}
-	}
-}
-
 func prepForRemoval(t *testing.T, file string) {
 	if err := os.RemoveAll("testdata"); err != nil {
 		t.Fatal(err)
