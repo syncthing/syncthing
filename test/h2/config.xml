@@ -31,7 +31,7 @@
         <disableFsync>true</disableFsync>
         <blockPullOrder>standard</blockPullOrder>
         <copyRangeMethod>standard</copyRangeMethod>
-        <caseSensitiveFS>false</caseSensitiveFS>
+        <caseSensitiveFS>true</caseSensitiveFS>
         <junctionsAsDirs>true</junctionsAsDirs>
         <syncOwnership>false</syncOwnership>
         <sendOwnership>false</sendOwnership>
