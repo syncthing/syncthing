@@ -123,10 +123,12 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	oldData := []byte("hello\n")
 	knownFiles := setupKnownFiles(t, ffs, oldData)
 
-	// Send and index update for the known stuff
+	// Send an index update for the known stuff. Update the local index
+	// prior to getting index data from the remote device, so we avoid a
+	// pull starting and causing race flakiness for the rest of the test.
 
-	must(t, m.Index(conn, &protocol.Index{Folder: "ro", Files: knownFiles}))
 	f.updateLocalsFromScanning(knownFiles)
+	must(t, m.Index(conn, &protocol.Index{Folder: "ro", Files: knownFiles}))
 
 	// Scan the folder.
 
