@@ -1603,7 +1603,7 @@ func TestIgnores(t *testing.T) {
 		ID: "fresh", Path: "XXX",
 		FilesystemType: config.FilesystemTypeFake,
 	}
-	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(m.cfg.Options().CacheIgnoredFiles))
+	ignores := ignore.New(fcfg.Filesystem())
 	m.mut.Lock()
 	m.folderCfgs[fcfg.ID] = fcfg
 	m.folderIgnores[fcfg.ID] = ignores
@@ -1618,7 +1618,7 @@ func TestIgnores(t *testing.T) {
 	pausedDefaultFolderConfig := defaultFolderConfig
 	pausedDefaultFolderConfig.Paused = true
 
-	m.restartFolder(defaultFolderConfig, pausedDefaultFolderConfig, false)
+	m.restartFolder(defaultFolderConfig, pausedDefaultFolderConfig)
 	// Here folder initialization is not an issue as a paused folder isn't
 	// added to the model and thus there is no initial scan happening.
 
@@ -2216,7 +2216,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 		t.Error("expected two devices")
 	}
 
-	m.newFolder(defaultFolderConfig, false)
+	m.newFolder(defaultFolderConfig)
 	defer cleanupModel(m)
 
 	if devs, err := m.sdb.ListDevicesForFolder("default"); err != nil || len(devs) != 1 {

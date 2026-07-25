@@ -300,7 +300,7 @@ func (m *model) initFolders(cfg config.Configuration) error {
 			folderCfg.CreateRoot()
 			continue
 		}
-		err := m.newFolder(folderCfg, cfg.Options.CacheIgnoredFiles)
+		err := m.newFolder(folderCfg)
 		if err != nil {
 			return err
 		}
@@ -335,8 +335,8 @@ func (m *model) fatal(err error) {
 }
 
 // Need to hold lock on m.mut when calling this.
-func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration, cacheIgnoredFiles bool) {
-	ignores := ignore.New(cfg.Filesystem(), ignore.WithCache(cacheIgnoredFiles))
+func (m *model) addAndStartFolderLocked(cfg config.FolderConfiguration) {
+	ignores := ignore.New(cfg.Filesystem())
 	if cfg.Type != config.FolderTypeReceiveEncrypted {
 		if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 			slog.Error("Failed to load ignores", slogutil.Error(err))
@@ -509,7 +509,7 @@ func (m *model) cleanupFolderLocked(cfg config.FolderConfiguration) {
 	delete(m.folderEncryptionFailures, cfg.ID)
 }
 
-func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredFiles bool) error {
+func (m *model) restartFolder(from, to config.FolderConfiguration) error {
 	if to.ID == "" {
 		panic("bug: cannot restart empty folder ID")
 	}
@@ -539,7 +539,7 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 
 	m.cleanupFolderLocked(from)
 	if !to.Paused {
-		m.addAndStartFolderLocked(to, cacheIgnoredFiles)
+		m.addAndStartFolderLocked(to)
 	}
 
 	runner, _ := m.folderRunners.Get(to.ID)
@@ -560,11 +560,11 @@ func (m *model) restartFolder(from, to config.FolderConfiguration, cacheIgnoredF
 	return nil
 }
 
-func (m *model) newFolder(cfg config.FolderConfiguration, cacheIgnoredFiles bool) error {
+func (m *model) newFolder(cfg config.FolderConfiguration) error {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	m.addAndStartFolderLocked(cfg, cacheIgnoredFiles)
+	m.addAndStartFolderLocked(cfg)
 
 	// Cluster configs might be received and processed before reaching this
 	// point, i.e. before the folder is started. If that's the case, start
@@ -2972,7 +2972,7 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 				slog.Info("Paused folder", cfg.LogAttr())
 			} else {
 				slog.Info("Adding folder", cfg.LogAttr())
-				if err := m.newFolder(cfg, to.Options.CacheIgnoredFiles); err != nil {
+				if err := m.newFolder(cfg); err != nil {
 					m.fatal(err)
 					return true
 				}
@@ -2998,8 +2998,8 @@ func (m *model) CommitConfiguration(from, to config.Configuration) bool {
 
 		// This folder exists on both sides. Settings might have changed.
 		// Check if anything differs that requires a restart.
-		if !reflect.DeepEqual(fromCfg.RequiresRestartOnly(), toCfg.RequiresRestartOnly()) || from.Options.CacheIgnoredFiles != to.Options.CacheIgnoredFiles {
-			if err := m.restartFolder(fromCfg, toCfg, to.Options.CacheIgnoredFiles); err != nil {
+		if !reflect.DeepEqual(fromCfg.RequiresRestartOnly(), toCfg.RequiresRestartOnly()) {
+			if err := m.restartFolder(fromCfg, toCfg); err != nil {
 				m.fatal(err)
 				return true
 			}

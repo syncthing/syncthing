@@ -320,10 +320,6 @@ func migrateToConfigV15(cfg *Configuration) {
 }
 
 func migrateToConfigV14(cfg *Configuration) {
-	// Not using the ignore cache is the new default. Disable it on existing
-	// configurations.
-	cfg.Options.CacheIgnoredFiles = false
-
 	// Migrate UPnP -> NAT options
 	cfg.Options.NATEnabled = cfg.Options.DeprecatedUPnPEnabled
 	cfg.Options.DeprecatedUPnPEnabled = false

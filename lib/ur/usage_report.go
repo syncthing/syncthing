@@ -217,7 +217,6 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 		report.Uptime = s.UptimeS()
 		report.NATType = s.connectionsService.NATType()
 		report.AlwaysLocalNets = len(opts.AlwaysLocalNets) > 0
-		report.CacheIgnoredFiles = opts.CacheIgnoredFiles
 		report.OverwriteRemoteDeviceNames = opts.OverwriteRemoteDevNames
 		report.ProgressEmitterEnabled = opts.ProgressUpdateIntervalS > -1
 		report.CustomDefaultFolderPath = defaultFolder.Path != "~"

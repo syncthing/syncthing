@@ -250,7 +250,7 @@ func (*alwaysChanged) Changed() bool {
 func folderIgnoresAlwaysReload(t testing.TB, m *testModel, fcfg config.FolderConfiguration) {
 	t.Helper()
 	m.removeFolder(fcfg)
-	ignores := ignore.New(fcfg.Filesystem(), ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
+	ignores := ignore.New(fcfg.Filesystem(), ignore.WithChangeDetector(newAlwaysChanged()))
 	m.mut.Lock()
 	m.addAndStartFolderLockedWithIgnores(fcfg, ignores)
 	m.mut.Unlock()
