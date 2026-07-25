@@ -40,7 +40,11 @@ func IsErrCaseConflict(err error) bool {
 type realCaser interface {
 	realCase(name string) (string, error)
 	dropCache()
-	dropCacheFor(name string)
+	// noteAdded and noteRemoved keep the cached directory listings up to
+	// date after a successful mutation, so we don't have to re-read the
+	// directory from disk on the next lookup.
+	noteAdded(name string)
+	noteRemoved(name string)
 }
 
 type fskey struct {
@@ -182,7 +186,7 @@ func (f *caseFilesystem) Mkdir(name string, perm FileMode) error {
 	if err := f.Filesystem.Mkdir(name, perm); err != nil {
 		return err
 	}
-	f.dropCacheFor(name)
+	f.noteAdded(name)
 	return nil
 }
 
@@ -219,7 +223,7 @@ func (f *caseFilesystem) Remove(name string) error {
 	if err := f.Filesystem.Remove(name); err != nil {
 		return err
 	}
-	f.dropCacheFor(name)
+	f.noteRemoved(name)
 	return nil
 }
 
@@ -248,8 +252,8 @@ func (f *caseFilesystem) Rename(oldpath, newpath string) error {
 	if err := f.Filesystem.Rename(oldpath, newpath); err != nil {
 		return err
 	}
-	f.dropCacheFor(oldpath)
-	f.dropCacheFor(newpath)
+	f.noteRemoved(oldpath)
+	f.noteAdded(newpath)
 	return nil
 }
 
@@ -290,7 +294,11 @@ func (f *caseFilesystem) OpenFile(name string, flags int, mode FileMode) (File, 
 	if err != nil {
 		return nil, err
 	}
-	f.dropCacheFor(name)
+	if flags&OptCreate != 0 {
+		// Only a create can add a new directory entry; a plain open of an
+		// existing file leaves the listing unchanged.
+		f.noteAdded(name)
+	}
 	return file, nil
 }
 
@@ -309,7 +317,7 @@ func (f *caseFilesystem) Create(name string) (File, error) {
 	if err != nil {
 		return nil, err
 	}
-	f.dropCacheFor(name)
+	f.noteAdded(name)
 	return file, nil
 }
 
@@ -320,7 +328,7 @@ func (f *caseFilesystem) CreateSymlink(target, name string) error {
 	if err := f.Filesystem.CreateSymlink(target, name); err != nil {
 		return err
 	}
-	f.dropCacheFor(name)
+	f.noteAdded(name)
 	return nil
 }
 
@@ -425,27 +433,13 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 	}
 
 	for _, comp := range PathComponents(name) {
-		node := r.cache.getExpireAdd(realName, r.fs)
-
-		if node.err != nil {
-			return "", node.err
+		real, ok, err := r.cache.realName(realName, comp, r.fs)
+		if err != nil {
+			return "", err
 		}
-
-		real, ok := node.lowerToReal[UnicodeLowercaseNormalized(comp)]
 		if !ok {
 			return "", ErrNotExist
 		}
-		// If comp is itself an exact on-disk name we keep it as is. This
-		// only makes a difference on case-sensitive filesystems, where e.g.
-		// both "foo" and "Foo" can exist and lowerToReal records just one of
-		// them; the exactCase set then holds the colliding names so we can
-		// resolve comp precisely.
-		if real != comp {
-			if _, ok := node.exactCase[comp]; ok {
-				real = comp
-			}
-		}
-
 		realName = filepath.Join(realName, real)
 	}
 
@@ -456,37 +450,95 @@ func (r *defaultRealCaser) dropCache() {
 	r.cache.Purge()
 }
 
-// dropCacheFor invalidates only the cache entries affected by a change to
-// name: the listing of its parent directory (which gained or lost the entry)
-// and, in case name is itself a directory, its own listing. This keeps the
-// rest of the cache warm, which matters a lot during pulls where we otherwise
-// purged everything on every written file.
-func (r *defaultRealCaser) dropCacheFor(name string) {
-	name, err := Canonicalize(name)
-	if err != nil {
+// noteAdded and noteRemoved reflect a just-completed mutation of name in the
+// cache, so the parent directory's cached listing stays correct without having
+// to re-read it from disk. name is in the casing it was created/removed with,
+// which the case check preceding the mutation guarantees is the real on-disk
+// casing.
+func (r *defaultRealCaser) noteAdded(name string) {
+	if name, err := Canonicalize(name); err == nil {
+		r.cache.added(name)
+	} else {
 		// Shouldn't happen for a name we just operated on; be safe.
 		r.cache.Purge()
-		return
 	}
-	r.cache.Remove(name)
-	r.cache.Remove(filepath.Dir(name))
 }
 
-// getExpireAdd gets an entry for the given key. If no entry exists, or it is
-// expired a new one is created and added to the cache.
-func (c *caseCache) getExpireAdd(key string, fs Filesystem) *caseNode {
+func (r *defaultRealCaser) noteRemoved(name string) {
+	if name, err := Canonicalize(name); err == nil {
+		r.cache.removed(name)
+	} else {
+		r.cache.Purge()
+	}
+}
+
+// realName resolves a single path component within dir to its real, on-disk
+// name, reading (and caching) the directory listing as required. The bool is
+// false if there is no such entry.
+func (c *caseCache) realName(dir, comp string, fs Filesystem) (string, bool, error) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
-	node, ok := c.Get(key)
+	node := c.nodeFor(dir, fs)
+	if node.err != nil {
+		return "", false, node.err
+	}
+	real, ok := node.lowerToReal[UnicodeLowercaseNormalized(comp)]
 	if !ok {
-		node := newCaseNode(key, fs)
-		c.Add(key, node)
+		return "", false, nil
+	}
+	// If comp is itself an exact on-disk name we keep it as is. This only
+	// makes a difference on case-sensitive filesystems, where e.g. both "foo"
+	// and "Foo" can exist and lowerToReal records just one of them; the
+	// exactCase set then holds the colliding names so we can resolve comp
+	// precisely.
+	if real != comp {
+		if _, ok := node.exactCase[comp]; ok {
+			real = comp
+		}
+	}
+	return real, true, nil
+}
+
+// added updates the cached listing of name's parent directory to include name,
+// and drops any cached listing for name itself (relevant when name is a
+// directory being (re)created). The caller holds no locks.
+func (c *caseCache) added(name string) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	c.Remove(name)
+	if node, ok := c.Get(filepath.Dir(name)); ok && node.err == nil {
+		node.add(filepath.Base(name))
+	}
+}
+
+// removed updates the cached listing of name's parent directory to no longer
+// include name, and drops any cached listing for name itself.
+func (c *caseCache) removed(name string) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	c.Remove(name)
+	node, ok := c.Get(filepath.Dir(name))
+	if !ok || node.err != nil {
+		return
+	}
+	if node.exactCase != nil {
+		// Case-colliding entries (only possible on a case-sensitive
+		// filesystem) make precise incremental removal awkward; just drop the
+		// listing and let it be re-read on the next lookup.
+		c.Remove(filepath.Dir(name))
+		return
+	}
+	delete(node.lowerToReal, UnicodeLowercaseNormalized(filepath.Base(name)))
+}
+
+// nodeFor returns a non-expired cache node for dir, reading the directory and
+// populating the cache if necessary. The caller must hold c.mut.
+func (c *caseCache) nodeFor(dir string, fs Filesystem) *caseNode {
+	if node, ok := c.Get(dir); ok && node.expires.After(time.Now()) {
 		return node
 	}
-	if node.expires.Before(time.Now()) {
-		node = newCaseNode(key, fs)
-		c.Add(key, node)
-	}
+	node := newCaseNode(dir, fs)
+	c.Add(dir, node)
 	return node
 }
 
@@ -518,18 +570,25 @@ func newCaseNode(name string, filesystem Filesystem) *caseNode {
 
 	node.lowerToReal = make(map[string]string, len(dirNames))
 	for _, n := range dirNames {
-		lower := UnicodeLowercaseNormalized(n)
-		if existing, ok := node.lowerToReal[lower]; ok && existing != n {
-			// Two entries with the same normalised form: only possible on a
-			// case-sensitive underlying filesystem. Record both exact names.
-			if node.exactCase == nil {
-				node.exactCase = make(map[string]struct{})
-			}
-			node.exactCase[existing] = struct{}{}
-			node.exactCase[n] = struct{}{}
-		}
-		node.lowerToReal[lower] = n
+		node.add(n)
 	}
 
 	return node
+}
+
+// add records a single entry (a bare name, no path separator) in the node. It
+// is used both when first populating the node and to keep it up to date after
+// a file with the given name is created.
+func (node *caseNode) add(name string) {
+	lower := UnicodeLowercaseNormalized(name)
+	if existing, ok := node.lowerToReal[lower]; ok && existing != name {
+		// Two entries with the same normalised form: only possible on a
+		// case-sensitive underlying filesystem. Record both exact names.
+		if node.exactCase == nil {
+			node.exactCase = make(map[string]struct{})
+		}
+		node.exactCase[existing] = struct{}{}
+		node.exactCase[name] = struct{}{}
+	}
+	node.lowerToReal[lower] = name
 }
