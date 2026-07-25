@@ -398,6 +398,25 @@
             </div>
           </div>
 
+          <div class="row">
+            <div class="col-md-6 form-group">
+              <p>
+                <label translate>Conflict Handling</label>
+                &nbsp;<a href="{{docsURL('users/syncing#conflicting-changes')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+              </p>
+
+              <label translate>Maximum Conflicts</label>
+              <input type="number" min="-1" ng-model="currentFolder.maxConflicts" class="form-control" />
+              <p translate class="help-block">
+                The maximum number of conflict files that Syncthing will keep per file. Set to zero to disable conflict files. Set to -1 to allow infinite conflict files.
+              </p>
+
+              <label translate>Conflict Handling Command</label>
+              &nbsp;<a href="{{docsURL('users/config#conflictHandlingCommand')}}" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+              <input type="text" ng-model="currentFolder.conflictHandlingCommand" class="form-control" />
+            </div>
+          </div>
+
           <div class="row" ng-if="currentFolder.syncXattrs || currentFolder.sendXattrs">
             <div class="col-md-12">
               <p>

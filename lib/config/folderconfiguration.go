@@ -71,6 +71,7 @@ type FolderConfiguration struct {
 	PullerPauseS            int                         `json:"pullerPauseS" xml:"pullerPauseS"`
 	PullerDelayS            float64                     `json:"pullerDelayS" xml:"pullerDelayS" default:"1"`
 	MaxConflicts            int                         `json:"maxConflicts" xml:"maxConflicts" default:"10"`
+	ConflictHandlingCommand string                      `json:"conflictHandlingCommand" xml:"conflictHandlingCommand"`
 	DisableSparseFiles      bool                        `json:"disableSparseFiles" xml:"disableSparseFiles"`
 	Paused                  bool                        `json:"paused" xml:"paused"`
 	MarkerName              string                      `json:"markerName" xml:"markerName"`
