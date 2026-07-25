@@ -499,7 +499,7 @@ func newCaseNode(name string, filesystem Filesystem) *caseNode {
 		lower := UnicodeLowercaseNormalized(n)
 		if lower != lastLower {
 			node.lowerToReal[lower] = n
-			lastLower = n
+			lastLower = lower
 		}
 	}
 
