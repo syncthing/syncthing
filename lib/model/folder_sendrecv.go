@@ -243,10 +243,10 @@ func (f *sendReceiveFolder) pullerIteration(ctx context.Context, scanChan chan<-
 	f.tempPullErrors = make(map[string]string)
 	f.errorsMut.Unlock()
 
-	pullChan := make(chan pullBlockState)
-	copyChan := make(chan copyBlocksState)
-	finisherChan := make(chan *sharedPullerState)
-	dbUpdateChan := make(chan dbUpdateJob)
+	pullChan := make(chan pullBlockState, f.Copiers)
+	copyChan := make(chan copyBlocksState, f.Copiers)
+	finisherChan := make(chan *sharedPullerState, f.Copiers)
+	dbUpdateChan := make(chan dbUpdateJob, f.Copiers)
 
 	var pullWg sync.WaitGroup
 	var copyWg sync.WaitGroup
@@ -274,9 +274,11 @@ func (f *sendReceiveFolder) pullerIteration(ctx context.Context, scanChan chan<-
 	})
 
 	// finisherRoutine finishes when finisherChan is closed
-	doneWg.Go(func() {
-		f.finisherRoutine(ctx, finisherChan, dbUpdateChan, scanChan)
-	})
+	for range f.Copiers {
+		doneWg.Go(func() {
+			f.finisherRoutine(ctx, finisherChan, dbUpdateChan, scanChan)
+		})
+	}
 
 	fileDeletions, dirDeletions, err := f.processNeeded(ctx, dbUpdateChan, copyChan, scanChan)
 
@@ -1772,21 +1774,10 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) in
 	tick := time.NewTicker(maxBatchTime)
 	defer tick.Stop()
 	batch := NewFileInfoBatch(func(files []protocol.FileInfo) error {
-		// sync directories
-		for dir := range changedDirs {
-			delete(changedDirs, dir)
-			if !f.DisableFsync {
-				fd, err := f.mtimefs.Open(dir)
-				if err != nil {
-					f.sl.Debug("Fsync failed", slogutil.FilePath(dir), slogutil.Error(err))
-					continue
-				}
-				if err := fd.Sync(); err != nil {
-					f.sl.Debug("Fsync failed", slogutil.FilePath(dir), slogutil.Error(err))
-				}
-				fd.Close()
-			}
+		if !f.DisableFsync {
+			f.fsyncDirs(changedDirs)
 		}
+		clear(changedDirs)
 
 		// All updates to file/folder objects that originated remotely
 		// (across the network) use this call to updateLocals
@@ -1838,6 +1829,27 @@ loop:
 
 	batch.Flush()
 	return changed
+}
+
+func (f *sendReceiveFolder) fsyncDirs(changedDirs map[string]struct{}) {
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, f.Copiers)
+	for dir := range changedDirs {
+		sem <- struct{}{}
+		wg.Go(func() {
+			defer func() { <-sem }()
+			fd, err := f.mtimefs.Open(dir)
+			if err != nil {
+				f.sl.Debug("Fsync failed", slogutil.FilePath(dir), slogutil.Error(err))
+				return
+			}
+			if err := fd.Sync(); err != nil {
+				f.sl.Debug("Fsync failed", slogutil.FilePath(dir), slogutil.Error(err))
+			}
+			fd.Close()
+		})
+	}
+	wg.Wait()
 }
 
 // pullScannerRoutine aggregates paths to be scanned after pulling. The scan is
