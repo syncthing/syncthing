@@ -222,7 +222,7 @@
                   <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreDevice(deviceID, pendingDevice)" tooltip data-original-title="{{'Permanently add it to the ignore list, suppressing further notifications.' | translate}}">
                     <span class="fas fa-times"></span>&nbsp;<span translate>Ignore</span>
                   </button>
-                  <button type="button" class="btn btn-sm btn-default" ng-click="dismissPendingDevice(deviceID)" tooltip data-original-title="{{'Do not add it to the ignore list, so this notification may recur.' | translate}}">
+                  <button type="button" class="btn btn-sm btn-default" ng-click="dismissPendingDevice(deviceID)" tooltip data-original-title="{{'Do not add it to the ignore list, so this notification will reappear if the device connects again.' | translate}}">
                     <span class="far fa-clock"></span>&nbsp;<span translate>Dismiss</span>
                   </button>
                 </div>
@@ -269,7 +269,7 @@
                     <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreFolder(deviceID, folderID, offeringDevice)" tooltip data-original-title="{{'Permanently add it to the ignore list, suppressing further notifications.' | translate}}">
                       <span class="fas fa-times"></span>&nbsp;<span translate>Ignore</span>
                     </button>
-                    <button type="button" class="btn btn-sm btn-default" ng-click="dismissPendingFolder(folderID, deviceID)" tooltip data-original-title="{{'Do not add it to the ignore list, so this notification may recur.' | translate}}">
+                    <button type="button" class="btn btn-sm btn-default" ng-click="dismissPendingFolder(folderID, deviceID)" tooltip data-original-title="{{'Do not add it to the ignore list, so this notification will reappear if the device offering this folder connects again.' | translate}}">
                       <span class="far fa-clock"></span>&nbsp;<span translate>Dismiss</span>
                     </button>
                   </div>
