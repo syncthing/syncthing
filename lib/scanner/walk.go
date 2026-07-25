@@ -471,6 +471,8 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	f.RawBlockSize = int32(blockSize)
 	l.Debugln(w, "checking:", f)
 
+	f.New = !hasCurFile
+
 	if hasCurFile {
 		if curFile.IsEquivalentOptional(f, protocol.FileInfoComparison{
 			ModTimeWindow:   w.ModTimeWindow,
@@ -517,6 +519,8 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 	f = w.updateFileInfo(f, curFile)
 	f.NoPermissions = w.IgnorePerms
 	l.Debugln(w, "checking:", f)
+
+	f.New = !hasCurFile
 
 	if hasCurFile {
 		if curFile.IsEquivalentOptional(f, protocol.FileInfoComparison{
@@ -569,6 +573,8 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, info fs.FileIn
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 	f = w.updateFileInfo(f, curFile)
 	l.Debugln(w, "checking:", f)
+
+	f.New = !hasCurFile
 
 	if hasCurFile {
 		if curFile.IsEquivalentOptional(f, protocol.FileInfoComparison{
