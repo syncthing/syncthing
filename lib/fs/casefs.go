@@ -40,9 +40,6 @@ func IsErrCaseConflict(err error) bool {
 type realCaser interface {
 	realCase(name string) (string, error)
 	dropCache()
-	// noteAdded and noteRemoved keep the cached directory listings up to date
-	// after a successful mutation, so we needn't re-read the directory from
-	// disk on the next lookup.
 	noteAdded(name string)
 	noteRemoved(name string)
 }
