@@ -102,7 +102,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 	}
 	defer udpConn.Close()
 
-	quicTransport := &quic.Transport{Conn: udpConn}
+	quicTransport := &quic.Transport{Conn: newQUICUDPConn(udpConn)}
 	defer quicTransport.Close()
 
 	svc := stun.New(t.cfg, t, &transportPacketConn{tran: quicTransport})

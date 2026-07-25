@@ -14,6 +14,7 @@ import (
 	"crypto/tls"
 	"net"
 	"net/url"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -26,6 +27,8 @@ var quicConfig = &quic.Config{
 	MaxIdleTimeout:  30 * time.Second,
 	KeepAlivePeriod: 15 * time.Second,
 }
+
+const quicUDPWriteTimeout = 10 * time.Second
 
 func quicNetwork(uri *url.URL) string {
 	switch uri.Scheme {
@@ -74,6 +77,47 @@ func transportConnUnspecified(conn any) bool {
 	addr := tran.Conn.LocalAddr()
 	ip, err := osutil.IPFromAddr(addr)
 	return err == nil && ip.IsUnspecified()
+}
+
+// quicUDPConn bounds writes made by quic-go to the UDP socket. On some
+// platforms a socket can get stuck writing after sleep/wake, and quic-go waits
+// for pending writes while tearing down timed-out dials.
+type quicUDPConn struct {
+	*net.UDPConn
+
+	writeMut sync.Mutex
+	timeout  time.Duration
+}
+
+func newQUICUDPConn(conn *net.UDPConn) *quicUDPConn {
+	return &quicUDPConn{
+		UDPConn: conn,
+		timeout: quicUDPWriteTimeout,
+	}
+}
+
+func (c *quicUDPConn) WriteTo(p []byte, addr net.Addr) (int, error) {
+	c.writeMut.Lock()
+
+	_ = c.UDPConn.SetWriteDeadline(time.Now().Add(c.timeout))
+	defer func() {
+		_ = c.UDPConn.SetWriteDeadline(time.Time{})
+		c.writeMut.Unlock()
+	}()
+
+	return c.UDPConn.WriteTo(p, addr)
+}
+
+func (c *quicUDPConn) WriteMsgUDP(p, oob []byte, addr *net.UDPAddr) (int, int, error) {
+	c.writeMut.Lock()
+
+	_ = c.UDPConn.SetWriteDeadline(time.Now().Add(c.timeout))
+	defer func() {
+		_ = c.UDPConn.SetWriteDeadline(time.Time{})
+		c.writeMut.Unlock()
+	}()
+
+	return c.UDPConn.WriteMsgUDP(p, oob, addr)
 }
 
 // A transportPacketConn is a net.PacketConn that uses a quic.Transport.
