@@ -745,15 +745,12 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 		switch f.Type {
 		case config.FolderTypeReceiveOnly, config.FolderTypeReceiveEncrypted:
 		default:
-			// Rename detection is comparatively expensive, so only attempt it
-			// for files that genuinely appeared new on disk during this scan.
-			// As a consequence a rename that overwrites an existing file (the
-			// destination path already had an entry, so it scans as an update
-			// rather than a new file) is not recognised as a rename and instead
-			// syncs as a separate delete plus content change. That is still
-			// correct, just not bandwidth-optimised, and is a deliberate
-			// trade-off to avoid the rename lookup on every updated file.
-			if res.File.New {
+			// Rename detection is comparatively expensive, so only attempt
+			// it for files that appeared as new on disk during this scan. A
+			// rename that overwrites an existing file (the destination path
+			// already had an entry, so it scans as an update rather than a
+			// new file) is not optimised as a rename.
+			if res.File.New && res.File.Size > 0 {
 				if nf, ok := f.findRename(ctx, res.File, batch); ok {
 					if ok, err := batch.Update(nf); err != nil {
 						return 0, err
