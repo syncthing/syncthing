@@ -40,6 +40,7 @@ func IsErrCaseConflict(err error) bool {
 type realCaser interface {
 	realCase(name string) (string, error)
 	dropCache()
+	dropCacheFor(name string)
 }
 
 type fskey struct {
@@ -181,7 +182,7 @@ func (f *caseFilesystem) Mkdir(name string, perm FileMode) error {
 	if err := f.Filesystem.Mkdir(name, perm); err != nil {
 		return err
 	}
-	f.dropCache()
+	f.dropCacheFor(name)
 	return nil
 }
 
@@ -218,7 +219,7 @@ func (f *caseFilesystem) Remove(name string) error {
 	if err := f.Filesystem.Remove(name); err != nil {
 		return err
 	}
-	f.dropCache()
+	f.dropCacheFor(name)
 	return nil
 }
 
@@ -247,7 +248,8 @@ func (f *caseFilesystem) Rename(oldpath, newpath string) error {
 	if err := f.Filesystem.Rename(oldpath, newpath); err != nil {
 		return err
 	}
-	f.dropCache()
+	f.dropCacheFor(oldpath)
+	f.dropCacheFor(newpath)
 	return nil
 }
 
@@ -288,7 +290,7 @@ func (f *caseFilesystem) OpenFile(name string, flags int, mode FileMode) (File, 
 	if err != nil {
 		return nil, err
 	}
-	f.dropCache()
+	f.dropCacheFor(name)
 	return file, nil
 }
 
@@ -307,7 +309,7 @@ func (f *caseFilesystem) Create(name string) (File, error) {
 	if err != nil {
 		return nil, err
 	}
-	f.dropCache()
+	f.dropCacheFor(name)
 	return file, nil
 }
 
@@ -318,7 +320,7 @@ func (f *caseFilesystem) CreateSymlink(target, name string) error {
 	if err := f.Filesystem.CreateSymlink(target, name); err != nil {
 		return err
 	}
-	f.dropCache()
+	f.dropCacheFor(name)
 	return nil
 }
 
@@ -429,15 +431,22 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 			return "", node.err
 		}
 
-		// Try to find a direct or case match
-		if _, ok := node.children[comp]; !ok {
-			comp, ok = node.lowerToReal[UnicodeLowercaseNormalized(comp)]
-			if !ok {
-				return "", ErrNotExist
+		real, ok := node.lowerToReal[UnicodeLowercaseNormalized(comp)]
+		if !ok {
+			return "", ErrNotExist
+		}
+		// If comp is itself an exact on-disk name we keep it as is. This
+		// only makes a difference on case-sensitive filesystems, where e.g.
+		// both "foo" and "Foo" can exist and lowerToReal records just one of
+		// them; the exactCase set then holds the colliding names so we can
+		// resolve comp precisely.
+		if real != comp {
+			if _, ok := node.exactCase[comp]; ok {
+				real = comp
 			}
 		}
 
-		realName = filepath.Join(realName, comp)
+		realName = filepath.Join(realName, real)
 	}
 
 	return realName, nil
@@ -445,6 +454,22 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 
 func (r *defaultRealCaser) dropCache() {
 	r.cache.Purge()
+}
+
+// dropCacheFor invalidates only the cache entries affected by a change to
+// name: the listing of its parent directory (which gained or lost the entry)
+// and, in case name is itself a directory, its own listing. This keeps the
+// rest of the cache warm, which matters a lot during pulls where we otherwise
+// purged everything on every written file.
+func (r *defaultRealCaser) dropCacheFor(name string) {
+	name, err := Canonicalize(name)
+	if err != nil {
+		// Shouldn't happen for a name we just operated on; be safe.
+		r.cache.Purge()
+		return
+	}
+	r.cache.Remove(name)
+	r.cache.Remove(filepath.Dir(name))
 }
 
 // getExpireAdd gets an entry for the given key. If no entry exists, or it is
@@ -465,17 +490,18 @@ func (c *caseCache) getExpireAdd(key string, fs Filesystem) *caseNode {
 	return node
 }
 
-// The keys to children are "real", case resolved names of the path
-// component this node represents (i.e. containing no path separator).
-// lowerToReal is a map of lowercase path components (as in UnicodeLowercase)
-// to their corresponding "real", case resolved names.
-// A node is created empty and populated using once. If an error occurs the node
-// is removed from cache and the error stored in err, such that anyone that
-// already got the node doesn't try to access the nil maps.
+// A caseNode holds the directory listing of a single directory. lowerToReal
+// maps the case-normalised form of each entry (as in UnicodeLowercaseNormalized)
+// to its "real", on-disk name. exactCase is normally nil and only populated on
+// case-sensitive filesystems, where multiple entries can share a normalised
+// form (e.g. "foo" and "Foo"); it then holds the exact on-disk names of those
+// colliding entries so realCase can resolve them precisely. If listing the
+// directory fails the error is stored in err, so that anyone who got the node
+// doesn't try to access the nil maps.
 type caseNode struct {
 	expires     time.Time
 	lowerToReal map[string]string
-	children    map[string]struct{}
+	exactCase   map[string]struct{}
 	err         error
 }
 
@@ -490,17 +516,19 @@ func newCaseNode(name string, filesystem Filesystem) *caseNode {
 		return node
 	}
 
-	num := len(dirNames)
-	node.children = make(map[string]struct{}, num)
-	node.lowerToReal = make(map[string]string, num)
-	lastLower := ""
+	node.lowerToReal = make(map[string]string, len(dirNames))
 	for _, n := range dirNames {
-		node.children[n] = struct{}{}
 		lower := UnicodeLowercaseNormalized(n)
-		if lower != lastLower {
-			node.lowerToReal[lower] = n
-			lastLower = lower
+		if existing, ok := node.lowerToReal[lower]; ok && existing != n {
+			// Two entries with the same normalised form: only possible on a
+			// case-sensitive underlying filesystem. Record both exact names.
+			if node.exactCase == nil {
+				node.exactCase = make(map[string]struct{})
+			}
+			node.exactCase[existing] = struct{}{}
+			node.exactCase[n] = struct{}{}
 		}
+		node.lowerToReal[lower] = n
 	}
 
 	return node

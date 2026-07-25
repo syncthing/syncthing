@@ -225,6 +225,71 @@ func BenchmarkWalkCaseFakeFS100k(b *testing.B) {
 	})
 }
 
+func BenchmarkPullCaseFakeFS(b *testing.B) {
+	// Simulate a puller writing new files. For each file we do the same
+	// sequence of filesystem operations as performFinish: create a temp file,
+	// set its permissions, stat the target, rename the temp into place and set
+	// the modification time. Files are spread across a number of directories.
+	// Unlike the walk benchmark (which only reads) this exercises the
+	// checkCase and cache-invalidation paths hit during a sync.
+	const (
+		files = 10_000
+		dirs  = 200
+	)
+
+	fsys := NewFilesystem(FilesystemTypeFake, "pull-bench?insens=true")
+	for d := 0; d < dirs; d++ {
+		if err := fsys.MkdirAll(fmt.Sprintf("dir%d", d), 0o755); err != nil {
+			b.Fatal(err)
+		}
+	}
+	fakefs, ok := unwrapFilesystem[*fakeFS](fsys)
+	if !ok {
+		panic("expected unwrap to fakefs")
+	}
+
+	data := []byte("some file content of no particular importance")
+
+	fakefs.resetCounters()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// Construct the casefs manually or it will get cached and the
+		// benchmark is invalid. A fresh (cold) cache per iteration mimics the
+		// start of a sync.
+		casefs := &caseFilesystem{
+			Filesystem: fsys,
+			realCaser: &defaultRealCaser{
+				fs:    fsys,
+				cache: newCaseCache(),
+			},
+		}
+		for f := 0; f < files; f++ {
+			name := fmt.Sprintf("dir%d/file%d-%d", f%dirs, i, f)
+			tmp := TempName(name)
+			fd, err := casefs.OpenFile(tmp, OptReadWrite|OptCreate|OptExclusive, 0o666)
+			if err != nil {
+				b.Fatal(err)
+			}
+			fd.Write(data)
+			fd.Close()
+			if err := casefs.Chmod(tmp, 0o644); err != nil {
+				b.Fatal(err)
+			}
+			if _, err := casefs.Lstat(name); err != nil && !IsNotExist(err) {
+				b.Fatal(err)
+			}
+			if err := casefs.Rename(tmp, name); err != nil {
+				b.Fatal(err)
+			}
+			_ = casefs.Chtimes(name, time.Time{}, time.Time{})
+		}
+	}
+	b.StopTimer()
+
+	fakefs.reportMetricsPer(b, files, "file")
+	b.ReportAllocs()
+}
+
 func benchmarkWalkFakeFS(b *testing.B, fsys Filesystem, paths []string, otherOpEvery int, otherOpPath string) {
 	// Simulate a scanner pass over the filesystem. First walk it to
 	// discover all names, then stat each name individually to check if it's
