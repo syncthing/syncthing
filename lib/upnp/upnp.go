@@ -554,7 +554,7 @@ func replaceRawPath(u *url.URL, rp string) {
 			q = fs[1]
 		}
 
-		if p[0] == '/' {
+		if p != "" && p[0] == '/' {
 			u.Path = p
 		} else {
 			u.Path += p
