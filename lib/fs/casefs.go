@@ -477,9 +477,8 @@ func (r *defaultRealCaser) noteRemoved(name string) {
 	}
 }
 
-// added updates the cached listing of name's parent directory to include name,
-// dropping any cached listing for name itself (relevant when name is a
-// directory being (re)created).
+// added updates the cached listing of name's parent directory to include
+// name, dropping any cached listing for name itself.
 func (c *caseCache) added(name string) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
@@ -506,7 +505,7 @@ func (c *caseCache) removed(name string) {
 	if len(node.children) != len(node.lowerToReal) {
 		// Some entries share a lowercase form, only possible on a
 		// case-sensitive filesystem. That makes precise incremental removal
-		// awkward, so just drop the listing and let it be re-read.
+		// awkward, so drop the listing and let it be re-read.
 		c.Remove(filepath.Dir(name))
 		return
 	}
