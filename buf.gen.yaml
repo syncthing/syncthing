@@ -1,6 +1,8 @@
 version: v2
 managed:
   enabled: true
+  disable:
+    - module: buf.build/bufbuild/protovalidate
   override:
     - file_option: go_package_prefix
       value: github.com/syncthing/syncthing/internal/gen

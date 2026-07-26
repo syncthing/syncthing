@@ -94,7 +94,7 @@ func (e encryptedModel) Request(req *Request) (RequestResponse, error) {
 	realSize := req.Size - blockOverhead
 	realOffset := req.Offset - int64(req.BlockNo*blockOverhead)
 	if realOffset < 0 {
-		panic("bug: realOffset underflow")
+		return nil, errors.New("invalid request: negative offset")
 	}
 
 	if req.Size < minPaddedSize {
