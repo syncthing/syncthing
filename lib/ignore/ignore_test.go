@@ -299,6 +299,17 @@ func TestCommentsAndBlankLines(t *testing.T) {
 	}
 }
 
+func TestNegatedGlobstarOnly(t *testing.T) {
+	testFs := newTestFS()
+
+	pats := New(testFs)
+	if err := pats.Parse(bytes.NewBufferString("!**/\n"), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+	// Must not panic on an empty pattern component.
+	pats.Match("foo")
+}
+
 var result ignoreresult.R
 
 func BenchmarkMatch(b *testing.B) {
