@@ -156,39 +156,40 @@ type caseFilesystem struct {
 }
 
 func (f *caseFilesystem) Chmod(name string, mode FileMode) error {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return err
 	}
 	return f.Filesystem.Chmod(name, mode)
 }
 
 func (f *caseFilesystem) Lchown(name, uid, gid string) error {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return err
 	}
 	return f.Filesystem.Lchown(name, uid, gid)
 }
 
 func (f *caseFilesystem) Chtimes(name string, atime time.Time, mtime time.Time) error {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return err
 	}
 	return f.Filesystem.Chtimes(name, atime, mtime)
 }
 
 func (f *caseFilesystem) Mkdir(name string, perm FileMode) error {
-	if err := f.checkCase(name); err != nil {
+	can, err := f.checkCase(name)
+	if err != nil {
 		return err
 	}
 	if err := f.Filesystem.Mkdir(name, perm); err != nil {
 		return err
 	}
-	f.noteAdded(name)
+	f.noteAdded(can)
 	return nil
 }
 
 func (f *caseFilesystem) MkdirAll(path string, perm FileMode) error {
-	if err := f.checkCase(path); err != nil {
+	if _, err := f.checkCase(path); err != nil {
 		return err
 	}
 	if err := f.Filesystem.MkdirAll(path, perm); err != nil {
@@ -207,25 +208,26 @@ func (f *caseFilesystem) Lstat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = f.checkCaseExisting(name); err != nil {
+	if _, err = f.checkCaseExisting(name); err != nil {
 		return nil, err
 	}
 	return stat, nil
 }
 
 func (f *caseFilesystem) Remove(name string) error {
-	if err := f.checkCase(name); err != nil {
+	can, err := f.checkCase(name)
+	if err != nil {
 		return err
 	}
 	if err := f.Filesystem.Remove(name); err != nil {
 		return err
 	}
-	f.noteRemoved(name)
+	f.noteRemoved(can)
 	return nil
 }
 
 func (f *caseFilesystem) RemoveAll(name string) error {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return err
 	}
 	if err := f.Filesystem.RemoveAll(name); err != nil {
@@ -236,10 +238,12 @@ func (f *caseFilesystem) RemoveAll(name string) error {
 }
 
 func (f *caseFilesystem) Rename(oldpath, newpath string) error {
-	if err := f.checkCase(oldpath); err != nil {
+	oldcan, err := f.checkCase(oldpath)
+	if err != nil {
 		return err
 	}
-	if err := f.checkCase(newpath); err != nil {
+	newcan, err := f.checkCase(newpath)
+	if err != nil {
 		// Case-only rename is ok
 		e := &CaseConflictError{}
 		if !errors.As(err, &e) || e.Real != oldpath {
@@ -249,8 +253,8 @@ func (f *caseFilesystem) Rename(oldpath, newpath string) error {
 	if err := f.Filesystem.Rename(oldpath, newpath); err != nil {
 		return err
 	}
-	f.noteRemoved(oldpath)
-	f.noteAdded(newpath)
+	f.noteRemoved(oldcan)
+	f.noteAdded(newcan)
 	return nil
 }
 
@@ -263,65 +267,68 @@ func (f *caseFilesystem) Stat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = f.checkCaseExisting(name); err != nil {
+	if _, err = f.checkCaseExisting(name); err != nil {
 		return nil, err
 	}
 	return stat, nil
 }
 
 func (f *caseFilesystem) DirNames(name string) ([]string, error) {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return nil, err
 	}
 	return f.Filesystem.DirNames(name)
 }
 
 func (f *caseFilesystem) Open(name string) (File, error) {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return nil, err
 	}
 	return f.Filesystem.Open(name)
 }
 
 func (f *caseFilesystem) OpenFile(name string, flags int, mode FileMode) (File, error) {
-	if err := f.checkCase(name); err != nil {
+	can, err := f.checkCase(name)
+	if err != nil {
 		return nil, err
 	}
 	file, err := f.Filesystem.OpenFile(name, flags, mode)
 	if err != nil {
 		return nil, err
 	}
-	f.noteAdded(name)
+	f.noteAdded(can)
 	return file, nil
 }
 
 func (f *caseFilesystem) ReadSymlink(name string) (string, error) {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return "", err
 	}
 	return f.Filesystem.ReadSymlink(name)
 }
 
 func (f *caseFilesystem) Create(name string) (File, error) {
-	if err := f.checkCase(name); err != nil {
+	can, err := f.checkCase(name)
+	if err != nil {
 		return nil, err
 	}
 	file, err := f.Filesystem.Create(name)
 	if err != nil {
 		return nil, err
 	}
-	f.noteAdded(name)
+	f.noteAdded(can)
 	return file, nil
 }
 
 func (f *caseFilesystem) CreateSymlink(target, name string) error {
-	if err := f.checkCase(name); err != nil {
+	can, err := f.checkCase(name)
+	if err != nil {
 		return err
 	}
 	if err := f.Filesystem.CreateSymlink(target, name); err != nil {
 		return err
 	}
-	f.noteAdded(name)
+	f.noteAdded(can)
 	return nil
 }
 
@@ -329,28 +336,28 @@ func (f *caseFilesystem) Walk(root string, walkFn WalkFunc) error {
 	// Walking the filesystem is likely (in Syncthing's case certainly) done
 	// to pick up external changes, for which caching is undesirable.
 	f.dropCache()
-	if err := f.checkCase(root); err != nil {
+	if _, err := f.checkCase(root); err != nil {
 		return err
 	}
 	return f.Filesystem.Walk(root, walkFn)
 }
 
 func (f *caseFilesystem) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
-	if err := f.checkCase(path); err != nil {
+	if _, err := f.checkCase(path); err != nil {
 		return nil, nil, err
 	}
 	return f.Filesystem.Watch(path, ignore, ctx, ignorePerms)
 }
 
 func (f *caseFilesystem) Hide(name string) error {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return err
 	}
 	return f.Filesystem.Hide(name)
 }
 
 func (f *caseFilesystem) Unhide(name string) error {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return err
 	}
 	return f.Filesystem.Unhide(name)
@@ -360,25 +367,25 @@ func (f *caseFilesystem) underlying() (Filesystem, bool) {
 	return f.Filesystem, true
 }
 
-func (f *caseFilesystem) checkCase(name string) error {
+func (f *caseFilesystem) checkCase(name string) (string, error) {
 	var err error
 	if name, err = Canonicalize(name); err != nil {
-		return err
+		return "", err
 	}
 	// Stat is necessary for case sensitive FS, as it's then not a conflict
 	// if name is e.g. "foo" and on dir there is "Foo".
 	if _, err := f.Filesystem.Lstat(name); err != nil {
 		if IsNotExist(err) {
-			return nil
+			return name, nil
 		}
-		return err
+		return "", err
 	}
 	return f.checkCaseExisting(name)
 }
 
 // checkCaseExisting must only be called after successfully canonicalizing and
 // stating the file.
-func (f *caseFilesystem) checkCaseExisting(name string) error {
+func (f *caseFilesystem) checkCaseExisting(name string) (string, error) {
 	realName, err := f.realCase(name)
 	if IsNotExist(err) {
 		// It did exist just before -> cache is outdated, try again
@@ -386,15 +393,15 @@ func (f *caseFilesystem) checkCaseExisting(name string) error {
 		realName, err = f.realCase(name)
 	}
 	if err != nil {
-		return err
+		return "", err
 	}
 	// We normalize the normalization (hah!) of the strings before
 	// comparing, as we don't want to treat a normalization difference as a
 	// case conflict.
 	if norm.NFC.String(realName) != norm.NFC.String(name) {
-		return &CaseConflictError{name, realName}
+		return "", &CaseConflictError{name, realName}
 	}
-	return nil
+	return realName, nil
 }
 
 type defaultRealCaser struct {
@@ -453,25 +460,12 @@ func (r *defaultRealCaser) dropCache() {
 	r.cache.Purge()
 }
 
-// noteAdded and noteRemoved reflect a just-completed mutation of name in the
-// cache, so the parent directory's cached listing stays correct without having
-// to re-read it from disk. name is in the casing it was created/removed with,
-// which the case check preceding the mutation guarantees is the real on-disk
-// casing.
 func (r *defaultRealCaser) noteAdded(name string) {
-	if name, err := Canonicalize(name); err == nil {
-		r.cache.added(name)
-	} else {
-		r.cache.Purge() // shouldn't happen for a name we just operated on
-	}
+	r.cache.added(name)
 }
 
 func (r *defaultRealCaser) noteRemoved(name string) {
-	if name, err := Canonicalize(name); err == nil {
-		r.cache.removed(name)
-	} else {
-		r.cache.Purge()
-	}
+	r.cache.removed(name)
 }
 
 // added updates the cached listing of name's parent directory to include
