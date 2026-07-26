@@ -582,17 +582,17 @@ func (f *folder) scanSubdirs(ctx context.Context, subDirs []string) error {
 const maxToRemove = 1000
 
 type scanBatch struct {
-	f                 *folder
-	updateBatch       *FileInfoBatch
-	toRemove          []string
-	deletedOrExisting map[string]struct{}
+	f                *folder
+	updateBatch      *FileInfoBatch
+	toRemove         []string
+	skipInFindRename map[string]struct{}
 }
 
 func (f *folder) newScanBatch() *scanBatch {
 	b := &scanBatch{
-		f:                 f,
-		toRemove:          make([]string, 0, maxToRemove),
-		deletedOrExisting: make(map[string]struct{}),
+		f:                f,
+		toRemove:         make([]string, 0, maxToRemove),
+		skipInFindRename: make(map[string]struct{}),
 	}
 	b.updateBatch = NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		if err := b.f.getHealthErrorWithoutIgnores(); err != nil {
@@ -600,7 +600,7 @@ func (f *folder) newScanBatch() *scanBatch {
 			return err
 		}
 		b.f.updateLocalsFromScanning(fs)
-		clear(b.deletedOrExisting)
+		clear(b.skipInFindRename)
 		return nil
 	})
 	return b
@@ -636,12 +636,12 @@ func (b *scanBatch) FlushIfFull() error {
 	return b.updateBatch.FlushIfFull()
 }
 
-func (b *scanBatch) markDeletedOrExisting(name string) {
-	b.deletedOrExisting[name] = struct{}{}
+func (b *scanBatch) markSkipInFindRename(name string) {
+	b.skipInFindRename[name] = struct{}{}
 }
 
-func (b *scanBatch) hasDeletedOrExisting(name string) bool {
-	_, ok := b.deletedOrExisting[name]
+func (b *scanBatch) shouldSkipInFindRenames(name string) bool {
+	_, ok := b.skipInFindRename[name]
 	return ok
 }
 
@@ -949,7 +949,7 @@ loop:
 			continue
 		}
 
-		if batch.hasDeletedOrExisting(fi.Name) {
+		if batch.shouldSkipInFindRenames(fi.Name) {
 			continue
 		}
 
@@ -969,7 +969,7 @@ loop:
 		}
 
 		if !osutil.IsDeleted(f.mtimefs, fi.Name) {
-			batch.markDeletedOrExisting(fi.Name)
+			batch.markSkipInFindRename(fi.Name)
 			continue
 		}
 
@@ -981,7 +981,7 @@ loop:
 		nf.SetDeleted(f.shortID)
 		nf.LocalFlags = f.localFlags
 		found = true
-		batch.markDeletedOrExisting(fi.Name)
+		batch.markSkipInFindRename(fi.Name)
 		break
 	}
 
