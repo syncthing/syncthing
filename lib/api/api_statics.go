@@ -74,11 +74,7 @@ func (s *staticsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache, must-revalidate")
 
-	file := r.URL.Path
-
-	if file[0] == '/' {
-		file = file[1:]
-	}
+	file := strings.TrimPrefix(r.URL.Path, "/")
 
 	if file == "" {
 		file = "index.html"
