@@ -425,9 +425,6 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 		return realName, nil
 	}
 
-	// Hold the lock across the whole resolution: we read node maps directly
-	// below, and noteAdded/noteRemoved mutate them in place under the same
-	// lock.
 	r.cache.mut.Lock()
 	defer r.cache.mut.Unlock()
 
@@ -482,11 +479,18 @@ func (r *defaultRealCaser) noteRemoved(name string) {
 func (c *caseCache) added(name string) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
+
+	// Remove any stale entry for the name itself, though it should already
+	// have been removed by a paired noteRemoved if it existed before.
 	c.Remove(name)
+
+	// Get and update parent
+
 	node, ok := c.Get(filepath.Dir(name))
 	if !ok || node.err != nil {
 		return
 	}
+
 	base := filepath.Base(name)
 	node.children[base] = struct{}{}
 	node.lowerToReal[UnicodeLowercaseNormalized(base)] = base
@@ -497,18 +501,26 @@ func (c *caseCache) added(name string) {
 func (c *caseCache) removed(name string) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
+
+	// Remove the cache entry for the name itself, if it exists
 	c.Remove(name)
+
+	// Get the parent and remove it from its set of children
+
 	node, ok := c.Get(filepath.Dir(name))
 	if !ok || node.err != nil {
 		return
 	}
+
 	if len(node.children) != len(node.lowerToReal) {
 		// Some entries share a lowercase form, only possible on a
 		// case-sensitive filesystem. That makes precise incremental removal
-		// awkward, so drop the listing and let it be re-read.
+		// awkward (we'd need to rebuild lowerToReal in sorted order etc),
+		// so drop the listing and let it be re-read.
 		c.Remove(filepath.Dir(name))
 		return
 	}
+
 	base := filepath.Base(name)
 	delete(node.children, base)
 	delete(node.lowerToReal, UnicodeLowercaseNormalized(base))
