@@ -111,6 +111,9 @@ func (v external) prepareCommand(filePath string) (*exec.Cmd, error) {
 	if err != nil {
 		return nil, fmt.Errorf("command is invalid: %w", err)
 	}
+	if len(words) == 0 {
+		return nil, errors.New("command is empty")
+	}
 
 	context := map[string]string{
 		"%FOLDER_FILESYSTEM%": string(v.filesystem.Type()),
