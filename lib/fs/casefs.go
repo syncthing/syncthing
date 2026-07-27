@@ -40,6 +40,8 @@ func IsErrCaseConflict(err error) bool {
 type realCaser interface {
 	realCase(name string) (string, error)
 	dropCache()
+	noteAdded(name string)
+	noteRemoved(name string)
 }
 
 type fskey struct {
@@ -154,39 +156,40 @@ type caseFilesystem struct {
 }
 
 func (f *caseFilesystem) Chmod(name string, mode FileMode) error {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return err
 	}
 	return f.Filesystem.Chmod(name, mode)
 }
 
 func (f *caseFilesystem) Lchown(name, uid, gid string) error {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return err
 	}
 	return f.Filesystem.Lchown(name, uid, gid)
 }
 
 func (f *caseFilesystem) Chtimes(name string, atime time.Time, mtime time.Time) error {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return err
 	}
 	return f.Filesystem.Chtimes(name, atime, mtime)
 }
 
 func (f *caseFilesystem) Mkdir(name string, perm FileMode) error {
-	if err := f.checkCase(name); err != nil {
+	can, err := f.checkCase(name)
+	if err != nil {
 		return err
 	}
 	if err := f.Filesystem.Mkdir(name, perm); err != nil {
 		return err
 	}
-	f.dropCache()
+	f.noteAdded(can)
 	return nil
 }
 
 func (f *caseFilesystem) MkdirAll(path string, perm FileMode) error {
-	if err := f.checkCase(path); err != nil {
+	if _, err := f.checkCase(path); err != nil {
 		return err
 	}
 	if err := f.Filesystem.MkdirAll(path, perm); err != nil {
@@ -205,25 +208,26 @@ func (f *caseFilesystem) Lstat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = f.checkCaseExisting(name); err != nil {
+	if _, err = f.checkCaseExisting(name); err != nil {
 		return nil, err
 	}
 	return stat, nil
 }
 
 func (f *caseFilesystem) Remove(name string) error {
-	if err := f.checkCase(name); err != nil {
+	can, err := f.checkCase(name)
+	if err != nil {
 		return err
 	}
 	if err := f.Filesystem.Remove(name); err != nil {
 		return err
 	}
-	f.dropCache()
+	f.noteRemoved(can)
 	return nil
 }
 
 func (f *caseFilesystem) RemoveAll(name string) error {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return err
 	}
 	if err := f.Filesystem.RemoveAll(name); err != nil {
@@ -234,10 +238,12 @@ func (f *caseFilesystem) RemoveAll(name string) error {
 }
 
 func (f *caseFilesystem) Rename(oldpath, newpath string) error {
-	if err := f.checkCase(oldpath); err != nil {
+	oldcan, err := f.checkCase(oldpath)
+	if err != nil {
 		return err
 	}
-	if err := f.checkCase(newpath); err != nil {
+	newcan, err := f.checkCase(newpath)
+	if err != nil {
 		// Case-only rename is ok
 		e := &CaseConflictError{}
 		if !errors.As(err, &e) || e.Real != oldpath {
@@ -247,7 +253,8 @@ func (f *caseFilesystem) Rename(oldpath, newpath string) error {
 	if err := f.Filesystem.Rename(oldpath, newpath); err != nil {
 		return err
 	}
-	f.dropCache()
+	f.noteRemoved(oldcan)
+	f.noteAdded(newcan)
 	return nil
 }
 
@@ -260,65 +267,68 @@ func (f *caseFilesystem) Stat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = f.checkCaseExisting(name); err != nil {
+	if _, err = f.checkCaseExisting(name); err != nil {
 		return nil, err
 	}
 	return stat, nil
 }
 
 func (f *caseFilesystem) DirNames(name string) ([]string, error) {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return nil, err
 	}
 	return f.Filesystem.DirNames(name)
 }
 
 func (f *caseFilesystem) Open(name string) (File, error) {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return nil, err
 	}
 	return f.Filesystem.Open(name)
 }
 
 func (f *caseFilesystem) OpenFile(name string, flags int, mode FileMode) (File, error) {
-	if err := f.checkCase(name); err != nil {
+	can, err := f.checkCase(name)
+	if err != nil {
 		return nil, err
 	}
 	file, err := f.Filesystem.OpenFile(name, flags, mode)
 	if err != nil {
 		return nil, err
 	}
-	f.dropCache()
+	f.noteAdded(can)
 	return file, nil
 }
 
 func (f *caseFilesystem) ReadSymlink(name string) (string, error) {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return "", err
 	}
 	return f.Filesystem.ReadSymlink(name)
 }
 
 func (f *caseFilesystem) Create(name string) (File, error) {
-	if err := f.checkCase(name); err != nil {
+	can, err := f.checkCase(name)
+	if err != nil {
 		return nil, err
 	}
 	file, err := f.Filesystem.Create(name)
 	if err != nil {
 		return nil, err
 	}
-	f.dropCache()
+	f.noteAdded(can)
 	return file, nil
 }
 
 func (f *caseFilesystem) CreateSymlink(target, name string) error {
-	if err := f.checkCase(name); err != nil {
+	can, err := f.checkCase(name)
+	if err != nil {
 		return err
 	}
 	if err := f.Filesystem.CreateSymlink(target, name); err != nil {
 		return err
 	}
-	f.dropCache()
+	f.noteAdded(can)
 	return nil
 }
 
@@ -326,28 +336,28 @@ func (f *caseFilesystem) Walk(root string, walkFn WalkFunc) error {
 	// Walking the filesystem is likely (in Syncthing's case certainly) done
 	// to pick up external changes, for which caching is undesirable.
 	f.dropCache()
-	if err := f.checkCase(root); err != nil {
+	if _, err := f.checkCase(root); err != nil {
 		return err
 	}
 	return f.Filesystem.Walk(root, walkFn)
 }
 
 func (f *caseFilesystem) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, <-chan error, error) {
-	if err := f.checkCase(path); err != nil {
+	if _, err := f.checkCase(path); err != nil {
 		return nil, nil, err
 	}
 	return f.Filesystem.Watch(path, ignore, ctx, ignorePerms)
 }
 
 func (f *caseFilesystem) Hide(name string) error {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return err
 	}
 	return f.Filesystem.Hide(name)
 }
 
 func (f *caseFilesystem) Unhide(name string) error {
-	if err := f.checkCase(name); err != nil {
+	if _, err := f.checkCase(name); err != nil {
 		return err
 	}
 	return f.Filesystem.Unhide(name)
@@ -357,25 +367,25 @@ func (f *caseFilesystem) underlying() (Filesystem, bool) {
 	return f.Filesystem, true
 }
 
-func (f *caseFilesystem) checkCase(name string) error {
+func (f *caseFilesystem) checkCase(name string) (string, error) {
 	var err error
 	if name, err = Canonicalize(name); err != nil {
-		return err
+		return "", err
 	}
 	// Stat is necessary for case sensitive FS, as it's then not a conflict
 	// if name is e.g. "foo" and on dir there is "Foo".
 	if _, err := f.Filesystem.Lstat(name); err != nil {
 		if IsNotExist(err) {
-			return nil
+			return name, nil
 		}
-		return err
+		return "", err
 	}
 	return f.checkCaseExisting(name)
 }
 
 // checkCaseExisting must only be called after successfully canonicalizing and
 // stating the file.
-func (f *caseFilesystem) checkCaseExisting(name string) error {
+func (f *caseFilesystem) checkCaseExisting(name string) (string, error) {
 	realName, err := f.realCase(name)
 	if IsNotExist(err) {
 		// It did exist just before -> cache is outdated, try again
@@ -383,15 +393,15 @@ func (f *caseFilesystem) checkCaseExisting(name string) error {
 		realName, err = f.realCase(name)
 	}
 	if err != nil {
-		return err
+		return "", err
 	}
 	// We normalize the normalization (hah!) of the strings before
 	// comparing, as we don't want to treat a normalization difference as a
 	// case conflict.
 	if norm.NFC.String(realName) != norm.NFC.String(name) {
-		return &CaseConflictError{name, realName}
+		return "", &CaseConflictError{name, realName}
 	}
-	return nil
+	return realName, nil
 }
 
 type defaultRealCaser struct {
@@ -422,6 +432,9 @@ func (r *defaultRealCaser) realCase(name string) (string, error) {
 		return realName, nil
 	}
 
+	r.cache.mut.Lock()
+	defer r.cache.mut.Unlock()
+
 	for _, comp := range PathComponents(name) {
 		node := r.cache.getExpireAdd(realName, r.fs)
 
@@ -447,11 +460,70 @@ func (r *defaultRealCaser) dropCache() {
 	r.cache.Purge()
 }
 
-// getExpireAdd gets an entry for the given key. If no entry exists, or it is
-// expired a new one is created and added to the cache.
-func (c *caseCache) getExpireAdd(key string, fs Filesystem) *caseNode {
+func (r *defaultRealCaser) noteAdded(canonicalName string) {
+	r.cache.added(canonicalName)
+}
+
+func (r *defaultRealCaser) noteRemoved(canonicalName string) {
+	r.cache.removed(canonicalName)
+}
+
+// added updates the cached listing of name's parent directory to include
+// name, dropping any cached listing for name itself.
+func (c *caseCache) added(name string) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
+
+	// Remove any stale entry for the name itself, though it should already
+	// have been removed by a paired noteRemoved if it existed before.
+	c.Remove(name)
+
+	// Get and update parent
+
+	node, ok := c.Get(filepath.Dir(name))
+	if !ok || node.err != nil {
+		return
+	}
+
+	base := filepath.Base(name)
+	node.children[base] = struct{}{}
+	node.lowerToReal[UnicodeLowercaseNormalized(base)] = base
+}
+
+// removed updates the cached listing of name's parent directory to no longer
+// include name, dropping any cached listing for name itself.
+func (c *caseCache) removed(name string) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+
+	// Remove the cache entry for the name itself, if it exists
+	c.Remove(name)
+
+	// Get the parent and remove it from its set of children
+
+	node, ok := c.Get(filepath.Dir(name))
+	if !ok || node.err != nil {
+		return
+	}
+
+	if len(node.children) != len(node.lowerToReal) {
+		// Some entries share a lowercase form, only possible on a
+		// case-sensitive filesystem. That makes precise incremental removal
+		// awkward (we'd need to rebuild lowerToReal in sorted order etc),
+		// so drop the listing and let it be re-read.
+		c.Remove(filepath.Dir(name))
+		return
+	}
+
+	base := filepath.Base(name)
+	delete(node.children, base)
+	delete(node.lowerToReal, UnicodeLowercaseNormalized(base))
+}
+
+// getExpireAdd gets an entry for the given key. If no entry exists, or it is
+// expired a new one is created and added to the cache. The caller must hold
+// c.mut.
+func (c *caseCache) getExpireAdd(key string, fs Filesystem) *caseNode {
 	node, ok := c.Get(key)
 	if !ok {
 		node := newCaseNode(key, fs)
