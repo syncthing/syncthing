@@ -582,17 +582,17 @@ func (f *folder) scanSubdirs(ctx context.Context, subDirs []string) error {
 const maxToRemove = 1000
 
 type scanBatch struct {
-	f           *folder
-	updateBatch *FileInfoBatch
-	toRemove    []string
-	deleted     map[string]struct{}
+	f                *folder
+	updateBatch      *FileInfoBatch
+	toRemove         []string
+	skipInFindRename map[string]struct{}
 }
 
 func (f *folder) newScanBatch() *scanBatch {
 	b := &scanBatch{
-		f:        f,
-		toRemove: make([]string, 0, maxToRemove),
-		deleted:  make(map[string]struct{}),
+		f:                f,
+		toRemove:         make([]string, 0, maxToRemove),
+		skipInFindRename: make(map[string]struct{}),
 	}
 	b.updateBatch = NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		if err := b.f.getHealthErrorWithoutIgnores(); err != nil {
@@ -600,7 +600,7 @@ func (f *folder) newScanBatch() *scanBatch {
 			return err
 		}
 		b.f.updateLocalsFromScanning(fs)
-		clear(b.deleted)
+		clear(b.skipInFindRename)
 		return nil
 	})
 	return b
@@ -636,12 +636,12 @@ func (b *scanBatch) FlushIfFull() error {
 	return b.updateBatch.FlushIfFull()
 }
 
-func (b *scanBatch) markDeleted(name string) {
-	b.deleted[name] = struct{}{}
+func (b *scanBatch) markSkipInFindRename(name string) {
+	b.skipInFindRename[name] = struct{}{}
 }
 
-func (b *scanBatch) hasDeleted(name string) bool {
-	_, ok := b.deleted[name]
+func (b *scanBatch) shouldSkipInFindRenames(name string) bool {
+	_, ok := b.skipInFindRename[name]
 	return ok
 }
 
@@ -756,7 +756,6 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 						return 0, err
 					} else if ok {
 						changes++
-						batch.markDeleted(nf.Name)
 					}
 				}
 			}
@@ -950,7 +949,7 @@ loop:
 			continue
 		}
 
-		if batch.hasDeleted(fi.Name) {
+		if batch.shouldSkipInFindRenames(fi.Name) {
 			continue
 		}
 
@@ -970,6 +969,7 @@ loop:
 		}
 
 		if !osutil.IsDeleted(f.mtimefs, fi.Name) {
+			batch.markSkipInFindRename(fi.Name)
 			continue
 		}
 
@@ -981,6 +981,7 @@ loop:
 		nf.SetDeleted(f.shortID)
 		nf.LocalFlags = f.localFlags
 		found = true
+		batch.markSkipInFindRename(fi.Name)
 		break
 	}
 
