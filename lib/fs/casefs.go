@@ -460,12 +460,12 @@ func (r *defaultRealCaser) dropCache() {
 	r.cache.Purge()
 }
 
-func (r *defaultRealCaser) noteAdded(name string) {
-	r.cache.added(name)
+func (r *defaultRealCaser) noteAdded(canonicalName string) {
+	r.cache.added(canonicalName)
 }
 
-func (r *defaultRealCaser) noteRemoved(name string) {
-	r.cache.removed(name)
+func (r *defaultRealCaser) noteRemoved(canonicalName string) {
+	r.cache.removed(canonicalName)
 }
 
 // added updates the cached listing of name's parent directory to include
