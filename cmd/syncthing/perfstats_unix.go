@@ -16,7 +16,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/locations"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -24,11 +23,11 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-func startPerfStats(db db.DB) {
-	go savePerfStats(fmt.Sprintf("perfstats-%d.csv", syscall.Getpid()), db)
+func startPerfStats() {
+	go savePerfStats(fmt.Sprintf("perfstats-%d.csv", syscall.Getpid()))
 }
 
-func savePerfStats(file string, db db.DB) {
+func savePerfStats(file string) {
 	fd, err := os.Create(file)
 	if err != nil {
 		panic(err)
@@ -43,7 +42,7 @@ func savePerfStats(file string, db db.DB) {
 	syscall.Getrusage(syscall.RUSAGE_SELF, &prevRus)
 	runtime.ReadMemStats(&prevMem)
 
-	fmt.Fprintf(fd, "TIME_S\tCPU_S\tHEAP_KIB\tRSS_KIB\tNETIN_KBPS\tNETOUT_KBPS\tDBSIZE_KIB\tDBLOCAL\n")
+	fmt.Fprintf(fd, "TIME_S\tCPU_S\tHEAP_KIB\tRSS_KIB\tNETIN_KBPS\tNETOUT_KBPS\tDBSIZE_KIB\n")
 
 	for t := range time.NewTicker(250 * time.Millisecond).C {
 		syscall.Getrusage(syscall.RUSAGE_SELF, &curRus)
@@ -56,15 +55,7 @@ func savePerfStats(file string, db db.DB) {
 			rss /= 1024
 		}
 
-		folders, _ := db.ListFolders()
-		var dbLocal int
-		for _, f := range folders {
-			local, _ := db.CountLocal(f, protocol.LocalDeviceID)
-			dbLocal += local.Files + local.Directories + local.Symlinks
-		}
-
-		fmt.Fprintf(
-			fd, "%.03f\t%f\t%d\t%d\t%.0f\t%.0f\t%d\t%d\n",
+		fmt.Fprintf(fd, "%.03f\t%f\t%d\t%d\t%.0f\t%.0f\t%d\n",
 			t.Sub(t0).Seconds(),
 			rate(cpusec(&prevRus), cpusec(&curRus), timeDiff, 1),
 			(curMem.Sys-curMem.HeapReleased)/1024,
@@ -72,7 +63,6 @@ func savePerfStats(file string, db db.DB) {
 			rate(prevIn, in, timeDiff, 1e3),
 			rate(prevOut, out, timeDiff, 1e3),
 			osutil.DirSize(locations.Get(locations.Database))/1024,
-			dbLocal,
 		)
 
 		prevTime = t

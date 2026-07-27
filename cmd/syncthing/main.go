@@ -424,6 +424,9 @@ func (c *serveCmd) syncthingMain() {
 	if c.DebugProfileHeap {
 		startHeapProfiler()
 	}
+	if c.DebugPerfStats {
+		startPerfStats()
+	}
 
 	// Print our version information up front, so any crash that happens
 	// early etc. will have it available.
@@ -509,10 +512,6 @@ func (c *serveCmd) syncthingMain() {
 	if err != nil {
 		slog.Error("Error opening database", slogutil.Error(err))
 		os.Exit(1)
-	}
-
-	if c.DebugPerfStats {
-		startPerfStats(sdb)
 	}
 
 	migratingAPICancel() // we're done with the temporary API server
