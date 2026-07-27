@@ -143,6 +143,9 @@ func newSendReceiveFolder(model *model, ignores *ignore.Matcher, cfg config.Fold
 	f.puller = f
 
 	if f.Copiers == 0 {
+		// "Copiers" is effectively the concurrency level for a number of
+		// different processes in the folder runner, not only the specific
+		// copy step. TODO: Rename this config option at some point.
 		f.Copiers = defaultCopiers
 	}
 
