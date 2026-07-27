@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING" "1" "Jul 16, 2026" "v2.1.0" "Syncthing"
+.TH "SYNCTHING" "1" "Jul 23, 2026" "v2.1.0" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .SH SYNOPSIS
@@ -439,14 +439,13 @@ Display database file metadata.
 Syncthing can use a SOCKS, HTTP, or HTTPS proxy to talk to the outside
 world. The proxy is used for outgoing connections only \- it is not possible
 to accept incoming connections through the proxy. The proxy is configured
-through the environment variable \fBall_proxy\fP\&. Somewhat unusually, this
-variable must be named in lower case \- it is not “ALL_PROXY”. For
-example:
+through the environment variable \fBALL_PROXY\fP or its lowercase variant
+\fBall_proxy\fP\&. If both are set, \fBALL_PROXY\fP takes precedence. For example:
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .EX
-$ export all_proxy=socks://192.0.2.42:8081
+$ export ALL_PROXY=socks://192.0.2.42:8081
 .EE
 .UNINDENT
 .UNINDENT
