@@ -9,5 +9,7 @@
 
 package main
 
-func startPerfStats() {
+import "github.com/syncthing/syncthing/internal/db"
+
+func startPerfStats(_ db.DB) {
 }
