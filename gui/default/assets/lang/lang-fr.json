@@ -125,6 +125,8 @@
     "Discovery Status": "État de la découverte",
     "Dismiss": "Écarter",
     "Do not add it to the ignore list, so this notification may recur.": "Attendre l'expiration de cette demande : évite l'ajout immédiat à la liste noire persistante.",
+    "Do not add it to the ignore list, so this notification will reappear if the device connects again.": "Ne pas ajouter cet appareil à la liste des bloqués pour que cette notification revienne s'il tente de se reconnecter.",
+    "Do not add it to the ignore list, so this notification will reappear if the device offering this folder connects again.": "Ne pas ajouter ce partage à la liste des bloqués pour que cette notification revienne quand l'appareil qui le propose se reconnecte.",
     "Do not restore": "Ne pas restaurer",
     "Do not restore all": "Ne pas tout restaurer",
     "Do you want to enable watching for changes for all your folders?": "Voulez-vous activer la surveillance des changements sur tous vos partages ?",

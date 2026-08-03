@@ -125,6 +125,8 @@
     "Discovery Status": "Estado de descubrimiento",
     "Dismiss": "Descartar",
     "Do not add it to the ignore list, so this notification may recur.": "No añadirlo a la lista de ignorados, de modo que esta notificación sea recurrente.",
+    "Do not add it to the ignore list, so this notification will reappear if the device connects again.": "No lo añadas a la lista de ignorados, para que la notificación reaparezca si el dispositivo se conecta de nuevo.",
+    "Do not add it to the ignore list, so this notification will reappear if the device offering this folder connects again.": "No lo añadas a la lista de ignorados, para que la notificación reaparezca si el dispositivo que ofrece la carpeta se conecta de nuevo.",
     "Do not restore": "No restaurar",
     "Do not restore all": "No restaurar todos",
     "Do you want to enable watching for changes for all your folders?": "¿Quieres activar el control de cambios en todas tus carpetas?",
