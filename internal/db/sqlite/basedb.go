@@ -49,7 +49,7 @@ type baseDB struct {
 	tplInput      map[string]any
 }
 
-func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScripts []string) (*baseDB, error) {
+func openBase(path string, maxOpenConns, maxIdleConns int, pragmas, schemaScripts, migrationScripts []string) (*baseDB, error) {
 	// Open the database with options to enable foreign keys and recursive
 	// triggers (needed for the delete+insert triggers on row replace).
 	pathURL := url.URL{
@@ -62,8 +62,8 @@ func openBase(path string, maxConns int, pragmas, schemaScripts, migrationScript
 		return nil, wrap(err)
 	}
 
-	sqlDB.SetMaxOpenConns(maxConns)
-	sqlDB.SetMaxIdleConns(maxConns)
+	sqlDB.SetMaxOpenConns(maxOpenConns)
+	sqlDB.SetMaxIdleConns(maxIdleConns)
 
 	for _, pragma := range pragmas {
 		if _, err := sqlDB.Exec("PRAGMA " + pragma); err != nil {

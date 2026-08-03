@@ -15,6 +15,7 @@ import (
 	"io"
 	"log/slog"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -148,6 +149,8 @@ func newSendReceiveFolder(model *model, ignores *ignore.Matcher, cfg config.Fold
 		// copy step. TODO: Rename this config option at some point.
 		f.Copiers = defaultCopiers
 	}
+	// Cap the copiers at 2*NumCPU, so that we have a known upper bound.
+	f.Copiers = min(f.Copiers, 2*runtime.NumCPU())
 
 	// If the configured max amount of pending data is zero, we use the
 	// default. If it's configured to something non-zero but less than the
@@ -1438,15 +1441,15 @@ func (f *sendReceiveFolder) copyBlock(ctx context.Context, block protocol.BlockI
 // Returns true when the block was successfully copied.
 // The passed buffer must be large enough to accommodate the block.
 func (f *sendReceiveFolder) copyBlockFromFolder(ctx context.Context, folderID string, block protocol.BlockInfo, state copyBlocksState, ffs fs.Filesystem, buf []byte) bool {
-	for e, err := range itererr.Zip(f.model.sdb.AllLocalBlocksWithHash(folderID, block.Hash)) {
-		if err != nil {
-			// We just ignore this and continue pulling instead (though
-			// there's a good chance that will fail too, if the DB is
-			// unhealthy).
-			f.sl.DebugContext(ctx, "Failed to get block information from database", "blockHash", block.Hash, slogutil.FilePath(state.file.Name), slogutil.Error(err))
-			return false
-		}
+	candidates, err := itererr.Collect(f.model.sdb.AllLocalBlocksWithHash(folderID, block.Hash))
+	if err != nil {
+		// We just ignore this and continue pulling instead (though there's
+		// a good chance that will fail too, if the DB is unhealthy).
+		f.sl.DebugContext(ctx, "Failed to get block information from database", "blockHash", block.Hash, slogutil.FilePath(state.file.Name), slogutil.Error(err))
+		return false
+	}
 
+	for _, e := range candidates {
 		if !f.copyBlockFromFile(ctx, e.FileName, e.Offset, state, ffs, block, buf) {
 			if state.failed() != nil {
 				return false
