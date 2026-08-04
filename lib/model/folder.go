@@ -656,32 +656,17 @@ func (b *scanBatch) Update(fi protocol.FileInfo) (bool, error) {
 		}
 		return false, nil
 	}
-	// Resolve receive-only items which are identical with the global state or
-	// the global item is our own receive-only item.
-	switch gf, ok, err := b.f.db.GetGlobalFile(b.f.folderID, fi.Name); {
-	case err != nil:
-		return false, err
-	case !ok:
-	case gf.IsReceiveOnlyChanged():
-		if fi.IsDeleted() {
-			// Our item is deleted and the global item is our own receive only
-			// file. No point in keeping track of that.
+	// A deleted receive-only item whose global item is our own receive-only
+	// change need not be tracked at all.
+	if fi.IsDeleted() && (b.f.Type == config.FolderTypeReceiveOnly || b.f.Type == config.FolderTypeReceiveEncrypted) {
+		switch gf, ok, err := b.f.db.GetGlobalFile(b.f.folderID, fi.Name); {
+		case err != nil:
+			return false, err
+		case ok && gf.IsReceiveOnlyChanged():
 			b.Remove(fi.Name)
 			b.f.sl.Debug("Deleting deleted receive-only local-changed file", slogutil.FilePath(fi.Name))
 			return true, nil
 		}
-	case (b.f.Type == config.FolderTypeReceiveOnly || b.f.Type == config.FolderTypeReceiveEncrypted) &&
-		gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
-			ModTimeWindow:   b.f.modTimeWindow,
-			IgnorePerms:     b.f.IgnorePerms,
-			IgnoreBlocks:    true,
-			IgnoreFlags:     protocol.FlagLocalReceiveOnly,
-			IgnoreOwnership: !b.f.SyncOwnership && !b.f.SendOwnership,
-			IgnoreXattrs:    !b.f.SyncXattrs && !b.f.SendXattrs,
-		}):
-		// What we have locally is equivalent to the global file.
-		b.f.sl.Debug("Merging identical locally changed item with global", slogutil.FilePath(fi.Name))
-		fi = gf
 	}
 	b.updateBatch.Append(fi)
 	return true, nil
@@ -845,6 +830,11 @@ outer:
 						toIgnore = toIgnore[:0]
 						ignoredParent = ""
 					}
+					if changed, err := f.reconcileReceiveOnlyToGlobal(fi, batch); err != nil {
+						return 0, err
+					} else if changed {
+						changes++
+					}
 					continue
 				}
 				nf := fi
@@ -923,6 +913,39 @@ outer:
 	}
 
 	return changes, nil
+}
+
+// reconcileReceiveOnlyToGlobal merges a locally receive-only changed item
+// back into an equivalent global item, when there is no relevant difference
+// between the two.
+func (f *folder) reconcileReceiveOnlyToGlobal(fi protocol.FileInfo, batch *scanBatch) (bool, error) {
+	if f.Type != config.FolderTypeReceiveOnly && f.Type != config.FolderTypeReceiveEncrypted {
+		return false, nil
+	}
+	if !fi.IsReceiveOnlyChanged() {
+		return false, nil
+	}
+	gf, ok, err := f.db.GetGlobalFile(f.folderID, fi.Name)
+	if err != nil {
+		return false, err
+	}
+	if !ok || gf.IsReceiveOnlyChanged() {
+		// No global to adopt, or the global item is our own receive-only
+		// change (nothing to reconcile against).
+		return false, nil
+	}
+	if !gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
+		ModTimeWindow:   f.modTimeWindow,
+		IgnorePerms:     f.IgnorePerms,
+		IgnoreBlocks:    true,
+		IgnoreFlags:     protocol.FlagLocalReceiveOnly,
+		IgnoreOwnership: !f.SyncOwnership && !f.SendOwnership,
+		IgnoreXattrs:    !f.SyncXattrs && !f.SendXattrs,
+	}) {
+		return false, nil
+	}
+	f.sl.Debug("Merging identical locally changed item with global", slogutil.FilePath(fi.Name))
+	return batch.Update(gf)
 }
 
 func (f *folder) findRename(ctx context.Context, file protocol.FileInfo, batch *scanBatch) (protocol.FileInfo, bool) {
