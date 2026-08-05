@@ -151,7 +151,7 @@ func TestRequest(t *testing.T) {
 func genFiles(n int) []protocol.FileInfo {
 	files := make([]protocol.FileInfo, n)
 	t := time.Now().Unix()
-	for i := 0; i < n; i++ {
+	for i := range n {
 		files[i] = protocol.FileInfo{
 			Name:      fmt.Sprintf("file%d", i),
 			ModifiedS: t,
@@ -1007,7 +1007,7 @@ func TestIssue5063(t *testing.T) {
 
 	reps := 10
 	ids := make([]string, reps)
-	for i := 0; i < reps; i++ {
+	for i := range reps {
 		ids[i] = srand.String(8)
 		wg.Go(func() { addAndVerify(ids[i]) })
 	}
@@ -1668,7 +1668,7 @@ func waitForState(t *testing.T, sub events.Subscription, folder, expected string
 	for {
 		select {
 		case ev := <-sub.C():
-			data := ev.Data.(map[string]interface{})
+			data := ev.Data.(map[string]any)
 			if data["folder"].(string) == folder {
 				if data["error"] == nil {
 					err = ""
@@ -1880,7 +1880,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		f("zzrootfile"),
 	}
 
-	mm := func(data interface{}) string {
+	mm := func(data any) string {
 		bytes, err := json.MarshalIndent(data, "", "  ")
 		if err != nil {
 			panic(err)
@@ -2952,7 +2952,7 @@ func TestFolderRestartZombies(t *testing.T) {
 	// Run a few parallel configuration changers for one second. Each waits
 	// for the commit to complete, but there are many of them.
 	var wg sync.WaitGroup
-	for i := 0; i < 25; i++ {
+	for range 25 {
 		wg.Go(func() {
 			t0 := time.Now()
 			for time.Since(t0) < time.Second {
@@ -3258,7 +3258,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 	numFiles := 20
 
 	ffs := fcfg.Filesystem()
-	for i := 0; i < numFiles; i++ {
+	for i := range numFiles {
 		v := fmt.Sprintf("%d", i)
 		writeFile(t, ffs, v, []byte(v))
 	}
@@ -3272,7 +3272,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 
 	// Modify all the files other than the rename sources, whose content we
 	// keep intact so the renamed copies still match by block hash.
-	for i := 0; i < numFiles; i++ {
+	for i := range numFiles {
 		if i == 3 || i == 16 {
 			continue
 		}
@@ -3388,7 +3388,7 @@ func TestRenameBatchFlush(t *testing.T) {
 	writeFile(t, ffs, "dst-a", content)
 	writeFile(t, ffs, "dst-b", content)
 	for i := range MaxBatchSizeFiles * 2 {
-		writeFile(t, ffs, fmt.Sprintf("filler-%04d", i), []byte(fmt.Sprintf("filler-%04d", i)))
+		writeFile(t, ffs, fmt.Sprintf("filler-%04d", i), fmt.Appendf(nil, "filler-%04d", i))
 	}
 
 	m.ScanFolders()

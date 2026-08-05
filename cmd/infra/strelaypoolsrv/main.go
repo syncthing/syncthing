@@ -587,7 +587,7 @@ func loadRelays(file string, geoip *geoip.Provider) []*relay {
 	}
 
 	var relays []*relay
-	for _, line := range strings.Split(string(content), "\n") {
+	for line := range strings.SplitSeq(string(content), "\n") {
 		if line == "" {
 			continue
 		}

@@ -5,7 +5,6 @@
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //go:build solaris || windows
-// +build solaris windows
 
 package main
 

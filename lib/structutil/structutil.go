@@ -100,7 +100,7 @@ func fillNil(data any, skipDeprecated bool) {
 
 		f := s.Field(i)
 
-		for f.Kind() == reflect.Ptr && f.IsZero() && f.CanSet() {
+		for f.Kind() == reflect.Pointer && f.IsZero() && f.CanSet() {
 			newValue := reflect.New(f.Type().Elem())
 			f.Set(newValue)
 			f = f.Elem()
@@ -157,7 +157,7 @@ func FillNilSlices(data any) error {
 						vs[i] = strings.TrimSpace(vs[i])
 					}
 
-					rv := reflect.MakeSlice(reflect.TypeOf([]string{}), len(vs), len(vs))
+					rv := reflect.MakeSlice(reflect.TypeFor[[]string](), len(vs), len(vs))
 					for i, v := range vs {
 						rv.Index(i).SetString(v)
 					}

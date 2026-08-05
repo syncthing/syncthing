@@ -54,7 +54,7 @@ func TestDialQueueSort(t *testing.T) {
 
 		var seen1, seen2 int
 
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			queue.Sort()
 			res := shortDevices(queue)
 			if reflect.DeepEqual(res, expected1) {
@@ -90,7 +90,7 @@ func TestDialQueueSort(t *testing.T) {
 
 		var seen1, seen2 int
 
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			queue.Sort()
 			res := shortDevices(queue)
 			if reflect.DeepEqual(res, expected1) {

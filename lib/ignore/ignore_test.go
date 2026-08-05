@@ -925,7 +925,7 @@ func TestIssue4901(t *testing.T) {
 	}
 
 	// Cache does not suddenly make the load succeed.
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		err := pats.Load(".stignore")
 		if err == nil {
 			t.Fatal("expected an error")

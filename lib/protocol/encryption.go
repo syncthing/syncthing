@@ -211,12 +211,10 @@ func (e encryptedConnection) Request(ctx context.Context, req *Request) ([]byte,
 
 	// Encrypt / adjust the request parameters.
 
-	encSize := req.Size
-	if encSize < minPaddedSize {
+	encSize := max(req.Size,
 		// Make a request for minPaddedSize data instead of the smaller
 		// block. We'll chop of the extra data later.
-		encSize = minPaddedSize
-	}
+		minPaddedSize)
 	encSize += blockOverhead
 	encName := encryptName(req.Name, folderKey)
 	encOffset := req.Offset + int64(req.BlockNo*blockOverhead)

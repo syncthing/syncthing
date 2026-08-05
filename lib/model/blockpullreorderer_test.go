@@ -92,7 +92,7 @@ func Test_standardBlockPullReorderer_Reorder(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := newStandardBlockPullReorderer(tt.myId, tt.devices)
-			p.shuffle = func(i interface{}) {} // Noop shuffle
+			p.shuffle = func(i any) {} // Noop shuffle
 			if got := p.Reorder(tt.blocks); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("reorderBlocksForDevices() = %v, want %v (my idx: %d, count %d)", got, tt.want, p.myIndex, p.count)
 			}

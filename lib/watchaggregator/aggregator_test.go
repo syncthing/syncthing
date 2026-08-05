@@ -66,8 +66,7 @@ func TestAggregate(t *testing.T) {
 
 	folderCfg := defaultFolderCfg.Copy()
 	folderCfg.ID = "Aggregate"
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	a := newAggregator(ctx, folderCfg)
 
 	// checks whether maxFilesPerDir events in one dir are kept as is
@@ -140,7 +139,7 @@ func TestAggregate(t *testing.T) {
 		dirs[i] = "dir" + strconv.Itoa(i)
 	}
 	for _, dir := range dirs {
-		for i := 0; i < filesPerDir; i++ {
+		for i := range filesPerDir {
 			a.newEvent(fs.Event{
 				Name: filepath.Join(dir, strconv.Itoa(i)),
 				Type: fs.NonRemove,
@@ -163,7 +162,7 @@ func TestInProgress(t *testing.T) {
 		sleepMs(100)
 		c <- fs.Event{Name: "inprogress", Type: fs.NonRemove}
 		sleepMs(1000)
-		evLogger.Log(events.ItemFinished, map[string]interface{}{
+		evLogger.Log(events.ItemFinished, map[string]any{
 			"item": "inprogress",
 		})
 		sleepMs(100)
@@ -197,7 +196,7 @@ func TestDelay(t *testing.T) {
 		c <- fs.Event{Name: both, Type: fs.NonRemove}
 		c <- fs.Event{Name: both, Type: fs.Remove}
 		c <- fs.Event{Name: del, Type: fs.Remove}
-		for i := 0; i < 9; i++ {
+		for range 9 {
 			<-timer.C
 			timer.Reset(delay)
 			c <- fs.Event{Name: delayed, Type: fs.NonRemove}

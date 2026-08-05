@@ -5,7 +5,6 @@
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //go:build freebsd || openbsd || dragonfly
-// +build freebsd openbsd dragonfly
 
 package ur
 

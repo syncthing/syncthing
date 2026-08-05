@@ -9,6 +9,7 @@ package config
 import (
 	"encoding/json"
 	"encoding/xml"
+	"maps"
 	"slices"
 	"strings"
 
@@ -45,9 +46,7 @@ type internalParam struct {
 func (c VersioningConfiguration) Copy() VersioningConfiguration {
 	cp := c
 	cp.Params = make(map[string]string, len(c.Params))
-	for k, v := range c.Params {
-		cp.Params[k] = v
-	}
+	maps.Copy(cp.Params, c.Params)
 	return cp
 }
 

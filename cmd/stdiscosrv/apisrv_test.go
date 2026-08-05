@@ -7,7 +7,6 @@
 package main
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -120,7 +119,7 @@ func TestRetryAfterSHistogram(t *testing.T) {
 	numBuckets := (notFoundRetryUnknownMaxSeconds + bucketSize - 1) / bucketSize
 	buckets := make([]int, numBuckets)
 
-	for i := 0; i < n; i++ {
+	for range n {
 		v := tracker.retryAfterS()
 		if v < notFoundRetryUnknownMinSeconds || v > notFoundRetryUnknownMaxSeconds {
 			t.Fatalf("retryAfterS() = %d, out of range [%d, %d]", v, notFoundRetryUnknownMinSeconds, notFoundRetryUnknownMaxSeconds)
@@ -142,10 +141,7 @@ func TestRetryAfterSHistogram(t *testing.T) {
 	barWidth := 60
 	for i, c := range buckets {
 		lo := i*bucketSize + 1
-		hi := (i + 1) * bucketSize
-		if hi > notFoundRetryUnknownMaxSeconds {
-			hi = notFoundRetryUnknownMaxSeconds
-		}
+		hi := min((i+1)*bucketSize, notFoundRetryUnknownMaxSeconds)
 		bar := ""
 		if maxCount > 0 {
 			bar = strings.Repeat("#", c*barWidth/maxCount)
@@ -156,8 +152,7 @@ func TestRetryAfterSHistogram(t *testing.T) {
 
 func BenchmarkAPIRequests(b *testing.B) {
 	db := newInMemoryStore(b.TempDir(), 0, nil)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := b.Context()
 	go db.Serve(ctx)
 	api := newAPISrv("127.0.0.1:0", tls.Certificate{}, db, nil, true, true, 1000, 1000)
 	srv := httptest.NewServer(http.HandlerFunc(api.handler))

@@ -454,7 +454,7 @@ func updateInProgressSet(event events.Event, inProgress map[string]struct{}) {
 		path := event.Data.(map[string]string)["item"]
 		inProgress[path] = struct{}{}
 	case events.ItemFinished:
-		path := event.Data.(map[string]interface{})["item"].(string)
+		path := event.Data.(map[string]any)["item"].(string)
 		delete(inProgress, path)
 	}
 }

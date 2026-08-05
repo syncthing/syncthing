@@ -256,18 +256,14 @@ func (w *limitedWriter) Write(buf []byte) (int, error) {
 	// try to be a bit adaptable. We range from the minimum write size of 1
 	// KiB up to the limiter burst size, aiming for about a write every
 	// 10ms.
-	singleWriteSize := int(w.waiter.Limit() / 100)          // 10ms worth of data
-	singleWriteSize = ((singleWriteSize / 1024) + 1) * 1024 // round up to the next kibibyte
-	if singleWriteSize > limiterBurstSize {
-		singleWriteSize = limiterBurstSize
-	}
+	singleWriteSize := int(w.waiter.Limit() / 100) // 10ms worth of data
+	singleWriteSize = min(
+		// round up to the next kibibyte
+		((singleWriteSize/1024)+1)*1024, limiterBurstSize)
 
 	written := 0
 	for written < len(buf) {
-		toWrite := singleWriteSize
-		if toWrite > len(buf)-written {
-			toWrite = len(buf) - written
-		}
+		toWrite := min(singleWriteSize, len(buf)-written)
 		w.take(toWrite)
 		n, err := w.writer.Write(buf[written : written+toWrite])
 		written += n

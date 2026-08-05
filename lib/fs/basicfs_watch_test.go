@@ -5,7 +5,6 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
 //go:build (!solaris && !darwin) || (solaris && cgo) || (darwin && cgo)
-// +build !solaris,!darwin solaris,cgo darwin,cgo
 
 package fs
 
@@ -364,8 +363,7 @@ func TestWatchSymlinkedRoot(t *testing.T) {
 
 	linkedFs := NewFilesystem(FilesystemTypeBasic, filepath.Join(testFs.URI(), link))
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	if _, _, err := linkedFs.Watch(".", fakeMatcher{}, ctx, false); err != nil {
 		panic(err)
 	}
@@ -635,6 +633,6 @@ func (fakeEventInfo) Event() notify.Event {
 	return notify.Write
 }
 
-func (fakeEventInfo) Sys() interface{} {
+func (fakeEventInfo) Sys() any {
 	return nil
 }

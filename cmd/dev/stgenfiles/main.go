@@ -34,7 +34,7 @@ func generateFiles(dir string, files, maxexp int, srcname string) error {
 		return err
 	}
 
-	for i := 0; i < files; i++ {
+	for range files {
 		n := randomName()
 
 		if rand.Float64() < 0.05 {
@@ -51,10 +51,7 @@ func generateFiles(dir string, files, maxexp int, srcname string) error {
 		p1 := filepath.Join(p0, n)
 
 		s := int64(1 << uint(rand.Intn(maxexp)))
-		a := int64(128 * 1024)
-		if a > s {
-			a = s
-		}
+		a := min(int64(128*1024), s)
 		s += rand.Int63n(a)
 
 		if err := generateOneFile(fd, p1, s); err != nil {

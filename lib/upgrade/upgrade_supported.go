@@ -5,7 +5,6 @@
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //go:build !noupgrade && !ios
-// +build !noupgrade,!ios
 
 package upgrade
 

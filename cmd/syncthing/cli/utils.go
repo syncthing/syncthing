@@ -112,7 +112,7 @@ func getConfig(c APIClient) (config.Configuration, error) {
 	return cfg, nil
 }
 
-func prettyPrintJSON(data interface{}) error {
+func prettyPrintJSON(data any) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(data)
@@ -123,7 +123,7 @@ func prettyPrintResponse(response *http.Response) error {
 	if err != nil {
 		return err
 	}
-	var data interface{}
+	var data any
 	if err := json.Unmarshal(bytes, &data); err != nil {
 		return err
 	}

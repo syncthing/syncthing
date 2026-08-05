@@ -34,7 +34,7 @@ func TestTimeoutCond(t *testing.T) {
 	go func() {
 		d := time.Duration(routines) * timeMult * time.Millisecond / 2
 		t.Log("Broadcasting every", d)
-		for i := 0; i < iterations; i++ {
+		for range iterations {
 			time.Sleep(d)
 
 			c.L.Lock()
@@ -47,7 +47,7 @@ func TestTimeoutCond(t *testing.T) {
 
 	var results [routines][2]int
 	var wg sync.WaitGroup
-	for i := 0; i < routines; i++ {
+	for i := range routines {
 		wg.Go(func() {
 			d := time.Duration(i) * timeMult * time.Millisecond
 			t.Logf("Routine %d waits for %v\n", i, d)
@@ -67,7 +67,7 @@ func TestTimeoutCond(t *testing.T) {
 }
 
 func runLocks(t *testing.T, iterations int, c *TimeoutCond, d time.Duration) (succ, fail int) {
-	for i := 0; i < iterations; i++ {
+	for range iterations {
 		c.L.Lock()
 
 		// The thread may be stalled, so we can't test the 'succeeded late' case reliably.
