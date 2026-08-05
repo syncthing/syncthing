@@ -1830,6 +1830,14 @@ func TestSanitizedHostname(t *testing.T) {
 	}
 }
 
+func TestPrometheusMetrics(t *testing.T) {
+	// We should get some form of reasonable metrics response
+	bs := prometheusMetrics()
+	if !bytes.Contains(bs, []byte("TYPE go_info gauge")) {
+		t.Error("metrics should include go_info gauge")
+	}
+}
+
 // runningInContainer returns true if we are inside Docker or LXC. It might
 // be prone to false negatives if things change in the future, but likely
 // not false positives.
