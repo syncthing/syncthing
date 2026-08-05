@@ -1184,10 +1184,7 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Metrics data as text
-	var metricsBuf bytes.Buffer
-	wr := bufferedResponseWriter{Writer: &metricsBuf}
-	promhttp.Handler().ServeHTTP(wr, &http.Request{Method: http.MethodGet})
-	files = append(files, fileEntry{name: "metrics.txt", data: metricsBuf.Bytes()})
+	files = append(files, fileEntry{name: "metrics.txt", data: prometheusMetrics()})
 
 	// Connection data as JSON
 	connStats := s.model.ConnectionStats()
@@ -1256,6 +1253,16 @@ func (s *service) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", "attachment; filename="+zipFileName)
 	io.Copy(w, &zipFilesBuffer)
+}
+
+func prometheusMetrics() []byte {
+	var metricsBuf bytes.Buffer
+	wr := bufferedResponseWriter{Writer: &metricsBuf}
+	promhttp.Handler().ServeHTTP(wr, &http.Request{
+		Method: http.MethodGet,
+		URL:    &url.URL{Scheme: "http://", Host: "localhost", Path: "/metrics"},
+	})
+	return metricsBuf.Bytes()
 }
 
 func (s *service) getSystemDiscovery(w http.ResponseWriter, _ *http.Request) {
@@ -1946,7 +1953,8 @@ func sanitizedHostname(name string) (string, error) {
 			return r > unicode.MaxASCII ||
 				!unicode.IsLetter(r) && !unicode.IsNumber(r) &&
 					r != '.' && r != '-'
-		})))
+		})),
+	)
 	name, _, err := transform.String(t, name)
 	if err != nil {
 		return "", err
