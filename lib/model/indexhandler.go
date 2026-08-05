@@ -453,7 +453,7 @@ func (s *indexHandler) receive(fs []protocol.FileInfo, update bool, op string, p
 		})
 	}
 
-	s.evLogger.Log(events.RemoteIndexUpdated, map[string]interface{}{
+	s.evLogger.Log(events.RemoteIndexUpdated, map[string]any{
 		"device":   deviceID.String(),
 		"folder":   s.folder,
 		"items":    len(fs),

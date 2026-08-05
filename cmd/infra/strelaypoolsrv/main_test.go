@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		u := fmt.Sprintf("permanent%d", i)
 		permanentRelays = append(permanentRelays, &relay{URL: u})
 	}

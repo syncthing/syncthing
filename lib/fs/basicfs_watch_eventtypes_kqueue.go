@@ -5,7 +5,6 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
 //go:build dragonfly || freebsd || netbsd || openbsd || ios || kqueue
-// +build dragonfly freebsd netbsd openbsd ios kqueue
 
 package fs
 

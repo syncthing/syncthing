@@ -402,10 +402,7 @@ func (s *apiSrv) certificateBytes(req *http.Request) ([]byte, error) {
 		b.WriteByte('\n')
 
 		for i := 0; i < len(cert); i += 64 {
-			end := i + 64
-			if end > len(cert) {
-				end = len(cert)
-			}
+			end := min(i+64, len(cert))
 			b.WriteString(cert[i:end])
 			b.WriteByte('\n')
 		}

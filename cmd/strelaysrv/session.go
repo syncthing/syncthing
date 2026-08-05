@@ -330,10 +330,7 @@ func take(tokens int, ls ...*rate.Limiter) {
 
 	for tokens > 0 {
 		// chunk is how many tokens we can consume at a time
-		chunk := tokens
-		if chunk > minBurst {
-			chunk = minBurst
-		}
+		chunk := min(tokens, minBurst)
 
 		// maxDelay is the longest delay mandated by any of the limiters for
 		// the chosen chunk size.

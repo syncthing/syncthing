@@ -192,10 +192,7 @@ func CommonPrefix(first, second string) string {
 
 	isAbs := filepath.IsAbs(first) && filepath.IsAbs(second)
 
-	count := len(firstParts)
-	if len(secondParts) < len(firstParts) {
-		count = len(secondParts)
-	}
+	count := min(len(secondParts), len(firstParts))
 
 	common := make([]string, 0, count)
 	for i := range count {

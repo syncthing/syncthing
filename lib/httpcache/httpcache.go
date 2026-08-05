@@ -11,6 +11,7 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
 	"strconv"
 	"strings"
@@ -43,9 +44,7 @@ type recordedResponse struct {
 }
 
 func (resp *recordedResponse) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	for k, v := range resp.header {
-		w.Header()[k] = v
-	}
+	maps.Copy(w.Header(), resp.header)
 
 	w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", int(resp.keep.Seconds())))
 

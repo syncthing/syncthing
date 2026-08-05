@@ -251,7 +251,7 @@ func TestCopierFinder(t *testing.T) {
 
 	timeout := time.After(10 * time.Second)
 	pulls := make([]pullBlockState, 4)
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		select {
 		case pulls[i] = <-pullChan:
 		case <-timeout:
@@ -408,7 +408,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 		t0 := time.Now()
 		if ev, err := s.Poll(time.Minute); err != nil {
 			t.Fatal("Got error waiting for ItemFinished event:", err)
-		} else if n := ev.Data.(map[string]interface{})["item"]; n != state.file.Name {
+		} else if n := ev.Data.(map[string]any)["item"]; n != state.file.Name {
 			t.Fatal("Got ItemFinished event for wrong file:", n)
 		}
 		t.Log("event took", time.Since(t0))
@@ -513,7 +513,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	t0 := time.Now()
 	if ev, err := s.Poll(time.Minute); err != nil {
 		t.Fatal("Got error waiting for ItemFinished event:", err)
-	} else if n := ev.Data.(map[string]interface{})["item"]; n != state.file.Name {
+	} else if n := ev.Data.(map[string]any)["item"]; n != state.file.Name {
 		t.Fatal("Got ItemFinished event for wrong file:", n)
 	}
 	t.Log("event took", time.Since(t0))
@@ -899,7 +899,7 @@ func TestPullCtxCancel(t *testing.T) {
 
 	done := make(chan struct{})
 	defer close(done)
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		go func() {
 			select {
 			case pullChan <- emptyState():

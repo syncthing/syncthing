@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"math"
 	"net"
 	"net/url"
@@ -817,7 +818,7 @@ func (s *service) createListener(factory listenerFactory, uri *url.URL) bool {
 }
 
 func (s *service) logListenAddressesChangedEvent(l ListenerAddresses) {
-	s.evLogger.Log(events.ListenAddressesChanged, map[string]interface{}{
+	s.evLogger.Log(events.ListenAddressesChanged, map[string]any{
 		"address": l.URI,
 		"lan":     l.LANAddresses,
 		"wan":     l.WANAddresses,
@@ -995,9 +996,7 @@ func newConnectionStatusHandler() connectionStatusHandler {
 func (s *connectionStatusHandler) ConnectionStatus() map[string]ConnectionStatusEntry {
 	result := make(map[string]ConnectionStatusEntry)
 	s.connectionStatusMut.RLock()
-	for k, v := range s.connectionStatus {
-		result[k] = v
-	}
+	maps.Copy(result, s.connectionStatus)
 	s.connectionStatusMut.RUnlock()
 	return result
 }

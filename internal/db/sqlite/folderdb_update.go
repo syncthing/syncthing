@@ -474,10 +474,7 @@ func (s *folderDB) recalcGlobalForFile(txp *txPreparedStmts, file string) error 
 	// The global version is the first one in the list that is not invalid,
 	// or just the first one in the list if all are invalid.
 	var global fileRow
-	globIdx := slices.IndexFunc(es, func(e fileRow) bool { return !e.IsInvalid() })
-	if globIdx < 0 {
-		globIdx = 0
-	}
+	globIdx := max(slices.IndexFunc(es, func(e fileRow) bool { return !e.IsInvalid() }), 0)
 	global = es[globIdx]
 
 	// We "have" the file if the position in the list of versions is at the

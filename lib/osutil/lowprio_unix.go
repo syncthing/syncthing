@@ -5,7 +5,6 @@
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //go:build (!windows && !linux && !ios) || android
-// +build !windows,!linux,!ios android
 
 package osutil
 

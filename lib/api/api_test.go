@@ -433,7 +433,6 @@ func TestAPIServiceRequests(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.URL, func(t *testing.T) {
 			t.Parallel()
 			testHTTPRequest(t, baseURL, tc, testAPIKey)
@@ -1723,7 +1722,7 @@ func TestConfigChanges(t *testing.T) {
 		return resp
 	}
 
-	mod := func(method, path string, data interface{}) {
+	mod := func(method, path string, data any) {
 		t.Helper()
 		bs, err := json.Marshal(data)
 		if err != nil {

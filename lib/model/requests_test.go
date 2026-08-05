@@ -582,7 +582,7 @@ func TestRequestSymlinkWindows(t *testing.T) {
 	for {
 		select {
 		case ev := <-sub.C():
-			switch data := ev.Data.(map[string]interface{}); {
+			switch data := ev.Data.(map[string]any); {
 			case ev.Type == events.LocalIndexUpdated:
 				t.Fatalf("Local index was updated unexpectedly: %v", data)
 			case ev.Type == events.StateChanged:
@@ -927,7 +927,7 @@ func TestNeedFolderFiles(t *testing.T) {
 
 	data := []byte("foo")
 	num := 20
-	for i := 0; i < num; i++ {
+	for i := range num {
 		fc.addFile(strconv.Itoa(i), 0o644, protocol.FileInfoTypeFile, data)
 	}
 	fc.sendIndexUpdate()

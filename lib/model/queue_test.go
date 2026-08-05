@@ -200,7 +200,7 @@ func TestQueuePagination(t *testing.T) {
 	q := newJobQueue()
 	// Ten random actions
 	names := make([]string, 10)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		names[i] = fmt.Sprint("f", i)
 		q.Push(names[i], 0, time.Time{})
 	}
