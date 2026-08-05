@@ -175,23 +175,32 @@ func (s *service) getListener(guiCfg config.GUIConfiguration) (net.Listener, err
 	tlsCfg := tlsutil.SecureDefaultWithTLS12()
 	tlsCfg.Certificates = []tls.Certificate{cert}
 
-	if guiCfg.Network() == "unix" {
-		// When listening on a UNIX socket we should unlink before bind,
-		// lest we get a "bind: address already in use". We don't
-		// particularly care if this succeeds or not.
-		os.Remove(guiCfg.Address())
-	}
-	rawListener, err := net.Listen(guiCfg.Network(), guiCfg.Address())
-	if err != nil {
-		return nil, err
-	}
-
-	if guiCfg.Network() == "unix" && guiCfg.UnixSocketPermissions() != 0 {
-		// We should error if this fails under the assumption that these permissions are
-		// required for operation.
-		err = os.Chmod(guiCfg.Address(), guiCfg.UnixSocketPermissions())
+	var rawListener net.Listener
+	if guiCfg.Network() == "systemd" {
+		f := os.NewFile(3, "systemd socket")
+		rawListener, err = net.FileListener(f)
 		if err != nil {
 			return nil, err
+		}
+	} else {
+		if guiCfg.Network() == "unix" {
+			// When listening on a UNIX socket we should unlink before bind,
+			// lest we get a "bind: address already in use". We don't
+			// particularly care if this succeeds or not.
+			os.Remove(guiCfg.Address())
+		}
+		rawListener, err = net.Listen(guiCfg.Network(), guiCfg.Address())
+		if err != nil {
+			return nil, err
+		}
+
+		if guiCfg.Network() == "unix" && guiCfg.UnixSocketPermissions() != 0 {
+			// We should error if this fails under the assumption that these permissions are
+			// required for operation.
+			err = os.Chmod(guiCfg.Address(), guiCfg.UnixSocketPermissions())
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
