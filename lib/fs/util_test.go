@@ -50,7 +50,7 @@ func TestCommonPrefix(t *testing.T) {
 	test(`.`, `.`, `.`)
 }
 
-func TestWindowsInvalidFilename(t *testing.T) {
+func TestOsInvalidFilename(t *testing.T) {
 	cases := []struct {
 		name string
 		err  error
@@ -69,7 +69,7 @@ func TestWindowsInvalidFilename(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		err := WindowsInvalidFilename(tc.name)
+		err := OsInvalidFilename(tc.name)
 		if !errors.Is(err, tc.err) {
 			t.Errorf("For %q, got %v, expected %v", tc.name, err, tc.err)
 		}
@@ -121,16 +121,16 @@ func TestSanitizePathFuzz(t *testing.T) {
 	}
 }
 
-func benchmarkWindowsInvalidFilename(b *testing.B, name string) {
+func benchmarkOsInvalidFilename(b *testing.B, name string) {
 	for i := 0; i < b.N; i++ {
-		WindowsInvalidFilename(name)
+		OsInvalidFilename(name)
 	}
 }
 
-func BenchmarkWindowsInvalidFilenameValid(b *testing.B) {
-	benchmarkWindowsInvalidFilename(b, "License.txt.gz")
+func BenchmarkOsInvalidFilenameValid(b *testing.B) {
+	benchmarkOsInvalidFilename(b, "License.txt.gz")
 }
 
-func BenchmarkWindowsInvalidFilenameNUL(b *testing.B) {
-	benchmarkWindowsInvalidFilename(b, "nul.txt.gz")
+func BenchmarkOsInvalidFilenameNUL(b *testing.B) {
+	benchmarkOsInvalidFilename(b, "nul.txt.gz")
 }
