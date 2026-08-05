@@ -13,24 +13,26 @@ import (
 	"net"
 	"time"
 
+	"github.com/gobwas/glob"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/netutil"
+	"github.com/syncthing/syncthing/lib/sliceutil"
 
 	"golang.org/x/net/ipv6"
 )
 
-func NewMulticast(addr string) Interface {
+func NewMulticast(addr string, allowedIfacesGlobs []glob.Glob, ignoredIfacesGlobs []glob.Glob) Interface {
 	c := newCast("multicastBeacon")
 	c.addReader(func(ctx context.Context) error {
-		return readMulticasts(ctx, c.outbox, addr)
+		return readMulticasts(ctx, c.outbox, addr, allowedIfacesGlobs, ignoredIfacesGlobs)
 	})
 	c.addWriter(func(ctx context.Context) error {
-		return writeMulticasts(ctx, c.inbox, addr)
+		return writeMulticasts(ctx, c.inbox, addr, allowedIfacesGlobs, ignoredIfacesGlobs)
 	})
 	return c
 }
 
-func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) error {
+func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string, allowedIfaces []glob.Glob, ignoredIfaces []glob.Glob) error {
 	gaddr, err := net.ResolveUDPAddr("udp6", addr)
 	if err != nil {
 		l.Debugln(err)
@@ -80,6 +82,18 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 				continue
 			}
 
+			if len(allowedIfaces) != 0 && !sliceutil.ContainsGlob(allowedIfaces, intf.Name) {
+				// if slice allowedIfaces is not empty and doesn't contain this interface
+				// then prevent local announcements from being broadcast on this interface
+				l.Debugln("intf", intf.Name, "does not match the allowedIfaces", allowedIfaces, "; ignoring")
+				continue
+			} else if len(ignoredIfaces) != 0 && sliceutil.ContainsGlob(ignoredIfaces, intf.Name) {
+				// else if slice ignoredIfaces is not empty and contains this interface
+				// then prevent local announcements from being broadcast on this interface
+				l.Debugln("intf", intf.Name, "matches the ignoredIfaces", ignoredIfaces, "; ignoring")
+				continue
+			}
+
 			wcm.IfIndex = intf.Index
 			pconn.SetWriteDeadline(time.Now().Add(time.Second))
 			_, err = pconn.WriteTo(bs, wcm, gaddr)
@@ -107,7 +121,7 @@ func writeMulticasts(ctx context.Context, inbox <-chan []byte, addr string) erro
 	}
 }
 
-func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error {
+func readMulticasts(ctx context.Context, outbox chan<- recv, addr string, allowedIfaces []glob.Glob, ignoredIfaces []glob.Glob) error {
 	gaddr, err := net.ResolveUDPAddr("udp6", addr)
 	if err != nil {
 		l.Debugln(err)
@@ -141,6 +155,14 @@ func readMulticasts(ctx context.Context, outbox chan<- recv, addr string) error 
 
 		if build.IsAndroid && intf.Flags&net.FlagPointToPoint != 0 {
 			// skip  cellular interfaces
+			continue
+		}
+
+		if len(allowedIfaces) != 0 && !sliceutil.ContainsGlob(allowedIfaces, intf.Name) {
+			l.Debugln("intf", intf.Name, "does not match the allowedIfaces", allowedIfaces, "; ignoring")
+			continue
+		} else if len(ignoredIfaces) != 0 && sliceutil.ContainsGlob(ignoredIfaces, intf.Name) {
+			l.Debugln("intf", intf.Name, "matches the ignoredIfaces", ignoredIfaces, "; ignoring")
 			continue
 		}
 
