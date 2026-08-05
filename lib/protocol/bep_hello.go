@@ -11,6 +11,7 @@ import (
 	"errors"
 	"io"
 
+	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/syncthing/syncthing/internal/gen/bep"
@@ -101,6 +102,9 @@ func readHello(c io.Reader) (Hello, error) {
 
 		var wh bep.Hello
 		if err := proto.Unmarshal(buf, &wh); err != nil {
+			return Hello{}, err
+		}
+		if err := protovalidate.Validate(&wh); err != nil {
 			return Hello{}, err
 		}
 
