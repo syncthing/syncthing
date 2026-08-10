@@ -954,7 +954,7 @@ func (c browserCmd) Run() error {
 		if err != nil {
 			return err
 		}
-		_, err = http.DefaultClient.Do(req)
+		_, err = http.DefaultClient.Do(req) //nolint:bodyclose // we're exiting in a millisecond
 		if err != nil {
 			slog.Error("GUI not available", slogutil.Error(err))
 			os.Exit(svcutil.ExitError.AsInt()) //nolint:gocritic // deferred cancel
