@@ -171,16 +171,21 @@ func (c *serveCmd) monitorMain() {
 		exiterr := &exec.ExitError{}
 		if errors.As(err, &exiterr) {
 			exitCode := exiterr.ExitCode()
-			if stopped || c.NoRestart {
+			switch {
+			case stopped || c.NoRestart:
 				os.Exit(exitCode)
-			}
-			if exitCode == svcutil.ExitUpgrade.AsInt() {
+
+			case exitCode == svcutil.ExitUpgrade.AsInt():
 				// Restart the monitor process to release the .old
 				// binary as part of the upgrade process.
 				slog.Info("Restarting monitor...")
 				if err = restartMonitor(binary, args); err != nil {
 					slog.Error("Failed to restart monitor", slogutil.Error(err))
 				}
+				os.Exit(exitCode)
+
+			case exitCode == svcutil.ExitNoRestart.AsInt():
+				// Requested to not restart the child
 				os.Exit(exitCode)
 			}
 		}

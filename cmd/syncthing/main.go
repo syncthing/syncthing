@@ -313,21 +313,6 @@ func (c *serveCmd) Run() error {
 	return nil
 }
 
-func openGUI() error {
-	cfg, err := loadOrDefaultConfig()
-	if err != nil {
-		return err
-	}
-	if guiCfg := cfg.GUI(); guiCfg.Enabled {
-		if err := openURL(guiCfg.URL()); err != nil {
-			return err
-		}
-	} else {
-		slog.Error("Browser: GUI is currently disabled")
-	}
-	return nil
-}
-
 func logPackages() string {
 	packages := slogutil.PackageDescrs()
 
@@ -418,6 +403,27 @@ func upgradeViaRest() error {
 }
 
 func (c *serveCmd) syncthingMain() {
+	// Ensure we are the only running instance
+	lf := flock.New(locations.Get(locations.LockFile))
+	locked, err := lf.TryLock()
+	switch {
+	case err != nil:
+		slog.Error("Failed to acquire lock", slogutil.Error(err))
+		os.Exit(svcutil.ExitError.AsInt())
+
+	case !locked && c.NoBrowser:
+		slog.Error("Failed to acquire lock: is another Syncthing instance already running?")
+		os.Exit(svcutil.ExitError.AsInt())
+
+	case !locked:
+		cmd := browserCmd{Verify: true}
+		if err := cmd.Run(); err != nil {
+			slog.Error("Failed to open browser", slogutil.Error(err))
+			os.Exit(svcutil.ExitNoRestart.AsInt())
+		}
+		return
+	}
+
 	if c.DebugProfileBlock {
 		startBlockProfiler()
 	}
@@ -436,18 +442,7 @@ func (c *serveCmd) syncthingMain() {
 	)
 	if err != nil {
 		slog.Error("Failed to load/generate certificate", slogutil.Error(err))
-		os.Exit(1)
-	}
-
-	// Ensure we are the only running instance
-	lf := flock.New(locations.Get(locations.LockFile))
-	locked, err := lf.TryLock()
-	if err != nil {
-		slog.Error("Failed to acquire lock", slogutil.Error(err))
-		os.Exit(1)
-	} else if !locked {
-		slog.Error("Failed to acquire lock: is another Syncthing instance already running?")
-		os.Exit(1)
+		os.Exit(svcutil.ExitError.AsInt())
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -502,13 +497,13 @@ func (c *serveCmd) syncthingMain() {
 
 	if err := syncthing.TryMigrateDatabase(ctx, c.DBDeleteRetentionInterval); err != nil {
 		slog.Error("Failed to migrate old-style database", slogutil.Error(err))
-		os.Exit(1)
+		os.Exit(svcutil.ExitError.AsInt())
 	}
 
 	sdb, err := syncthing.OpenDatabase(locations.Get(locations.Database), c.DBDeleteRetentionInterval)
 	if err != nil {
 		slog.Error("Error opening database", slogutil.Error(err))
-		os.Exit(1)
+		os.Exit(svcutil.ExitError.AsInt())
 	}
 
 	if c.DebugPerfStats {
@@ -915,7 +910,7 @@ func (u upgradeCmd) Run() error {
 		switch {
 		case err != nil && !os.IsNotExist(err):
 			slog.Error("Failed to lock for upgrade", slogutil.Error(err))
-			os.Exit(1)
+			os.Exit(svcutil.ExitError.AsInt())
 		case locked || os.IsNotExist(err):
 			// We got the lock, or the config directory didn't exist, so we
 			// can do a direct upgrade
@@ -935,14 +930,38 @@ func (u upgradeCmd) Run() error {
 	return nil
 }
 
-type browserCmd struct{}
+type browserCmd struct {
+	Verify bool `help:"Verify that the GUI is reachable before launching browser"`
+}
 
-func (browserCmd) Run() error {
-	if err := openGUI(); err != nil {
-		slog.Error("Failed to open web UI", slogutil.Error(err))
+func (c browserCmd) Run() error {
+	cfg, err := loadOrDefaultConfig()
+	if err != nil {
+		return err
+	}
+	guiCfg := cfg.GUI()
+	if !guiCfg.Enabled {
+		slog.Error("Browser: GUI is currently disabled")
 		os.Exit(svcutil.ExitError.AsInt())
 	}
-	return nil
+	url := guiCfg.URL()
+
+	if c.Verify {
+		// Do an HTTP request to verify the GUI/API is up and available
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return err
+		}
+		_, err = http.DefaultClient.Do(req)
+		if err != nil {
+			slog.Error("GUI not available", slogutil.Error(err))
+			os.Exit(svcutil.ExitError.AsInt()) //nolint:gocritic // deferred cancel
+		}
+	}
+
+	return openURL(url)
 }
 
 type debugCmd struct {
