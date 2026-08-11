@@ -416,7 +416,7 @@ func (c *serveCmd) syncthingMain() {
 		os.Exit(svcutil.ExitError.AsInt())
 
 	case !locked:
-		slog.Info("Detected to already be running, launching GUI (use --no-browser to prevent)")
+		slog.Info("Seems to already be running, launching GUI instead (use --no-browser to prevent)")
 		cmd := browserCmd{Verify: true}
 		if err := cmd.Run(); err != nil {
 			slog.Error("Failed to open browser", slogutil.Error(err))
