@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/locations"
@@ -115,6 +116,7 @@ func (c *apiClient) Endpoint() string {
 
 func (c *apiClient) Do(req *http.Request) (*http.Response, error) {
 	req.Header.Set("X-Api-Key", c.apikey)
+	req.Header.Set("User-Agent", build.UserAgent())
 	resp, err := c.Client.Do(req)
 	if err != nil {
 		return nil, err

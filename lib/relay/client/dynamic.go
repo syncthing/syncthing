@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
@@ -53,6 +54,7 @@ func (c *dynamicClient) serve(ctx context.Context) error {
 		l.Debugln(c, "failed to lookup dynamic relays", err)
 		return err
 	}
+	req.Header.Set("User-Agent", build.UserAgent())
 	data, err := http.DefaultClient.Do(req)
 	if err != nil {
 		l.Debugln(c, "failed to lookup dynamic relays", err)

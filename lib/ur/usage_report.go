@@ -373,6 +373,7 @@ func (s *Service) sendUsageReport(ctx context.Context) error {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", build.UserAgent())
 	resp, err := client.Do(req)
 	if err != nil {
 		return err

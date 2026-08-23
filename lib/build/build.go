@@ -127,6 +127,10 @@ func LongVersionFor(program string) string {
 	return v
 }
 
+func UserAgent() string {
+	return fmt.Sprintf(`Syncthing/%s (%s %s-%s)`, strings.TrimPrefix(Version, "v"), runtime.Version(), runtime.GOOS, runtime.GOARCH)
+}
+
 func TagsList() []string {
 	tags := strings.Split(Tags, ",")
 	if len(tags) == 1 && tags[0] == "" {

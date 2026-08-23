@@ -25,6 +25,7 @@ import (
 	"golang.org/x/net/http2"
 
 	"github.com/syncthing/syncthing/internal/slogutil"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
@@ -454,6 +455,7 @@ func (c *contextClient) Get(ctx context.Context, url string) (*http.Response, er
 	if err != nil {
 		return nil, err
 	}
+	req.Header.Set("User-Agent", build.UserAgent())
 	return c.Client.Do(req)
 }
 
@@ -463,6 +465,7 @@ func (c *contextClient) Post(ctx context.Context, url, ctype string, data io.Rea
 		return nil, err
 	}
 	req.Header.Set("Content-Type", ctype)
+	req.Header.Set("User-Agent", build.UserAgent())
 	return c.Client.Do(req)
 }
 

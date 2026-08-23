@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/internal/slogutil"
+	"github.com/syncthing/syncthing/lib/build"
 )
 
 const (
@@ -81,6 +82,7 @@ func uploadPanicLog(ctx context.Context, urlBase, file string) error {
 	if err != nil {
 		return err
 	}
+	headReq.Header.Set("User-Agent", build.UserAgent())
 
 	// Set a reasonable timeout on the HEAD request
 	headCtx, headCancel := context.WithTimeout(ctx, headRequestTimeout)
@@ -101,6 +103,7 @@ func uploadPanicLog(ctx context.Context, urlBase, file string) error {
 	if err != nil {
 		return err
 	}
+	putReq.Header.Set("User-Agent", build.UserAgent())
 
 	// Set a reasonable timeout on the PUT request
 	putCtx, putCancel := context.WithTimeout(ctx, putRequestTimeout)

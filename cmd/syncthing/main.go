@@ -374,6 +374,7 @@ func upgradeViaRest() error {
 	target := u.String()
 	r, _ := http.NewRequest(http.MethodPost, target, nil)
 	r.Header.Set("X-Api-Key", cfg.GUI().APIKey)
+	r.Header.Set("User-Agent", build.UserAgent())
 
 	tr := &http.Transport{
 		DialContext:     dialer.DialContext,
@@ -955,6 +956,7 @@ func (c browserCmd) Run() error {
 		if err != nil {
 			return err
 		}
+		req.Header.Set("User-Agent", build.UserAgent())
 		_, err = http.DefaultClient.Do(req) //nolint:bodyclose // we're exiting in a millisecond
 		if err != nil {
 			slog.Error("GUI not available", slogutil.Error(err))

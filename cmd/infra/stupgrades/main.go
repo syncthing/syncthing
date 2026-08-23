@@ -224,7 +224,7 @@ func filterForLatest(rels []upgrade.Release) []upgrade.Release {
 	return filtered
 }
 
-var userAgentOSArchExp = regexp.MustCompile(`^syncthing.*\(.+ (\w+)-(\w+)\)$`)
+var userAgentOSArchExp = regexp.MustCompile(`^[Ss]yncthing.*\(.+ (\w+)-(\w+)\)$`)
 
 func filterForCompatibility(rels []upgrade.Release, ua, osv string) []upgrade.Release {
 	osArch := userAgentOSArchExp.FindStringSubmatch(ua)

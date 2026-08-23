@@ -214,6 +214,7 @@ func sendFailureReports(ctx context.Context, reports []contract.FailureReport, u
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", build.UserAgent())
 
 	resp, err := client.Do(req)
 	if err != nil {

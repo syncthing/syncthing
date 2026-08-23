@@ -337,7 +337,12 @@ func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, re
 	}
 
 	deviceUUID := strings.TrimPrefix(strings.Split(deviceUSN, "::")[0], "uuid:")
-	response, err = http.Get(deviceDescriptionLocation)
+	req, err := http.NewRequest(http.MethodGet, deviceDescriptionLocation, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", build.UserAgent())
+	response, err = http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -582,7 +587,7 @@ func soapRequestWithIP(ctx context.Context, url, service, function, message stri
 	}
 	req.Close = true
 	req.Header.Set("Content-Type", `text/xml; charset="utf-8"`)
-	req.Header.Set("User-Agent", "syncthing/1.0")
+	req.Header.Set("User-Agent", build.UserAgent())
 	req.Header["SOAPAction"] = []string{fmt.Sprintf(`"%s#%s"`, service, function)} // Enforce capitalization in header-entry for sensitive routers. See issue #1696
 	req.Header.Set("Connection", "Close")
 	req.Header.Set("Cache-Control", "no-cache")
