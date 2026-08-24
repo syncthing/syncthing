@@ -337,7 +337,7 @@ func parseResponse(ctx context.Context, deviceType string, addr *net.UDPAddr, re
 	}
 
 	deviceUUID := strings.TrimPrefix(strings.Split(deviceUSN, "::")[0], "uuid:")
-	req, err := http.NewRequest(http.MethodGet, deviceDescriptionLocation, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, deviceDescriptionLocation, nil)
 	if err != nil {
 		return nil, err
 	}
