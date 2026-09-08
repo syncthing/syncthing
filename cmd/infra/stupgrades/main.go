@@ -7,6 +7,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/alecthomas/kong"
@@ -31,11 +33,12 @@ import (
 )
 
 type cli struct {
-	Listen        string        `default:":8080" help:"Listen address"`
-	MetricsListen string        `default:":8082" help:"Listen address for metrics"`
-	URL           string        `short:"u" default:"https://api.github.com/repos/syncthing/syncthing/releases?per_page=25" help:"GitHub releases url"`
-	Forward       []string      `short:"f" help:"Forwarded pages, format: /path->https://example/com/url"`
-	CacheTime     time.Duration `default:"15m" help:"Cache time"`
+	Listen           string        `default:":8080" help:"Listen address"`
+	MetricsListen    string        `default:":8082" help:"Listen address for metrics"`
+	URL              string        `short:"u" default:"https://api.github.com/repos/syncthing/syncthing/releases?per_page=25" help:"GitHub releases url"`
+	Forward          []string      `short:"f" help:"Forwarded pages, format: /path->https://example/com/url"`
+	CacheTime        time.Duration `default:"15m" help:"Cache time"`
+	AssetURLTemplate string        `help:"Template for asset URLs, blank to use GitHub default" env:"ASSET_URL_TEMPLATE"`
 }
 
 func main() {
@@ -69,7 +72,7 @@ func server(params *cli) error {
 		}()
 	}
 
-	cache := &cachedReleases{url: params.URL}
+	cache := &cachedReleases{url: params.URL, assetURLTemplate: params.AssetURLTemplate}
 	if err := cache.Update(context.Background()); err != nil {
 		return fmt.Errorf("initial cache update: %w", err)
 	} else {
@@ -266,6 +269,7 @@ func filterForCompatibility(rels []upgrade.Release, ua, osv string) []upgrade.Re
 
 type cachedReleases struct {
 	url                  string
+	assetURLTemplate     string
 	mut                  sync.RWMutex
 	current              []upgrade.Release
 	latestRel, latestPre string
@@ -278,7 +282,7 @@ func (c *cachedReleases) Releases() []upgrade.Release {
 }
 
 func (c *cachedReleases) Update(ctx context.Context) error {
-	rels, err := fetchGithubReleases(ctx, c.url)
+	rels, err := fetchGithubReleases(ctx, c.url, c.assetURLTemplate)
 	if err != nil {
 		return err
 	}
@@ -306,7 +310,7 @@ func (c *cachedReleases) Update(ctx context.Context) error {
 	return nil
 }
 
-func fetchGithubReleases(ctx context.Context, url string) ([]upgrade.Release, error) {
+func fetchGithubReleases(ctx context.Context, url, assetURLTemplate string) ([]upgrade.Release, error) {
 	req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, url, nil)
 	if err != nil {
 		metricHTTPRequests.WithLabelValues("github-releases", "error").Inc()
@@ -325,12 +329,25 @@ func fetchGithubReleases(ctx context.Context, url string) ([]upgrade.Release, er
 	}
 	metricHTTPRequests.WithLabelValues("github-releases", "success").Inc()
 
+	tpl, err := template.New("asset").Parse(assetURLTemplate)
+	if err != nil {
+		return nil, err
+	}
+
 	// Move the URL used for browser downloads to the URL field, and remove
 	// the browser URL field. This avoids going via the GitHub API for
 	// downloads, since Syncthing uses the URL field.
 	for _, rel := range rels {
 		for j, asset := range rel.Assets {
-			rel.Assets[j].URL = asset.BrowserURL
+			if assetURLTemplate != "" {
+				buf := new(bytes.Buffer)
+				if err := tpl.Execute(buf, map[string]any{"Release": rel, "Asset": asset}); err != nil {
+					return nil, err
+				}
+				rel.Assets[j].URL = buf.String()
+			} else {
+				rel.Assets[j].URL = asset.BrowserURL
+			}
 			rel.Assets[j].BrowserURL = ""
 		}
 	}

@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -154,21 +155,10 @@ func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 
 	slog.Debug("Handling request", "id", reqID, "method", req.Method, "url", req.URL, "proto", req.Proto)
 
-	remoteAddr := &net.TCPAddr{
-		IP:   nil,
-		Port: -1,
-	}
-
+	var remoteAddr *net.TCPAddr
 	if s.useHTTP {
 		// X-Forwarded-For can have multiple client IPs; split using the comma separator
-		forwardIP, _, _ := strings.Cut(req.Header.Get("X-Forwarded-For"), ",")
-
-		// net.ParseIP will return nil if leading/trailing whitespace exists; use strings.TrimSpace()
-		remoteAddr.IP = net.ParseIP(strings.TrimSpace(forwardIP))
-
-		if parsedPort, err := strconv.ParseInt(req.Header.Get("X-Client-Port"), 10, 0); err == nil {
-			remoteAddr.Port = int(parsedPort)
-		}
+		remoteAddr = forwardedRemoteAddr(req)
 	} else {
 		var err error
 		remoteAddr, err = net.ResolveTCPAddr("tcp", req.RemoteAddr)
@@ -189,6 +179,21 @@ func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 	default:
 		http.Error(lw, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func forwardedRemoteAddr(req *http.Request) *net.TCPAddr {
+	forwardIP, _, _ := strings.Cut(req.Header.Get("X-Forwarded-For"), ",")
+
+	remoteAddr := &net.TCPAddr{
+		IP:   net.ParseIP(strings.TrimSpace(forwardIP)),
+		Port: -1,
+	}
+
+	if parsedPort, err := strconv.ParseInt(req.Header.Get("X-Client-Port"), 10, 0); err == nil {
+		remoteAddr.Port = int(parsedPort)
+	}
+
+	return remoteAddr
 }
 
 func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
@@ -327,7 +332,11 @@ func (s *apiSrv) handleAnnounce(deviceID protocol.DeviceID, addresses []string) 
 	return s.db.merge(&deviceID, dbAddrs, seen)
 }
 
-func handlePing(w http.ResponseWriter, _ *http.Request) {
+func handlePing(w http.ResponseWriter, req *http.Request) {
+	hostname, _ := os.Hostname()
+	w.Header().Set("Discovery-Server-Instance", hostname)
+	w.Header().Set("Discovery-Client-Address", req.RemoteAddr)
+	w.Header().Set("Discovery-Client-Remote", forwardedRemoteAddr(req).String())
 	w.WriteHeader(http.StatusNoContent)
 }
 
