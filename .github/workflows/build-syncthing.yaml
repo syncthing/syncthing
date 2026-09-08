@@ -445,7 +445,7 @@ jobs:
           CERTIFICATE_PATH=$RUNNER_TEMP/codesign.p12
           echo "$DEVELOPER_ID_CERTIFICATE_BASE64" | base64 -d -o "$CERTIFICATE_PATH"
           security import "$CERTIFICATE_PATH" -k "$KEYCHAIN_PATH" -P "$DEVELOPER_ID_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productsign
-          security set-key-partition-list -S apple-tool:,apple: -s -k actions "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
           # Set the codesign identity for following steps
           echo "CODESIGN_IDENTITY=$CODESIGN_IDENTITY" >> $GITHUB_ENV
