@@ -305,10 +305,25 @@ func (c *serveCmd) Run() error {
 		}
 	}
 
+	if build.IsWindows {
+		isService, err := osutil.IsWindowsService()
+		if err != nil {
+			slog.Warn("Failed to check Windows service status", slogutil.Error(err))
+		} else if isService {
+			serviceName := "syncthing"
+
+			serviceMain := func(ctx context.Context) {
+				c.monitorMain(ctx)
+			}
+
+			return osutil.RunService(serviceName, serviceMain)
+		}
+	}
+
 	if c.InternalInnerProcess {
 		c.syncthingMain()
 	} else {
-		c.monitorMain()
+		c.monitorMain(context.Background())
 	}
 	return nil
 }
