@@ -948,6 +948,70 @@ func TestIntroducer(t *testing.T) {
 	}
 }
 
+// An introducer announcing a folder that we have, but that is not shared
+// with the introducer, must not get devices added to it on the introducer's
+// behalf. Not even the introducer itself.
+func TestIntroducerNotSharedFolder(t *testing.T) {
+	m, cancel := newState(t, config.Configuration{
+		Version: config.CurrentVersion,
+		Devices: []config.DeviceConfiguration{
+			{
+				DeviceID:   device1,
+				Introducer: true,
+			},
+			{
+				DeviceID: device2,
+			},
+		},
+		Folders: []config.FolderConfiguration{
+			{
+				FilesystemType: config.FilesystemTypeFake,
+				ID:             "folder1",
+				Path:           "testdata",
+				// Shared with device2, but not with the introducer.
+				Devices: []config.FolderDeviceConfiguration{
+					{DeviceID: device2},
+				},
+			},
+			{
+				FilesystemType: config.FilesystemTypeFake,
+				ID:             "folder2",
+				Path:           "testdata",
+				// Shared with the introducer.
+				Devices: []config.FolderDeviceConfiguration{
+					{DeviceID: device1},
+				},
+			},
+		},
+	})
+	defer cleanupModel(m)
+	defer cancel()
+
+	// The introducer announces that it shares folder1 with itself and
+	// device2, and folder2 with device2.
+	cc := basicClusterConfig(myID, device1, "folder1", "folder2")
+	cc.Folders[0].Devices = append(cc.Folders[0].Devices, protocol.Device{ID: device2})
+	cc.Folders[1].Devices = append(cc.Folders[1].Devices, protocol.Device{ID: device2})
+	m.ClusterConfig(device1Conn, cc)
+
+	// The introducer must not have added itself to folder1, which is not
+	// shared with it, and the existing sharing must be untouched.
+	folder1 := m.cfg.Folders()["folder1"]
+	if folder1.SharedWith(device1) {
+		t.Error("introducer added itself to a folder not shared with it")
+	}
+	if !folder1.SharedWith(device2) {
+		t.Error("expected folder 1 to still be shared with device 2")
+	}
+
+	// Introductions must still happen for folders shared with the
+	// introducer.
+	folder2 := m.cfg.Folders()["folder2"]
+	if dev, ok := folder2.Device(device2); !ok || !dev.IntroducedBy.Equals(device1) {
+		t.Error("expected device 2 to be introduced to folder 2 by device 1")
+	}
+}
+
 func TestIssue4897(t *testing.T) {
 	m, cancel := newState(t, config.Configuration{
 		Version: config.CurrentVersion,
