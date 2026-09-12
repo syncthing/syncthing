@@ -140,6 +140,7 @@ func init() {
 	apiRequestsTotal.WithLabelValues(http.MethodPost, "204")
 	apiRequestsTotal.WithLabelValues(http.MethodPost, "400")
 	apiRequestsTotal.WithLabelValues(http.MethodPost, "403")
+	apiRequestsTotal.WithLabelValues(http.MethodPost, "413")
 
 	lookupRequestsTotal.WithLabelValues("success")
 	lookupRequestsTotal.WithLabelValues("not_found_ever")
@@ -147,6 +148,7 @@ func init() {
 
 	announceRequestsTotal.WithLabelValues("success")
 	announceRequestsTotal.WithLabelValues("bad_request")
+	announceRequestsTotal.WithLabelValues("request_too_large")
 	announceRequestsTotal.WithLabelValues("no_certificate")
 
 	replicationSendsTotal.WithLabelValues("success")

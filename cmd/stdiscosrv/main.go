@@ -50,6 +50,7 @@ const (
 	httpReadTimeout    = 5 * time.Second
 	httpWriteTimeout   = 5 * time.Second
 	httpMaxHeaderBytes = 1 << 10
+	httpMaxBodyBytes   = 8 << 10
 
 	// Size of the replication outbox channel
 	replicationOutboxSize = 10000
