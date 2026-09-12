@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gobwas/glob"
 	"github.com/thejerf/suture/v4"
 	"google.golang.org/protobuf/proto"
 
@@ -54,7 +55,7 @@ const (
 	v13Magic          = uint32(0x7D79BC40) // previous version
 )
 
-func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, evLogger events.Logger) (FinderService, error) {
+func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, allowedIfaces []glob.Glob, ignoredIfaces []glob.Glob, evLogger events.Logger) (FinderService, error) {
 	c := &localClient{
 		Supervisor:      suture.New("local", svcutil.SpecWithDebugLogger()),
 		myID:            id,
@@ -78,11 +79,11 @@ func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, evLogge
 		if err != nil {
 			return nil, err
 		}
-		c.beacon = beacon.NewBroadcast(bcPort)
+		c.beacon = beacon.NewBroadcast(bcPort, allowedIfaces, ignoredIfaces)
 	} else {
 		// A multicast client
 		c.name = "IPv6 local"
-		c.beacon = beacon.NewMulticast(addr)
+		c.beacon = beacon.NewMulticast(addr, allowedIfaces, ignoredIfaces)
 	}
 	c.Add(c.beacon)
 	c.Add(svcutil.AsService(c.recvAnnouncements, fmt.Sprintf("%s/recv", c)))

@@ -13,10 +13,12 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"slices"
 	"sync"
 	"time"
 
+	"github.com/gobwas/glob"
 	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/internal/slogutil"
@@ -228,7 +230,7 @@ func (m *manager) Cache() map[protocol.DeviceID]CacheEntry {
 	return res
 }
 
-func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool) {
+func (m *manager) CommitConfiguration(from, to config.Configuration) (handled bool) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 	toIdentities := make(map[string]struct{})
@@ -238,7 +240,17 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 		}
 	}
 
-	if to.Options.LocalAnnEnabled {
+	fromAnnAllowedIfaces := from.Options.LocalAnnAllowedIfaces()
+	toAnnAllowedIfaces := to.Options.LocalAnnAllowedIfaces()
+	fromAnnIgnoredIfaces := from.Options.LocalAnnAllowedIfaces()
+	toAnnIgnoredIfaces := to.Options.LocalAnnIgnoredIfaces()
+	var localAnnAllowedIfacesGlobs []glob.Glob
+	var localAnnIgnoredIfacesGlobs []glob.Glob
+
+	// If ifaces splices are changed, we should recompile globs splices and re-create local announce identities with them
+	localAnnIfacesChanged := !reflect.DeepEqual(fromAnnAllowedIfaces, toAnnAllowedIfaces) || !reflect.DeepEqual(fromAnnIgnoredIfaces, toAnnIgnoredIfaces)
+
+	if to.Options.LocalAnnEnabled && !localAnnIfacesChanged {
 		toIdentities[ipv4Identity(to.Options.LocalAnnPort)] = struct{}{}
 		toIdentities[ipv6Identity(to.Options.LocalAnnMCAddr)] = struct{}{}
 	}
@@ -272,10 +284,30 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 	}
 
 	if to.Options.LocalAnnEnabled {
+		// https://github.com/gobwas/glob/blob/master/readme.md#performance
+		if localAnnIfacesChanged {
+			for _, i := range toAnnAllowedIfaces {
+				g, err := glob.Compile(i)
+				if err != nil {
+					slog.Warn("Failed to compile LocalAnnAllowedIface glob:", slogutil.Error(err))
+					continue
+				}
+				localAnnAllowedIfacesGlobs = append(localAnnAllowedIfacesGlobs, g)
+			}
+			for _, i := range toAnnIgnoredIfaces {
+				g, err := glob.Compile(i)
+				if err != nil {
+					slog.Warn("Failed to compile LocalAnnIgnoredIface glob:", slogutil.Error(err))
+					continue
+				}
+				localAnnIgnoredIfacesGlobs = append(localAnnIgnoredIfacesGlobs, g)
+			}
+		}
+
 		// v4 broadcasts
 		v4Identity := ipv4Identity(to.Options.LocalAnnPort)
-		if _, ok := m.finders[v4Identity]; !ok {
-			bcd, err := NewLocal(m.myID, fmt.Sprintf(":%d", to.Options.LocalAnnPort), m.addressLister, m.evLogger)
+		if _, ok := m.finders[v4Identity]; !ok || localAnnIfacesChanged {
+			bcd, err := NewLocal(m.myID, fmt.Sprintf(":%d", to.Options.LocalAnnPort), m.addressLister, localAnnAllowedIfacesGlobs, localAnnIgnoredIfacesGlobs, m.evLogger)
 			if err != nil {
 				slog.Warn("Failed to initialize IPv4 local discovery", slogutil.Error(err))
 			} else {
@@ -285,8 +317,8 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 
 		// v6 multicasts
 		v6Identity := ipv6Identity(to.Options.LocalAnnMCAddr)
-		if _, ok := m.finders[v6Identity]; !ok {
-			mcd, err := NewLocal(m.myID, to.Options.LocalAnnMCAddr, m.addressLister, m.evLogger)
+		if _, ok := m.finders[v6Identity]; !ok || localAnnIfacesChanged {
+			mcd, err := NewLocal(m.myID, to.Options.LocalAnnMCAddr, m.addressLister, localAnnAllowedIfacesGlobs, localAnnIgnoredIfacesGlobs, m.evLogger)
 			if err != nil {
 				slog.Warn("Failed to initialize IPv6 local discovery", slogutil.Error(err))
 			} else {

@@ -13,23 +13,25 @@ import (
 	"net"
 	"time"
 
+	"github.com/gobwas/glob"
 	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/netutil"
+	"github.com/syncthing/syncthing/lib/sliceutil"
 )
 
-func NewBroadcast(port int) Interface {
+func NewBroadcast(port int, allowedIfaces []glob.Glob, ignoredIfaces []glob.Glob) Interface {
 	c := newCast("broadcastBeacon")
 	c.addReader(func(ctx context.Context) error {
 		return readBroadcasts(ctx, c.outbox, port)
 	})
 	c.addWriter(func(ctx context.Context) error {
-		return writeBroadcasts(ctx, c.inbox, port)
+		return writeBroadcasts(ctx, c.inbox, port, allowedIfaces, ignoredIfaces)
 	})
 	return c
 }
 
-func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
+func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int, allowedIfaces []glob.Glob, ignoredIfaces []glob.Glob) error {
 	conn, err := net.ListenUDP("udp4", nil)
 	if err != nil {
 		l.Debugln(err)
@@ -67,6 +69,17 @@ func writeBroadcasts(ctx context.Context, inbox <-chan []byte, port int) error {
 
 			if build.IsAndroid && intf.Flags&net.FlagPointToPoint != 0 {
 				// skip  cellular interfaces
+				continue
+			}
+			if len(allowedIfaces) != 0 && !sliceutil.ContainsGlob(allowedIfaces, intf.Name) {
+				// if slice allowedIfaces is not empty and doesn't contain this interface
+				// then prevent local announcements from being broadcast on this interface
+				l.Debugln("intf", intf.Name, "does not match the allowedIfaces", allowedIfaces, "; ignoring")
+				continue
+			} else if len(ignoredIfaces) != 0 && sliceutil.ContainsGlob(ignoredIfaces, intf.Name) {
+				// else if slice ignoredIfaces is not empty and contains this interface
+				// then prevent local announcements from being broadcast on this interface
+				l.Debugln("intf", intf.Name, "matches the ignoredIfaces", ignoredIfaces, "; ignoring")
 				continue
 			}
 
