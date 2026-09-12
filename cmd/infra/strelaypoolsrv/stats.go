@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"net"
 	"net/http"
 	"sync"
@@ -170,8 +171,7 @@ func fetchStats(relay *relay) *stats {
 	}
 
 	var stats stats
-
-	if err := json.NewDecoder(response.Body).Decode(&stats); err != nil {
+	if err := json.NewDecoder(io.LimitReader(response.Body, maxJSONBodyBytes)).Decode(&stats); err != nil {
 		return nil
 	}
 	return &stats

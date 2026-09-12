@@ -140,6 +140,8 @@ func (s *apiSrv) Serve(ctx context.Context) error {
 }
 
 func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
+	req.Body = http.MaxBytesReader(w, req.Body, httpMaxBodyBytes)
+
 	t0 := time.Now()
 
 	lw := NewLoggingResponseWriter(w)
@@ -271,6 +273,13 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 
 	var ann announcement
 	if err := json.NewDecoder(req.Body).Decode(&ann); err != nil {
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+			slog.Debug("Request body too large", "id", reqID, "error", err)
+			announceRequestsTotal.WithLabelValues("request_too_large").Inc()
+			w.Header().Set("Retry-After", errorRetryAfterString())
+			http.Error(w, "Request Entity Too Large", http.StatusRequestEntityTooLarge)
+			return
+		}
 		slog.Debug("Failed to decode request", "id", reqID, "error", err)
 		announceRequestsTotal.WithLabelValues("bad_request").Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())

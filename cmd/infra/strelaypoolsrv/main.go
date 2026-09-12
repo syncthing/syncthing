@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -126,6 +127,7 @@ var (
 
 const (
 	httpStatusEnhanceYourCalm = 429
+	maxJSONBodyBytes          = 8 << 10
 )
 
 func main() {
@@ -249,6 +251,7 @@ func main() {
 	postMux.HandleFunc("/endpoint", withAPIMetrics(handleRegister))
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxJSONBodyBytes)
 		switch r.Method {
 		case http.MethodGet, http.MethodHead, http.MethodOptions:
 			getMux.ServeHTTP(w, r)
@@ -387,6 +390,13 @@ func handleRegister(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 
 	if err != nil {
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+			if debug {
+				log.Println("Payload too large")
+			}
+			http.Error(w, "Request body too large", http.StatusRequestEntityTooLarge)
+			return
+		}
 		if debug {
 			log.Println("Failed to parse payload")
 		}

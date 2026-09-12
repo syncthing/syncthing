@@ -47,8 +47,7 @@ func newMetricsSet(srv *server) *metricsSet {
 
 	var initForType func(reflect.Type)
 	initForType = func(t reflect.Type) {
-		for i := range t.NumField() {
-			field := t.Field(i)
+		for field := range t.Fields() {
 			if field.Type.Kind() == reflect.Struct {
 				initForType(field.Type)
 				continue
