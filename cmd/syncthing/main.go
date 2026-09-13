@@ -608,7 +608,7 @@ func (c *serveCmd) syncthingMain() {
 		// Can potentially block if the utility we are invoking doesn't
 		// fork, and just execs, hence keep it in its own routine.
 		go func() {
-			cmd := browserCmd{Verify: true}
+			cmd := browserCmd{}
 			if err := cmd.Run(); err != nil {
 				slog.Error("Failed to open browser", slogutil.Error(err))
 			}
