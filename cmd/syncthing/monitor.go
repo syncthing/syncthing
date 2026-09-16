@@ -76,8 +76,12 @@ func (c *serveCmd) monitorMain() {
 				}
 			}
 
-			// Log to both stdout and file.
-			dst = io.MultiWriter(dst, fileDst)
+			// Log to both stdout and file. Unlike io.MultiWriter, this
+			// does not abort writing to the remaining writers if one of
+			// them fails, which matters because stdout may not be a
+			// valid writer at all (e.g. when started detached from any
+			// console on Windows).
+			dst = osutil.TolerantMultiWriter{dst, fileDst}
 
 			slog.Info("Saved log output", slogutil.FilePath(logFile))
 		}
