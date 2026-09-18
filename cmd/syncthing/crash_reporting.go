@@ -21,12 +21,25 @@ import (
 
 	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/syncthing/syncthing/lib/tlsutil"
 )
 
 const (
 	headRequestTimeout = 10 * time.Second
 	putRequestTimeout  = time.Minute
 )
+
+// The client used for uploading crash reports. Crash reports are rare, so
+// the connection is not kept open after an upload.
+var crashReportClient = &http.Client{
+	Transport: &http.Transport{
+		DialContext:       dialer.DialContext,
+		Proxy:             http.ProxyFromEnvironment,
+		DisableKeepAlives: true,
+		TLSClientConfig:   tlsutil.SecureDefaultWithTLS12(),
+	},
+}
 
 // uploadPanicLogs attempts to upload all the panic logs in the named
 // directory to the crash reporting server as urlBase. Uploads are attempted
@@ -89,7 +102,7 @@ func uploadPanicLog(ctx context.Context, urlBase, file string) error {
 	defer headCancel()
 	headReq = headReq.WithContext(headCtx)
 
-	resp, err := http.DefaultClient.Do(headReq)
+	resp, err := crashReportClient.Do(headReq)
 	if err != nil {
 		return err
 	}
@@ -110,7 +123,7 @@ func uploadPanicLog(ctx context.Context, urlBase, file string) error {
 	defer putCancel()
 	putReq = putReq.WithContext(putCtx)
 
-	resp, err = http.DefaultClient.Do(putReq)
+	resp, err = crashReportClient.Do(putReq)
 	if err != nil {
 		return err
 	}

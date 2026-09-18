@@ -64,9 +64,10 @@ const (
 var upgradeClient = &http.Client{
 	Timeout: readTimeout,
 	Transport: &http.Transport{
-		DialContext:     dialer.DialContext,
-		Proxy:           http.ProxyFromEnvironment,
-		TLSClientConfig: tlsutil.SecureDefaultWithTLS12(),
+		DialContext:       dialer.DialContext,
+		Proxy:             http.ProxyFromEnvironment,
+		DisableKeepAlives: true, // upgrade checks are hours apart, so don't keep the connection open
+		TLSClientConfig:   tlsutil.SecureDefaultWithTLS12(),
 	},
 }
 
