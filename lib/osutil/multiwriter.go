@@ -17,12 +17,18 @@ import (
 type TolerantMultiWriter []io.Writer
 
 func (t TolerantMultiWriter) Write(p []byte) (int, error) {
-	n := len(p)
+	n := 0
 	var errs []error
+
 	for _, w := range t {
-		if _, err := w.Write(p); err != nil {
+		written, err := w.Write(p)
+		if written > n {
+			n = written
+		}
+		if err != nil {
 			errs = append(errs, err)
 		}
 	}
+
 	return n, errors.Join(errs...)
 }
