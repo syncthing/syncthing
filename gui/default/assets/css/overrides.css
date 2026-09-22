@@ -12,6 +12,19 @@ body {
     overflow-y: scroll;
 }
 
+/* Keep text readable on the bright semantic backgrounds used by light themes. */
+.alert-success,
+.alert-warning,
+.alert-danger,
+.btn-success,
+.btn-warning {
+    color: #000 !important;
+}
+
+.btn-danger {
+    background-color: #d62c1a;
+}
+
 h1, h2, h3, h4, h5 {
     font-family: "Raleway", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     line-height: 1.25;
