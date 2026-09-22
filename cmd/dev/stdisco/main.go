@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gobwas/glob"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/syncthing/syncthing/internal/gen/discoproto"
@@ -24,10 +25,12 @@ import (
 )
 
 var (
-	all  = false // print all packets, not just first from each device/source
-	fake = false // send fake packets to lure out other devices faster
-	mc   = "[ff12::8384]:21027"
-	bc   = 21027
+	all        = false // print all packets, not just first from each device/source
+	fake       = false // send fake packets to lure out other devices faster
+	mc         = "[ff12::8384]:21027"
+	bc         = 21027
+	allowedifs = ""
+	ignoredifs = ""
 )
 
 var (
@@ -45,7 +48,36 @@ func main() {
 	flag.BoolVar(&fake, "fake", fake, "Send fake announcements")
 	flag.StringVar(&mc, "mc", mc, "IPv6 multicast address")
 	flag.IntVar(&bc, "bc", bc, "IPv4 broadcast port number")
+	flag.StringVar(&allowedifs, "allowedifs", allowedifs, "Names of network interfaces that will send announces (splitted by comma, globs supported)")
+	flag.StringVar(&ignoredifs, "ignoredifs", ignoredifs, "Names of network interfaces that will not send announces (splitted by comma, globs supported)")
 	flag.Parse()
+
+	var allowedifsGlobs []glob.Glob
+	var ignoredifsGlobs []glob.Glob
+	if allowedifs != "" {
+		allowedifsSlice := strings.SplitSeq(allowedifs, ",")
+		// https://github.com/gobwas/glob/blob/master/readme.md#performance
+		for i := range allowedifsSlice {
+			g, err := glob.Compile(i)
+			if err != nil {
+				log.Printf("Failed to compile allowedif glob: %s", err)
+				continue
+			}
+			allowedifsGlobs = append(allowedifsGlobs, g)
+		}
+	}
+
+	if allowedifs != "" {
+		ignoredifsSlice := strings.SplitSeq(ignoredifs, ",")
+		for i := range ignoredifsSlice {
+			g, err := glob.Compile(i)
+			if err != nil {
+				log.Printf("Failed to compile ignoredif glob: %s", err)
+				continue
+			}
+			ignoredifsGlobs = append(ignoredifsGlobs, g)
+		}
+	}
 
 	if fake {
 		log.Println("My ID:", myID)
@@ -53,8 +85,8 @@ func main() {
 
 	ctx := context.Background()
 
-	runbeacon(ctx, beacon.NewMulticast(mc), fake)
-	runbeacon(ctx, beacon.NewBroadcast(bc), fake)
+	runbeacon(ctx, beacon.NewMulticast(mc, allowedifsGlobs, ignoredifsGlobs), fake)
+	runbeacon(ctx, beacon.NewBroadcast(bc, allowedifsGlobs, ignoredifsGlobs), fake)
 
 	select {}
 }
