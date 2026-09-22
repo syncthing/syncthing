@@ -254,9 +254,13 @@ func helpHandler(options kong.HelpOptions, ctx *kong.Context) error {
 
 // serveCmd.Run() is the entrypoint for `syncthing serve`
 func (c *serveCmd) Run() error {
-	if c.GUIAddress != "" {
+	if c.GUIAddress != "" && os.Getenv("STGUIADDRESS") != "systemd://" {
 		// The config picks this up from the environment.
 		os.Setenv("STGUIADDRESS", c.GUIAddress)
+	}
+	if os.Getenv("LISTEN_PID") == strconv.Itoa(os.Getpid()) {
+		// systemd socket activation
+		os.Setenv("STGUIADDRESS", "systemd://")
 	}
 	if c.GUIAPIKey != "" {
 		// The config picks this up from the environment.
