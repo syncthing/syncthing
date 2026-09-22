@@ -40,8 +40,10 @@ const defaultSessionCookieDurationS = 7 * 24 * 60 * 60
 
 func newTokenManager(key string, miscDB *db.Typed, lifetime time.Duration, maxItems int) *tokenManager {
 	var tokens apiproto.TokenSet
-	if bs, ok, _ := miscDB.Bytes(key); ok {
-		_ = proto.Unmarshal(bs, &tokens) // best effort
+	if miscDB != nil {
+		if bs, ok, _ := miscDB.Bytes(key); ok {
+			_ = proto.Unmarshal(bs, &tokens) // best effort
+		}
 	}
 	if tokens.Tokens == nil {
 		tokens.Tokens = make(map[string]int64)
@@ -62,6 +64,30 @@ func (m *tokenManager) Check(token string) bool {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
+	if !m.check(token) {
+		return false
+	}
+
+	// Give the token further life.
+	m.tokens.Tokens[token] = m.newExpiryNanos()
+	m.saveLocked()
+	return true
+}
+
+func (m *tokenManager) Consume(token string) bool {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	if !m.check(token) {
+		return false
+	}
+
+	// Consume the token.
+	delete(m.tokens.Tokens, token)
+	return true
+}
+
+func (m *tokenManager) check(token string) bool {
 	expires, ok := m.tokens.Tokens[token]
 	if !ok {
 		return false
@@ -71,10 +97,6 @@ func (m *tokenManager) Check(token string) bool {
 		m.saveLocked() // removes expired tokens
 		return false
 	}
-
-	// Give the token further life.
-	m.tokens.Tokens[token] = m.newExpiryNanos()
-	m.saveLocked()
 	return true
 }
 
@@ -136,6 +158,10 @@ func (m *tokenManager) saveLocked() {
 		}
 	}
 
+	if m.miscDB == nil {
+		return
+	}
+
 	// Postpone saving until one second of inactivity.
 	if m.saveTimer == nil {
 		m.saveTimer = time.AfterFunc(time.Second, m.scheduledSave)
@@ -145,6 +171,10 @@ func (m *tokenManager) saveLocked() {
 }
 
 func (m *tokenManager) scheduledSave() {
+	if m.miscDB == nil {
+		return
+	}
+
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
