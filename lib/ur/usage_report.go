@@ -359,8 +359,9 @@ func (s *Service) sendUsageReport(ctx context.Context) error {
 
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext: dialer.DialContext,
-			Proxy:       http.ProxyFromEnvironment,
+			DialContext:       dialer.DialContext,
+			Proxy:             http.ProxyFromEnvironment,
+			DisableKeepAlives: true, // reports are sent once a day, so don't keep the connection open
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: s.cfg.Options().URPostInsecurely,
 				MinVersion:         tls.VersionTLS12,
