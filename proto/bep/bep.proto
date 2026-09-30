@@ -62,7 +62,7 @@ message Device {
   repeated string addresses = 3;
   Compression compression = 4;
   string cert_name = 5 [(buf.validate.field).string.max_len = 1024];
-  int64 max_sequence = 6 [(buf.validate.field).int64.gte = 0];
+  int64 max_sequence = 6;
   bool introducer = 7;
   uint64 index_id = 8;
   bool skip_introduction_removals = 9;
@@ -92,14 +92,14 @@ enum FolderStopReason {
 message Index {
   string folder = 1 [(buf.validate.field).string.max_len = 1024];
   repeated FileInfo files = 2;
-  int64 last_sequence = 3 [(buf.validate.field).int64.gte = 0]; // the highest sequence in this batch
+  int64 last_sequence = 3; // the highest sequence in this batch
 }
 
 message IndexUpdate {
   string folder = 1 [(buf.validate.field).string.max_len = 1024];
   repeated FileInfo files = 2;
-  int64 last_sequence = 3 [(buf.validate.field).int64.gte = 0]; // the highest sequence in this batch
-  int64 prev_sequence = 4 [(buf.validate.field).int64.gte = 0]; // the highest sequence in the previous batch
+  int64 last_sequence = 3; // the highest sequence in this batch
+  int64 prev_sequence = 4; // the highest sequence in the previous batch
 }
 
 message FileInfo {
