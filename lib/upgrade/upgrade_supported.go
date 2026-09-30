@@ -13,6 +13,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -28,10 +29,8 @@ import (
 	"github.com/shirou/gopsutil/v4/host"
 	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
-	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/signature"
 	"github.com/syncthing/syncthing/lib/tlsutil"
-	"golang.org/x/net/http2"
 )
 
 const DisabledByCompilation = false
@@ -61,45 +60,42 @@ const (
 	maxMetadataSize = 10 << 20 // 10 MiB
 )
 
-var upgradeClient = &http.Client{
-	Timeout: readTimeout,
-	Transport: &http.Transport{
-		DialContext:       dialer.DialContext,
-		Proxy:             http.ProxyFromEnvironment,
-		DisableKeepAlives: true, // upgrade checks are hours apart, so don't keep the connection open
-		TLSClientConfig:   tlsutil.SecureDefaultWithTLS12(),
-	},
-}
-
 var osVersion string
 
 func init() {
-	_ = http2.ConfigureTransport(upgradeClient.Transport.(*http.Transport))
 	osVersion, _ = host.KernelVersion()
 	osVersion = strings.TrimSpace(osVersion)
 }
 
-func upgradeClientGet(url string) (*http.Response, error) {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+func upgradeClientGet(url string) (*http.Response, context.CancelFunc, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), readTimeout)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, err
+		cancel()
+		return nil, nil, err
 	}
 
 	req.Header.Set("User-Agent", build.UserAgent())
 	if osVersion != "" {
 		req.Header.Set("Syncthing-Os-Version", osVersion)
 	}
-	return upgradeClient.Do(req)
+	resp, err := tlsutil.ShortLivedHTTPClient.Do(req)
+	if err != nil {
+		cancel()
+		return nil, nil, err
+	}
+	return resp, cancel, nil
 }
 
 // FetchLatestReleases returns the latest releases. The "current" parameter
 // is used for setting the User-Agent only.
 func FetchLatestReleases(releasesURL, current string) []Release {
-	resp, err := upgradeClientGet(releasesURL)
+	resp, cancel, err := upgradeClientGet(releasesURL)
 	if err != nil {
 		slog.Warn("Failed to fetch latest release information", slogutil.Error(err))
 		return nil
 	}
+	defer cancel()
 	defer resp.Body.Close()
 	if resp.StatusCode > 299 {
 		slog.Warn("Failed to fetch latest release information", slogutil.Error(resp.Status))
@@ -221,14 +217,16 @@ func upgradeToURL(archiveName, binary string, url string) error {
 func readRelease(archiveName, dir, url string) (string, error) {
 	l.Debugf("loading %q", url)
 
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), readTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
 
 	req.Header.Add("Accept", "application/octet-stream")
 	req.Header.Set("User-Agent", build.UserAgent())
-	resp, err := upgradeClient.Do(req)
+	resp, err := tlsutil.ShortLivedHTTPClient.Do(req)
 	if err != nil {
 		return "", err
 	}

@@ -31,7 +31,6 @@
         <urSeen>8</urSeen>
         <urAccepted>4</urAccepted>
         <urInitialDelayS>800</urInitialDelayS>
-        <urPostInsecurely>true</urPostInsecurely>
         <releasesURL>https://localhost/releases</releasesURL>
         <overwriteRemoteDeviceNamesOnConnect>true</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>100</tempIndexMinBlocks>

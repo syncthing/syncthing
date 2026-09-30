@@ -19,11 +19,25 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"net/http"
 	"os"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/rand"
 )
+
+// ShortLivedHTTPClient is used for infrequent HTTP requests. It supports
+// HTTP/2, but closes connections instead of keeping them around while idle.
+var ShortLivedHTTPClient = &http.Client{
+	Transport: &http.Transport{
+		DialContext:       dialer.DialContext,
+		Proxy:             http.ProxyFromEnvironment,
+		DisableKeepAlives: true,
+		ForceAttemptHTTP2: true,
+		TLSClientConfig:   SecureDefaultWithTLS12(),
+	},
+}
 
 var (
 	ErrIdentificationFailed = errors.New("failed to identify socket type")

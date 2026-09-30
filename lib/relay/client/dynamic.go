@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/build"
-	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
@@ -31,17 +30,6 @@ type dynamicClient struct {
 
 	mut    sync.RWMutex // Protects client.
 	client *staticClient
-}
-
-// The client used for looking up available relays. Lookups are infrequent,
-// so the connection is not kept open afterwards.
-var relayPoolClient = &http.Client{
-	Transport: &http.Transport{
-		DialContext:       dialer.DialContext,
-		Proxy:             http.ProxyFromEnvironment,
-		DisableKeepAlives: true,
-		TLSClientConfig:   tlsutil.SecureDefaultWithTLS12(),
-	},
 }
 
 func newDynamicClient(uri *url.URL, certs []tls.Certificate, invitations chan protocol.SessionInvitation, timeout time.Duration) *dynamicClient {
@@ -68,7 +56,7 @@ func (c *dynamicClient) serve(ctx context.Context) error {
 		return err
 	}
 	req.Header.Set("User-Agent", build.UserAgent())
-	data, err := relayPoolClient.Do(req)
+	data, err := tlsutil.ShortLivedHTTPClient.Do(req)
 	if err != nil {
 		l.Debugln(c, "failed to lookup dynamic relays", err)
 		return err
