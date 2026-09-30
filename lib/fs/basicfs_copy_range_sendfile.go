@@ -5,7 +5,6 @@
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //go:build linux || solaris
-// +build linux solaris
 
 package fs
 

@@ -111,7 +111,7 @@ func DialContextReusePortFunc(registry *registry.Registry) func(ctx context.Cont
 			return DialContext(ctx, network, addr)
 		}
 
-		localAddrInterface := registry.Get(network, func(addr interface{}) bool {
+		localAddrInterface := registry.Get(network, func(addr any) bool {
 			return addr.(*net.TCPAddr).IP.IsUnspecified()
 		})
 		if localAddrInterface == nil {

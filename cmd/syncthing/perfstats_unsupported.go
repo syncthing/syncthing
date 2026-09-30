@@ -5,9 +5,10 @@
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //go:build solaris || windows
-// +build solaris windows
 
 package main
 
-func startPerfStats() {
+import "github.com/syncthing/syncthing/internal/db"
+
+func startPerfStats(_ db.DB) {
 }

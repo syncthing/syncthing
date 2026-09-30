@@ -7,6 +7,7 @@
 package discover
 
 import (
+	"maps"
 	"sync"
 	"time"
 
@@ -60,9 +61,7 @@ func (c *cache) Get(id protocol.DeviceID) (CacheEntry, bool) {
 func (c *cache) Cache() map[protocol.DeviceID]CacheEntry {
 	c.mut.Lock()
 	m := make(map[protocol.DeviceID]CacheEntry, len(c.entries))
-	for k, v := range c.entries {
-		m[k] = v
-	}
+	maps.Copy(m, c.entries)
 	c.mut.Unlock()
 	return m
 }

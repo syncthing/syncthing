@@ -299,6 +299,17 @@ func TestCommentsAndBlankLines(t *testing.T) {
 	}
 }
 
+func TestNegatedGlobstarOnly(t *testing.T) {
+	testFs := newTestFS()
+
+	pats := New(testFs)
+	if err := pats.Parse(bytes.NewBufferString("!**/\n"), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+	// Must not panic on an empty pattern component.
+	pats.Match("foo")
+}
+
 var result ignoreresult.R
 
 func BenchmarkMatch(b *testing.B) {
@@ -914,7 +925,7 @@ func TestIssue4901(t *testing.T) {
 	}
 
 	// Cache does not suddenly make the load succeed.
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		err := pats.Load(".stignore")
 		if err == nil {
 			t.Fatal("expected an error")

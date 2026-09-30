@@ -310,7 +310,7 @@ func TestWriteCompressed(t *testing.T) {
 }
 
 func TestLZ4Compression(t *testing.T) {
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		dataLen := 150 + rand.Intn(150)
 		data := make([]byte, dataLen)
 		_, err := io.ReadFull(rand.Reader, data[100:])
@@ -716,7 +716,7 @@ func TestIndexIDString(t *testing.T) {
 	}
 }
 
-func closeAndWait(c interface{}, closers ...io.Closer) {
+func closeAndWait(c any, closers ...io.Closer) {
 	for _, closer := range closers {
 		closer.Close()
 	}

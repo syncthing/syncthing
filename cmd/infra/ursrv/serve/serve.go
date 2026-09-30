@@ -311,7 +311,7 @@ func (s *server) handleNewData(w http.ResponseWriter, r *http.Request) {
 	bs, _ := io.ReadAll(lr)
 	if err := json.Unmarshal(bs, &rep); err != nil {
 		log.Error("Failed to decode JSON", slogutil.Error(err))
-		http.Error(w, "JSON Decode Error", http.StatusInternalServerError)
+		http.Error(w, "JSON Decode Error", http.StatusBadRequest)
 		return
 	}
 
@@ -321,7 +321,7 @@ func (s *server) handleNewData(w http.ResponseWriter, r *http.Request) {
 
 	if err := rep.Validate(); err != nil {
 		log.Error("Failed to validate report", slogutil.Error(err))
-		http.Error(w, "Validation Error", http.StatusInternalServerError)
+		http.Error(w, "Validation Error", http.StatusBadRequest)
 		return
 	}
 

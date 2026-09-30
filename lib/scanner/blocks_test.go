@@ -122,7 +122,7 @@ func BenchmarkValidate(b *testing.B) {
 	r := mrand.New(mrand.NewSource(0x136bea689e851))
 
 	// Valid blocks.
-	for i := 0; i < blocksPerType; i++ {
+	for range blocksPerType {
 		var b block
 		b.data = make([]byte, 128<<10)
 		r.Read(b.data)

@@ -118,7 +118,7 @@ func TestClean(t *testing.T) {
 	expect(t, 6, x)
 }
 
-func expect(t *testing.T, since int, b interface{}) {
+func expect(t *testing.T, since int, b any) {
 	t.Helper()
 	x := testValue()
 	if err := clear(&x, since); err != nil {

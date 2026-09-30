@@ -125,6 +125,8 @@
     "Discovery Status": "Stato de malkovrado",
     "Dismiss": "Forsendi",
     "Do not add it to the ignore list, so this notification may recur.": "Ne aldonu ĝin al la listo de ignoraĵoj, por ke tiu ĉi sciigo povos reaperi poste.",
+    "Do not add it to the ignore list, so this notification will reappear if the device connects again.": "Ne aldonu ĝin al la listo de ignoraĵoj, por ke tiu ĉi sciigo reaperos, se la aparato konektos denove.",
+    "Do not add it to the ignore list, so this notification will reappear if the device offering this folder connects again.": "Ne aldonu ĝin al la listo de ignoraĵoj, por ke tiu ĉi sciigo reaperos, se la aparato, oferanta tiun ĉi dosierujon, konektos denove.",
     "Do not restore": "Ne restarigu",
     "Do not restore all": "Ne restarigu ĉion",
     "Do you want to enable watching for changes for all your folders?": "Ĉu vi volas ebligi atendadon por ŝanĝoj por ĉiuj viaj dosierujoj?",

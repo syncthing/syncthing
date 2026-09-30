@@ -79,3 +79,16 @@ func TestControlURLParsing(t *testing.T) {
 		t.Error("URL normalization of", subject, "failed; expected", expected, "got", u.String())
 	}
 }
+
+func TestControlURLParsingQueryOnly(t *testing.T) {
+	rootURL := "http://192.168.243.1:80/igd.xml"
+
+	u, _ := url.Parse(rootURL)
+	subject := "?control=WANCommonIFC1"
+	expected := "http://192.168.243.1:80/igd.xml?control=WANCommonIFC1"
+	replaceRawPath(u, subject)
+
+	if u.String() != expected {
+		t.Error("URL normalization of", subject, "failed; expected", expected, "got", u.String())
+	}
+}

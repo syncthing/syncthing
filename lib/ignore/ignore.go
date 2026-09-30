@@ -92,7 +92,7 @@ func (p Pattern) allowsSkippingIgnoredDirs() bool {
 	if p.result.IsIgnored() {
 		return true
 	}
-	if p.pattern[0] != '/' {
+	if p.pattern == "" || p.pattern[0] != '/' {
 		return false
 	}
 	// A "/**" at the end is allowed and doesn't have any bearing on the
@@ -412,6 +412,10 @@ func parseLine(line string) ([]Pattern, error) {
 		patterns[0] = pattern
 
 		line = line[3:]
+		if line == "" {
+			// Pattern was exactly "**/", already covered by patterns[0].
+			return patterns[:1], nil
+		}
 		pattern.pattern = line
 		pattern.match, err = glob.Compile(line, '/')
 		if err != nil {

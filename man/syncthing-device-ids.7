@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-DEVICE-IDS" "7" "Jul 16, 2026" "v2.1.0" "Syncthing"
+.TH "SYNCTHING-DEVICE-IDS" "7" "Sep 10, 2026" "v2.1.0" "Syncthing"
 .SH NAME
 syncthing-device-ids \- Understanding Device IDs
 .sp
@@ -40,12 +40,12 @@ the public key in use.
 To understand device IDs we need to look at the underlying mechanisms. At first
 startup, Syncthing will create a public/private keypair.
 .sp
-Currently this is a 384 bit ECDSA key (3072 bit RSA prior to v0.12.5,
-which is what is used as an example in this article). The keys are saved in
-the form of the private key (\fBkey.pem\fP) and a self signed certificate
-(\fBcert.pem\fP). The self signing part doesn’t actually add any security or
-functionality as far as Syncthing is concerned but it enables the use of the
-keys in a standard TLS exchange.
+Currently this is a 256 bit Ed25519 key (384 bit ECDSA prior to v2.0.0 and
+3072 bit RSA prior to v0.12.5, which is what is used as an example in this
+article). The keys are saved in the form of the private key (\fBkey.pem\fP) and a
+self signed certificate (\fBcert.pem\fP). The self signing part doesn’t actually
+add any security or functionality as far as Syncthing is concerned but it enables
+the use of the keys in a standard TLS exchange.
 .sp
 The typical certificate will look something like this, inspected with
 \fBopenssl x509\fP:

@@ -20,12 +20,26 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/internal/slogutil"
+	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/syncthing/syncthing/lib/tlsutil"
 )
 
 const (
 	headRequestTimeout = 10 * time.Second
 	putRequestTimeout  = time.Minute
 )
+
+// The client used for uploading crash reports. Crash reports are rare, so
+// the connection is not kept open after an upload.
+var crashReportClient = &http.Client{
+	Transport: &http.Transport{
+		DialContext:       dialer.DialContext,
+		Proxy:             http.ProxyFromEnvironment,
+		DisableKeepAlives: true,
+		TLSClientConfig:   tlsutil.SecureDefaultWithTLS12(),
+	},
+}
 
 // uploadPanicLogs attempts to upload all the panic logs in the named
 // directory to the crash reporting server as urlBase. Uploads are attempted
@@ -81,13 +95,14 @@ func uploadPanicLog(ctx context.Context, urlBase, file string) error {
 	if err != nil {
 		return err
 	}
+	headReq.Header.Set("User-Agent", build.UserAgent())
 
 	// Set a reasonable timeout on the HEAD request
 	headCtx, headCancel := context.WithTimeout(ctx, headRequestTimeout)
 	defer headCancel()
 	headReq = headReq.WithContext(headCtx)
 
-	resp, err := http.DefaultClient.Do(headReq)
+	resp, err := crashReportClient.Do(headReq)
 	if err != nil {
 		return err
 	}
@@ -101,13 +116,14 @@ func uploadPanicLog(ctx context.Context, urlBase, file string) error {
 	if err != nil {
 		return err
 	}
+	putReq.Header.Set("User-Agent", build.UserAgent())
 
 	// Set a reasonable timeout on the PUT request
 	putCtx, putCancel := context.WithTimeout(ctx, putRequestTimeout)
 	defer putCancel()
 	putReq = putReq.WithContext(putCtx)
 
-	resp, err = http.DefaultClient.Do(putReq)
+	resp, err = crashReportClient.Do(putReq)
 	if err != nil {
 		return err
 	}
@@ -125,7 +141,7 @@ func uploadPanicLog(ctx context.Context, urlBase, file string) error {
 func filterLogLines(data []byte) []byte {
 	filtered := data[:0]
 	matched := false
-	for _, line := range bytes.Split(data, []byte("\n")) {
+	for line := range bytes.SplitSeq(data, []byte("\n")) {
 		switch {
 		case !matched && bytes.HasPrefix(line, []byte("Panic ")):
 			// This begins the panic trace, set the matched flag and append.

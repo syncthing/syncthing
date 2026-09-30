@@ -56,7 +56,7 @@ func TestEnDecryptName(t *testing.T) {
 	}
 	for _, tc := range cases {
 		var prev string
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			enc := encryptName(tc, &key)
 			if prev != "" && prev != enc {
 				t.Error("name should always encrypt the same")
@@ -124,7 +124,7 @@ func TestEnDecryptBytes(t *testing.T) {
 	}
 	for _, tc := range cases {
 		var prev []byte
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			enc := encryptBytes(tc, &key)
 			if bytes.Equal(enc, prev) {
 				t.Error("encryption should not repeat")

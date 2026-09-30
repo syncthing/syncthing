@@ -311,10 +311,7 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 
 func formatOptionalPercentS(template string, username string) string {
 	var replacements []any
-	nReps := strings.Count(template, "%s") - strings.Count(template, "%%s")
-	if nReps < 0 {
-		nReps = 0
-	}
+	nReps := max(strings.Count(template, "%s")-strings.Count(template, "%%s"), 0)
 	for range nReps {
 		replacements = append(replacements, username)
 	}

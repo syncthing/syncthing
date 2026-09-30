@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -20,9 +21,22 @@ import (
 )
 
 const (
-	maxDBConns         = 6
+	// maxIdleConns is set so that most db operations will usually fit
+	// within one of those connections and hence use their persistent page
+	// cache. Additional connections on top of these will allocate their own
+	// page cache (same as any other), but it will be deallocated on
+	// connection close.
+	maxIdleConns = 4
+
 	minDeleteRetention = 24 * time.Hour
 )
+
+// maxOpenConns is sized for handling spikes. The primary driver is the
+// Copiers folder option which may result in up to 2*NumCPU concurrent
+// iterations. We reserve additional space on top of this to serve
+// additional operations, some of which may be reentrant (queries within
+// iterators) without deadlock.
+var maxOpenConns = max(16, 4*runtime.NumCPU())
 
 type DB struct {
 	*baseDB
@@ -69,7 +83,7 @@ func Open(path string, opts ...Option) (*DB, error) {
 	initTmpDir(path)
 
 	mainPath := filepath.Join(path, "main.db")
-	mainBase, err := openBase(mainPath, maxDBConns, pragmas, schemas, migrations)
+	mainBase, err := openBase(mainPath, maxOpenConns, maxIdleConns, pragmas, schemas, migrations)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +134,7 @@ func OpenForMigration(path string) (*DB, error) {
 	initTmpDir(path)
 
 	mainPath := filepath.Join(path, "main.db")
-	mainBase, err := openBase(mainPath, 1, pragmas, schemas, migrations)
+	mainBase, err := openBase(mainPath, 1, 1, pragmas, schemas, migrations)
 	if err != nil {
 		return nil, err
 	}

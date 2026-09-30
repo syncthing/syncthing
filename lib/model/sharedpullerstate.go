@@ -332,27 +332,21 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 		return false, nil
 	}
 
-	if s.writer == nil {
+	if s.writer == nil && s.err == nil {
 		// If we didn't even create a temp file up to this point, now is the
 		// time to do so. This also truncates the file to the correct size
-		// if we're using sparse file.
+		// if we're using sparse file. If we already errored there's nothing
+		// to do about it here.
 		if err := s.addWriterLocked(); err != nil {
-			return false, err
-		}
-	}
-
-	if len(s.file.Encrypted) > 0 {
-		if err := s.finalizeEncrypted(); err != nil && s.err == nil {
-			// This is our error as we weren't errored before.
-			s.err = err
+			s.failLocked(err)
 		}
 	}
 
 	if s.writer != nil {
-		if err := s.writer.SyncClose(s.fsync); err != nil && s.err == nil {
-			// This is our error as we weren't errored before.
-			s.err = err
+		if len(s.file.Encrypted) > 0 {
+			s.failLocked(s.finalizeEncrypted())
 		}
+		s.failLocked(s.writer.SyncClose(s.fsync))
 		s.writer = nil
 	}
 

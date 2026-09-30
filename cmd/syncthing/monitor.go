@@ -76,8 +76,12 @@ func (c *serveCmd) monitorMain() {
 				}
 			}
 
-			// Log to both stdout and file.
-			dst = io.MultiWriter(dst, fileDst)
+			// Log to both stdout and file. Unlike io.MultiWriter, this
+			// does not abort writing to the remaining writers if one of
+			// them fails, which matters because stdout may not be a
+			// valid writer at all (e.g. when started detached from any
+			// console on Windows).
+			dst = osutil.TolerantMultiWriter{dst, fileDst}
 
 			slog.Info("Saved log output", slogutil.FilePath(logFile))
 		}
@@ -171,16 +175,21 @@ func (c *serveCmd) monitorMain() {
 		exiterr := &exec.ExitError{}
 		if errors.As(err, &exiterr) {
 			exitCode := exiterr.ExitCode()
-			if stopped || c.NoRestart {
+			switch {
+			case stopped || c.NoRestart:
 				os.Exit(exitCode)
-			}
-			if exitCode == svcutil.ExitUpgrade.AsInt() {
+
+			case exitCode == svcutil.ExitUpgrade.AsInt():
 				// Restart the monitor process to release the .old
 				// binary as part of the upgrade process.
 				slog.Info("Restarting monitor...")
 				if err = restartMonitor(binary, args); err != nil {
 					slog.Error("Failed to restart monitor", slogutil.Error(err))
 				}
+				os.Exit(exitCode)
+
+			case exitCode == svcutil.ExitNoRestart.AsInt():
+				// Requested to not restart the child
 				os.Exit(exitCode)
 			}
 		}

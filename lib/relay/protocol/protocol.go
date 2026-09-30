@@ -21,7 +21,7 @@ var (
 	ResponseUnexpectedMessage = Response{100, "unexpected message"}
 )
 
-func WriteMessage(w io.Writer, message interface{}) error {
+func WriteMessage(w io.Writer, message any) error {
 	header := header{
 		magic: magic,
 	}
@@ -73,7 +73,7 @@ func WriteMessage(w io.Writer, message interface{}) error {
 	return err
 }
 
-func ReadMessage(r io.Reader) (interface{}, error) {
+func ReadMessage(r io.Reader) (any, error) {
 	var header header
 
 	buf := make([]byte, header.XDRSize())

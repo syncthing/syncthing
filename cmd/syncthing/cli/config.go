@@ -81,7 +81,7 @@ func (c *configCommand) Run(ctx Context, outerCtx *kong.Context) error {
 	app.Name = "syncthing cli config"
 	app.HelpName = "syncthing cli config"
 	app.Description = outerCtx.Selected().Help
-	app.Metadata = map[string]interface{}{
+	app.Metadata = map[string]any{
 		"clientFactory": ctx.clientFactory,
 	}
 	app.CustomAppHelpTemplate = customAppHelpTemplate

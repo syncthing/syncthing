@@ -151,7 +151,7 @@ func TestRequest(t *testing.T) {
 func genFiles(n int) []protocol.FileInfo {
 	files := make([]protocol.FileInfo, n)
 	t := time.Now().Unix()
-	for i := 0; i < n; i++ {
+	for i := range n {
 		files[i] = protocol.FileInfo{
 			Name:      fmt.Sprintf("file%d", i),
 			ModifiedS: t,
@@ -948,6 +948,70 @@ func TestIntroducer(t *testing.T) {
 	}
 }
 
+// An introducer announcing a folder that we have, but that is not shared
+// with the introducer, must not get devices added to it on the introducer's
+// behalf. Not even the introducer itself.
+func TestIntroducerNotSharedFolder(t *testing.T) {
+	m, cancel := newState(t, config.Configuration{
+		Version: config.CurrentVersion,
+		Devices: []config.DeviceConfiguration{
+			{
+				DeviceID:   device1,
+				Introducer: true,
+			},
+			{
+				DeviceID: device2,
+			},
+		},
+		Folders: []config.FolderConfiguration{
+			{
+				FilesystemType: config.FilesystemTypeFake,
+				ID:             "folder1",
+				Path:           "testdata",
+				// Shared with device2, but not with the introducer.
+				Devices: []config.FolderDeviceConfiguration{
+					{DeviceID: device2},
+				},
+			},
+			{
+				FilesystemType: config.FilesystemTypeFake,
+				ID:             "folder2",
+				Path:           "testdata",
+				// Shared with the introducer.
+				Devices: []config.FolderDeviceConfiguration{
+					{DeviceID: device1},
+				},
+			},
+		},
+	})
+	defer cleanupModel(m)
+	defer cancel()
+
+	// The introducer announces that it shares folder1 with itself and
+	// device2, and folder2 with device2.
+	cc := basicClusterConfig(myID, device1, "folder1", "folder2")
+	cc.Folders[0].Devices = append(cc.Folders[0].Devices, protocol.Device{ID: device2})
+	cc.Folders[1].Devices = append(cc.Folders[1].Devices, protocol.Device{ID: device2})
+	m.ClusterConfig(device1Conn, cc)
+
+	// The introducer must not have added itself to folder1, which is not
+	// shared with it, and the existing sharing must be untouched.
+	folder1 := m.cfg.Folders()["folder1"]
+	if folder1.SharedWith(device1) {
+		t.Error("introducer added itself to a folder not shared with it")
+	}
+	if !folder1.SharedWith(device2) {
+		t.Error("expected folder 1 to still be shared with device 2")
+	}
+
+	// Introductions must still happen for folders shared with the
+	// introducer.
+	folder2 := m.cfg.Folders()["folder2"]
+	if dev, ok := folder2.Device(device2); !ok || !dev.IntroducedBy.Equals(device1) {
+		t.Error("expected device 2 to be introduced to folder 2 by device 1")
+	}
+}
+
 func TestIssue4897(t *testing.T) {
 	m, cancel := newState(t, config.Configuration{
 		Version: config.CurrentVersion,
@@ -1007,7 +1071,7 @@ func TestIssue5063(t *testing.T) {
 
 	reps := 10
 	ids := make([]string, reps)
-	for i := 0; i < reps; i++ {
+	for i := range reps {
 		ids[i] = srand.String(8)
 		wg.Go(func() { addAndVerify(ids[i]) })
 	}
@@ -1668,7 +1732,7 @@ func waitForState(t *testing.T, sub events.Subscription, folder, expected string
 	for {
 		select {
 		case ev := <-sub.C():
-			data := ev.Data.(map[string]interface{})
+			data := ev.Data.(map[string]any)
 			if data["folder"].(string) == folder {
 				if data["error"] == nil {
 					err = ""
@@ -1880,7 +1944,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		f("zzrootfile"),
 	}
 
-	mm := func(data interface{}) string {
+	mm := func(data any) string {
 		bytes, err := json.MarshalIndent(data, "", "  ")
 		if err != nil {
 			panic(err)
@@ -2952,7 +3016,7 @@ func TestFolderRestartZombies(t *testing.T) {
 	// Run a few parallel configuration changers for one second. Each waits
 	// for the commit to complete, but there are many of them.
 	var wg sync.WaitGroup
-	for i := 0; i < 25; i++ {
+	for range 25 {
 		wg.Go(func() {
 			t0 := time.Now()
 			for time.Since(t0) < time.Second {
@@ -3258,7 +3322,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 	numFiles := 20
 
 	ffs := fcfg.Filesystem()
-	for i := 0; i < numFiles; i++ {
+	for i := range numFiles {
 		v := fmt.Sprintf("%d", i)
 		writeFile(t, ffs, v, []byte(v))
 	}
@@ -3272,7 +3336,7 @@ func TestRenameSequenceOrder(t *testing.T) {
 
 	// Modify all the files other than the rename sources, whose content we
 	// keep intact so the renamed copies still match by block hash.
-	for i := 0; i < numFiles; i++ {
+	for i := range numFiles {
 		if i == 3 || i == 16 {
 			continue
 		}
@@ -3388,7 +3452,7 @@ func TestRenameBatchFlush(t *testing.T) {
 	writeFile(t, ffs, "dst-a", content)
 	writeFile(t, ffs, "dst-b", content)
 	for i := range MaxBatchSizeFiles * 2 {
-		writeFile(t, ffs, fmt.Sprintf("filler-%04d", i), []byte(fmt.Sprintf("filler-%04d", i)))
+		writeFile(t, ffs, fmt.Sprintf("filler-%04d", i), fmt.Appendf(nil, "filler-%04d", i))
 	}
 
 	m.ScanFolders()

@@ -582,17 +582,17 @@ func (f *folder) scanSubdirs(ctx context.Context, subDirs []string) error {
 const maxToRemove = 1000
 
 type scanBatch struct {
-	f           *folder
-	updateBatch *FileInfoBatch
-	toRemove    []string
-	deleted     map[string]struct{}
+	f                *folder
+	updateBatch      *FileInfoBatch
+	toRemove         []string
+	skipInFindRename map[string]struct{}
 }
 
 func (f *folder) newScanBatch() *scanBatch {
 	b := &scanBatch{
-		f:        f,
-		toRemove: make([]string, 0, maxToRemove),
-		deleted:  make(map[string]struct{}),
+		f:                f,
+		toRemove:         make([]string, 0, maxToRemove),
+		skipInFindRename: make(map[string]struct{}),
 	}
 	b.updateBatch = NewFileInfoBatch(func(fs []protocol.FileInfo) error {
 		if err := b.f.getHealthErrorWithoutIgnores(); err != nil {
@@ -600,7 +600,7 @@ func (f *folder) newScanBatch() *scanBatch {
 			return err
 		}
 		b.f.updateLocalsFromScanning(fs)
-		clear(b.deleted)
+		clear(b.skipInFindRename)
 		return nil
 	})
 	return b
@@ -636,12 +636,12 @@ func (b *scanBatch) FlushIfFull() error {
 	return b.updateBatch.FlushIfFull()
 }
 
-func (b *scanBatch) markDeleted(name string) {
-	b.deleted[name] = struct{}{}
+func (b *scanBatch) markSkipInFindRename(name string) {
+	b.skipInFindRename[name] = struct{}{}
 }
 
-func (b *scanBatch) hasDeleted(name string) bool {
-	_, ok := b.deleted[name]
+func (b *scanBatch) shouldSkipInFindRenames(name string) bool {
+	_, ok := b.skipInFindRename[name]
 	return ok
 }
 
@@ -656,32 +656,17 @@ func (b *scanBatch) Update(fi protocol.FileInfo) (bool, error) {
 		}
 		return false, nil
 	}
-	// Resolve receive-only items which are identical with the global state or
-	// the global item is our own receive-only item.
-	switch gf, ok, err := b.f.db.GetGlobalFile(b.f.folderID, fi.Name); {
-	case err != nil:
-		return false, err
-	case !ok:
-	case gf.IsReceiveOnlyChanged():
-		if fi.IsDeleted() {
-			// Our item is deleted and the global item is our own receive only
-			// file. No point in keeping track of that.
+	// A deleted receive-only item whose global item is our own receive-only
+	// change need not be tracked at all.
+	if fi.IsDeleted() && (b.f.Type == config.FolderTypeReceiveOnly || b.f.Type == config.FolderTypeReceiveEncrypted) {
+		switch gf, ok, err := b.f.db.GetGlobalFile(b.f.folderID, fi.Name); {
+		case err != nil:
+			return false, err
+		case ok && gf.IsReceiveOnlyChanged():
 			b.Remove(fi.Name)
 			b.f.sl.Debug("Deleting deleted receive-only local-changed file", slogutil.FilePath(fi.Name))
 			return true, nil
 		}
-	case (b.f.Type == config.FolderTypeReceiveOnly || b.f.Type == config.FolderTypeReceiveEncrypted) &&
-		gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
-			ModTimeWindow:   b.f.modTimeWindow,
-			IgnorePerms:     b.f.IgnorePerms,
-			IgnoreBlocks:    true,
-			IgnoreFlags:     protocol.FlagLocalReceiveOnly,
-			IgnoreOwnership: !b.f.SyncOwnership && !b.f.SendOwnership,
-			IgnoreXattrs:    !b.f.SyncXattrs && !b.f.SendXattrs,
-		}):
-		// What we have locally is equivalent to the global file.
-		b.f.sl.Debug("Merging identical locally changed item with global", slogutil.FilePath(fi.Name))
-		fi = gf
 	}
 	b.updateBatch.Append(fi)
 	return true, nil
@@ -756,7 +741,6 @@ func (f *folder) scanSubdirsChangedAndNew(ctx context.Context, subDirs []string,
 						return 0, err
 					} else if ok {
 						changes++
-						batch.markDeleted(nf.Name)
 					}
 				}
 			}
@@ -846,6 +830,11 @@ outer:
 						toIgnore = toIgnore[:0]
 						ignoredParent = ""
 					}
+					if changed, err := f.reconcileReceiveOnlyToGlobal(fi, batch); err != nil {
+						return 0, err
+					} else if changed {
+						changes++
+					}
 					continue
 				}
 				nf := fi
@@ -926,6 +915,39 @@ outer:
 	return changes, nil
 }
 
+// reconcileReceiveOnlyToGlobal merges a locally receive-only changed item
+// back into an equivalent global item, when there is no relevant difference
+// between the two.
+func (f *folder) reconcileReceiveOnlyToGlobal(fi protocol.FileInfo, batch *scanBatch) (bool, error) {
+	if f.Type != config.FolderTypeReceiveOnly && f.Type != config.FolderTypeReceiveEncrypted {
+		return false, nil
+	}
+	if !fi.IsReceiveOnlyChanged() {
+		return false, nil
+	}
+	gf, ok, err := f.db.GetGlobalFile(f.folderID, fi.Name)
+	if err != nil {
+		return false, err
+	}
+	if !ok || gf.IsReceiveOnlyChanged() {
+		// No global to adopt, or the global item is our own receive-only
+		// change (nothing to reconcile against).
+		return false, nil
+	}
+	if !gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
+		ModTimeWindow:   f.modTimeWindow,
+		IgnorePerms:     f.IgnorePerms,
+		IgnoreBlocks:    true,
+		IgnoreFlags:     protocol.FlagLocalReceiveOnly,
+		IgnoreOwnership: !f.SyncOwnership && !f.SendOwnership,
+		IgnoreXattrs:    !f.SyncXattrs && !f.SendXattrs,
+	}) {
+		return false, nil
+	}
+	f.sl.Debug("Merging identical locally changed item with global", slogutil.FilePath(fi.Name))
+	return batch.Update(gf)
+}
+
 func (f *folder) findRename(ctx context.Context, file protocol.FileInfo, batch *scanBatch) (protocol.FileInfo, bool) {
 	if len(file.Blocks) == 0 || file.Size == 0 {
 		return protocol.FileInfo{}, false
@@ -950,7 +972,7 @@ loop:
 			continue
 		}
 
-		if batch.hasDeleted(fi.Name) {
+		if batch.shouldSkipInFindRenames(fi.Name) {
 			continue
 		}
 
@@ -970,6 +992,7 @@ loop:
 		}
 
 		if !osutil.IsDeleted(f.mtimefs, fi.Name) {
+			batch.markSkipInFindRename(fi.Name)
 			continue
 		}
 
@@ -981,6 +1004,7 @@ loop:
 		nf.SetDeleted(f.shortID)
 		nf.LocalFlags = f.localFlags
 		found = true
+		batch.markSkipInFindRename(fi.Name)
 		break
 	}
 
@@ -1163,7 +1187,7 @@ func (f *folder) setWatchError(err error, nextTryIn time.Duration) {
 	f.watchErr = err
 	f.watchMut.Unlock()
 	if err != prevErr { //nolint:errorlint
-		data := map[string]interface{}{
+		data := map[string]any{
 			"folder": f.ID,
 		}
 		if prevErr != nil {
@@ -1337,7 +1361,7 @@ func (f *folder) updateLocals(fs []protocol.FileInfo) error {
 	if err != nil {
 		return err
 	}
-	f.evLogger.Log(events.LocalIndexUpdated, map[string]interface{}{
+	f.evLogger.Log(events.LocalIndexUpdated, map[string]any{
 		"folder":    f.ID,
 		"items":     len(fs),
 		"filenames": filenames,

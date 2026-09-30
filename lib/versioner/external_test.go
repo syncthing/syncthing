@@ -109,6 +109,20 @@ func TestExternalCommandSplit(t *testing.T) {
 	}
 }
 
+func TestExternalWhitespaceCommand(t *testing.T) {
+	// A whitespace-only command splits into zero words; prepareCommand must
+	// return an error rather than panicking on words[0].
+	e := external{
+		filesystem: fs.NewFilesystem(fs.FilesystemTypeFake, "TestExternalWhitespaceCommand"),
+	}
+	for _, cmd := range []string{" ", "\t", "\n", "  \t \n"} {
+		e.command = cmd
+		if _, err := e.prepareCommand("file"); err == nil {
+			t.Errorf("expected error for command %q, got nil", cmd)
+		}
+	}
+}
+
 func prepForRemoval(t *testing.T, file string) {
 	if err := os.RemoveAll("testdata"); err != nil {
 		t.Fatal(err)

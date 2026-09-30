@@ -979,11 +979,11 @@ func testConfig() (Config, context.CancelFunc) {
 func BenchmarkWalk(b *testing.B) {
 	testFs := fs.NewFilesystem(fs.FilesystemTypeFake, rand.String(32))
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		if err := testFs.Mkdir(fmt.Sprintf("dir%d", i), 0o755); err != nil {
 			b.Fatal(err)
 		}
-		for j := 0; j < 100; j++ {
+		for j := range 100 {
 			if fd, err := testFs.Create(fmt.Sprintf("dir%d/file%d", i, j)); err != nil {
 				b.Fatal(err)
 			} else {

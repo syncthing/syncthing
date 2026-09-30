@@ -125,6 +125,8 @@
     "Discovery Status": "Stádas Fionnachtana",
     "Dismiss": "Ruaig",
     "Do not add it to the ignore list, so this notification may recur.": "Ná cuir leis an liosta neamhairde é, mar sin d'fhéadfadh an fógra seo tarlú arís.",
+    "Do not add it to the ignore list, so this notification will reappear if the device connects again.": "Ná cuir leis an liosta neamhaird é, mar sin feicfear an fógra seo arís má nascann an gléas arís.",
+    "Do not add it to the ignore list, so this notification will reappear if the device offering this folder connects again.": "Ná cuir leis an liosta neamhaird é, mar sin feicfear an fógra seo arís má cheanglaíonn an gléas a thairgeann an fillteán seo arís.",
     "Do not restore": "Ná hathchóirigh",
     "Do not restore all": "Ná cuir gach rud ar ais",
     "Do you want to enable watching for changes for all your folders?": "An bhfuil fonn ort féachaint ar athruithe do d'fhillteáin go léir?",

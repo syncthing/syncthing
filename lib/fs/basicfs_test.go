@@ -580,7 +580,7 @@ func TestXattr(t *testing.T) {
 
 	// Create a set of random attributes that we will set and read back
 	var attrs []protocol.Xattr
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		key := fmt.Sprintf("user.test-%d", i)
 		value := make([]byte, xattrSize())
 		rand.Read(value)

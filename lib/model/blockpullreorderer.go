@@ -47,7 +47,7 @@ func (randomOrderBlockPullReorderer) Reorder(blocks []protocol.BlockInfo) []prot
 type standardBlockPullReorderer struct {
 	myIndex int
 	count   int
-	shuffle func(interface{}) // Used for test
+	shuffle func(any) // Used for test
 }
 
 func newStandardBlockPullReorderer(id protocol.DeviceID, otherDevices []protocol.DeviceID) *standardBlockPullReorderer {
@@ -116,10 +116,7 @@ func chunk(blocks []protocol.BlockInfo, partCount int) [][]protocol.BlockInfo {
 	chunkSize := (count + partCount - 1) / partCount
 	parts := make([][]protocol.BlockInfo, 0, partCount)
 	for i := 0; i < count; i += chunkSize {
-		end := i + chunkSize
-		if end > count {
-			end = count
-		}
+		end := min(i+chunkSize, count)
 		parts = append(parts, blocks[i:end])
 	}
 	return parts

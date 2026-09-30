@@ -5,7 +5,6 @@
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //go:build go1.15 && !noquic
-// +build go1.15,!noquic
 
 package connections
 

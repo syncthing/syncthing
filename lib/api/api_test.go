@@ -433,7 +433,6 @@ func TestAPIServiceRequests(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.URL, func(t *testing.T) {
 			t.Parallel()
 			testHTTPRequest(t, baseURL, tc, testAPIKey)
@@ -1723,7 +1722,7 @@ func TestConfigChanges(t *testing.T) {
 		return resp
 	}
 
-	mod := func(method, path string, data interface{}) {
+	mod := func(method, path string, data any) {
 		t.Helper()
 		bs, err := json.Marshal(data)
 		if err != nil {
@@ -1827,6 +1826,14 @@ func TestSanitizedHostname(t *testing.T) {
 		} else if res != tc.out {
 			t.Errorf("%q => %q, expected %q", tc.in, res, tc.out)
 		}
+	}
+}
+
+func TestPrometheusMetrics(t *testing.T) {
+	// We should get some form of reasonable metrics response
+	bs := prometheusMetrics()
+	if !bytes.Contains(bs, []byte("TYPE go_info gauge")) {
+		t.Error("metrics should include go_info gauge")
 	}
 }
 

@@ -125,6 +125,8 @@
     "Discovery Status": "حالة الاكتشاف",
     "Dismiss": "رفض",
     "Do not add it to the ignore list, so this notification may recur.": "لا تقم بإضافته إلى قائمة التجاهل، لذلك قد يتكرر هذا الإشعار.",
+    "Do not add it to the ignore list, so this notification will reappear if the device connects again.": "لا تقم بإضافته إلى قائمة التجاهل، حتى يتم اخطارك عند اعادة اتصال الجهاز.",
+    "Do not add it to the ignore list, so this notification will reappear if the device offering this folder connects again.": "لا تقم بإضافته إلى قائمة التجاهل، حتى يتم اخطارك عند اعادة اتصال الجهاز المزوّد لهذا المجلد.",
     "Do not restore": "الغاء الاستعادة",
     "Do not restore all": "الغاء استعادة الكل",
     "Do you want to enable watching for changes for all your folders?": "هل تريد تفعيل مراقبة التغيرات على كل المجلدات؟",

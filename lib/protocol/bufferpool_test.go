@@ -81,7 +81,7 @@ func TestStressBufferPool(t *testing.T) {
 
 	var wg sync.WaitGroup
 	fail := make(chan struct{}, routines)
-	for i := 0; i < routines; i++ {
+	for range routines {
 		wg.Go(func() {
 			for time.Since(t0) < runtime {
 				blocks := make([][]byte, 10)

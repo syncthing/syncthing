@@ -27,7 +27,7 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .in \\n[rst2man-indent\\n[rst2man-indent-level]]u
 ..
-.TH "SYNCTHING-CONFIG" "5" "Jul 16, 2026" "v2.1.0" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Sep 10, 2026" "v2.1.0" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .SH OVERVIEW
@@ -202,7 +202,6 @@ may no longer correspond to the defaults.
         <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
         <upgradeToPreReleases>false</upgradeToPreReleases>
         <keepTemporariesH>24</keepTemporariesH>
-        <cacheIgnoredFiles>false</cacheIgnoredFiles>
         <progressUpdateIntervalS>5</progressUpdateIntervalS>
         <limitBandwidthInLan>false</limitBandwidthInLan>
         <minHomeDiskFree unit=\(dq%\(dq>1</minHomeDiskFree>
@@ -1208,7 +1207,6 @@ Search filter for user searches.
     <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
     <upgradeToPreReleases>false</upgradeToPreReleases>
     <keepTemporariesH>24</keepTemporariesH>
-    <cacheIgnoredFiles>false</cacheIgnoredFiles>
     <progressUpdateIntervalS>5</progressUpdateIntervalS>
     <limitBandwidthInLan>false</limitBandwidthInLan>
     <minHomeDiskFree unit=\(dq%\(dq>1</minHomeDiskFree>
@@ -1385,13 +1383,6 @@ If \fBtrue\fP, automatic upgrades include release candidates (see
 .B keepTemporariesH
 Keep temporary failed transfers for this many hours. While the temporaries
 are kept, the data they contain need not be transferred again.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B cacheIgnoredFiles
-Whether to cache the results of ignore pattern evaluation. Performance
-at the price of memory. Defaults to \fBfalse\fP as the cost for evaluating
-ignores is usually not significant.
 .UNINDENT
 .INDENT 0.0
 .TP

@@ -46,3 +46,8 @@
     linux: "3.2"
     windows: "10.0"
 
+- runtime: go1.27
+  requirements:
+    darwin: "22" # macOS 13 (Ventura)
+    linux: "3.2"
+    windows: "10.0"

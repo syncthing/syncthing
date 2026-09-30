@@ -64,7 +64,7 @@ func Intn(n int) int {
 }
 
 // Shuffle the order of elements in slice.
-func Shuffle(slice interface{}) {
+func Shuffle(slice any) {
 	rv := reflect.ValueOf(slice)
 	swap := reflect.Swapper(slice)
 	length := rv.Len()

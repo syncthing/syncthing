@@ -7,7 +7,6 @@
 package model_test
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"sync"
@@ -23,8 +22,7 @@ import (
 func TestIndexhandlerConcurrency(t *testing.T) {
 	// Verify that sending a lot of index update messages using the
 	// FileInfoBatch works and doesn't trigger the race detector.
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
@@ -52,7 +50,7 @@ func TestIndexhandlerConcurrency(t *testing.T) {
 	recvdBatches := 0
 	var wg sync.WaitGroup
 	m2.IndexUpdateCalls(func(_ protocol.Connection, idxUp *protocol.IndexUpdate) error {
-		for j := 0; j < files; j++ {
+		for j := range int(files) {
 			if n := idxUp.Files[j].Name; n != fmt.Sprintf("f%d-%d", recvdBatches, j) {
 				t.Error("wrong filename", n)
 			}
@@ -67,8 +65,8 @@ func TestIndexhandlerConcurrency(t *testing.T) {
 		return c1.IndexUpdate(ctx, &protocol.IndexUpdate{Folder: "foo", Files: fs})
 	})
 	sentEntries := 0
-	for i := 0; i < msgs; i++ {
-		for j := 0; j < files; j++ {
+	for i := range int(msgs) {
+		for j := range int(files) {
 			b1.Append(protocol.FileInfo{
 				Name:   fmt.Sprintf("f%d-%d", i, j),
 				Blocks: []protocol.BlockInfo{{Hash: make([]byte, 32)}},

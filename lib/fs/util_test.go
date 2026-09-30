@@ -106,7 +106,7 @@ func TestSanitizePath(t *testing.T) {
 func TestSanitizePathFuzz(t *testing.T) {
 	buf := make([]byte, 128)
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		rand.Read(buf)
 		path := SanitizePath(string(buf))
 		if !utf8.ValidString(path) {

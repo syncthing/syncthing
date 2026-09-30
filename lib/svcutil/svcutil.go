@@ -88,6 +88,7 @@ const (
 	ExitNoUpgradeAvailable ExitStatus = 2
 	ExitRestart            ExitStatus = 3
 	ExitUpgrade            ExitStatus = 4
+	ExitNoRestart          ExitStatus = 5 // do not get restarted by monitor
 )
 
 func (s ExitStatus) AsInt() int {

@@ -5,7 +5,6 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
 //go:build (solaris && !cgo) || (darwin && !cgo) || (darwin && kqueue)
-// +build solaris,!cgo darwin,!cgo darwin,kqueue
 
 package fs
 

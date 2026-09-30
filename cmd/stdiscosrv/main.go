@@ -35,10 +35,10 @@ const (
 
 	// Reannounce-After is set to reannounceAfterSeconds +
 	// random(reannounzeFuzzSeconds), similar for Retry-After
-	reannounceAfterSeconds = 3300
-	reannounzeFuzzSeconds  = 300
-	errorRetryAfterSeconds = 1500
-	errorRetryFuzzSeconds  = 300
+	reannounceAfterSeconds = 2400
+	reannounzeFuzzSeconds  = 1800
+	errorRetryAfterSeconds = 1800
+	errorRetryFuzzSeconds  = 900
 
 	// Retry for not found is notFoundRetrySeenSeconds for records we have
 	// seen an announcement for (but it's not active right now) and
