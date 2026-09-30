@@ -7,7 +7,7 @@ managed:
     - file_option: go_package_prefix
       value: github.com/syncthing/syncthing/internal/gen
 plugins:
-  - remote: buf.build/protocolbuffers/go:v1.35.1
+  - remote: buf.build/protocolbuffers/go:v1.36.12
     out: .
     opt: module=github.com/syncthing/syncthing
 inputs:
