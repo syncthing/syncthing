@@ -2,13 +2,15 @@ syntax = "proto3";
 
 package bep;
 
+import "buf/validate/validate.proto";
+
 // --- Pre-auth ---
 
 message Hello {
-  string device_name = 1;
-  string client_name = 2;
-  string client_version = 3;
-  int32 num_connections = 4;
+  string device_name = 1 [(buf.validate.field).string.max_len = 1024];
+  string client_name = 2 [(buf.validate.field).string.max_len = 1024];
+  string client_version = 3 [(buf.validate.field).string.max_len = 1024];
+  int32 num_connections = 4 [(buf.validate.field).int32.gte = 0];
   int64 timestamp = 5;
 }
 
@@ -45,8 +47,8 @@ message ClusterConfig {
 }
 
 message Folder {
-  string id = 1;
-  string label = 2;
+  string id = 1 [(buf.validate.field).string.max_len = 1024];
+  string label = 2 [(buf.validate.field).string.max_len = 1024];
   FolderType type = 3;
   FolderStopReason stop_reason = 7;
   reserved 4 to 6;
@@ -55,12 +57,12 @@ message Folder {
 }
 
 message Device {
-  bytes id = 1;
-  string name = 2;
+  bytes id = 1 [(buf.validate.field).bytes.len = 32];
+  string name = 2 [(buf.validate.field).string.max_len = 1024];
   repeated string addresses = 3;
   Compression compression = 4;
-  string cert_name = 5;
-  int64 max_sequence = 6;
+  string cert_name = 5 [(buf.validate.field).string.max_len = 1024];
+  int64 max_sequence = 6 [(buf.validate.field).int64.gte = 0];
   bool introducer = 7;
   uint64 index_id = 8;
   bool skip_introduction_removals = 9;
@@ -88,37 +90,43 @@ enum FolderStopReason {
 // Index and Index Update
 
 message Index {
-  string folder = 1;
+  string folder = 1 [(buf.validate.field).string.max_len = 1024];
   repeated FileInfo files = 2;
-  int64 last_sequence = 3; // the highest sequence in this batch
+  int64 last_sequence = 3 [(buf.validate.field).int64.gte = 0]; // the highest sequence in this batch
 }
 
 message IndexUpdate {
-  string folder = 1;
+  string folder = 1 [(buf.validate.field).string.max_len = 1024];
   repeated FileInfo files = 2;
-  int64 last_sequence = 3; // the highest sequence in this batch
-  int64 prev_sequence = 4; // the highest sequence in the previous batch
+  int64 last_sequence = 3 [(buf.validate.field).int64.gte = 0]; // the highest sequence in this batch
+  int64 prev_sequence = 4 [(buf.validate.field).int64.gte = 0]; // the highest sequence in the previous batch
 }
 
 message FileInfo {
   // The field ordering here optimizes for struct size / alignment --
   // large types come before smaller ones.
 
-  string name = 1;
-  int64 size = 3;
+  string name = 1 [(buf.validate.field).string.max_len = 32767];
+  int64 size = 3 [(buf.validate.field).int64.gte = 0];
   int64 modified_s = 5;
   uint64 modified_by = 12;
   Vector version = 9;
-  int64 sequence = 10;
+  int64 sequence = 10 [(buf.validate.field).int64.gte = 0];
   repeated BlockInfo blocks = 16;
   bytes symlink_target = 17;
-  bytes blocks_hash = 18;
-  bytes previous_blocks_hash = 20;
+  bytes blocks_hash = 18 [
+    (buf.validate.field).bytes.len = 32,
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE
+  ];
+  bytes previous_blocks_hash = 20 [
+    (buf.validate.field).bytes.len = 32,
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE
+  ];
   bytes encrypted = 19;
   FileInfoType type = 2;
   uint32 permissions = 4;
   int32 modified_ns = 11;
-  int32 block_size = 13;
+  int32 block_size = 13 [(buf.validate.field).int32.gte = 0];
   PlatformData platform = 14;
 
   // The local_flags fields stores flags that are relevant to the local
@@ -151,14 +159,18 @@ enum FileInfoType {
 }
 
 message BlockInfo {
-  bytes hash = 3;
-  int64 offset = 1;
-  int32 size = 2;
+  bytes hash = 3 [(buf.validate.field).cel = {
+    id: "blockinfo.hash.len"
+    message: "block hash must be 32 bytes (plaintext) or 48 bytes (encrypted)"
+    expression: "size(this) == 32 || size(this) == 48"
+  }];
+  int64 offset = 1 [(buf.validate.field).int64.gte = 0];
+  int32 size = 2 [(buf.validate.field).int32.gte = 0];
   reserved 4;
 }
 
 message Vector {
-  repeated Counter counters = 1;
+  repeated Counter counters = 1 [(buf.validate.field).repeated.max_items = 1024];
 }
 
 message Counter {
@@ -179,8 +191,8 @@ message UnixData {
   // The owner name and group name are set when known (i.e., could be
   // resolved on the source device), while the UID and GID are always set
   // as they come directly from the stat() call.
-  string owner_name = 1;
-  string group_name = 2;
+  string owner_name = 1 [(buf.validate.field).string.max_len = 1024];
+  string group_name = 2 [(buf.validate.field).string.max_len = 1024];
   int32 uid = 3;
   int32 gid = 4;
 }
@@ -189,7 +201,7 @@ message WindowsData {
   // Windows file objects have a single owner, which may be a user or a
   // group. We keep the name of that account, and a flag to indicate what
   // type it is.
-  string owner_name = 1;
+  string owner_name = 1 [(buf.validate.field).string.max_len = 1024];
   bool owner_is_group = 2;
 }
 
@@ -205,21 +217,25 @@ message Xattr {
 // Request
 
 message Request {
-  int32 id = 1;
-  string folder = 2;
-  string name = 3;
-  int64 offset = 4;
-  int32 size = 5;
-  bytes hash = 6;
+  int32 id = 1 [(buf.validate.field).int32.gte = 0];
+  string folder = 2 [(buf.validate.field).string.max_len = 1024];
+  string name = 3 [(buf.validate.field).string.max_len = 32767];
+  int64 offset = 4 [(buf.validate.field).int64.gte = 0];
+  int32 size = 5 [(buf.validate.field).int32.gte = 0];
+  bytes hash = 6 [(buf.validate.field).cel = {
+    id: "request.hash.len"
+    message: "request hash must be unset, 32 bytes (plaintext), or 48 bytes (encrypted)"
+    expression: "size(this) == 0 || size(this) == 32 || size(this) == 48"
+  }];
   bool from_temporary = 7;
-  int32 block_no = 9;
+  int32 block_no = 9 [(buf.validate.field).int32.gte = 0];
   reserved 8;
 }
 
 // Response
 
 message Response {
-  int32 id = 1;
+  int32 id = 1 [(buf.validate.field).int32.gte = 0];
   bytes data = 2;
   ErrorCode code = 3;
 }
@@ -234,16 +250,19 @@ enum ErrorCode {
 // DownloadProgress
 
 message DownloadProgress {
-  string folder = 1;
+  string folder = 1 [(buf.validate.field).string.max_len = 1024];
   repeated FileDownloadProgressUpdate updates = 2;
 }
 
 message FileDownloadProgressUpdate {
   FileDownloadProgressUpdateType update_type = 1;
-  string name = 2;
+  string name = 2 [(buf.validate.field).string.max_len = 32767];
   Vector version = 3;
-  repeated int32 block_indexes = 4 [packed = false];
-  int32 block_size = 5;
+  repeated int32 block_indexes = 4 [
+    packed = false,
+    (buf.validate.field).repeated.items.int32.gte = 0
+  ];
+  int32 block_size = 5 [(buf.validate.field).int32.gte = 0];
 }
 
 enum FileDownloadProgressUpdateType {
