@@ -6,6 +6,10 @@
 
 package sliceutil
 
+import (
+	"github.com/gobwas/glob"
+)
+
 // RemoveAndZero removes the element at index i from slice s and returns the
 // resulting slice. The slice ordering is preserved; the last slice element
 // is zeroed before shrinking.
@@ -21,4 +25,13 @@ func Map[E, R any, S ~[]E](s S, f func(E) R) []R {
 		r[i] = f(v)
 	}
 	return r
+}
+
+func ContainsGlob(globSlice []glob.Glob, match string) (is_matched bool) {
+	for _, g := range globSlice {
+		if g.Match(match) {
+			return true
+		}
+	}
+	return false
 }
