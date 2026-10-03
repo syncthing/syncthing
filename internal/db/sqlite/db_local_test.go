@@ -7,12 +7,115 @@
 package sqlite
 
 import (
+	"fmt"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/itererr"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
+
+func TestLocalFilesBySequencePlan(t *testing.T) {
+	fdb, err := openFolderDB("test", filepath.Join(t.TempDir(), "folder.db"), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { fdb.Close() })
+	files := make([]protocol.FileInfo, 128)
+	for i := range files {
+		files[i] = genFile(fmt.Sprintf("file%03d", i), 1, i+1)
+	}
+	if err := fdb.Update(protocol.LocalDeviceID, files, db.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	// A one-device ANALYZE encourages a devices table scan. After a remote
+	// device is added, these stale statistics must not cause sequence
+	// iteration to sort the entire backlog before returning a limited page.
+	if _, err := fdb.sql.Exec(`ANALYZE`); err != nil {
+		t.Fatal(err)
+	}
+	remote := protocol.DeviceID{42}
+	if err := fdb.Update(remote, files[:1], db.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	// Capture the SQL prepared by the iterator so this checks the actual
+	// production query without duplicating it in the test.
+	collect := func(device protocol.DeviceID, start int64) []protocol.FileInfo {
+		previous := make(map[string]bool)
+		for q := range fdb.statements {
+			previous[q] = true
+		}
+		got, err := itererr.Collect(fdb.AllLocalFilesBySequence(device, start, 10))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var query string
+		for q := range fdb.statements {
+			if !previous[q] {
+				if query != "" {
+					t.Fatal("iterator prepared more than one statement")
+				}
+				query = fdb.expandTemplateVars(q)
+			}
+		}
+		if query == "" {
+			t.Fatal("iterator did not prepare a statement")
+		}
+		var plan []struct {
+			ID, Parent, Notused int
+			Detail              string
+		}
+		if err := fdb.sql.Select(&plan, `EXPLAIN QUERY PLAN `+query, device.String(), start); err != nil {
+			t.Fatal(err)
+		}
+		usesLocalIndex := false
+		for _, row := range plan {
+			if strings.Contains(row.Detail, "files_device_remote_sequence") && strings.Contains(row.Detail, "rowid>") {
+				usesLocalIndex = true
+			}
+			if strings.Contains(row.Detail, "TEMP B-TREE") {
+				t.Errorf("sequence iteration requires sorting: %s", row.Detail)
+			}
+		}
+		if device == protocol.LocalDeviceID && !usesLocalIndex {
+			t.Fatalf("local sequence iteration did not seek the combined index: %+v", plan)
+		}
+		return got
+	}
+	got := collect(protocol.LocalDeviceID, 65)
+	if len(got) != 10 {
+		t.Fatalf("got %d files, want 10", len(got))
+	}
+	for i, f := range got {
+		if f.Sequence != int64(65+i) || f.Name != files[64+i].Name || len(f.Blocks) != 1 {
+			t.Errorf("unexpected entry %d: %+v", i, f)
+		}
+	}
+	// Remote sequence values need not follow our database sequence order.
+	remoteFiles := make([]protocol.FileInfo, 12)
+	for i := range remoteFiles {
+		remoteFiles[i] = genFile(fmt.Sprintf("remote%03d", i), 1, 1000-i)
+	}
+	if err := fdb.Update(remote, remoteFiles, db.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	got = collect(remote, 130)
+	if len(got) != 10 {
+		t.Fatalf("got %d remote files, want 10", len(got))
+	}
+	for i, f := range got {
+		if f.Name != remoteFiles[i].Name || f.Sequence != remoteFiles[i].Sequence || len(f.Blocks) != 1 {
+			t.Errorf("unexpected remote entry %d: %+v", i, f)
+		}
+	}
+
+	got, err = itererr.Collect(fdb.AllLocalFilesBySequence(protocol.DeviceID{99}, 0, 10))
+	if err != nil || len(got) != 0 {
+		t.Errorf("unknown device: got %d files, error %v", len(got), err)
+	}
+}
 
 func TestBlocks(t *testing.T) {
 	t.Parallel()

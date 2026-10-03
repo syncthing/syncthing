@@ -56,18 +56,16 @@ CREATE TABLE IF NOT EXISTS fileinfos (
     FOREIGN KEY(sequence) REFERENCES files(sequence) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 ) STRICT
 ;
--- There can be only one file per folder, device, and remote sequence number
-CREATE UNIQUE INDEX IF NOT EXISTS files_remote_sequence ON files (device_idx, remote_sequence)
-    WHERE remote_sequence IS NOT NULL
+-- Enforce remote sequence uniqueness and support device deletion. For local
+-- files, remote_sequence is NULL, so the implicit rowid orders them by local
+-- sequence within a device. Multiple NULL entries are allowed by UNIQUE.
+CREATE UNIQUE INDEX IF NOT EXISTS files_device_remote_sequence ON files (device_idx, remote_sequence)
 ;
 -- There can be only one file per folder, device, and name
 -- The name prefix also supports name lookups and garbage collection.
 -- This will fail pre-migration for v4 schemas, which is fine.
 -- syncthing:ignore-failure
 CREATE UNIQUE INDEX IF NOT EXISTS files_name_device ON files (name_idx, device_idx)
-;
--- Iterate a device's files in sequence order, and support device deletion.
-CREATE INDEX IF NOT EXISTS files_device_sequence ON files (device_idx, sequence)
 ;
 -- Look up and iterate the global version of each file by name.
 -- This will fail pre-migration for v4 schemas, which is fine.
