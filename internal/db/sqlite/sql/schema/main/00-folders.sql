@@ -12,5 +12,5 @@ CREATE TABLE IF NOT EXISTS folders (
 ) STRICT
 ;
 -- The database_name is unique, when set
-CREATE INDEX IF NOT EXISTS folders_database_name ON folders (database_name) WHERE database_name IS NOT NULL
+CREATE UNIQUE INDEX IF NOT EXISTS folders_database_name_unique ON folders (database_name) WHERE database_name IS NOT NULL
 ;

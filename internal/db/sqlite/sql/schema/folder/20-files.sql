@@ -61,16 +61,28 @@ CREATE UNIQUE INDEX IF NOT EXISTS files_remote_sequence ON files (device_idx, re
     WHERE remote_sequence IS NOT NULL
 ;
 -- There can be only one file per folder, device, and name
-CREATE UNIQUE INDEX IF NOT EXISTS files_device_name ON files (device_idx, name_idx)
+-- The name prefix also supports name lookups and garbage collection.
+-- This will fail pre-migration for v4 schemas, which is fine.
+-- syncthing:ignore-failure
+CREATE UNIQUE INDEX IF NOT EXISTS files_name_device ON files (name_idx, device_idx)
+;
+-- Iterate a device's files in sequence order, and support device deletion.
+CREATE INDEX IF NOT EXISTS files_device_sequence ON files (device_idx, sequence)
+;
+-- Look up and iterate the global version of each file by name.
+-- This will fail pre-migration for v4 schemas, which is fine.
+-- syncthing:ignore-failure
+CREATE INDEX IF NOT EXISTS files_global_name ON files (name_idx)
+    WHERE local_flags & {{.FlagLocalGlobal}} != 0
+;
+-- Iterate needed files, supporting both smallest and largest first orders.
+CREATE INDEX IF NOT EXISTS files_needed_size ON files (size)
+    WHERE local_flags & {{.FlagLocalNeeded}} != 0
 ;
 -- We want to be able to look up & iterate files based on blocks hash
 CREATE INDEX IF NOT EXISTS files_blocklist_hash_only ON files (blocklist_hash, device_idx) WHERE blocklist_hash IS NOT NULL
 ;
--- We need to look by name_idx or version_idx for garbage collection.
--- This will fail pre-migration for v4 schemas, which is fine.
--- syncthing:ignore-failure
-CREATE INDEX IF NOT EXISTS files_name_idx_only ON files (name_idx)
-;
+-- We need to look up by version_idx for garbage collection.
 -- This will fail pre-migration for v4 schemas, which is fine.
 -- syncthing:ignore-failure
 CREATE INDEX IF NOT EXISTS files_version_idx_only ON files (version_idx)
