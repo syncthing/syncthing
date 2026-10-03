@@ -406,7 +406,7 @@ func upgradeViaRest() error {
 	r, _ := http.NewRequest(http.MethodPost, target, nil) //nolint:noctx
 
 	resp, err := makeRestCall(cfg, r)
-	if err != nil {
+	if err == nil {
 		resp.Body.Close()
 	}
 	return err
