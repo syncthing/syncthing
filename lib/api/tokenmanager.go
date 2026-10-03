@@ -84,6 +84,7 @@ func (m *tokenManager) Consume(token string) bool {
 
 	// Consume the token.
 	delete(m.tokens.Tokens, token)
+	m.saveLocked()
 	return true
 }
 
