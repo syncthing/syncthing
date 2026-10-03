@@ -214,21 +214,14 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-evChan:
+				// Consolidate possibly multiple index changes
+				time.Sleep(250 * time.Millisecond)
 			case <-ticker.C:
 			}
 			continue
 		}
 
 		err = s.sendIndexTo(ctx)
-
-		// Wait a short amount of time before entering the next loop. If there
-		// are continuous changes happening to the local index, this gives us
-		// time to batch them up a little.
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(250 * time.Millisecond):
-		}
 	}
 
 	return err
@@ -255,8 +248,7 @@ func (s *indexHandler) pause() {
 	s.cond.L.Unlock()
 }
 
-// sendIndexTo sends file infos with a sequence number higher than prevSequence and
-// returns the highest sent sequence number.
+// sendIndexTo sends one batch of index data.
 func (s *indexHandler) sendIndexTo(ctx context.Context) error {
 	initial := s.localPrevSequence == 0
 	batch := NewFileInfoBatch(nil)
