@@ -1056,6 +1056,24 @@ func TestTokenLogin(t *testing.T) {
 			t.Errorf("Expected session cookie to be deleted for logout request")
 		}
 	})
+
+	t.Run("Same token cannot be used twice", func(t *testing.T) {
+		token := acquireToken()
+		resp := tryLoadWithToken(token)
+		if !hasSessionCookie(resp.Cookies()) {
+			t.Errorf("Expected session cookie for valid token")
+		}
+
+		logoutResp := httpPost(baseURL+"/rest/noauth/auth/logout", nil, resp.Cookies(), t)
+		if !hasDeleteSessionCookie(logoutResp.Cookies()) {
+			t.Errorf("Expected session cookie to be deleted for logout request")
+		}
+
+		resp = tryLoadWithToken(token)
+		if hasSessionCookie(resp.Cookies()) {
+			t.Errorf("Unexpected session cookie for reused token")
+		}
+	})
 }
 
 func TestApiCache(t *testing.T) {
