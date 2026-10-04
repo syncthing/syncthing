@@ -69,16 +69,17 @@ func (s *folderDB) AllLocalFilesBySequence(device protocol.DeviceID, startSeq in
 	var localFilter, indexHint string
 	if device == protocol.LocalDeviceID {
 		localFilter = " AND f.remote_sequence IS NULL"
-		indexHint = "INDEXED BY files_device_remote_sequence"
+		indexHint = " INDEXED BY files_device_remote_sequence"
 	}
 	// Resolve the device to a scalar to avoid a devices scan breaking order.
 	it, errFn := iterStructs[indirectFI](s.stmt(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
-		INNER JOIN files f `+indexHint+` ON fi.sequence = f.sequence
+		INNER JOIN files f`+indexHint+` ON fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		WHERE f.device_idx = (SELECT idx FROM devices WHERE device_id = ?) AND f.sequence >= ?`+localFilter+`
 		ORDER BY f.sequence`+limitStr).Queryx(
-		device.String(), startSeq))
+		device.String(), startSeq,
+	))
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 
