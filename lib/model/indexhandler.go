@@ -183,7 +183,7 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 	if err := s.waitWhilePaused(ctx); err != nil {
 		return err
 	}
-	err = s.sendIndexTo(ctx)
+	err = s.sendIndexBatch(ctx)
 
 	// Subscribe to LocalIndexUpdated (we have new information to send) and
 	// DeviceDisconnected (it might be us who disconnected, so we should
@@ -221,7 +221,7 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 			continue
 		}
 
-		err = s.sendIndexTo(ctx)
+		err = s.sendIndexBatch(ctx)
 	}
 
 	return err
@@ -248,8 +248,8 @@ func (s *indexHandler) pause() {
 	s.cond.L.Unlock()
 }
 
-// sendIndexTo sends one batch of index data.
-func (s *indexHandler) sendIndexTo(ctx context.Context) error {
+// sendIndexBatch sends one batch of index data.
+func (s *indexHandler) sendIndexBatch(ctx context.Context) error {
 	initial := s.localPrevSequence == 0
 	batch := NewFileInfoBatch(nil)
 	var batchError error
