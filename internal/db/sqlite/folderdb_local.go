@@ -66,14 +66,11 @@ func (s *folderDB) AllLocalFilesBySequence(device protocol.DeviceID, startSeq in
 	}
 	// Local files share a NULL remote sequence, so the device/remote sequence
 	// index orders them by its implicit rowid (the local sequence).
-	var localFilter string
-	indexHint := "NOT INDEXED"
+	var localFilter, indexHint string
 	if device == protocol.LocalDeviceID {
 		localFilter = " AND f.remote_sequence IS NULL"
 		indexHint = "INDEXED BY files_device_remote_sequence"
 	}
-	// Other devices have varying remote sequences. Scan in primary key order
-	// rather than sorting all their files before returning a limited page.
 	// Resolve the device to a scalar to avoid a devices scan breaking order.
 	it, errFn := iterStructs[indirectFI](s.stmt(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
