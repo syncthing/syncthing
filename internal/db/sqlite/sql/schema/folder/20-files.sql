@@ -67,16 +67,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS files_device_remote_sequence ON files (device_
 -- syncthing:ignore-failure
 CREATE UNIQUE INDEX IF NOT EXISTS files_name_device ON files (name_idx, device_idx)
 ;
--- Look up and iterate the global version of each file by name.
--- This will fail pre-migration for v4 schemas, which is fine.
--- syncthing:ignore-failure
-CREATE INDEX IF NOT EXISTS files_global_name ON files (name_idx)
-    WHERE local_flags & {{.FlagLocalGlobal}} != 0
-;
--- Iterate needed files, supporting both smallest and largest first orders.
-CREATE INDEX IF NOT EXISTS files_needed_size ON files (size)
-    WHERE local_flags & {{.FlagLocalNeeded}} != 0
-;
 -- We want to be able to look up & iterate files based on blocks hash
 CREATE INDEX IF NOT EXISTS files_blocklist_hash_only ON files (blocklist_hash, device_idx) WHERE blocklist_hash IS NOT NULL
 ;

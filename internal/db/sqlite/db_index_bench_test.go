@@ -28,14 +28,15 @@ func benchmarkInitialIndex(b *testing.B, regularFiles bool) {
 		name                                            string
 		previous, partial, sequence, fullRemote, memory bool
 	}{
-		{name: "current", partial: true, fullRemote: true},
+		{name: "current", fullRemote: true},
+		{name: "with_partial", partial: true, fullRemote: true},
 		{name: "separate_sequence", partial: true, sequence: true},
-		{name: "without_partial", fullRemote: true},
+
 		{name: "previous_indexes", previous: true},
 		{name: "previous_with_sequence", previous: true, sequence: true},
 		{name: "previous_with_partial", previous: true, partial: true},
 		{name: "consolidated_without_sequence"},
-		{name: "current_tempmem", partial: true, fullRemote: true, memory: true},
+		{name: "current_tempmem", fullRemote: true, memory: true},
 	} {
 		b.Run(variant.name, func(b *testing.B) {
 			fs := make([]protocol.FileInfo, numFiles)
@@ -63,9 +64,9 @@ func benchmarkInitialIndex(b *testing.B, regularFiles bool) {
 						b.Fatal(err)
 					}
 				}
-				if !variant.partial {
-					exec(`DROP INDEX files_global_name`)
-					exec(`DROP INDEX files_needed_size`)
+				if variant.partial {
+					exec(`CREATE INDEX files_global_name ON files(name_idx) WHERE local_flags & 16 != 0`)
+					exec(`CREATE INDEX files_needed_size ON files(size) WHERE local_flags & 32 != 0`)
 				}
 				if variant.sequence {
 					exec(`CREATE INDEX files_device_sequence ON files(device_idx,sequence)`)

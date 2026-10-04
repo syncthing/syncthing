@@ -16,7 +16,7 @@ import (
 )
 
 func TestSchemaIndexes(t *testing.T) {
-	for _, version := range []int{0, 6, 7, 8} {
+	for _, version := range []int{0, 6, 7} {
 		name := "fresh"
 		if version > 0 {
 			name = fmt.Sprintf("upgrade_v%d", version)
@@ -49,20 +49,7 @@ func TestSchemaIndexes(t *testing.T) {
 				t.Fatal(err)
 			}
 			if version > 0 {
-				// These additive indexes are created on every startup, even
-				// when the recorded schema version is already current.
-				schemaExec(t, fdb.sql, `DROP INDEX files_global_name`, `DROP INDEX files_needed_size`)
-				if version < 8 {
-					schemaExec(t, fdb.sql,
-						`DROP INDEX files_device_remote_sequence`,
-						`CREATE UNIQUE INDEX files_remote_sequence ON files(device_idx,remote_sequence) WHERE remote_sequence IS NOT NULL`,
-						`DELETE FROM schemamigrations`,
-						fmt.Sprintf(`INSERT INTO schemamigrations VALUES (%d, 0, '')`, version),
-					)
-					if version == 7 {
-						schemaExec(t, fdb.sql, `CREATE INDEX files_device_sequence ON files(device_idx,sequence)`)
-					}
-				}
+
 				if version == 6 {
 					// Reconstruct the v6 index layout, keeping populated tables and all
 					// other schema objects, then run the real startup migration path.
@@ -74,6 +61,12 @@ func TestSchemaIndexes(t *testing.T) {
 					)
 					schemaExec(t, fdb.sql,
 						`DROP INDEX files_name_device`,
+						`DROP INDEX files_device_remote_sequence`,
+						`CREATE UNIQUE INDEX files_remote_sequence ON files(device_idx,remote_sequence) WHERE remote_sequence IS NOT NULL`,
+						// Intermediate index experiments may exist without a version bump.
+						`CREATE INDEX files_device_sequence ON files(device_idx,sequence)`,
+						`CREATE INDEX files_global_name ON files(name_idx) WHERE local_flags & 16 != 0`,
+						`CREATE INDEX files_needed_size ON files(size) WHERE local_flags & 32 != 0`,
 						`CREATE UNIQUE INDEX files_device_name ON files(device_idx, name_idx)`,
 						`CREATE INDEX files_name_idx_only ON files(name_idx)`,
 						`DELETE FROM schemamigrations`,
@@ -96,11 +89,9 @@ func TestSchemaIndexes(t *testing.T) {
 			checkSchemaIndex(t, sdb.sql, "folders", "folders_database_name_unique", true, false, []string{"database_name"})
 			checkSchemaIndex(t, fdb.sql, "files", "files_name_device", true, false, []string{"name_idx", "device_idx"})
 			checkSchemaIndex(t, fdb.sql, "files", "files_device_remote_sequence", true, false, []string{"device_idx", "remote_sequence"})
-			checkSchemaIndex(t, fdb.sql, "files", "files_global_name", false, true, []string{"name_idx"})
-			checkSchemaIndex(t, fdb.sql, "files", "files_needed_size", false, true, []string{"size"})
 			for _, d := range []*sqlx.DB{sdb.sql, fdb.sql} {
 				var n int
-				if err := d.Get(&n, `SELECT count(*) FROM sqlite_schema WHERE type='index' AND name IN ('folders_database_name', 'files_device_name', 'files_name_idx_only', 'files_remote_sequence', 'files_device_sequence')`); err != nil {
+				if err := d.Get(&n, `SELECT count(*) FROM sqlite_schema WHERE type='index' AND name IN ('folders_database_name', 'files_device_name', 'files_name_idx_only', 'files_remote_sequence', 'files_device_sequence', 'files_global_name', 'files_needed_size')`); err != nil {
 					t.Fatal(err)
 				}
 				if n != 0 {
@@ -151,32 +142,32 @@ func TestSchemaIndexes(t *testing.T) {
                 FROM files WHERE remote_sequence IS NOT NULL LIMIT 1`); err == nil {
 				t.Error("accepted duplicate remote sequence")
 			}
-			// Index membership follows changes in which device has the global
+			// Global and need flags follow changes in which device has the global
 			// version, and whether that version is still needed locally.
-			checkFlagIndexes := func(wantNeed int) {
+			checkFlags := func(wantNeed int) {
 				t.Helper()
 				var global, needed int
-				if err := fdb.stmt(`SELECT count(*) FROM files INDEXED BY files_global_name WHERE local_flags & {{.FlagLocalGlobal}} != 0`).Get(&global); err != nil {
+				if err := fdb.stmt(`SELECT count(*) FROM files WHERE local_flags & {{.FlagLocalGlobal}} != 0`).Get(&global); err != nil {
 					t.Fatal(err)
 				}
-				if err := fdb.stmt(`SELECT count(*) FROM files INDEXED BY files_needed_size WHERE local_flags & {{.FlagLocalNeeded}} != 0`).Get(&needed); err != nil {
+				if err := fdb.stmt(`SELECT count(*) FROM files WHERE local_flags & {{.FlagLocalNeeded}} != 0`).Get(&needed); err != nil {
 					t.Fatal(err)
 				}
 				if global != 1 || needed != wantNeed {
-					t.Errorf("indexed globals=%d, needed=%d; want globals=1, needed=%d", global, needed, wantNeed)
+					t.Errorf("globals=%d, needed=%d; want globals=1, needed=%d", global, needed, wantNeed)
 				}
 			}
-			checkFlagIndexes(0)
+			checkFlags(0)
 			file.Version = file.Version.Update(42)
 			file.Sequence++
 			if err := sdb.Update(folderID, remote, []protocol.FileInfo{file}); err != nil {
 				t.Fatal(err)
 			}
-			checkFlagIndexes(1)
+			checkFlags(1)
 			if err := sdb.Update(folderID, protocol.LocalDeviceID, []protocol.FileInfo{file}); err != nil {
 				t.Fatal(err)
 			}
-			checkFlagIndexes(0)
+			checkFlags(0)
 		})
 	}
 }
