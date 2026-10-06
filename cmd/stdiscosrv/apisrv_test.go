@@ -154,7 +154,7 @@ func BenchmarkAPIRequests(b *testing.B) {
 	db := newInMemoryStore(b.TempDir(), 0, nil)
 	ctx := b.Context()
 	go db.Serve(ctx)
-	api := newAPISrv("127.0.0.1:0", tls.Certificate{}, db, nil, true, true, 1000, 1000)
+	api := newAPISrv("127.0.0.1:0", tls.Certificate{}, db, nil, nil, true, true, 1000, 1000)
 	srv := httptest.NewServer(http.HandlerFunc(api.handler))
 
 	kf := b.TempDir() + "/cert"

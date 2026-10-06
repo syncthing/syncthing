@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/internal/gen/discosrv"
+	"github.com/syncthing/syncthing/lib/geoip"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stringutil"
 )
@@ -46,7 +47,8 @@ type apiSrv struct {
 	cert           tls.Certificate
 	db             database
 	listener       net.Listener
-	repl           replicator // optional
+	repl           replicator      // optional
+	geo            *geoip.Provider // optional
 	useHTTP        bool
 	compression    bool
 	gzipWriters    sync.Pool
@@ -66,14 +68,18 @@ func (i requestID) String() string {
 
 type contextKey int
 
-const idKey contextKey = iota
+const (
+	idKey contextKey = iota
+	countryKey
+)
 
-func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, useHTTP, compression bool, desiredUnseenNotFoundRate, desiredSeenNotFoundRate float64) *apiSrv {
+func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, geo *geoip.Provider, useHTTP, compression bool, desiredUnseenNotFoundRate, desiredSeenNotFoundRate float64) *apiSrv {
 	return &apiSrv{
 		addr:        addr,
 		cert:        cert,
 		db:          db,
 		repl:        repl,
+		geo:         geo,
 		useHTTP:     useHTTP,
 		compression: compression,
 		seenTracker: &retryAfterTracker{
@@ -173,6 +179,8 @@ func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	req = req.WithContext(context.WithValue(req.Context(), countryKey, s.country(remoteAddr)))
+
 	switch req.Method {
 	case http.MethodGet:
 		s.handleGET(lw, req)
@@ -181,6 +189,20 @@ func (s *apiSrv) handler(w http.ResponseWriter, req *http.Request) {
 	default:
 		http.Error(lw, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func (s *apiSrv) country(remoteAddr *net.TCPAddr) string {
+	if s.geo == nil {
+		return ""
+	}
+	if remoteAddr == nil || remoteAddr.IP == nil {
+		return "Unknown"
+	}
+	city, err := s.geo.City(remoteAddr.IP)
+	if err != nil || city == nil || city.Country.IsoCode == "" {
+		return "Unknown"
+	}
+	return city.Country.IsoCode
 }
 
 func forwardedRemoteAddr(req *http.Request) *net.TCPAddr {
@@ -200,11 +222,12 @@ func forwardedRemoteAddr(req *http.Request) *net.TCPAddr {
 
 func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 	reqID := req.Context().Value(idKey).(requestID)
+	country := req.Context().Value(countryKey).(string)
 
 	deviceID, err := protocol.DeviceIDFromString(req.URL.Query().Get("device"))
 	if err != nil {
 		slog.Debug("Request with bad device param", "id", reqID, "error", err)
-		lookupRequestsTotal.WithLabelValues("bad_request").Inc()
+		lookupRequestsTotal.WithLabelValues("bad_request", country).Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
@@ -214,7 +237,7 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		// some sort of internal error
 		slog.Warn("Failed to handle GET request", "id", reqID, "error", err)
-		lookupRequestsTotal.WithLabelValues("internal_error").Inc()
+		lookupRequestsTotal.WithLabelValues("internal_error", country).Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -224,17 +247,17 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 		var afterS int
 		if rec.Seen == 0 {
 			afterS = s.notSeenTracker.retryAfterS()
-			lookupRequestsTotal.WithLabelValues("not_found_ever").Inc()
+			lookupRequestsTotal.WithLabelValues("not_found_ever", country).Inc()
 		} else {
 			afterS = s.seenTracker.retryAfterS()
-			lookupRequestsTotal.WithLabelValues("not_found_recent").Inc()
+			lookupRequestsTotal.WithLabelValues("not_found_recent", country).Inc()
 		}
 		w.Header().Set("Retry-After", strconv.Itoa(afterS))
 		http.Error(w, "Not Found", http.StatusNotFound)
 		return
 	}
 
-	lookupRequestsTotal.WithLabelValues("success").Inc()
+	lookupRequestsTotal.WithLabelValues("success", country).Inc()
 
 	w.Header().Set("Content-Type", "application/json")
 	var bw io.Writer = w
@@ -261,11 +284,12 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 
 func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req *http.Request) {
 	reqID := req.Context().Value(idKey).(requestID)
+	country := req.Context().Value(countryKey).(string)
 
 	rawCert, err := s.certificateBytes(req)
 	if err != nil {
 		slog.Debug("Request without certificates", "id", reqID, "error", err)
-		announceRequestsTotal.WithLabelValues("no_certificate").Inc()
+		announceRequestsTotal.WithLabelValues("no_certificate", country).Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
@@ -275,13 +299,13 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 	if err := json.NewDecoder(req.Body).Decode(&ann); err != nil {
 		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 			slog.Debug("Request body too large", "id", reqID, "error", err)
-			announceRequestsTotal.WithLabelValues("request_too_large").Inc()
+			announceRequestsTotal.WithLabelValues("request_too_large", country).Inc()
 			w.Header().Set("Retry-After", errorRetryAfterString())
 			http.Error(w, "Request Entity Too Large", http.StatusRequestEntityTooLarge)
 			return
 		}
 		slog.Debug("Failed to decode request", "id", reqID, "error", err)
-		announceRequestsTotal.WithLabelValues("bad_request").Inc()
+		announceRequestsTotal.WithLabelValues("bad_request", country).Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
@@ -292,7 +316,7 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 	addresses := fixupAddresses(remoteAddr, ann.Addresses)
 	if len(addresses) == 0 {
 		slog.Debug("Request without addresses", "id", reqID, "error", err)
-		announceRequestsTotal.WithLabelValues("bad_request").Inc()
+		announceRequestsTotal.WithLabelValues("bad_request", country).Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
@@ -300,13 +324,13 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 
 	if err := s.handleAnnounce(deviceID, addresses); err != nil {
 		slog.Warn("Failed to handle POST request", "id", reqID, "error", err)
-		announceRequestsTotal.WithLabelValues("internal_error").Inc()
+		announceRequestsTotal.WithLabelValues("internal_error", country).Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	announceRequestsTotal.WithLabelValues("success").Inc()
+	announceRequestsTotal.WithLabelValues("success", country).Inc()
 
 	w.Header().Set("Reannounce-After", reannounceAfterString())
 	w.WriteHeader(http.StatusNoContent)

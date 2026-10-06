@@ -25,6 +25,7 @@ import (
 	"github.com/syncthing/syncthing/internal/blob/s3"
 	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/geoip"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -67,6 +68,9 @@ type CLI struct {
 	MetricsListen             string  `group:"Listen" help:"Metrics listen address" env:"DISCOVERY_METRICS_LISTEN"`
 	DesiredUnseenNotFoundRate float64 `group:"Listen" help:"Desired maximum rate of not-found replies for never seen devices (/s)" default:"1000" env:"DISCOVERY_UNSEEN_RATE"`
 	DesiredSeenNotFoundRate   float64 `group:"Listen" help:"Desired maximum rate of not-found replies for previously seen devices (/s)" default:"1000" env:"DISCOVERY_SEEN_RATE"`
+
+	GeoIPAccountID  int    `group:"GeoIP" help:"MaxMind account ID for country metrics (requires license key)" env:"DISCOVERY_GEOIP_ACCOUNT_ID"`
+	GeoIPLicenseKey string `group:"GeoIP" help:"MaxMind license key for country metrics (requires account ID)" env:"DISCOVERY_GEOIP_LICENSE_KEY"`
 
 	ShutdownDelay float64 `help:"Time to wait before shutdown after receiving a shutdown signal (s)" env:"DISCOVERY_SHUTDOWN_DELAY"`
 
@@ -149,8 +153,19 @@ func main() {
 		repl = kr
 	}
 
+	var geo *geoip.Provider
+	if cli.GeoIPAccountID != 0 && cli.GeoIPLicenseKey != "" {
+		prov, err := geoip.NewGeoLite2CityProvider(context.Background(), cli.GeoIPAccountID, cli.GeoIPLicenseKey, os.TempDir())
+		if err != nil {
+			slog.Warn("Failed to create GeoIP provider", "error", err)
+		} else {
+			main.Add(prov)
+			geo = prov
+		}
+	}
+
 	// Start the main API server.
-	qs := newAPISrv(cli.Listen, cert, db, repl, cli.HTTP, cli.Compression, cli.DesiredUnseenNotFoundRate, cli.DesiredSeenNotFoundRate)
+	qs := newAPISrv(cli.Listen, cert, db, repl, geo, cli.HTTP, cli.Compression, cli.DesiredUnseenNotFoundRate, cli.DesiredSeenNotFoundRate)
 	main.Add(qs)
 
 	// If we have a metrics port configured, start a metrics handler.
