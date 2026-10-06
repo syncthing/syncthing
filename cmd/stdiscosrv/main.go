@@ -57,8 +57,6 @@ const (
 	replicationOutboxSize = 10000
 )
 
-var debug = false
-
 type CLI struct {
 	Cert                      string  `group:"Listen" help:"Certificate file" default:"./cert.pem" env:"DISCOVERY_CERT_FILE"`
 	Key                       string  `group:"Listen" help:"Key file" default:"./key.pem" env:"DISCOVERY_KEY_FILE"`
@@ -68,6 +66,11 @@ type CLI struct {
 	MetricsListen             string  `group:"Listen" help:"Metrics listen address" env:"DISCOVERY_METRICS_LISTEN"`
 	DesiredUnseenNotFoundRate float64 `group:"Listen" help:"Desired maximum rate of not-found replies for never seen devices (/s)" default:"1000" env:"DISCOVERY_UNSEEN_RATE"`
 	DesiredSeenNotFoundRate   float64 `group:"Listen" help:"Desired maximum rate of not-found replies for previously seen devices (/s)" default:"1000" env:"DISCOVERY_SEEN_RATE"`
+
+	LookupLimitWindow   time.Duration `group:"Listen" help:"Time window for lookup rate limit" env:"DISCOVERY_LOOKUP_RATE_WINDOW" default:"1m"`
+	LookupLimitMax      int           `group:"Listen" help:"Max count for lookup rate limit" env:"DISCOVERY_LOOKUP_RATE_MAX" default:"10"`
+	AnnounceLimitWindow time.Duration `group:"Listen" help:"Time window for announcement rate limit" env:"DISCOVERY_ANNOUNCEMENT_RATE_WINDOW" default:"5m"`
+	AnnounceLimitMax    int           `group:"Listen" help:"Max count for announcement rate limit" env:"DISCOVERY_ANNOUNCEMENT_RATE_MAX" default:"5"`
 
 	GeoIPAccountID  int    `group:"GeoIP" help:"MaxMind account ID for country metrics (requires license key)" env:"DISCOVERY_GEOIP_ACCOUNT_ID"`
 	GeoIPLicenseKey string `group:"GeoIP" help:"MaxMind license key for country metrics (requires account ID)" env:"DISCOVERY_GEOIP_LICENSE_KEY"`
@@ -165,7 +168,7 @@ func main() {
 	}
 
 	// Start the main API server.
-	qs := newAPISrv(cli.Listen, cert, db, repl, geo, cli.HTTP, cli.Compression, cli.DesiredUnseenNotFoundRate, cli.DesiredSeenNotFoundRate)
+	qs := newAPISrv(cli.Listen, cert, db, repl, geo, cli.HTTP, cli.Compression, cli.DesiredUnseenNotFoundRate, cli.DesiredSeenNotFoundRate, cli.LookupLimitMax, cli.LookupLimitWindow, cli.AnnounceLimitMax, cli.AnnounceLimitWindow)
 	main.Add(qs)
 
 	// If we have a metrics port configured, start a metrics handler.

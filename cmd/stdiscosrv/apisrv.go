@@ -17,7 +17,6 @@ import (
 	"errors"
 	"fmt"
 	io "io"
-	"log"
 	"log/slog"
 	"math/rand"
 	"net"
@@ -54,6 +53,8 @@ type apiSrv struct {
 	gzipWriters    sync.Pool
 	seenTracker    *retryAfterTracker
 	notSeenTracker *retryAfterTracker
+	lookups        *deviceLimiters
+	announcements  *deviceLimiters
 }
 
 type replicator interface {
@@ -73,7 +74,7 @@ const (
 	countryKey
 )
 
-func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, geo *geoip.Provider, useHTTP, compression bool, desiredUnseenNotFoundRate, desiredSeenNotFoundRate float64) *apiSrv {
+func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, geo *geoip.Provider, useHTTP, compression bool, desiredUnseenNotFoundRate, desiredSeenNotFoundRate float64, lookupMax int, lookupWindow time.Duration, announcementsMax int, announcementsWindow time.Duration) *apiSrv {
 	return &apiSrv{
 		addr:        addr,
 		cert:        cert,
@@ -94,6 +95,8 @@ func newAPISrv(addr string, cert tls.Certificate, db database, repl replicator, 
 			desiredRate:  desiredUnseenNotFoundRate,
 			currentDelay: notFoundRetryUnknownMaxSeconds / 2,
 		},
+		lookups:       newDeviceLimiters("lookup", lookupMax, lookupWindow),
+		announcements: newDeviceLimiters("announcement", announcementsMax, announcementsWindow),
 	}
 }
 
@@ -129,14 +132,14 @@ func (s *apiSrv) Serve(ctx context.Context) error {
 		WriteTimeout:   httpWriteTimeout,
 		MaxHeaderBytes: httpMaxHeaderBytes,
 	}
-	if !debug {
-		srv.ErrorLog = log.New(io.Discard, "", 0)
-	}
 
 	go func() {
 		<-ctx.Done()
 		srv.Shutdown(context.Background())
 	}()
+
+	go s.lookups.Serve(ctx)
+	go s.announcements.Serve(ctx)
 
 	err := srv.Serve(s.listener)
 	if err != nil {
@@ -233,6 +236,12 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if allow, retryAfter := s.lookups.allow(&deviceID); !allow {
+		lookupRequestsTotal.WithLabelValues("limited", country).Inc()
+		s.lookups.reject(w, retryAfter)
+		return
+	}
+
 	rec, err := s.db.get(&deviceID)
 	if err != nil {
 		// some sort of internal error
@@ -283,6 +292,11 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req *http.Request) {
+	defer func() {
+		io.Copy(io.Discard, req.Body)
+		req.Body.Close()
+	}()
+
 	reqID := req.Context().Value(idKey).(requestID)
 	country := req.Context().Value(countryKey).(string)
 
@@ -292,6 +306,13 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 		announceRequestsTotal.WithLabelValues("no_certificate", country).Inc()
 		w.Header().Set("Retry-After", errorRetryAfterString())
 		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	deviceID := protocol.NewDeviceID(rawCert)
+	if allow, retryAfter := s.announcements.allow(&deviceID); !allow {
+		announceRequestsTotal.WithLabelValues("limited", country).Inc()
+		s.announcements.reject(w, retryAfter)
 		return
 	}
 
@@ -310,8 +331,6 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
-
-	deviceID := protocol.NewDeviceID(rawCert)
 
 	addresses := fixupAddresses(remoteAddr, ann.Addresses)
 	if len(addresses) == 0 {
