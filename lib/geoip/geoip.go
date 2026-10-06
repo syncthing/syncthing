@@ -34,6 +34,8 @@ type Provider struct {
 	db           *geoip2.Reader
 }
 
+type City = geoip2.City
+
 // NewGeoLite2CityProvider returns a new GeoIP2 database provider for the
 // GeoLite2-City database. The database will be stored in the given
 // directory (which should exist) and refreshed every 7 days.
@@ -53,7 +55,7 @@ func NewGeoLite2CityProvider(ctx context.Context, accountID int, licenseKey stri
 	return p, nil
 }
 
-func (p *Provider) City(ip net.IP) (*geoip2.City, error) {
+func (p *Provider) City(ip net.IP) (*City, error) {
 	p.mut.Lock()
 	defer p.mut.Unlock()
 

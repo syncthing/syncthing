@@ -35,14 +35,14 @@ var (
 			Subsystem: "discovery",
 			Name:      "lookup_requests_total",
 			Help:      "Number of lookup requests.",
-		}, []string{"result"})
+		}, []string{"result", "country"})
 	announceRequestsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "syncthing",
 			Subsystem: "discovery",
 			Name:      "announcement_requests_total",
 			Help:      "Number of announcement requests.",
-		}, []string{"result"})
+		}, []string{"result", "country"})
 
 	replicationSendsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -142,14 +142,14 @@ func init() {
 	apiRequestsTotal.WithLabelValues(http.MethodPost, "403")
 	apiRequestsTotal.WithLabelValues(http.MethodPost, "413")
 
-	lookupRequestsTotal.WithLabelValues("success")
-	lookupRequestsTotal.WithLabelValues("not_found_ever")
-	lookupRequestsTotal.WithLabelValues("not_found_recent")
+	lookupRequestsTotal.WithLabelValues("success", "")
+	lookupRequestsTotal.WithLabelValues("not_found_ever", "")
+	lookupRequestsTotal.WithLabelValues("not_found_recent", "")
 
-	announceRequestsTotal.WithLabelValues("success")
-	announceRequestsTotal.WithLabelValues("bad_request")
-	announceRequestsTotal.WithLabelValues("request_too_large")
-	announceRequestsTotal.WithLabelValues("no_certificate")
+	announceRequestsTotal.WithLabelValues("success", "")
+	announceRequestsTotal.WithLabelValues("bad_request", "")
+	announceRequestsTotal.WithLabelValues("request_too_large", "")
+	announceRequestsTotal.WithLabelValues("no_certificate", "")
 
 	replicationSendsTotal.WithLabelValues("success")
 	replicationRecvsTotal.WithLabelValues("success")
