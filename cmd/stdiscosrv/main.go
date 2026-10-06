@@ -57,8 +57,6 @@ const (
 	replicationOutboxSize = 10000
 )
 
-var debug = false
-
 type CLI struct {
 	Cert                      string  `group:"Listen" help:"Certificate file" default:"./cert.pem" env:"DISCOVERY_CERT_FILE"`
 	Key                       string  `group:"Listen" help:"Key file" default:"./key.pem" env:"DISCOVERY_KEY_FILE"`
