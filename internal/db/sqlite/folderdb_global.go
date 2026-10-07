@@ -9,7 +9,6 @@ package sqlite
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"iter"
 
 	"github.com/syncthing/syncthing/internal/db"
@@ -124,21 +123,20 @@ func (s *folderDB) AllNeededGlobalFiles(device protocol.DeviceID, order config.P
 		selectOpts = "ORDER BY g.modified DESC"
 	}
 
-	if limit > 0 {
-		selectOpts += fmt.Sprintf(" LIMIT %d", limit)
+	if limit <= 0 {
+		limit = -1
 	}
-	if offset > 0 {
-		selectOpts += fmt.Sprintf(" OFFSET %d", offset)
-	}
+	offset = max(0, offset)
+	selectOpts += " LIMIT ? OFFSET ?"
 
 	if device == protocol.LocalDeviceID {
-		return s.neededGlobalFilesLocal(selectOpts)
+		return s.neededGlobalFilesLocal(selectOpts, limit, offset)
 	}
 
-	return s.neededGlobalFilesRemote(device, selectOpts)
+	return s.neededGlobalFilesRemote(device, selectOpts, limit, offset)
 }
 
-func (s *folderDB) neededGlobalFilesLocal(selectOpts string) (iter.Seq[protocol.FileInfo], func() error) {
+func (s *folderDB) neededGlobalFilesLocal(selectOpts string, limit, offset int) (iter.Seq[protocol.FileInfo], func() error) {
 	// Select all the non-ignored files with the need bit set.
 	it, errFn := iterStructs[indirectFI](s.stmt(`
 		SELECT fi.fiprotobuf, bl.blprotobuf, n.name, g.size, g.modified FROM fileinfos fi
@@ -146,11 +144,11 @@ func (s *folderDB) neededGlobalFilesLocal(selectOpts string) (iter.Seq[protocol.
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = g.blocklist_hash
 		INNER JOIN file_names n ON g.name_idx = n.idx
 		WHERE g.local_flags & {{.FlagLocalIgnored}} = 0 AND g.local_flags & {{.FlagLocalNeeded}} != 0
-	` + selectOpts).Queryx())
+	`+selectOpts).Queryx(limit, offset))
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 
-func (s *folderDB) neededGlobalFilesRemote(device protocol.DeviceID, selectOpts string) (iter.Seq[protocol.FileInfo], func() error) {
+func (s *folderDB) neededGlobalFilesRemote(device protocol.DeviceID, selectOpts string, limit, offset int) (iter.Seq[protocol.FileInfo], func() error) {
 	// Select:
 	//
 	// - all the valid, non-deleted global files that don't have a
@@ -184,6 +182,8 @@ func (s *folderDB) neededGlobalFilesRemote(device protocol.DeviceID, selectOpts 
 	`+selectOpts).Queryx(
 		device.String(),
 		device.String(),
+		limit,
+		offset,
 	))
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
