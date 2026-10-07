@@ -220,10 +220,16 @@ func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB) error {
 
 	// Remove deleted files that are marked as not needed (we have processed
 	// them) and they were deleted more than MaxDeletedFileAge ago.
+	// Keep the local high-water mark reachable by the index sender.
 	l.DebugContext(ctx, "Forgetting deleted files", "retention", fdb.deleteRetention)
 	res, err := fdb.stmt(`
 		DELETE FROM files
-		WHERE deleted AND modified < ? AND local_flags & {{.FlagLocalNeeded}} == 0
+		WHERE deleted
+			AND modified < ?
+			AND local_flags & {{.FlagLocalNeeded}} == 0
+			AND sequence NOT IN (
+				SELECT sequence FROM indexids WHERE device_idx = {{.LocalDeviceIdx}}
+			)
 	`).Exec(time.Now().Add(-fdb.deleteRetention).UnixNano())
 	if err != nil {
 		return wrap(err)
