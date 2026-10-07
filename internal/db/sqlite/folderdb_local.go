@@ -64,14 +64,22 @@ func (s *folderDB) AllLocalFilesBySequence(device protocol.DeviceID, startSeq in
 	if limit > 0 {
 		limitStr = fmt.Sprintf(" LIMIT %d", limit)
 	}
+	// Local files share a NULL remote sequence, so the device/remote sequence
+	// index orders them by its implicit rowid (the local sequence).
+	var localFilter, indexHint string
+	if device == protocol.LocalDeviceID {
+		localFilter = " AND f.remote_sequence IS NULL"
+		indexHint = " INDEXED BY files_device_remote_sequence"
+	}
+	// Resolve the device to a scalar to avoid a devices scan breaking order.
 	it, errFn := iterStructs[indirectFI](s.stmt(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
-		INNER JOIN files f on fi.sequence = f.sequence
+		INNER JOIN files f`+indexHint+` ON fi.sequence = f.sequence
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
-		INNER JOIN devices d ON d.idx = f.device_idx
-		WHERE d.device_id = ? AND f.sequence >= ?
+		WHERE f.device_idx = (SELECT idx FROM devices WHERE device_id = ?) AND f.sequence >= ?`+localFilter+`
 		ORDER BY f.sequence`+limitStr).Queryx(
-		device.String(), startSeq))
+		device.String(), startSeq,
+	))
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 

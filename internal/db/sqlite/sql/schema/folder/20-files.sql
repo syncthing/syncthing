@@ -56,21 +56,21 @@ CREATE TABLE IF NOT EXISTS fileinfos (
     FOREIGN KEY(sequence) REFERENCES files(sequence) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 ) STRICT
 ;
--- There can be only one file per folder, device, and remote sequence number
-CREATE UNIQUE INDEX IF NOT EXISTS files_remote_sequence ON files (device_idx, remote_sequence)
-    WHERE remote_sequence IS NOT NULL
+-- Enforce remote sequence uniqueness and support device deletion. For local
+-- files, remote_sequence is NULL, so the implicit rowid orders them by local
+-- sequence within a device. Multiple NULL entries are allowed by UNIQUE.
+CREATE UNIQUE INDEX IF NOT EXISTS files_device_remote_sequence ON files (device_idx, remote_sequence)
 ;
 -- There can be only one file per folder, device, and name
-CREATE UNIQUE INDEX IF NOT EXISTS files_device_name ON files (device_idx, name_idx)
+-- The name prefix also supports name lookups and garbage collection.
+-- This will fail pre-migration for v4 schemas, which is fine.
+-- syncthing:ignore-failure
+CREATE UNIQUE INDEX IF NOT EXISTS files_name_device ON files (name_idx, device_idx)
 ;
 -- We want to be able to look up & iterate files based on blocks hash
 CREATE INDEX IF NOT EXISTS files_blocklist_hash_only ON files (blocklist_hash, device_idx) WHERE blocklist_hash IS NOT NULL
 ;
--- We need to look by name_idx or version_idx for garbage collection.
--- This will fail pre-migration for v4 schemas, which is fine.
--- syncthing:ignore-failure
-CREATE INDEX IF NOT EXISTS files_name_idx_only ON files (name_idx)
-;
+-- We need to look up by version_idx for garbage collection.
 -- This will fail pre-migration for v4 schemas, which is fine.
 -- syncthing:ignore-failure
 CREATE INDEX IF NOT EXISTS files_version_idx_only ON files (version_idx)
