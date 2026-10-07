@@ -221,7 +221,16 @@ func (s *indexHandler) Serve(ctx context.Context) (err error) {
 			continue
 		}
 
+		prevSeq := s.localPrevSequence
 		err = s.sendIndexBatch(ctx)
+		if err == nil && s.localPrevSequence == prevSeq {
+			s.logSequenceAnomaly("sendIndexBatch iterator made no progress; fast-forward", map[string]any{
+				"isRecvEnc":    s.folderIsReceiveEncrypted,
+				"localPrevSeq": s.localPrevSequence,
+				"seq":          seq,
+			})
+			s.localPrevSequence = seq
+		}
 	}
 
 	return err
