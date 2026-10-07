@@ -1,11 +1,13 @@
 version: v2
 managed:
   enabled: true
+  disable:
+    - module: buf.build/bufbuild/protovalidate
   override:
     - file_option: go_package_prefix
       value: github.com/syncthing/syncthing/internal/gen
 plugins:
-  - remote: buf.build/protocolbuffers/go:v1.35.1
+  - remote: buf.build/protocolbuffers/go:v1.36.12
     out: .
     opt: module=github.com/syncthing/syncthing
 inputs:

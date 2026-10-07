@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"buf.build/go/protovalidate"
 	lz4 "github.com/pierrec/lz4/v4"
 	"google.golang.org/protobuf/proto"
 
@@ -569,6 +570,9 @@ func (c *rawConnection) readMessageAfterHeader(hdr *bep.Header, fourByteBuf []by
 	}
 	if err := proto.Unmarshal(buf, msg); err != nil {
 		return nil, fmt.Errorf("unmarshalling message: %w", err)
+	}
+	if err := protovalidate.Validate(msg); err != nil {
+		return nil, fmt.Errorf("validating message: %w", err)
 	}
 
 	return msg, nil

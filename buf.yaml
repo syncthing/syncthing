@@ -2,6 +2,8 @@ version: v2
 modules:
   - path: proto
     name: github.com/syncthing/syncthing
+deps:
+  - buf.build/bufbuild/protovalidate
 lint:
   use:
     - STANDARD
