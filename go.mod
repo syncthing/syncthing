@@ -47,7 +47,7 @@ require (
 	golang.org/x/text v0.42.0
 	golang.org/x/time v0.16.0
 	google.golang.org/protobuf v1.36.12
-	modernc.org/sqlite v1.57.0
+	modernc.org/sqlite v1.60.1
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -92,9 +92,9 @@ require (
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/telemetry v0.0.0-20260924152758-ed294f943157 // indirect
 	golang.org/x/tools v0.51.0 // indirect
-	modernc.org/libc v1.74.4 // indirect
+	modernc.org/libc v1.77.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
-	modernc.org/memory v1.11.0 // indirect
+	modernc.org/memory v1.12.1 // indirect
 )
 
 // https://github.com/gobwas/glob/pull/55
