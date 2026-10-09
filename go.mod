@@ -26,7 +26,7 @@ require (
 	github.com/maxmind/geoipupdate/v6 v6.1.0
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
 	github.com/oschwald/geoip2-golang v1.13.0
-	github.com/pierrec/lz4/v4 v4.1.29
+	github.com/pierrec/lz4/v4 v4.1.33
 	github.com/prometheus/client_golang v1.24.1
 	github.com/puzpuzpuz/xsync/v3 v3.5.1
 	github.com/quic-go/quic-go v0.61.0
