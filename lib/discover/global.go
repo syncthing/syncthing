@@ -46,6 +46,7 @@ type globalClient struct {
 
 	lastAnnouncement []byte
 	reannounceAt     time.Time
+	retryAt          time.Time
 }
 
 type httpClient interface {
@@ -265,6 +266,14 @@ func (c *globalClient) Serve(ctx context.Context) error {
 }
 
 func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) {
+	// Retry-After is unconditional, we've been told to go away and should
+	// stay away until such time passes, even if addresses change for
+	// example.
+	if time.Now().Before(c.retryAt) {
+		timer.Reset(time.Until(c.retryAt))
+		return
+	}
+
 	var ann announcement
 	if c.addrList != nil {
 		ann.Addresses = c.addrList.ExternalAddresses()
@@ -288,6 +297,9 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 	}
 
 	slog.DebugContext(ctx, "send announcement", "server", c.server, "announcement", ann)
+	// If we fail the announcement we need to retry even if the data hasn't
+	// changed, so clear the previous data.
+	c.lastAnnouncement = nil
 
 	resp, err := c.announceClient.Post(ctx, c.server, "application/json", bytes.NewReader(postData))
 	if err != nil {
@@ -307,7 +319,9 @@ func (c *globalClient) sendAnnouncement(ctx context.Context, timer *time.Timer) 
 			// retry. Follow it.
 			if secs, err := strconv.Atoi(h); err == nil && secs > 0 {
 				slog.DebugContext(ctx, "server sets retry-after", "server", c.server, "seconds", secs)
-				timer.Reset(time.Duration(secs) * time.Second)
+				retryInterval := time.Duration(secs) * time.Second
+				c.retryAt = time.Now().Add(retryInterval)
+				timer.Reset(retryInterval)
 				return
 			}
 		}
