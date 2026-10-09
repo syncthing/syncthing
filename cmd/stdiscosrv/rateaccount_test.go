@@ -7,8 +7,12 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 func TestLimiterSlidingWindow(t *testing.T) {
@@ -16,7 +20,7 @@ func TestLimiterSlidingWindow(t *testing.T) {
 	start := time.Unix(1700000000, 0)
 
 	// The current count contributes in full; the previous count decays
-	// linearly as the current window elapses. Reaching max rejects the event.
+	// linearly as the current window elapses. Exceeding max rejects the event.
 	cases := []struct {
 		name    string
 		cur     int32
@@ -45,6 +49,61 @@ func TestLimiterSlidingWindow(t *testing.T) {
 				t.Errorf("current count = %d, want %d (including rejected attempts)", l.cur, tc.cur+1)
 			}
 		})
+	}
+}
+
+func TestAccountantRetryAfter(t *testing.T) {
+	const window = time.Minute
+	var deviceID protocol.DeviceID
+	cases := []struct {
+		name       string
+		cur, prev  int32
+		allowed    bool
+		retryAfter time.Duration
+		header     string
+	}{
+		{"within limit", 9, 0, true, 0, ""},
+		{"just over limit", 10, 0, false, 66 * time.Second, "66"},
+		{"double limit", 19, 0, false, 2 * window, "120"},
+		{"triple limit", 29, 0, false, 3 * window, "180"},
+		{"previous bucket rejects", 0, 20, false, window, "60"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			a := accountant{
+				max: 10, window: window,
+				rls: map[protocol.DeviceID]*limiter{
+					deviceID: {starts: time.Now().UnixNano(), cur: tc.cur, prev: tc.prev},
+				},
+			}
+			allowed, retryAfter := a.allow(&deviceID)
+			if allowed != tc.allowed || retryAfter != tc.retryAfter {
+				t.Fatalf("allow() = (%v, %s), want (%v, %s)", allowed, retryAfter, tc.allowed, tc.retryAfter)
+			}
+			if allowed {
+				return
+			}
+			w := httptest.NewRecorder()
+			a.reject(w, retryAfter)
+			if w.Code != http.StatusTooManyRequests {
+				t.Errorf("status = %d, want 429", w.Code)
+			}
+			if got := w.Header().Get("Retry-After"); got != tc.header {
+				t.Errorf("Retry-After = %q, want %q", got, tc.header)
+			}
+			if got := w.Header().Get("x-Permitted-Requests"); got != "10 per 1m0s" {
+				t.Errorf("x-Permitted-Requests = %q, want %q", got, "10 per 1m0s")
+			}
+		})
+	}
+}
+
+func TestAccountantRetryAfterRoundsUp(t *testing.T) {
+	a := accountant{max: 10, window: time.Second}
+	w := httptest.NewRecorder()
+	a.reject(w, 1100*time.Millisecond)
+	if got := w.Header().Get("Retry-After"); got != "2" {
+		t.Errorf("Retry-After = %q, want 2", got)
 	}
 }
 

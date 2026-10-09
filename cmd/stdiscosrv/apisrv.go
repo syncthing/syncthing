@@ -246,9 +246,9 @@ func (s *apiSrv) handleGET(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if allow := s.lookups.allow(&deviceID); !allow {
+	if allow, retryAfter := s.lookups.allow(&deviceID); !allow {
 		lookupRequestsTotal.WithLabelValues("limited", country).Inc()
-		s.lookups.reject(w)
+		s.lookups.reject(w, retryAfter)
 		return
 	}
 
@@ -320,9 +320,9 @@ func (s *apiSrv) handlePOST(remoteAddr *net.TCPAddr, w http.ResponseWriter, req 
 	}
 
 	deviceID := protocol.NewDeviceID(rawCert)
-	if allow := s.announcements.allow(&deviceID); !allow {
+	if allow, retryAfter := s.announcements.allow(&deviceID); !allow {
 		announceRequestsTotal.WithLabelValues("limited", country).Inc()
-		s.announcements.reject(w)
+		s.announcements.reject(w, retryAfter)
 		return
 	}
 

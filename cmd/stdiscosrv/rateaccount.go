@@ -9,7 +9,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"sync"
@@ -26,8 +25,8 @@ type accountant struct {
 	rls    map[protocol.DeviceID]*limiter
 }
 
-func (s *accountant) reject(w http.ResponseWriter) {
-	w.Header().Set("Retry-After", strconv.Itoa(int(s.window.Seconds())))
+func (s *accountant) reject(w http.ResponseWriter, retryAfter time.Duration) {
+	w.Header().Set("Retry-After", strconv.Itoa(int(retryAfter.Seconds())))
 	w.Header().Set("x-Permitted-Requests", fmt.Sprintf("%d per %s", s.max, s.window))
 	http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 }
@@ -78,17 +77,22 @@ func (l *limiter) allow(when time.Time, window time.Duration, max int) bool {
 	// Determine if the event should have been allowed
 	f := float64(now-l.starts) / float64(window.Nanoseconds())
 	events := int(float64(l.cur) + (1-f)*float64(l.prev))
-	slog.Debug("Rate result", "f", f, "cur", l.cur, "prev", l.prev, "events", events, "allow", events <= max)
 	return events <= max
 }
 
-func (a *accountant) allow(d *protocol.DeviceID) bool {
+func (a *accountant) allow(d *protocol.DeviceID) (bool, time.Duration) {
 	a.mut.Lock()
+	defer a.mut.Unlock()
+
 	lim, ok := a.rls[*d]
 	if !ok {
 		lim = &limiter{}
 		a.rls[*d] = lim
 	}
-	a.mut.Unlock()
-	return lim.allow(time.Now(), a.window, a.max)
+	if lim.allow(time.Now(), a.window, a.max) {
+		return true, 0
+	}
+
+	retryAfter := a.window * time.Duration(lim.cur) / time.Duration(a.max)
+	return false, min(max(a.window, retryAfter), time.Hour)
 }
