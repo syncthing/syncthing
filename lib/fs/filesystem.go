@@ -217,9 +217,10 @@ var IsPathSeparator = os.IsPathSeparator
 func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem {
 	var caseOpt Option
 	var mtimeOpt Option
+	var ioLimiterOpt Option
 	i := 0
 	for _, opt := range opts {
-		if caseOpt != nil && mtimeOpt != nil {
+		if caseOpt != nil && mtimeOpt != nil && ioLimiterOpt != nil {
 			break
 		}
 		switch opt.(type) {
@@ -227,6 +228,8 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 			caseOpt = opt
 		case *optionMtime:
 			mtimeOpt = opt
+		case *optionIOLimiter:
+			ioLimiterOpt = opt
 		default:
 			opts[i] = opt
 			i++
@@ -261,6 +264,12 @@ func NewFilesystem(fsType FilesystemType, uri string, opts ...Option) Filesystem
 	}
 
 	fs = &metricsFS{next: fs}
+
+	// IO limiting is placed here, between metricsFS and walkFS, so that
+	// the walk filesystem's internal DirNames/Lstat calls are also throttled.
+	if ioLimiterOpt != nil {
+		fs = ioLimiterOpt.apply(fs)
+	}
 
 	layersAboveWalkFilesystem := 0
 	if caseOpt != nil {
