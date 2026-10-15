@@ -92,10 +92,10 @@ func (e encryptedModel) Request(req *Request) (RequestResponse, error) {
 		return nil, fmt.Errorf("decrypting name: %w", err)
 	}
 	realSize := req.Size - blockOverhead
-	realOffset := req.Offset - int64(req.BlockNo*blockOverhead)
-	if realOffset < 0 {
-		panic("bug: realOffset underflow")
+	if req.Offset < 0 || req.BlockNo < 0 || int64(req.BlockNo) > req.Offset/blockOverhead {
+		return nil, newProtocolError(errors.New("invalid encrypted request offset or block number"), "request")
 	}
+	realOffset := req.Offset - int64(req.BlockNo)*blockOverhead
 
 	if req.Size < minPaddedSize {
 		return nil, errors.New("short request")
@@ -240,6 +240,11 @@ func (e encryptedConnection) Request(ctx context.Context, req *Request) ([]byte,
 
 	bs, err = DecryptBytes(bs, fileKey)
 	if err != nil {
+		return nil, err
+	}
+	if len(bs) < req.Size {
+		err := newProtocolError(fmt.Errorf("decrypted response size %d smaller than requested %d", len(bs), req.Size), "response")
+		e.conn.internalClose(err)
 		return nil, err
 	}
 	return bs[:req.Size], nil
@@ -411,7 +416,11 @@ func DecryptFileInfo(keyGen *KeyGenerator, fi FileInfo, folderKey *[keySize]byte
 	// Preserve sequence, which is legitimately controlled by the untrusted device
 	decFI.Sequence = fi.Sequence
 
-	return FileInfoFromWire(&decFI), nil
+	res := FileInfoFromWire(&decFI)
+	if err := checkFileInfoConsistency(res); err != nil {
+		return FileInfo{}, newProtocolError(err, "decrypted file info")
+	}
+	return res, nil
 }
 
 var base32Hex = base32.HexEncoding.WithPadding(base32.NoPadding)
