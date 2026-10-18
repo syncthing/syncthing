@@ -110,7 +110,6 @@
         <urSeen>2</urSeen>
         <urUniqueID>tmwxxCqi</urUniqueID>
         <urURL>https://data.syncthing.net/newdata</urURL>
-        <urPostInsecurely>false</urPostInsecurely>
         <urInitialDelayS>1800</urInitialDelayS>
         <restartOnWakeup>true</restartOnWakeup>
         <autoUpgradeIntervalH>12</autoUpgradeIntervalH>

@@ -9,7 +9,6 @@ package ur
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"log/slog"
 	"math/rand"
@@ -28,9 +27,9 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
-	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/ur/contract"
 )
@@ -357,25 +356,13 @@ func (s *Service) sendUsageReport(ctx context.Context) error {
 		return err
 	}
 
-	client := &http.Client{
-		Transport: &http.Transport{
-			DialContext:       dialer.DialContext,
-			Proxy:             http.ProxyFromEnvironment,
-			DisableKeepAlives: true, // reports are sent once a day, so don't keep the connection open
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: s.cfg.Options().URPostInsecurely,
-				MinVersion:         tls.VersionTLS12,
-				ClientSessionCache: tls.NewLRUClientSessionCache(0),
-			},
-		},
-	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.cfg.Options().URURL, &b)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", build.UserAgent())
-	resp, err := client.Do(req)
+	resp, err := tlsutil.ShortLivedHTTPClient.Do(req)
 	if err != nil {
 		return err
 	}

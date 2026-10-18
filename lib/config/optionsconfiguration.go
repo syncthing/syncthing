@@ -40,7 +40,6 @@ type OptionsConfiguration struct {
 	URSeen                      int      `json:"urSeen" xml:"urSeen"`
 	URUniqueID                  string   `json:"urUniqueId" xml:"urUniqueID"`
 	URURL                       string   `json:"urURL" xml:"urURL" default:"https://data.syncthing.net/newdata"`
-	URPostInsecurely            bool     `json:"urPostInsecurely" xml:"urPostInsecurely" default:"false"`
 	URInitialDelayS             int      `json:"urInitialDelayS" xml:"urInitialDelayS" default:"1800"`
 	AutoUpgradeIntervalH        int      `json:"autoUpgradeIntervalH" xml:"autoUpgradeIntervalH" default:"12"`
 	UpgradeToPreReleases        bool     `json:"upgradeToPreReleases" xml:"upgradeToPreReleases"`

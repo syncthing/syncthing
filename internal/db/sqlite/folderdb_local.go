@@ -60,9 +60,8 @@ func (s *folderDB) AllLocalFiles(device protocol.DeviceID) (iter.Seq[protocol.Fi
 }
 
 func (s *folderDB) AllLocalFilesBySequence(device protocol.DeviceID, startSeq int64, limit int) (iter.Seq[protocol.FileInfo], func() error) {
-	var limitStr string
-	if limit > 0 {
-		limitStr = fmt.Sprintf(" LIMIT %d", limit)
+	if limit <= 0 {
+		limit = -1
 	}
 	it, errFn := iterStructs[indirectFI](s.stmt(`
 		SELECT fi.fiprotobuf, bl.blprotobuf FROM fileinfos fi
@@ -70,8 +69,8 @@ func (s *folderDB) AllLocalFilesBySequence(device protocol.DeviceID, startSeq in
 		LEFT JOIN blocklists bl ON bl.blocklist_hash = f.blocklist_hash
 		INNER JOIN devices d ON d.idx = f.device_idx
 		WHERE d.device_id = ? AND f.sequence >= ?
-		ORDER BY f.sequence`+limitStr).Queryx(
-		device.String(), startSeq))
+		ORDER BY f.sequence LIMIT ?
+	`).Queryx(device.String(), startSeq, limit))
 	return itererr.Map(it, errFn, indirectFI.FileInfo)
 }
 

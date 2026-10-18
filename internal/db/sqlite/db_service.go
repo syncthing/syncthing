@@ -218,13 +218,24 @@ func garbageCollectOldDeletedLocked(ctx context.Context, fdb *folderDB) error {
 		return nil
 	}
 
+	// Receive-encrypted files always have the timestamp below. We cannot
+	// use this to conclude a deleted file is safe for garbage collection.
+	recvEncModified := 1234567890 * time.Second
+
 	// Remove deleted files that are marked as not needed (we have processed
 	// them) and they were deleted more than MaxDeletedFileAge ago.
+	// Keep the local high-water mark reachable by the index sender.
 	l.DebugContext(ctx, "Forgetting deleted files", "retention", fdb.deleteRetention)
 	res, err := fdb.stmt(`
 		DELETE FROM files
-		WHERE deleted AND modified < ? AND local_flags & {{.FlagLocalNeeded}} == 0
-	`).Exec(time.Now().Add(-fdb.deleteRetention).UnixNano())
+		WHERE deleted
+			AND modified != ?
+			AND modified < ?
+			AND local_flags & {{.FlagLocalNeeded}} == 0
+			AND sequence NOT IN (
+				SELECT sequence FROM indexids WHERE device_idx = {{.LocalDeviceIdx}}
+			)
+	`).Exec(recvEncModified, time.Now().Add(-fdb.deleteRetention).UnixNano())
 	if err != nil {
 		return wrap(err)
 	}

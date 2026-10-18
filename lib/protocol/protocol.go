@@ -636,6 +636,12 @@ func checkFileInfoConsistency(f FileInfo) error {
 		return err
 	}
 
+	switch f.Type {
+	case FileInfoTypeFile, FileInfoTypeDirectory, FileInfoTypeSymlink, FileInfoTypeSymlinkFile, FileInfoTypeSymlinkDirectory:
+	default:
+		return fmt.Errorf("unknown file type %d", f.Type)
+	}
+
 	switch {
 	case f.Deleted && len(f.Blocks) != 0:
 		// Deleted files should have no blocks
@@ -692,6 +698,10 @@ func checkFilename(name string) error {
 func (c *rawConnection) handleRequest(req *Request) {
 	res, err := c.model.Request(req)
 	if err != nil {
+		if _, ok := errors.AsType[protocolError](err); ok {
+			c.internalClose(err)
+			return
+		}
 		resp := &Response{
 			ID:   req.ID,
 			Code: errorToCode(err),
@@ -1115,8 +1125,14 @@ func lz4Decompress(src []byte) ([]byte, error) {
 	return buf[:n], nil
 }
 
+type protocolError struct {
+	error
+}
+
+func (e protocolError) Unwrap() error { return e.error }
+
 func newProtocolError(err error, msgContext string) error {
-	return fmt.Errorf("protocol error on %v: %w", msgContext, err)
+	return protocolError{fmt.Errorf("protocol error on %v: %w", msgContext, err)}
 }
 
 func newHandleError(err error, msgContext string) error {

@@ -8,6 +8,8 @@ package protocol
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -15,8 +17,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/syncthing/syncthing/internal/gen/bep"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/testutil"
 )
 
 var (
@@ -252,5 +256,65 @@ func TestIsEncryptedParent(t *testing.T) {
 		if res := IsEncryptedParent(strings.Split(tc.path, "/")); res != tc.is {
 			t.Errorf("%v: got %v, expected %v", tc.path, res, tc.is)
 		}
+	}
+}
+
+func TestEncryptedRequestInvalidOffset(t *testing.T) {
+	var key [keySize]byte
+	e := newEncryptedModel(nil, testKeyGen)
+	e.folderKeys.keys["folder"] = &key
+	for _, tc := range []struct {
+		offset int64
+		block  int
+	}{
+		{-1, 0},
+		{0, 1},
+		{0, -1},
+		{0, int(^uint(0) >> 1)},
+	} {
+		_, err := e.Request(&Request{
+			Folder: "folder", Name: encryptName("file", &key),
+			Size: minPaddedSize + blockOverhead, Offset: tc.offset, BlockNo: tc.block,
+		})
+		if _, ok := errors.AsType[protocolError](err); !ok {
+			t.Fatalf("offset %d block %d: expected protocol error, got %v", tc.offset, tc.block, err)
+		}
+	}
+}
+
+func TestDecryptInvalidFileInfo(t *testing.T) {
+	var key [keySize]byte
+	for _, fi := range []FileInfo{
+		{Name: "file", Type: FileInfoType(-1)},
+		{Name: "../file", Type: FileInfoTypeDirectory},
+	} {
+		enc := encryptFileInfo(testKeyGen, fi, &key)
+		_, err := DecryptFileInfo(testKeyGen, enc, &key)
+		if _, ok := errors.AsType[protocolError](err); !ok {
+			t.Fatalf("expected protocol error, got %v", err)
+		}
+	}
+}
+
+func TestEncryptedShortResponse(t *testing.T) {
+	var key [keySize]byte
+	m := newTestModel()
+	c := getRawConnection(NewConnection(c0ID, nil, nil, testutil.NoopCloser{}, m, new(mockedConnectionInfo), CompressionNever, testKeyGen))
+	e := newEncryptedConnection(c, c, newFolderKeyRegistry(), testKeyGen)
+	e.folderKeys.keys["folder"] = &key
+	go func() {
+		msg := <-c.outbox
+		req := msg.msg.(*bep.Request)
+		fileKey := testKeyGen.FileKey("file", &key)
+		c.handleResponse(&Response{ID: int(req.Id), Data: encryptBytes([]byte("short"), fileKey)})
+	}()
+	_, err := e.Request(context.Background(), &Request{Folder: "folder", Name: "file", Size: 1024})
+	if _, ok := errors.AsType[protocolError](err); !ok {
+		t.Fatalf("expected protocol error, got %v", err)
+	}
+	select {
+	case <-c.Closed():
+	default:
+		t.Fatal("connection was not closed")
 	}
 }
