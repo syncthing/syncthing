@@ -670,10 +670,10 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 			f.newPullError(file.Name, fmt.Errorf("handling dir (setting permissions): %w", err))
 			return
 		}
-		if err := f.setPlatformData(&file, file.Name); err != nil {
-			f.newPullError(file.Name, fmt.Errorf("handling dir (setting metadata): %w", err))
-			return
-		}
+	}
+	if err := f.setPlatformData(&file, file.Name); err != nil {
+		f.newPullError(file.Name, fmt.Errorf("handling dir (setting metadata): %w", err))
+		return
 	}
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleDir}
 }
@@ -708,7 +708,7 @@ func (f *sendReceiveFolder) checkParent(file string, scanChan chan<- string) boo
 		return true
 	}
 	f.sl.Debug("Creating parent directory", slogutil.FilePath(file))
-	if err := f.mtimefs.MkdirAll(parent, fs.ModePerm); err != nil {
+	if err := f.mkdirAllWithOwnership(parent); err != nil {
 		f.newPullError(file, fmt.Errorf("creating parent dir: %w", err))
 		return false
 	}
@@ -716,6 +716,34 @@ func (f *sendReceiveFolder) checkParent(file string, scanChan chan<- string) boo
 		scanChan <- parent
 	}
 	return true
+}
+
+// mkdirAllWithOwnership creates missing parents from the top down so each
+// directory inherits the ownership of its parent before creating children.
+func (f *sendReceiveFolder) mkdirAllWithOwnership(path string) error {
+	if !f.CopyOwnershipFromParent || build.IsWindows {
+		return f.mtimefs.MkdirAll(path, fs.ModePerm)
+	}
+
+	if _, err := f.mtimefs.Lstat(path); !fs.IsNotExist(err) {
+		// Let MkdirAll check that an existing path is a directory.
+		return f.mtimefs.MkdirAll(path, fs.ModePerm)
+	}
+	parent := filepath.Dir(path)
+	if parent == path {
+		return fs.ErrNotExist
+	}
+	if err := f.mkdirAllWithOwnership(parent); err != nil {
+		return err
+	}
+	if err := f.mtimefs.Mkdir(path, fs.ModePerm); err != nil {
+		if fs.IsExist(err) {
+			// Another process may have created it. Preserve its ownership.
+			return f.mtimefs.MkdirAll(path, fs.ModePerm)
+		}
+		return err
+	}
+	return f.copyOwnershipFromParent(path)
 }
 
 // handleSymlink creates or updates the given symlink

@@ -323,6 +323,10 @@ func (f *FolderConfiguration) prepare(myID protocol.DeviceID, existingDevices ma
 	if f.Type == FolderTypeReceiveEncrypted {
 		f.IgnorePerms = true
 	}
+
+	if f.SyncOwnership {
+		f.CopyOwnershipFromParent = false
+	}
 }
 
 // RequiresRestartOnly returns a copy with only the attributes that require

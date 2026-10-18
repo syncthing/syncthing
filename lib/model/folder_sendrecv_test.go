@@ -774,6 +774,31 @@ func TestCopyOwner(t *testing.T) {
 	}
 }
 
+func TestCopyOwnerMissingParents(t *testing.T) {
+	if build.IsWindows {
+		t.Skip("copying owner not supported on Windows")
+	}
+
+	m, f := setupSendReceiveFolder(t)
+	f.folder.FolderConfiguration = newFolderConfiguration(m.cfg, f.ID, f.Label, config.FilesystemTypeFake, "/TestCopyOwnerMissingParents")
+	f.CopyOwnershipFromParent = true
+	must(t, f.mtimefs.Lchown(".", "1111", "2222"))
+	must(t, f.mtimefs.Mkdir("existing", 0o755))
+	must(t, f.mtimefs.Lchown("existing", "1234", "5678"))
+
+	scanChan := make(chan string, 1)
+	if !f.checkParent(filepath.FromSlash("existing/one/two/file"), scanChan) {
+		t.Fatal("creating missing parents failed")
+	}
+	for _, name := range []string{"existing", "existing/one", "existing/one/two"} {
+		info, err := f.mtimefs.Lstat(name)
+		must(t, err)
+		if info.Owner() != 1234 || info.Group() != 5678 {
+			t.Errorf("%s: expected owner/group 1234/5678, got %d/%d", name, info.Owner(), info.Group())
+		}
+	}
+}
+
 // TestSRConflictReplaceFileByDir checks that a conflict is created when an existing file
 // is replaced with a directory and versions are conflicting
 func TestSRConflictReplaceFileByDir(t *testing.T) {
