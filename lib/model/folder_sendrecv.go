@@ -393,7 +393,7 @@ loop:
 				// We are supposed to copy the entire file, and then fetch nothing. We
 				// are only updating metadata, so we don't actually *need* to make the
 				// copy.
-				f.shortcutFile(file, dbUpdateChan)
+				f.shortcutFile(file, curFile, dbUpdateChan, scanChan)
 			} else {
 				// Queue files for processing after directories and symlinks.
 				f.queue.Push(file.Name, file.Size, file.ModTime())
@@ -1258,7 +1258,7 @@ func populateOffsets(blocks []protocol.BlockInfo) {
 
 // shortcutFile sets file metadata, when that's the only thing that has
 // changed.
-func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
+func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	f.sl.Debug("Taking metadata shortcut", slogutil.FilePath(file.Name))
 
 	f.evLogger.Log(events.ItemStarted, map[string]string{
@@ -1285,6 +1285,18 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo, dbUpdateChan ch
 	}()
 
 	f.queue.Done(file.Name)
+
+	info, err := f.mtimefs.Lstat(file.Name)
+	if fs.IsNotExist(err) {
+		scanChan <- file.Name
+		err = errModified
+	} else if err == nil {
+		err = f.scanIfItemChanged(file.Name, info, curFile, true, false, scanChan)
+	}
+	if err != nil {
+		f.newPullError(file.Name, fmt.Errorf("shortcut file (checking existing file): %w", err))
+		return
+	}
 
 	if !f.IgnorePerms && !file.NoPermissions {
 		if err = f.mtimefs.Chmod(file.Name, fs.FileMode(file.Permissions&0o777)); err != nil {
