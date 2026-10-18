@@ -1309,6 +1309,74 @@ func TestPullDeleteIgnoreChildDir(t *testing.T) {
 	}
 }
 
+func TestShortcutFileLocalChange(t *testing.T) {
+	// Metadata shortcut should not stomp on concurrent local changes.
+
+	for _, change := range []string{"unchanged", "contents", "mtime", "deleted", "directory"} {
+		t.Run(change, func(t *testing.T) {
+			_, f := setupSendReceiveFolder(t)
+			ffs := f.Filesystem()
+			cur := createEmptyFileInfo(t, "file", ffs)
+			remote := cur
+			remote.ModifiedS += 3600
+
+			switch change {
+			case "contents":
+				writeFile(t, ffs, cur.Name, []byte("local change"))
+			case "mtime":
+				mtime := cur.ModTime().Add(-time.Hour)
+				must(t, ffs.Chtimes(cur.Name, mtime, mtime))
+			case "deleted":
+				must(t, ffs.Remove(cur.Name))
+			case "directory":
+				must(t, ffs.Remove(cur.Name))
+				must(t, ffs.Mkdir(cur.Name, 0o755))
+			}
+			before, beforeErr := ffs.Lstat(cur.Name)
+			dbUpdateChan := make(chan dbUpdateJob, 1)
+			scanChan := make(chan string, 1)
+			f.shortcutFile(remote, cur, dbUpdateChan, scanChan)
+
+			if change == "unchanged" {
+				select {
+				case job := <-dbUpdateChan:
+					if job.file.ModifiedS != remote.ModifiedS {
+						t.Fatal("incorrect metadata update")
+					}
+				default:
+					t.Fatal("missing database update")
+				}
+				if len(scanChan) != 0 {
+					t.Fatal("unchanged file scheduled for scanning")
+				}
+				return
+			}
+
+			if len(dbUpdateChan) != 0 {
+				t.Error("local change overwritten in database")
+			}
+			select {
+			case name := <-scanChan:
+				if name != cur.Name {
+					t.Errorf("unexpected scan: %q", name)
+				}
+			default:
+				t.Error("local change not scheduled for scanning")
+			}
+
+			after, afterErr := ffs.Lstat(cur.Name)
+			if beforeErr == nil {
+				must(t, afterErr)
+				if !before.ModTime().Equal(after.ModTime()) || before.Mode() != after.Mode() || before.Size() != after.Size() {
+					t.Error("local metadata changed")
+				}
+			} else if !fs.IsNotExist(afterErr) {
+				t.Error("deleted file reappeared")
+			}
+		})
+	}
+}
+
 func cleanupSharedPullerState(s *sharedPullerState) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
