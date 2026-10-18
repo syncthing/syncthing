@@ -76,10 +76,10 @@ enum Compression {
 }
 
 enum FolderType {
-	FOLDER_TYPE_SEND_RECEIVE = 0;
-	FOLDER_TYPE_SEND_ONLY = 1;
-	FOLDER_TYPE_RECEIVE_ONLY = 2;
-	FOLDER_TYPE_RECEIVE_ENCRYPTED = 3;
+  FOLDER_TYPE_SEND_RECEIVE = 0;
+  FOLDER_TYPE_SEND_ONLY = 1;
+  FOLDER_TYPE_RECEIVE_ONLY = 2;
+  FOLDER_TYPE_RECEIVE_ENCRYPTED = 3;
 }
 
 enum FolderStopReason {
@@ -258,10 +258,7 @@ message FileDownloadProgressUpdate {
   FileDownloadProgressUpdateType update_type = 1;
   string name = 2 [(buf.validate.field).string.max_len = 32767];
   Vector version = 3;
-  repeated int32 block_indexes = 4 [
-    packed = false,
-    (buf.validate.field).repeated.items.int32.gte = 0
-  ];
+  repeated int32 block_indexes = 4 [(buf.validate.field).repeated.items.int32.gte = 0];
   int32 block_size = 5 [(buf.validate.field).int32.gte = 0];
 }
 

@@ -5,7 +5,6 @@ package dbproto;
 import "bep/bep.proto";
 import "google/protobuf/timestamp.proto";
 
-
 // Same as bep.FileInfo, but without blocks
 message FileInfoTruncated {
   string name = 1;
@@ -45,7 +44,6 @@ message FileInfoTruncated {
 
   reserved 1002; // previously inode change time
 }
-
 
 message FileVersion {
   bep.Vector version = 1;

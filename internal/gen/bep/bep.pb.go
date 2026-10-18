@@ -1833,7 +1833,7 @@ type FileDownloadProgressUpdate struct {
 	UpdateType    FileDownloadProgressUpdateType `protobuf:"varint,1,opt,name=update_type,json=updateType,proto3,enum=bep.FileDownloadProgressUpdateType" json:"update_type,omitempty"`
 	Name          string                         `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Version       *Vector                        `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
-	BlockIndexes  []int32                        `protobuf:"varint,4,rep,name=block_indexes,json=blockIndexes,proto3" json:"block_indexes,omitempty"`
+	BlockIndexes  []int32                        `protobuf:"varint,4,rep,packed,name=block_indexes,json=blockIndexes,proto3" json:"block_indexes,omitempty"`
 	BlockSize     int32                          `protobuf:"varint,5,opt,name=block_size,json=blockSize,proto3" json:"block_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2115,13 +2115,13 @@ const file_bep_bep_proto_rawDesc = "" +
 	"\x04code\x18\x03 \x01(\x0e2\x0e.bep.ErrorCodeR\x04code\"o\n" +
 	"\x10DownloadProgress\x12 \n" +
 	"\x06folder\x18\x01 \x01(\tB\b\xbaH\x05r\x03\x18\x80\bR\x06folder\x129\n" +
-	"\aupdates\x18\x02 \x03(\v2\x1f.bep.FileDownloadProgressUpdateR\aupdates\"\x85\x02\n" +
+	"\aupdates\x18\x02 \x03(\v2\x1f.bep.FileDownloadProgressUpdateR\aupdates\"\x83\x02\n" +
 	"\x1aFileDownloadProgressUpdate\x12D\n" +
 	"\vupdate_type\x18\x01 \x01(\x0e2#.bep.FileDownloadProgressUpdateTypeR\n" +
 	"updateType\x12\x1d\n" +
 	"\x04name\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x18\xff\xff\x01R\x04name\x12%\n" +
-	"\aversion\x18\x03 \x01(\v2\v.bep.VectorR\aversion\x123\n" +
-	"\rblock_indexes\x18\x04 \x03(\x05B\x0e\xbaH\t\x92\x01\x06\"\x04\x1a\x02(\x00\x10\x00R\fblockIndexes\x12&\n" +
+	"\aversion\x18\x03 \x01(\v2\v.bep.VectorR\aversion\x121\n" +
+	"\rblock_indexes\x18\x04 \x03(\x05B\f\xbaH\t\x92\x01\x06\"\x04\x1a\x02(\x00R\fblockIndexes\x12&\n" +
 	"\n" +
 	"block_size\x18\x05 \x01(\x05B\a\xbaH\x04\x1a\x02(\x00R\tblockSize\"\x06\n" +
 	"\x04Ping\"\x1f\n" +
