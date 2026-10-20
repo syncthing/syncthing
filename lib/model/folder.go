@@ -937,7 +937,7 @@ func (f *folder) reconcileReceiveOnlyToGlobal(fi protocol.FileInfo, batch *scanB
 	if !gf.IsEquivalentOptional(fi, protocol.FileInfoComparison{
 		ModTimeWindow:   f.modTimeWindow,
 		IgnorePerms:     f.IgnorePerms,
-		IgnoreBlocks:    true,
+		IgnoreBlocks:    f.Type == config.FolderTypeReceiveEncrypted, // receive-encrypted cannot compare block hashes
 		IgnoreFlags:     protocol.FlagLocalReceiveOnly,
 		IgnoreOwnership: !f.SyncOwnership && !f.SendOwnership,
 		IgnoreXattrs:    !f.SyncXattrs && !f.SendXattrs,
