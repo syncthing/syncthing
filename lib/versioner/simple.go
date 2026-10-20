@@ -80,7 +80,7 @@ func (v simple) Clean(ctx context.Context) error {
 		return err
 	}
 	return cleanByAgeAndSize(ctx, v.versionsFs, 0, v.maxSize, func(path string, _ fs.FileInfo) (time.Time, bool) {
-		stamp, err := time.ParseInLocation(TimeFormat, extractTag(path), time.Local)
+		stamp, err := time.ParseInLocation(TimeFormat, extractTag(path), time.Local) //nolint:gosmopolitan
 		return stamp, err == nil
 	})
 }
