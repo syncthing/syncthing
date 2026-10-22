@@ -1264,6 +1264,9 @@ func (m *model) ClusterConfig(conn protocol.Connection, cm *protocol.ClusterConf
 			changedFcfg := make(map[string]config.FolderConfiguration)
 			haveFcfg := cfg.FolderMap()
 			for _, folder := range cm.Folders {
+				if deviceCfg.IgnoredFolder(folder.ID) {
+					continue
+				}
 				from, ok := haveFcfg[folder.ID]
 				if to, changed := m.handleAutoAccepts(deviceID, folder, ccDeviceInfos[folder.ID], from, ok, cfg.Defaults.Folder); changed {
 					changedFcfg[folder.ID] = to
