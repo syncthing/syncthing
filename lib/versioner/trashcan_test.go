@@ -11,6 +11,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -261,4 +263,63 @@ func TestTrashcanCleanOut(t *testing.T) {
 			t.Error("empty directory should have been removed")
 		}
 	})
+}
+
+func TestTrashcanCleanMaxSize(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		maxSize int
+		days    int
+		want    []string
+	}{
+		// Each file is four bytes, and archived 10/6/2 days ago.
+		{"unlimited", 0, 0, []string{"old/file", "middle", "new"}},
+		{"size only", 8, 0, []string{"middle", "new"}},
+		{"exact limit", 12, 0, []string{"old/file", "middle", "new"}},
+		{"smaller than one file", 3, 0, nil},
+		{"age and size", 4, 7, []string{"new"}},
+		{"age first", 8, 7, []string{"middle", "new"}},
+		{"invalid limit", -1, 0, []string{"old/file", "middle", "new"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := config.FolderConfiguration{
+				FilesystemType: config.FilesystemTypeBasic,
+				Path:           t.TempDir(),
+				Versioning:     config.VersioningConfiguration{Params: map[string]string{"maxSize": strconv.Itoa(tc.maxSize), "cleanoutDays": strconv.Itoa(tc.days)}},
+			}
+			v := newTrashcan(cfg).(*trashcan)
+			if err := v.versionsFs.MkdirAll("old", 0o755); err != nil {
+				t.Fatal(err)
+			}
+
+			for i, name := range []string{"old/file", "middle", "new"} {
+				writeFile(t, v.versionsFs, name, "1234")
+				stamp := time.Now().Add(-time.Duration(10-i*4) * 24 * time.Hour)
+				if err := v.versionsFs.Chtimes(name, stamp, stamp); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			if err := v.Clean(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+
+			for _, name := range []string{"old/file", "middle", "new"} {
+				want := slices.Contains(tc.want, name)
+				_, err := v.versionsFs.Lstat(name)
+				if want && err != nil {
+					t.Errorf("expected %s to remain: %v", name, err)
+				}
+				if !want && !fs.IsNotExist(err) {
+					t.Errorf("expected %s to be removed: %v", name, err)
+				}
+			}
+
+			if !slices.Contains(tc.want, "old/file") {
+				if _, err := v.versionsFs.Lstat("old"); !fs.IsNotExist(err) {
+					t.Errorf("expected empty directory removed: %v", err)
+				}
+			}
+		})
+	}
 }
