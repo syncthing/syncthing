@@ -71,11 +71,11 @@ func TestBasics(t *testing.T) {
 		t.Fatal(err)
 	}
 	const (
-		localSize      = (1+2+3)*blockSize
+		localSize      = (1 + 2 + 3) * blockSize
 		remoteSize     = (3 + 4 + 5) * blockSize
-		globalSize     = (2+3+3+4+5)*blockSize
+		globalSize     = (2 + 3 + 3 + 4 + 5) * blockSize
 		needSizeLocal  = remoteSize
-		needSizeRemote = (2+3)*blockSize
+		needSizeRemote = (2 + 3) * blockSize
 	)
 
 	t.Run("SchemaVersion", func(t *testing.T) {
@@ -563,6 +563,17 @@ func TestAvailability(t *testing.T) {
 		genFile("test4", 4, 2),
 	})
 	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Ignored remote files, not part of the available set
+	ignored := []protocol.FileInfo{genFile("test1", 1, 1), genFile("test3", 3, 2)}
+	for i := range ignored {
+		ignored[i].SetIgnored()
+		// Juggle flags like sending over the wire does
+		ignored[i] = protocol.FileInfoFromWire(ignored[i].ToWire(false))
+	}
+	if err := db.Update(folderID, protocol.DeviceID{46}, ignored); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1381,7 +1392,7 @@ func genBlocks(name string, seed, count int) []protocol.BlockInfo {
 	for i := range b {
 		b[i].Hash = genBlockHash(name, seed, i)
 		b[i].Size = blockSize
-		b[i].Offset = (blockSize) * int64(i)
+		b[i].Offset = blockSize * int64(i)
 	}
 	return b
 }
