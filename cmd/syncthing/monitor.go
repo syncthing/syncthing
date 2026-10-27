@@ -46,7 +46,20 @@ const (
 	panicUploadNoticeWait = 10 * time.Second
 )
 
-func (c *serveCmd) monitorMain() {
+func (c *serveCmd) monitorMain(ctx context.Context) {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		c.monitorLoop()
+	}()
+
+	select {
+	case <-ctx.Done():
+	case <-done:
+	}
+}
+
+func (c *serveCmd) monitorLoop() {
 	var dst io.Writer = os.Stdout
 
 	logFile := locations.Get(locations.LogFile)
