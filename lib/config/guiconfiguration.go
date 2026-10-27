@@ -85,6 +85,9 @@ func (c GUIConfiguration) Network() string {
 		if err == nil && strings.HasPrefix(url.Scheme, "unix") {
 			return "unix"
 		}
+		if err == nil && url.Scheme == "systemd" {
+			return "systemd"
+		}
 		return "tcp"
 	}
 	if strings.HasPrefix(c.RawAddress, "/") {
@@ -106,6 +109,10 @@ func (c GUIConfiguration) URL() string {
 			return "unixs://" + c.Address()
 		}
 		return "unix://" + c.Address()
+	}
+	if c.Network() == "systemd" {
+		// FIXME: what do we actually return here?
+		return "systemd://"
 	}
 
 	u := url.URL{
