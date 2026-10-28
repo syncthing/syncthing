@@ -1106,6 +1106,21 @@ func TestAutoAcceptRejected(t *testing.T) {
 	}
 }
 
+func TestAutoAcceptIgnoredFolder(t *testing.T) {
+	// Nothing happens if the folder is ignored for the device
+	id := srand.String(8)
+	tcfg := defaultAutoAcceptCfg.Copy()
+	tcfg.Devices[1].IgnoredFolders = []config.ObservedFolder{{ID: id}}
+	m, cancel := newState(t, tcfg)
+	defer cleanupModel(m)
+	defer cancel()
+	m.ClusterConfig(device1Conn, createClusterConfig(device1, id))
+
+	if _, ok := m.cfg.Folder(id); ok {
+		t.Error("unexpected folder", id)
+	}
+}
+
 func TestAutoAcceptNewFolder(t *testing.T) {
 	// New folder
 	m, cancel := newState(t, defaultAutoAcceptCfg)
