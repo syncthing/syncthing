@@ -77,9 +77,10 @@ func (m *manager) serve(ctx context.Context) error {
 	return nil
 }
 
-func (m *manager) addLocked(identity string, finder Finder, cacheTime, negCacheTime time.Duration) {
+func (m *manager) addLocked(identity string, finder Finder, cacheTime, negCacheTime time.Duration, local bool) {
 	entry := cachedFinder{
 		Finder:       finder,
+		local:        local,
 		cacheTime:    cacheTime,
 		negCacheTime: negCacheTime,
 		cache:        newCache(),
@@ -109,10 +110,32 @@ func (m *manager) removeLocked(identity string) {
 }
 
 // Lookup attempts to resolve the device ID using any of the added Finders,
-// while obeying the cache settings.
+// while obeying the cache settings. Local discovery takes precedence over
+// global discovery: global finders are only queried when there are no local
+// addresses.
 func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addresses []string, err error) {
 	m.mut.RLock()
+	addresses = m.lookup(ctx, deviceID, true)
+	if len(addresses) == 0 {
+		addresses = m.lookup(ctx, deviceID, false)
+	}
+	m.mut.RUnlock()
+
+	addresses = stringutil.UniqueTrimmedStrings(addresses)
+	slices.Sort(addresses)
+
+	slog.DebugContext(ctx, "Final lookup results", "device", deviceID, "addresses", addresses)
+
+	return addresses, nil
+}
+
+// lookup resolves addresses from either local or global finders. The caller must
+// hold m.mut.
+func (m *manager) lookup(ctx context.Context, deviceID protocol.DeviceID, local bool) (addresses []string) {
 	for _, finder := range m.finders {
+		if finder.local != local {
+			continue
+		}
 		if cacheEntry, ok := finder.cache.Get(deviceID); ok {
 			// We have a cache entry. Lets see what it says.
 
@@ -155,14 +178,7 @@ func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addre
 			finder.cache.Set(deviceID, entry)
 		}
 	}
-	m.mut.RUnlock()
-
-	addresses = stringutil.UniqueTrimmedStrings(addresses)
-	slices.Sort(addresses)
-
-	slog.DebugContext(ctx, "Final lookup results", "device", deviceID, "addresses", addresses)
-
-	return addresses, nil
+	return addresses
 }
 
 func (*manager) String() string {
@@ -267,7 +283,7 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 			// Each global discovery server gets its results cached for five
 			// minutes, and is not asked again for a minute when it's returned
 			// unsuccessfully.
-			m.addLocked(identity, gd, 5*time.Minute, time.Minute)
+			m.addLocked(identity, gd, 5*time.Minute, time.Minute, false)
 		}
 	}
 
@@ -279,7 +295,7 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 			if err != nil {
 				slog.Warn("Failed to initialize IPv4 local discovery", slogutil.Error(err))
 			} else {
-				m.addLocked(v4Identity, bcd, 0, 0)
+				m.addLocked(v4Identity, bcd, 0, 0, true)
 			}
 		}
 
@@ -290,7 +306,7 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 			if err != nil {
 				slog.Warn("Failed to initialize IPv6 local discovery", slogutil.Error(err))
 			} else {
-				m.addLocked(v6Identity, mcd, 0, 0)
+				m.addLocked(v6Identity, mcd, 0, 0, true)
 			}
 		}
 	}
