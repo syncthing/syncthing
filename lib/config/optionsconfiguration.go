@@ -23,6 +23,8 @@ type OptionsConfiguration struct {
 	RawListenAddresses          []string `json:"listenAddresses" xml:"listenAddress" default:"default"`
 	RawGlobalAnnServers         []string `json:"globalAnnounceServers" xml:"globalAnnounceServer" default:"default"`
 	GlobalAnnEnabled            bool     `json:"globalAnnounceEnabled" xml:"globalAnnounceEnabled" default:"true"`
+	RawDHTBootstrapPeers        []string `json:"dhtBootstrapPeers" xml:"dhtBootstrapPeer" default:"default"`
+	DHTEnabled                  bool     `json:"dhtEnabled" xml:"dhtEnabled" default:"true"`
 	LocalAnnEnabled             bool     `json:"localAnnounceEnabled" xml:"localAnnounceEnabled" default:"true"`
 	LocalAnnPort                int      `json:"localAnnouncePort" xml:"localAnnouncePort" default:"21027"`
 	LocalAnnMCAddr              string   `json:"localAnnounceMCAddr" xml:"localAnnounceMCAddr" default:"[ff12::8384]:21027"`
@@ -92,6 +94,7 @@ type OptionsConfiguration struct {
 
 func (opts OptionsConfiguration) Copy() OptionsConfiguration {
 	optsCopy := opts
+	optsCopy.RawDHTBootstrapPeers = slices.Clone(opts.RawDHTBootstrapPeers)
 	optsCopy.RawListenAddresses = make([]string, len(opts.RawListenAddresses))
 	copy(optsCopy.RawListenAddresses, opts.RawListenAddresses)
 	optsCopy.RawGlobalAnnServers = make([]string, len(opts.RawGlobalAnnServers))
@@ -108,6 +111,7 @@ func (opts *OptionsConfiguration) prepare(guiPWIsSet bool) {
 
 	opts.RawListenAddresses = stringutil.UniqueTrimmedStrings(opts.RawListenAddresses)
 	opts.RawGlobalAnnServers = stringutil.UniqueTrimmedStrings(opts.RawGlobalAnnServers)
+	opts.RawDHTBootstrapPeers = stringutil.UniqueTrimmedStrings(opts.RawDHTBootstrapPeers)
 
 	// Very short reconnection intervals are annoying
 	if opts.ReconnectIntervalS < 5 {
@@ -221,6 +225,18 @@ func (opts OptionsConfiguration) GlobalDiscoveryServers() []string {
 		}
 	}
 	return stringutil.UniqueTrimmedStrings(servers)
+}
+
+func (opts OptionsConfiguration) DHTBootstrapPeers() []string {
+	var peers []string
+	for _, address := range opts.RawDHTBootstrapPeers {
+		if address == "default" {
+			peers = append(peers, DefaultDHTBootstrapPeers...)
+		} else {
+			peers = append(peers, address)
+		}
+	}
+	return stringutil.UniqueTrimmedStrings(peers)
 }
 
 func (opts OptionsConfiguration) MaxFolderConcurrency() int {

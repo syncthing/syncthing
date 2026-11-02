@@ -19,6 +19,8 @@ import (
 
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/dht"
 	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
@@ -37,6 +39,7 @@ import (
 type Manager interface {
 	FinderService
 	ChildErrors() map[string]error
+	DHTMode() string
 }
 
 type manager struct {
@@ -48,12 +51,15 @@ type manager struct {
 	evLogger      events.Logger
 	addressLister AddressLister
 	registry      *registry.Registry
+	kv            db.KV
 
-	finders map[string]cachedFinder
-	mut     sync.RWMutex
+	mut         sync.RWMutex
+	dhtIdentity string // Finder key captured at registration; mode can change.
+	p2pdisco    *PeerToPeerDiscovery
+	finders     map[string]cachedFinder
 }
 
-func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate, evLogger events.Logger, lister AddressLister, registry *registry.Registry) Manager {
+func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate, evLogger events.Logger, lister AddressLister, registry *registry.Registry, kv db.KV) Manager {
 	m := &manager{
 		Supervisor:    suture.New("discover.Manager", svcutil.SpecWithDebugLogger()),
 		myID:          myID,
@@ -62,8 +68,8 @@ func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate
 		evLogger:      evLogger,
 		addressLister: lister,
 		registry:      registry,
-
-		finders: make(map[string]cachedFinder),
+		kv:            kv,
+		finders:       make(map[string]cachedFinder),
 	}
 	m.Add(svcutil.AsService(m.serve, m.String()))
 	return m
@@ -72,8 +78,8 @@ func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate
 func (m *manager) serve(ctx context.Context) error {
 	m.cfg.Subscribe(m)
 	m.CommitConfiguration(config.Configuration{}, m.cfg.RawCopy())
+	defer m.cfg.Unsubscribe(m)
 	<-ctx.Done()
-	m.cfg.Unsubscribe(m)
 	return nil
 }
 
@@ -174,8 +180,8 @@ func (*manager) Error() error {
 }
 
 func (m *manager) ChildErrors() map[string]error {
-	children := make(map[string]error, len(m.finders))
 	m.mut.RLock()
+	children := make(map[string]error, len(m.finders))
 	for _, f := range m.finders {
 		children[f.String()] = f.Error()
 	}
@@ -231,7 +237,11 @@ func (m *manager) Cache() map[protocol.DeviceID]CacheEntry {
 func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
+	m.configureDHTLocked(to.Options)
 	toIdentities := make(map[string]struct{})
+	if m.p2pdisco != nil {
+		toIdentities[m.p2pdisco.String()] = struct{}{}
+	}
 	if to.Options.GlobalAnnEnabled {
 		for _, srv := range to.Options.GlobalDiscoveryServers() {
 			toIdentities[globalDiscoveryIdentity(srv)] = struct{}{}
@@ -296,4 +306,48 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 	}
 
 	return true
+}
+
+func (m *manager) configureDHTLocked(options config.OptionsConfiguration) {
+	bootstrapPeers := options.DHTBootstrapPeers()
+	listenAddresses := p2pQUICListenAddresses(options.ListenAddresses())
+	if m.p2pdisco != nil && (!slices.Equal(m.p2pdisco.options.BootstrapPeers, bootstrapPeers) || !slices.Equal(m.p2pdisco.options.ListenAddresses, listenAddresses)) {
+		m.removeLocked(m.dhtIdentity)
+		m.p2pdisco.Close()
+		m.p2pdisco = nil
+	}
+	if !options.DHTEnabled || len(listenAddresses) == 0 {
+		if m.p2pdisco != nil {
+			m.removeLocked(m.dhtIdentity)
+			m.p2pdisco.Close()
+			m.p2pdisco = nil
+		}
+		return
+	}
+	if m.p2pdisco != nil {
+		return
+	}
+
+	dht, err := NewPeerToPeerDiscovery(m.cert, m.addressLister, m.kv, dht.Options{
+		UDP:             &m.registry.UDP,
+		ListenAddresses: listenAddresses,
+		BootstrapPeers:  bootstrapPeers,
+	})
+	if err != nil {
+		slog.Warn("Failed to initialize peer-to-peer discovery", slogutil.Error(err))
+		return
+	}
+	m.p2pdisco = dht
+	m.dhtIdentity = dht.String()
+	m.addLocked(m.dhtIdentity, dht, 5*time.Minute, time.Minute)
+}
+
+// DHTMode returns the active DHT mode, for usage reporting purposes.
+func (m *manager) DHTMode() string {
+	m.mut.RLock()
+	defer m.mut.RUnlock()
+	if m.p2pdisco == nil {
+		return ""
+	}
+	return m.p2pdisco.Mode()
 }

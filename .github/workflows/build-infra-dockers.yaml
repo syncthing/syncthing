@@ -27,6 +27,7 @@ jobs:
       matrix:
         pkg:
           - stcrashreceiver
+          - stdht
           - strelaypoolsrv
           - stupgrades
           - ursrv

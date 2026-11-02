@@ -66,6 +66,15 @@ var (
 	// DefaultDiscoveryServers should be substituted when the configuration
 	// contains <globalAnnounceServer>default</globalAnnounceServer>.
 	DefaultDiscoveryServers = append(DefaultDiscoveryServersV4, DefaultDiscoveryServersV6...)
+	// DefaultDHTBootstrapPeers are the bootstrap nodes for DHT discovery
+	DefaultDHTBootstrapPeers = []string{
+		"/dns4/dht0.syncthing.net/udp/22026/quic-v1/p2p/12D3KooWRjHkZXQgE4HeiVw6W3q1UHhrd2pJtgv7EjW8b6eXa3LY",
+		"/dns6/dht0.syncthing.net/udp/22026/quic-v1/p2p/12D3KooWRjHkZXQgE4HeiVw6W3q1UHhrd2pJtgv7EjW8b6eXa3LY",
+		"/dns4/dht1.syncthing.net/udp/22026/quic-v1/p2p/12D3KooWE6sdfShjXwcG5Pn8ztYRP6Zj8Dqc1gjccNT1swD4hj3Y",
+		"/dns6/dht1.syncthing.net/udp/22026/quic-v1/p2p/12D3KooWE6sdfShjXwcG5Pn8ztYRP6Zj8Dqc1gjccNT1swD4hj3Y",
+		"/dns4/dht2.syncthing.net/udp/22026/quic-v1/p2p/12D3KooWQar5jqcJLXjGWNAM9grgxxxhF2pCuuPxtBFtw4YmMgjf",
+		"/dns6/dht2.syncthing.net/udp/22026/quic-v1/p2p/12D3KooWQar5jqcJLXjGWNAM9grgxxxhF2pCuuPxtBFtw4YmMgjf",
+	}
 	// DefaultTheme is the default and fallback theme for the web UI.
 	DefaultTheme = "default"
 	// Default stun servers should be substituted when the configuration

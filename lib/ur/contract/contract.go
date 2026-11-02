@@ -65,10 +65,12 @@ type Report struct {
 	} `json:"deviceUses,omitzero" since:"2"`
 
 	Announce struct {
-		GlobalEnabled     bool `json:"globalEnabled,omitempty" metric:"discovery_feature_count{feature=GlobalEnabled},gauge" since:"2"`
-		LocalEnabled      bool `json:"localEnabled,omitempty" metric:"discovery_feature_count{feature=LocalEnabled},gauge" since:"2"`
-		DefaultServersDNS int  `json:"defaultServersDNS,omitempty" metric:"discovery_default_servers,summary" since:"2"`
-		OtherServers      int  `json:"otherServers,omitempty" metric:"discovery_other_servers,summary" since:"2"`
+		PeerToPeerEnabled bool   `json:"peerToPeerEnabled,omitempty" metric:"discovery_feature_count{feature=PeerToPeerEnabled},gauge" since:"3"`
+		PeerToPeerMode    string `json:"peerToPeerMode,omitempty" metric:"discovery_p2p_mode,gaugeVec:mode" since:"3"`
+		GlobalEnabled     bool   `json:"globalEnabled,omitempty" metric:"discovery_feature_count{feature=GlobalEnabled},gauge" since:"2"`
+		LocalEnabled      bool   `json:"localEnabled,omitempty" metric:"discovery_feature_count{feature=LocalEnabled},gauge" since:"2"`
+		DefaultServersDNS int    `json:"defaultServersDNS,omitempty" metric:"discovery_default_servers,summary" since:"2"`
+		OtherServers      int    `json:"otherServers,omitempty" metric:"discovery_other_servers,summary" since:"2"`
 	} `json:"announce,omitzero" since:"2"`
 
 	Relays struct {

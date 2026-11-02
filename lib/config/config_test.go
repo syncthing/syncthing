@@ -56,6 +56,8 @@ func TestDefaultValues(t *testing.T) {
 		Options: OptionsConfiguration{
 			RawListenAddresses:        []string{"default"},
 			RawGlobalAnnServers:       []string{"default"},
+			DHTEnabled:                true,
+			RawDHTBootstrapPeers:      []string{"default"},
 			GlobalAnnEnabled:          true,
 			LocalAnnEnabled:           true,
 			LocalAnnPort:              21027,
@@ -260,6 +262,8 @@ func TestOverriddenValues(t *testing.T) {
 	expected := OptionsConfiguration{
 		RawListenAddresses:        []string{"tcp://:23000"},
 		RawGlobalAnnServers:       []string{"udp4://syncthing.nym.se:22026"},
+		DHTEnabled:                true,
+		RawDHTBootstrapPeers:      []string{"default"},
 		GlobalAnnEnabled:          false,
 		LocalAnnEnabled:           false,
 		LocalAnnPort:              42123,
