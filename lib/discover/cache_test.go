@@ -24,7 +24,7 @@ func setupCache() *manager {
 	cfg.Options.LocalAnnEnabled = false
 	cfg.Options.GlobalAnnEnabled = false
 
-	return NewManager(protocol.LocalDeviceID, config.Wrap("", cfg, protocol.LocalDeviceID, events.NoopLogger), tls.Certificate{}, events.NoopLogger, nil, registry.New()).(*manager)
+	return NewManager(protocol.LocalDeviceID, config.Wrap("", cfg, protocol.LocalDeviceID, events.NoopLogger), tls.Certificate{}, events.NoopLogger, nil, registry.New(), nil).(*manager)
 }
 
 func TestCacheUnique(t *testing.T) {

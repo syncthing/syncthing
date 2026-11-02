@@ -30,6 +30,16 @@ type Manager struct {
 	childErrorsReturnsOnCall map[int]struct {
 		result1 map[string]error
 	}
+	DHTModeStub        func() string
+	dHTModeMutex       sync.RWMutex
+	dHTModeArgsForCall []struct {
+	}
+	dHTModeReturns struct {
+		result1 string
+	}
+	dHTModeReturnsOnCall map[int]struct {
+		result1 string
+	}
 	ErrorStub        func() error
 	errorMutex       sync.RWMutex
 	errorArgsForCall []struct {
@@ -182,6 +192,59 @@ func (fake *Manager) ChildErrorsReturnsOnCall(i int, result1 map[string]error) {
 	}
 	fake.childErrorsReturnsOnCall[i] = struct {
 		result1 map[string]error
+	}{result1}
+}
+
+func (fake *Manager) DHTMode() string {
+	fake.dHTModeMutex.Lock()
+	ret, specificReturn := fake.dHTModeReturnsOnCall[len(fake.dHTModeArgsForCall)]
+	fake.dHTModeArgsForCall = append(fake.dHTModeArgsForCall, struct {
+	}{})
+	stub := fake.DHTModeStub
+	fakeReturns := fake.dHTModeReturns
+	fake.recordInvocation("DHTMode", []interface{}{})
+	fake.dHTModeMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Manager) DHTModeCallCount() int {
+	fake.dHTModeMutex.RLock()
+	defer fake.dHTModeMutex.RUnlock()
+	return len(fake.dHTModeArgsForCall)
+}
+
+func (fake *Manager) DHTModeCalls(stub func() string) {
+	fake.dHTModeMutex.Lock()
+	defer fake.dHTModeMutex.Unlock()
+	fake.DHTModeStub = stub
+}
+
+func (fake *Manager) DHTModeReturns(result1 string) {
+	fake.dHTModeMutex.Lock()
+	defer fake.dHTModeMutex.Unlock()
+	fake.DHTModeStub = nil
+	fake.dHTModeReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *Manager) DHTModeReturnsOnCall(i int, result1 string) {
+	fake.dHTModeMutex.Lock()
+	defer fake.dHTModeMutex.Unlock()
+	fake.DHTModeStub = nil
+	if fake.dHTModeReturnsOnCall == nil {
+		fake.dHTModeReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.dHTModeReturnsOnCall[i] = struct {
+		result1 string
 	}{result1}
 }
 

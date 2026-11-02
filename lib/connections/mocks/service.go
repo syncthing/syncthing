@@ -3,6 +3,7 @@ package mocks
 
 import (
 	"context"
+	"net/netip"
 	"sync"
 
 	"github.com/syncthing/syncthing/lib/connections"
@@ -38,6 +39,16 @@ type Service struct {
 	}
 	externalAddressesReturnsOnCall map[int]struct {
 		result1 []string
+	}
+	ExternalIPsStub        func() []netip.Addr
+	externalIPsMutex       sync.RWMutex
+	externalIPsArgsForCall []struct {
+	}
+	externalIPsReturns struct {
+		result1 []netip.Addr
+	}
+	externalIPsReturnsOnCall map[int]struct {
+		result1 []netip.Addr
 	}
 	ListenerStatusStub        func() map[string]connections.ListenerStatusEntry
 	listenerStatusMutex       sync.RWMutex
@@ -230,6 +241,59 @@ func (fake *Service) ExternalAddressesReturnsOnCall(i int, result1 []string) {
 	}
 	fake.externalAddressesReturnsOnCall[i] = struct {
 		result1 []string
+	}{result1}
+}
+
+func (fake *Service) ExternalIPs() []netip.Addr {
+	fake.externalIPsMutex.Lock()
+	ret, specificReturn := fake.externalIPsReturnsOnCall[len(fake.externalIPsArgsForCall)]
+	fake.externalIPsArgsForCall = append(fake.externalIPsArgsForCall, struct {
+	}{})
+	stub := fake.ExternalIPsStub
+	fakeReturns := fake.externalIPsReturns
+	fake.recordInvocation("ExternalIPs", []interface{}{})
+	fake.externalIPsMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Service) ExternalIPsCallCount() int {
+	fake.externalIPsMutex.RLock()
+	defer fake.externalIPsMutex.RUnlock()
+	return len(fake.externalIPsArgsForCall)
+}
+
+func (fake *Service) ExternalIPsCalls(stub func() []netip.Addr) {
+	fake.externalIPsMutex.Lock()
+	defer fake.externalIPsMutex.Unlock()
+	fake.ExternalIPsStub = stub
+}
+
+func (fake *Service) ExternalIPsReturns(result1 []netip.Addr) {
+	fake.externalIPsMutex.Lock()
+	defer fake.externalIPsMutex.Unlock()
+	fake.ExternalIPsStub = nil
+	fake.externalIPsReturns = struct {
+		result1 []netip.Addr
+	}{result1}
+}
+
+func (fake *Service) ExternalIPsReturnsOnCall(i int, result1 []netip.Addr) {
+	fake.externalIPsMutex.Lock()
+	defer fake.externalIPsMutex.Unlock()
+	fake.ExternalIPsStub = nil
+	if fake.externalIPsReturnsOnCall == nil {
+		fake.externalIPsReturnsOnCall = make(map[int]struct {
+			result1 []netip.Addr
+		})
+	}
+	fake.externalIPsReturnsOnCall[i] = struct {
+		result1 []netip.Addr
 	}{result1}
 }
 
