@@ -7,6 +7,8 @@
         <localAnnounceEnabled>false</localAnnounceEnabled>
         <localAnnouncePort>42123</localAnnouncePort>
         <localAnnounceMCAddr>quux:3232</localAnnounceMCAddr>
+        <localAnnounceAllowedInterface>eth0</localAnnounceAllowedInterface>
+        <localAnnounceIgnoredInterface>eth1</localAnnounceIgnoredInterface>
         <parallelRequests>32</parallelRequests>
         <maxSendKbps>1234</maxSendKbps>
         <maxRecvKbps>2341</maxRecvKbps>

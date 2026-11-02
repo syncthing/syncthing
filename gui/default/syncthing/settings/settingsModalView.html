@@ -271,6 +271,22 @@
             <div class="col-md-6">
             </div>
           </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">                  
+                <label translate for="localAnnounceAllowedInterfaces">Local discovery - allowed network interfaces</label>
+                <input ng-disabled="!tmpOptions.localAnnounceEnabled" id="localAnnounceAllowedInterfacesStr" class="form-control" type="text" ng-model="tmpOptions._localAnnounceAllowedInterfacesStr" />
+                <span translate>This setting specifies the names of the network interfaces that, if they are enabled and support multicast/broadcast, will send announcements. Unspecified interfaces will not send announcements. If the setting is not filled in, all compliant interfaces will send announcements. Glob patterns (for example, 'enp*s*' or 'podman[0-9]') are supported.</span>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label translate for="localAnnounceIgnoredInterfaces">Local discovery - ignored network interfaces</label>
+                <input ng-disabled="!tmpOptions.localAnnounceEnabled || tmpOptions._localAnnounceAllowedInterfacesStr" id="localAnnounceIgnoredInterfacesStr" class="form-control" type="text" ng-model="tmpOptions._localAnnounceIgnoredInterfacesStr" />
+                <span translate>This setting specifies the names of the network interfaces that should not send announcements. Unspecified interfaces, if they are enabled and support multicast/broadcast, will send announcements. Enabled only if no allowed interfaces are specified. If the setting is not filled in, all compliant interfaces will send announcements. Glob patterns (for example, 'enp*s*' or 'podman[0-9]') are supported.</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div id="settings-ignored-devices" class="tab-pane">
