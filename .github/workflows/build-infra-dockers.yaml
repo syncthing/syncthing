@@ -26,11 +26,11 @@ jobs:
       fail-fast: false
       matrix:
         pkg:
-          - stcrashreceiver
+          #- stcrashreceiver
           - stdht
-          - strelaypoolsrv
-          - stupgrades
-          - ursrv
+          #- strelaypoolsrv
+          #- stupgrades
+          #- ursrv
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # was: actions/checkout@v5
         with:
