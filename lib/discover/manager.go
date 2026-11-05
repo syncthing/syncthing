@@ -53,10 +53,8 @@ type manager struct {
 	registry      *registry.Registry
 	kv            db.KV
 
-	mut         sync.RWMutex
-	dhtIdentity string // Finder key captured at registration; mode can change.
-	p2pdisco    *PeerToPeerDiscovery
-	finders     map[string]cachedFinder
+	mut     sync.RWMutex
+	finders map[string]cachedFinder
 }
 
 func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate, evLogger events.Logger, lister AddressLister, registry *registry.Registry, kv db.KV) Manager {
@@ -237,11 +235,7 @@ func (m *manager) Cache() map[protocol.DeviceID]CacheEntry {
 func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
-	m.configureDHTLocked(to.Options)
 	toIdentities := make(map[string]struct{})
-	if m.p2pdisco != nil {
-		toIdentities[m.p2pdisco.String()] = struct{}{}
-	}
 	if to.Options.GlobalAnnEnabled {
 		for _, srv := range to.Options.GlobalDiscoveryServers() {
 			toIdentities[globalDiscoveryIdentity(srv)] = struct{}{}
@@ -251,6 +245,10 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 	if to.Options.LocalAnnEnabled {
 		toIdentities[ipv4Identity(to.Options.LocalAnnPort)] = struct{}{}
 		toIdentities[ipv6Identity(to.Options.LocalAnnMCAddr)] = struct{}{}
+	}
+
+	if to.Options.P2PDiscoveryEnabled {
+		toIdentities[p2pIdentity()] = struct{}{}
 	}
 
 	// Remove things that we're not expected to have.
@@ -305,49 +303,35 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 		}
 	}
 
-	return true
-}
-
-func (m *manager) configureDHTLocked(options config.OptionsConfiguration) {
-	bootstrapPeers := options.P2PDiscoveryBootstrapPeers()
-	listenAddresses := p2pQUICListenAddresses(options.ListenAddresses())
-	if m.p2pdisco != nil && (!slices.Equal(m.p2pdisco.options.BootstrapPeers, bootstrapPeers) || !slices.Equal(m.p2pdisco.options.ListenAddresses, listenAddresses)) {
-		m.removeLocked(m.dhtIdentity)
-		m.p2pdisco.Close()
-		m.p2pdisco = nil
-	}
-	if !options.P2PDiscoveryEnabled || len(listenAddresses) == 0 {
-		if m.p2pdisco != nil {
-			m.removeLocked(m.dhtIdentity)
-			m.p2pdisco.Close()
-			m.p2pdisco = nil
+	if to.Options.P2PDiscoveryEnabled {
+		ident := p2pIdentity()
+		if _, ok := m.finders[ident]; !ok {
+			listenAddresses := p2pQUICListenAddresses(to.Options.ListenAddresses())
+			bootstrapPeers := to.Options.P2PDiscoveryBootstrapPeers()
+			dht, err := NewPeerToPeerDiscovery(m.cert, m.addressLister, m.kv, dht.Options{
+				UDP:             m.registry.UDP,
+				ListenAddresses: listenAddresses,
+				BootstrapPeers:  bootstrapPeers,
+			})
+			if err != nil {
+				slog.Warn("Failed to initialize peer-to-peer discovery", slogutil.Error(err))
+			} else {
+				m.addLocked(ident, dht, 5*time.Minute, time.Minute)
+			}
 		}
-		return
-	}
-	if m.p2pdisco != nil {
-		return
 	}
 
-	dht, err := NewPeerToPeerDiscovery(m.cert, m.addressLister, m.kv, dht.Options{
-		UDP:             m.registry.UDP,
-		ListenAddresses: listenAddresses,
-		BootstrapPeers:  bootstrapPeers,
-	})
-	if err != nil {
-		slog.Warn("Failed to initialize peer-to-peer discovery", slogutil.Error(err))
-		return
-	}
-	m.p2pdisco = dht
-	m.dhtIdentity = dht.String()
-	m.addLocked(m.dhtIdentity, dht, 5*time.Minute, time.Minute)
+	return true
 }
 
 // DHTMode returns the active DHT mode, for usage reporting purposes.
 func (m *manager) DHTMode() string {
 	m.mut.RLock()
 	defer m.mut.RUnlock()
-	if m.p2pdisco == nil {
+
+	p2p, ok := m.finders[p2pIdentity()].Finder.(*PeerToPeerDiscovery)
+	if !ok {
 		return ""
 	}
-	return m.p2pdisco.Mode()
+	return p2p.Mode()
 }
