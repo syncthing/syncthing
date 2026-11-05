@@ -27,17 +27,26 @@ func NewDatastore(store *db.Typed) ds.Batching {
 }
 
 func (s *datastore) Put(ctx context.Context, key ds.Key, value []byte) error {
-	return s.store.PutBytes(key.String(), value)
+	result := "success"
+	err := s.store.PutBytes(key.String(), value)
+	if err != nil {
+		result = "error"
+	}
+	metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "put", result)
+	return err
 }
 
 func (s *datastore) Get(ctx context.Context, key ds.Key) ([]byte, error) {
 	value, ok, err := s.store.Bytes(key.String())
 	if err != nil {
+		metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "get", "error")
 		return nil, err
 	}
 	if !ok {
+		metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "get", "notfound")
 		return nil, ds.ErrNotFound
 	}
+	metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "get", "success")
 	return value, nil
 }
 
@@ -50,7 +59,13 @@ func (s *datastore) GetSize(ctx context.Context, key ds.Key) (int, error) {
 }
 
 func (s *datastore) Delete(ctx context.Context, key ds.Key) error {
-	return s.store.Delete(key.String())
+	result := "success"
+	err := s.store.Delete(key.String())
+	if err != nil {
+		result = "error"
+	}
+	metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "delete", result)
+	return err
 }
 
 func (s *datastore) Query(ctx context.Context, q query.Query) (query.Results, error) {
@@ -58,6 +73,7 @@ func (s *datastore) Query(ctx context.Context, q query.Query) (query.Results, er
 	it, errFn := s.store.KeyValues()
 	for kv := range it {
 		if err := ctx.Err(); err != nil {
+			metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "query", "error")
 			return nil, err
 		}
 		e := query.Entry{Key: kv.Key, Size: len(kv.Value)}
@@ -67,8 +83,13 @@ func (s *datastore) Query(ctx context.Context, q query.Query) (query.Results, er
 		entries = append(entries, e)
 	}
 	if err := errFn(); err != nil {
+		metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "query", "error")
 		return nil, err
 	}
+
+	metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "query", "success")
+	metricDatastoreItems.WithLabelValues(s.store.Prefix()).Set(float64(len(entries)))
+
 	return query.NaiveQueryApply(q, query.ResultsWithEntries(q, entries)), nil
 }
 

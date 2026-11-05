@@ -28,6 +28,10 @@ func NewMiscDB(db KV) *Typed {
 	return NewTyped(db, "misc")
 }
 
+func (n *Typed) Prefix() string {
+	return n.prefix
+}
+
 // NewTyped returns a new typed key-value store that lives in the namespace
 // specified by the prefix.
 func NewTyped(db KV, prefix string) *Typed {
