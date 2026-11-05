@@ -23,6 +23,6 @@ var (
 		Namespace: "syncthing",
 		Subsystem: "dht",
 		Name:      "datastore_operations_total",
-		Help:      "Number of datastore operations",
+		Help:      "Total number of datastore operations",
 	}, []string{"datastore", "operation", "result"})
 )
