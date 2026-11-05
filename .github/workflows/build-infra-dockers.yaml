@@ -69,7 +69,7 @@ jobs:
 
       - name: Set Docker tags (all branches)
         run: |
-          tags=docker.io/syncthing/${{ matrix.pkg }}:${{ github.sha }},ghcr.io/syncthing/infra/${{ matrix.pkg }}:${{ github.sha }}
+          tags=ghcr.io/syncthing/infra/${{ matrix.pkg }}:${{ github.ref_name }}
           echo "TAGS=$tags" >> $GITHUB_ENV
 
       - name: Set Docker tags (latest)
