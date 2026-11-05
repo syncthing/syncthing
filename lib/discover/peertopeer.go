@@ -101,33 +101,37 @@ func (s *PeerToPeerDiscovery) Close() error {
 func (s *PeerToPeerDiscovery) Serve(ctx context.Context) error {
 	defer s.Close()
 
-	ticker := time.NewTicker(p2pAddressCheckInterval)
-	defer ticker.Stop()
+	timer := time.NewTimer(0)
+	defer timer.Stop()
 
 	var published []string
 	var next time.Time
+	connectRetryDelay := time.Second
 	for {
-		addresses := s.announcementAddresses()
-
-		switch {
-		case !s.dht.Connected():
-			s.setError(errors.New("no discovery DHT peers"))
-
-		case time.Now().After(next), !slices.Equal(addresses, published):
-			err := s.Announce(ctx)
-			s.setError(err)
-			if err == nil {
-				published = addresses
-				next = time.Now().Add(dht.RecordLifetime / 2)
-			} else {
-				next = time.Now().Add(announceErrorRetryInterval)
-			}
-		}
-
 		select {
+		case <-timer.C:
+			addresses := s.announcementAddresses()
+
+			switch {
+			case !s.dht.Connected():
+				s.setError(errors.New("no discovery DHT peers"))
+				timer.Reset(connectRetryDelay)
+				connectRetryDelay = min(connectRetryDelay*2, announceErrorRetryInterval)
+
+			case time.Now().After(next), !slices.Equal(addresses, published):
+				err := s.Announce(ctx)
+				s.setError(err)
+				if err == nil {
+					published = addresses
+					next = time.Now().Add(dht.RecordLifetime / 2)
+				} else {
+					next = time.Now().Add(announceErrorRetryInterval)
+				}
+				connectRetryDelay = time.Second
+			}
+
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-ticker.C:
 		}
 	}
 }

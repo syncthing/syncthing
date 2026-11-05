@@ -32,21 +32,21 @@ func (s *datastore) Put(ctx context.Context, key ds.Key, value []byte) error {
 	if err != nil {
 		result = "error"
 	}
-	metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "put", result)
+	metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "put", result).Inc()
 	return err
 }
 
 func (s *datastore) Get(ctx context.Context, key ds.Key) ([]byte, error) {
 	value, ok, err := s.store.Bytes(key.String())
 	if err != nil {
-		metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "get", "error")
+		metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "get", "error").Inc()
 		return nil, err
 	}
 	if !ok {
-		metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "get", "notfound")
+		metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "get", "notfound").Inc()
 		return nil, ds.ErrNotFound
 	}
-	metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "get", "success")
+	metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "get", "success").Inc()
 	return value, nil
 }
 
@@ -64,7 +64,7 @@ func (s *datastore) Delete(ctx context.Context, key ds.Key) error {
 	if err != nil {
 		result = "error"
 	}
-	metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "delete", result)
+	metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "delete", result).Inc()
 	return err
 }
 
@@ -73,7 +73,7 @@ func (s *datastore) Query(ctx context.Context, q query.Query) (query.Results, er
 	it, errFn := s.store.KeyValues()
 	for kv := range it {
 		if err := ctx.Err(); err != nil {
-			metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "query", "error")
+			metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "query", "error").Inc()
 			return nil, err
 		}
 		e := query.Entry{Key: kv.Key, Size: len(kv.Value)}
@@ -83,11 +83,11 @@ func (s *datastore) Query(ctx context.Context, q query.Query) (query.Results, er
 		entries = append(entries, e)
 	}
 	if err := errFn(); err != nil {
-		metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "query", "error")
+		metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "query", "error").Inc()
 		return nil, err
 	}
 
-	metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "query", "success")
+	metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "query", "success").Inc()
 	metricDatastoreItems.WithLabelValues(s.store.Prefix()).Set(float64(len(entries)))
 
 	return query.NaiveQueryApply(q, query.ResultsWithEntries(q, entries)), nil
