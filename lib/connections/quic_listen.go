@@ -93,27 +93,17 @@ func (t *quicListener) serve(ctx context.Context) error {
 		return err
 	}
 
-	lease, err := t.registry.UDP.Acquire()
-	if err != nil {
-		return err
-	}
-	defer lease.Close()
-	if udpAddr.IP == nil {
-		udpAddr.IP = net.IPv4zero
-		if network == "udp6" {
-			udpAddr.IP = net.IPv6zero
-		}
-	}
-	listener, err := lease.Listen(udpAddr.AddrPort(), t.tlsCfg)
+	listener, err := t.registry.UDP.Listen(udpAddr.AddrPort(), t.tlsCfg)
 	if err != nil {
 		return err
 	}
 	defer listener.Close()
 
 	boundAddr := listener.Addr().(*net.UDPAddr)
+
 	// STUN is only used for IPv4 NAT traversal.
 	if boundAddr.IP.To4() != nil {
-		packetConn, err := lease.PacketConn(boundAddr.AddrPort())
+		packetConn, err := t.registry.UDP.PacketConn(boundAddr.AddrPort())
 		if err != nil {
 			return err
 		}
@@ -143,7 +133,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 			}
 			external = append(external, (&net.UDPAddr{IP: address.IP, Port: address.Port}).AddrPort())
 		}
-		lease.SetExternalAddresses(boundAddr.AddrPort(), external)
+		t.registry.UDP.SetExternalAddresses(boundAddr.AddrPort(), external)
 		t.notifyAddressesChanged(t)
 	}
 	mapping.OnChanged(updateMapping)
@@ -209,12 +199,7 @@ func (t *quicListener) serve(ctx context.Context) error {
 		if isLocal {
 			priority = t.cfg.Options().ConnectionPriorityQUICLAN
 		}
-		retained, err := lease.Retain(boundAddr.AddrPort())
-		if err != nil {
-			_ = session.CloseWithError(1, err.Error())
-			continue
-		}
-		conn := newInternalConn(&quicTlsConn{session, stream, retained}, connTypeQUICServer, isLocal, priority)
+		conn := newInternalConn(&quicTlsConn{session, stream}, connTypeQUICServer, isLocal, priority)
 		select {
 		case t.conns <- conn:
 		case <-ctx.Done():

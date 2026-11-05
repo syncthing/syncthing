@@ -329,7 +329,7 @@ func (m *manager) configureDHTLocked(options config.OptionsConfiguration) {
 	}
 
 	dht, err := NewPeerToPeerDiscovery(m.cert, m.addressLister, m.kv, dht.Options{
-		UDP:             &m.registry.UDP,
+		UDP:             m.registry.UDP,
 		ListenAddresses: listenAddresses,
 		BootstrapPeers:  bootstrapPeers,
 	})

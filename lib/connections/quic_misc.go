@@ -10,7 +10,6 @@ package connections
 
 import (
 	"crypto/tls"
-	"io"
 	"net/url"
 	"time"
 
@@ -36,18 +35,12 @@ func quicNetwork(uri *url.URL) string {
 type quicTlsConn struct {
 	*quic.Conn
 	*quic.Stream
-
-	// Keeps the manager and its endpoint alive until this connection closes.
-	lease io.Closer
 }
 
 func (q *quicTlsConn) Close() error {
 	sterr := q.Stream.Close()
 	seerr := q.Conn.CloseWithError(0, "closing")
 	var pcerr error
-	if q.lease != nil {
-		pcerr = q.lease.Close()
-	}
 	if sterr != nil {
 		return sterr
 	}

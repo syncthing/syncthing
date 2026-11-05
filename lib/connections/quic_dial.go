@@ -50,21 +50,15 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 		return internalConn{}, err
 	}
 
-	lease, err := d.registry.UDP.Acquire()
-	if err != nil {
-		return internalConn{}, err
-	}
 	ctx, cancel := context.WithTimeout(ctx, quicOperationTimeout)
 	defer cancel()
-	session, err := lease.Dial(ctx, addr.AddrPort(), d.tlsCfg, quicConfig)
+	session, err := d.registry.UDP.Dial(ctx, addr.AddrPort(), d.tlsCfg, quicConfig)
 	if err != nil {
-		lease.Close()
 		return internalConn{}, fmt.Errorf("dial: %w", err)
 	}
 	stream, err := session.OpenStreamSync(ctx)
 	if err != nil {
 		_ = session.CloseWithError(1, err.Error())
-		lease.Close()
 		return internalConn{}, fmt.Errorf("open stream: %w", err)
 	}
 
@@ -74,7 +68,7 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 		priority = d.lanPriority
 	}
 
-	return newInternalConn(&quicTlsConn{session, stream, lease}, connTypeQUICClient, isLocal, priority), nil
+	return newInternalConn(&quicTlsConn{session, stream}, connTypeQUICClient, isLocal, priority), nil
 }
 
 type quicDialerFactory struct{}

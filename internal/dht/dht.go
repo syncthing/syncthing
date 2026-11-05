@@ -104,26 +104,11 @@ func NewSyncthingDHT(options Options) (*DHT, error) {
 		}
 	}
 
-	udp := options.UDP
-	if udp == nil {
-		udp = new(udpmux.Manager)
-	}
-	lease, err := udp.Acquire()
-	if err != nil {
-		return nil, err
-	}
-	success := false
-	defer func() {
-		if !success {
-			lease.Close()
-		}
-	}()
-
 	hostOptions := []libp2p.Option{
 		libp2p.DisableRelay(),
 		libp2p.EnableNATService(),
 		libp2p.Transport(quic.NewTransport),
-		libp2p.QUICReuse(lease.QUICReuse),
+		libp2p.QUICReuse(options.UDP.QUICReuse()),
 	}
 
 	var listen []ma.Multiaddr
@@ -158,7 +143,7 @@ func NewSyncthingDHT(options Options) (*DHT, error) {
 		// listen addresses.
 		hostOptions = append(hostOptions, libp2p.AddrsFactory(func(addresses []ma.Multiaddr) []ma.Multiaddr {
 			addresses = slices.Clone(addresses)
-			for _, address := range lease.ExternalAddresses(options.ListenAddresses...) {
+			for _, address := range options.UDP.ExternalAddresses(options.ListenAddresses...) {
 				if mapped, err := quicreuse.ToQuicMultiaddr(net.UDPAddrFromAddrPort(address), quicgo.Version1); err == nil {
 					addresses = append(addresses, mapped)
 				}
@@ -253,7 +238,6 @@ func NewSyncthingDHT(options Options) (*DHT, error) {
 		return nil, err
 	}
 
-	success = true // do not close udp lease
 	return &DHT{h, d}, nil
 }
 

@@ -21,70 +21,32 @@ import (
 )
 
 type Manager struct {
-	mut    sync.Mutex
-	cm     *quicreuse.ConnManager
-	leases map[*Lease]map[netip.AddrPort][]netip.AddrPort
+	mut  sync.Mutex
+	cm   *quicreuse.ConnManager
+	exts map[netip.AddrPort][]netip.AddrPort
 }
 
-func (m *Manager) Acquire() (*Lease, error) {
-	m.mut.Lock()
-	defer m.mut.Unlock()
-	if m.cm == nil {
-		var resetKey quic.StatelessResetKey
-		var tokenKey quic.TokenGeneratorKey
-		if _, err := rand.Read(resetKey[:]); err != nil {
-			return nil, err
-		}
-		if _, err := rand.Read(tokenKey[:]); err != nil {
-			return nil, err
-		}
-		cm, err := quicreuse.NewConnManager(resetKey, tokenKey, quicreuse.OverrideListenUDP(listenUDP))
-		if err != nil {
-			return nil, err
-		}
-		m.cm = cm
-		m.leases = make(map[*Lease]map[netip.AddrPort][]netip.AddrPort)
+func NewManager() *Manager {
+	var resetKey quic.StatelessResetKey
+	var tokenKey quic.TokenGeneratorKey
+	if _, err := rand.Read(resetKey[:]); err != nil {
+		panic("can't happen: random failure")
 	}
-	lease := &Lease{manager: m}
-	m.leases[lease] = make(map[netip.AddrPort][]netip.AddrPort)
-	return lease, nil
-}
-
-// Lease keeps the manager alive. Close its connections and listeners before
-// releasing it; the last lease closes the manager's sockets.
-type Lease struct {
-	manager *Manager
-	socket  net.PacketConn // Optional reference keeping an accepted connection's socket alive.
-	once    sync.Once
-}
-
-// QUICReuse is the constructor bridge for libp2p, whose transport requires this
-// concrete type. Endpoint and mapping operations use the methods below.
-func (l *Lease) QUICReuse() *quicreuse.ConnManager {
-	return l.manager.cm
-}
-
-type Listener interface {
-	Accept(context.Context) (*quic.Conn, error)
-	Addr() net.Addr
-	Close() error
-}
-
-func (l *Lease) Listen(local netip.AddrPort, cfg *tls.Config) (Listener, error) {
-	addr, err := quicreuse.ToQuicMultiaddr(net.UDPAddrFromAddrPort(local), quic.Version1)
-	if err != nil {
-		return nil, err
+	if _, err := rand.Read(tokenKey[:]); err != nil {
+		panic("can't happen: random failure")
 	}
-	return l.manager.cm.ListenQUIC(addr, cfg, func(*quic.Conn, uint64) bool { return true })
+
+	// NewConnManager only returns an error for bad options
+	cm, _ := quicreuse.NewConnManager(resetKey, tokenKey, quicreuse.OverrideListenUDP(listenUDP))
+	return &Manager{
+		cm:   cm,
+		exts: make(map[netip.AddrPort][]netip.AddrPort),
+	}
 }
 
-func (l *Lease) PacketConn(local netip.AddrPort) (net.PacketConn, error) {
-	return l.manager.cm.SharedNonQUICPacketConn(udpNetwork(local), net.UDPAddrFromAddrPort(local))
-}
-
-func (l *Lease) Dial(ctx context.Context, remote netip.AddrPort, tlsCfg *tls.Config, cfg *quic.Config) (*quic.Conn, error) {
+func (m *Manager) Dial(ctx context.Context, remote netip.AddrPort, tlsCfg *tls.Config, cfg *quic.Config) (*quic.Conn, error) {
 	addr := net.UDPAddrFromAddrPort(remote)
-	transport, err := l.manager.cm.TransportForDial(udpNetwork(remote), addr)
+	transport, err := m.cm.TransportForDial(udpNetwork(remote), addr)
 	if err != nil {
 		return nil, err
 	}
@@ -100,72 +62,43 @@ func (l *Lease) Dial(ctx context.Context, remote netip.AddrPort, tlsCfg *tls.Con
 	return conn, nil
 }
 
-// Retain keeps the actual socket alive for an accepted connection, even after
-// its protocol listener is closed. The packet connection is only a reference;
-// it does not read packets or compete with STUN.
-func (l *Lease) Retain(local netip.AddrPort) (*Lease, error) {
-	socket, err := l.PacketConn(local)
+func (m *Manager) Listen(local netip.AddrPort, cfg *tls.Config) (Listener, error) {
+	addr, err := quicreuse.ToQuicMultiaddr(net.UDPAddrFromAddrPort(local), quic.Version1)
 	if err != nil {
 		return nil, err
 	}
-	retained, err := l.manager.Acquire()
-	if err != nil {
-		socket.Close()
-		return nil, err
-	}
-	retained.socket = socket
-	return retained, nil
+	return m.cm.ListenQUIC(addr, cfg, func(*quic.Conn, uint64) bool { return true })
 }
 
-// SetExternalAddresses publishes current router mappings for a local endpoint.
-func (l *Lease) SetExternalAddresses(local netip.AddrPort, addresses []netip.AddrPort) {
-	m := l.manager
+func (m *Manager) PacketConn(local netip.AddrPort) (net.PacketConn, error) {
+	return m.cm.SharedNonQUICPacketConn(udpNetwork(local), net.UDPAddrFromAddrPort(local))
+}
+
+func (m *Manager) QUICReuse() *quicreuse.ConnManager {
+	return m.cm
+}
+
+type Listener interface {
+	Accept(context.Context) (*quic.Conn, error)
+	Addr() net.Addr
+	Close() error
+}
+
+func (m *Manager) SetExternalAddresses(local netip.AddrPort, addresses []netip.AddrPort) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
-	if mappings, ok := m.leases[l]; ok {
-		if len(addresses) == 0 {
-			delete(mappings, endpoint(local))
-		} else {
-			addresses = slices.Clone(addresses)
-			for i, address := range addresses {
-				addresses[i] = endpoint(address)
-			}
-			mappings[endpoint(local)] = addresses
-		}
-	}
+	m.exts[local] = addresses
 }
 
-// ExternalAddresses returns mappings for the specified local listening endpoints.
-func (l *Lease) ExternalAddresses(locals ...netip.AddrPort) []netip.AddrPort {
-	m := l.manager
+func (m *Manager) ExternalAddresses(locals ...netip.AddrPort) []netip.AddrPort {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 	var addresses []netip.AddrPort
-	for _, mappings := range m.leases {
-		for _, local := range locals {
-			addresses = append(addresses, mappings[endpoint(local)]...)
-		}
+	for _, local := range locals {
+		addresses = append(addresses, m.exts[local]...)
 	}
 	slices.SortFunc(addresses, netip.AddrPort.Compare)
 	return slices.Compact(addresses)
-}
-
-func (l *Lease) Close() error {
-	var err error
-	l.once.Do(func() {
-		if l.socket != nil {
-			l.socket.Close()
-		}
-		m := l.manager
-		m.mut.Lock()
-		defer m.mut.Unlock()
-		delete(m.leases, l)
-		if len(m.leases) == 0 {
-			err = m.cm.Close()
-			m.cm = nil
-		}
-	})
-	return err
 }
 
 func udpNetwork(addr netip.AddrPort) string {
@@ -173,8 +106,4 @@ func udpNetwork(addr netip.AddrPort) string {
 		return "udp4"
 	}
 	return "udp6"
-}
-
-func endpoint(addr netip.AddrPort) netip.AddrPort {
-	return netip.AddrPortFrom(addr.Addr().Unmap(), addr.Port())
 }

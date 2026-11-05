@@ -18,13 +18,14 @@ import (
 )
 
 type Registry struct {
-	UDP       udpmux.Manager // endpoints shared between QUIC, STUN, and P2P discovery
+	UDP       *udpmux.Manager // endpoints shared between QUIC, STUN, and P2P discovery
 	mut       sync.Mutex
 	available map[string][]any
 }
 
 func New() *Registry {
 	return &Registry{
+		UDP:       udpmux.NewManager(),
 		available: make(map[string][]any),
 	}
 }
