@@ -86,6 +86,9 @@ type DHT struct {
 }
 
 func NewSyncthingDHT(options Options) (*DHT, error) {
+	if options.UDP == nil {
+		return nil, errors.New("DHT requires a UDP reuse manager")
+	}
 	if options.Server && len(options.ListenAddresses) == 0 {
 		return nil, errors.New("DHT server requires a QUIC listener")
 	}

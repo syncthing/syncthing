@@ -17,6 +17,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/syncthing/syncthing/internal/dht"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -62,7 +63,7 @@ func checkServers(deviceID protocol.DeviceID, timeout time.Duration, bootstrapPe
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-		addresses, err := dht.Lookup(ctx, deviceID, dht.Options{BootstrapPeers: bootstrapPeers})
+		addresses, err := dht.Lookup(ctx, deviceID, dht.Options{UDP: registry.NewUDPReuseManager(), BootstrapPeers: bootstrapPeers})
 		resc <- checkResult{server: "DHT", addresses: addresses, error: err}
 	}()
 	for _, srv := range servers {
