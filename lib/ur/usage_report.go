@@ -192,8 +192,8 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 
 	report.Announce.GlobalEnabled = opts.GlobalAnnEnabled
 	report.Announce.LocalEnabled = opts.LocalAnnEnabled
-	report.Announce.PeerToPeerEnabled = opts.DHTEnabled
-	if opts.DHTEnabled && s.discovery != nil {
+	report.Announce.PeerToPeerEnabled = opts.P2PDiscoveryEnabled
+	if opts.P2PDiscoveryEnabled && s.discovery != nil {
 		report.Announce.PeerToPeerMode = s.discovery.DHTMode()
 	}
 	for _, addr := range opts.RawGlobalAnnServers {

@@ -87,7 +87,7 @@ func run(ctx context.Context, cli CLI) error {
 		return err
 	}
 	if len(cli.Bootstrap) == 0 {
-		cli.Bootstrap = config.DefaultDHTBootstrapPeers
+		cli.Bootstrap = config.DefaultP2PDiscoveryBootstrapPeers
 	}
 	store, err := sqlite.Open(cli.Database)
 	if err != nil {

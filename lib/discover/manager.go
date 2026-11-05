@@ -309,14 +309,14 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 }
 
 func (m *manager) configureDHTLocked(options config.OptionsConfiguration) {
-	bootstrapPeers := options.DHTBootstrapPeers()
+	bootstrapPeers := options.P2PDiscoveryBootstrapPeers()
 	listenAddresses := p2pQUICListenAddresses(options.ListenAddresses())
 	if m.p2pdisco != nil && (!slices.Equal(m.p2pdisco.options.BootstrapPeers, bootstrapPeers) || !slices.Equal(m.p2pdisco.options.ListenAddresses, listenAddresses)) {
 		m.removeLocked(m.dhtIdentity)
 		m.p2pdisco.Close()
 		m.p2pdisco = nil
 	}
-	if !options.DHTEnabled || len(listenAddresses) == 0 {
+	if !options.P2PDiscoveryEnabled || len(listenAddresses) == 0 {
 		if m.p2pdisco != nil {
 			m.removeLocked(m.dhtIdentity)
 			m.p2pdisco.Close()
