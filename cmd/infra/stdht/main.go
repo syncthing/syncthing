@@ -30,6 +30,7 @@ import (
 	"github.com/syncthing/syncthing/internal/dht"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections/registry"
 )
 
 type CLI struct {
@@ -108,6 +109,7 @@ func run(ctx context.Context, cli CLI) error {
 		listen = append(listen, udpAddr.AddrPort())
 	}
 	dht, err := dht.NewSyncthingDHT(dht.Options{
+		UDP:                registry.NewUDPReuseManager(),
 		Identity:           identity,
 		ListenAddresses:    listen,
 		AdvertiseAddresses: cli.Advertise,
