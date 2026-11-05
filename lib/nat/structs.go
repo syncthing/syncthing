@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -57,10 +58,11 @@ func (m *Mapping) clearAddresses() {
 
 func (m *Mapping) notify() {
 	m.mut.RLock()
-	for _, subscriber := range m.subscribers {
+	subscribers := slices.Clone(m.subscribers)
+	m.mut.RUnlock()
+	for _, subscriber := range subscribers {
 		subscriber()
 	}
-	m.mut.RUnlock()
 }
 
 func (m *Mapping) Protocol() Protocol {

@@ -1,0 +1,37 @@
+ARG GOVERSION=latest
+FROM golang:$GOVERSION AS builder
+ARG BUILD_USER
+ARG BUILD_HOST
+ARG TARGETARCH
+
+WORKDIR /src
+COPY . .
+
+ENV CGO_ENABLED=0
+RUN if [ ! -f stdht-linux-$TARGETARCH ] ; then \
+    go run build.go -no-upgrade build stdht ; \
+    mv stdht stdht-linux-$TARGETARCH ; \
+  fi
+
+FROM alpine
+ARG TARGETARCH
+
+LABEL org.opencontainers.image.authors="The Syncthing Project" \
+      org.opencontainers.image.url="https://syncthing.net" \
+      org.opencontainers.image.documentation="https://docs.syncthing.net" \
+      org.opencontainers.image.source="https://github.com/syncthing/syncthing" \
+      org.opencontainers.image.vendor="The Syncthing Project" \
+      org.opencontainers.image.licenses="MPL-2.0" \
+      org.opencontainers.image.title="Syncthing Discovery DHT Server"
+
+EXPOSE 22026/tcp 22026/udp
+
+VOLUME ["/var/stdht"]
+
+COPY --from=builder /src/stdht-linux-$TARGETARCH /bin/stdht
+
+ENV HOME=/var/stdht
+
+USER 1000:1000
+WORKDIR /var/stdht
+ENTRYPOINT ["/bin/stdht"]

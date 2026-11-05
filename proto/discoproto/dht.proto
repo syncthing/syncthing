@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package discoproto;
+
+import "buf/validate/validate.proto";
+
+message DHTEnvelope {
+  // Version is the format version of the DHT envelope. Currently, 1 is the
+  // only permitted value.
+  int32 version = 1 [(buf.validate.field).int32.const = 1];
+
+  // Payload is the protobuf marshalled DHTPayload
+  bytes payload = 2 [(buf.validate.field).bytes.max_len = 4096];
+
+  // Signature is the signature of the payload by the certificate inside the
+  // payload.
+  bytes signature = 3 [(buf.validate.field).bytes.max_len = 1024];
+}
+
+// DHTPayload is the discovery document registered in a DHT by each device.
+// It is carried inside a DHTEnvelope message, and the contents are
+// authenticated by a signature.
+message DHTPayload {
+  // Addresses is the list of listening addresses, on the usual
+  // "tcp://192.0.2.42:22000" form, including QUIC, relays, etc.
+  repeated string addresses = 1 [
+    (buf.validate.field).repeated.max_items = 32,
+    (buf.validate.field).repeated.items.string.max_len = 128
+  ];
+
+  // Certificate is the device TLS certificate in DER form; the SHA256 of
+  // which is the device ID.
+  bytes certificate = 2 [(buf.validate.field).bytes.max_len = 2048];
+
+  // Sequence is a strictly increasing number for sequencing purposes; each
+  // announcement carries a higher sequence than the previous one, so the
+  // latest announcement is always the one with the highest sequence number.
+  int64 sequence = 3 [(buf.validate.field).int64.gte = 0];
+
+  // Expires is the timestamp at which the announcement record seizes to be
+  // valid; typically two hours after it's minted. Unix epoch seconds.
+  int64 expires_unix = 4 [(buf.validate.field).int64.gte = 0];
+}

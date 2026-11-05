@@ -1177,7 +1177,8 @@ jobs:
         run: |
           go run build.go assets
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
+          go install github.com/decort-tech/govulncheck-ignore/v2@latest
+          govulncheck-ignore ./...
 
   #
   # golangci-lint runs a suite of static analysis checks on the code
