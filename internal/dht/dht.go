@@ -36,7 +36,7 @@ import (
 	quicgo "github.com/quic-go/quic-go"
 
 	"github.com/syncthing/syncthing/internal/gen/discoproto"
-	"github.com/syncthing/syncthing/internal/udpmux"
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 )
@@ -69,7 +69,7 @@ func Lookup(ctx context.Context, deviceID protocol.DeviceID, options Options) ([
 }
 
 type Options struct {
-	UDP                *udpmux.Manager
+	UDP                *registry.UDPReuseManager
 	ListenAddresses    []netip.AddrPort
 	BootstrapPeers     []string
 	AdvertiseAddresses []string
@@ -108,7 +108,7 @@ func NewSyncthingDHT(options Options) (*DHT, error) {
 		libp2p.DisableRelay(),
 		libp2p.EnableNATService(),
 		libp2p.Transport(quic.NewTransport),
-		libp2p.QUICReuse(options.UDP.QUICReuse()),
+		libp2p.QUICReuse(options.UDP.QUICReuse),
 	}
 
 	var listen []ma.Multiaddr

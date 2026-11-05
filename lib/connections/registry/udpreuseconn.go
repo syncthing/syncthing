@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package udpmux
+package registry
 
 import (
 	"errors"
@@ -33,6 +33,7 @@ func listenUDP(network string, addr *net.UDPAddr) (net.PacketConn, error) {
 
 func (c *udpConn) ReadBatch(messages []ipv4.Message, flags int) (int, error) {
 	// hide some errors that would otherwise cause the socket to close
+	// ts=2026-11-05T17:40:37.213+01:00 level=error source=github.com/libp2p/go-libp2p@v0.50.0/p2p/net/swarm/swarm_listen.go:151 msg="swarm listener unintentionally closed" logger=swarm2
 	for {
 		n, err := c.batch.ReadBatch(messages, flags)
 		if !isUDPDestinationError(err) {

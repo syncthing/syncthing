@@ -13,19 +13,19 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/syncthing/syncthing/internal/udpmux"
 	"github.com/syncthing/syncthing/lib/sliceutil"
 )
 
 type Registry struct {
-	UDP       *udpmux.Manager // endpoints shared between QUIC, STUN, and P2P discovery
+	UDP *UDPReuseManager // endpoints shared between QUIC, STUN, and P2P discovery
+
 	mut       sync.Mutex
 	available map[string][]any
 }
 
 func New() *Registry {
 	return &Registry{
-		UDP:       udpmux.NewManager(),
+		UDP:       NewUDPReuseManager(),
 		available: make(map[string][]any),
 	}
 }

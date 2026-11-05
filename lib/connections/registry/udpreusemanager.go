@@ -5,7 +5,7 @@
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // Package udpmux shares UDP sockets between QUIC protocols and non-QUIC traffic.
-package udpmux
+package registry
 
 import (
 	"context"
@@ -20,13 +20,13 @@ import (
 	"github.com/quic-go/quic-go"
 )
 
-type Manager struct {
+type UDPReuseManager struct {
 	mut  sync.Mutex
 	cm   *quicreuse.ConnManager
 	exts map[netip.AddrPort][]netip.AddrPort
 }
 
-func NewManager() *Manager {
+func NewUDPReuseManager() *UDPReuseManager {
 	var resetKey quic.StatelessResetKey
 	var tokenKey quic.TokenGeneratorKey
 	if _, err := rand.Read(resetKey[:]); err != nil {
@@ -38,13 +38,13 @@ func NewManager() *Manager {
 
 	// NewConnManager only returns an error for bad options
 	cm, _ := quicreuse.NewConnManager(resetKey, tokenKey, quicreuse.OverrideListenUDP(listenUDP))
-	return &Manager{
+	return &UDPReuseManager{
 		cm:   cm,
 		exts: make(map[netip.AddrPort][]netip.AddrPort),
 	}
 }
 
-func (m *Manager) Dial(ctx context.Context, remote netip.AddrPort, tlsCfg *tls.Config, cfg *quic.Config) (*quic.Conn, error) {
+func (m *UDPReuseManager) Dial(ctx context.Context, remote netip.AddrPort, tlsCfg *tls.Config, cfg *quic.Config) (*quic.Conn, error) {
 	addr := net.UDPAddrFromAddrPort(remote)
 	transport, err := m.cm.TransportForDial(udpNetwork(remote), addr)
 	if err != nil {
@@ -62,7 +62,7 @@ func (m *Manager) Dial(ctx context.Context, remote netip.AddrPort, tlsCfg *tls.C
 	return conn, nil
 }
 
-func (m *Manager) Listen(local netip.AddrPort, cfg *tls.Config) (Listener, error) {
+func (m *UDPReuseManager) Listen(local netip.AddrPort, cfg *tls.Config) (Listener, error) {
 	addr, err := quicreuse.ToQuicMultiaddr(net.UDPAddrFromAddrPort(local), quic.Version1)
 	if err != nil {
 		return nil, err
@@ -70,11 +70,11 @@ func (m *Manager) Listen(local netip.AddrPort, cfg *tls.Config) (Listener, error
 	return m.cm.ListenQUIC(addr, cfg, func(*quic.Conn, uint64) bool { return true })
 }
 
-func (m *Manager) PacketConn(local netip.AddrPort) (net.PacketConn, error) {
+func (m *UDPReuseManager) PacketConn(local netip.AddrPort) (net.PacketConn, error) {
 	return m.cm.SharedNonQUICPacketConn(udpNetwork(local), net.UDPAddrFromAddrPort(local))
 }
 
-func (m *Manager) QUICReuse() *quicreuse.ConnManager {
+func (m *UDPReuseManager) QUICReuse() *quicreuse.ConnManager {
 	return m.cm
 }
 
@@ -84,13 +84,13 @@ type Listener interface {
 	Close() error
 }
 
-func (m *Manager) SetExternalAddresses(local netip.AddrPort, addresses []netip.AddrPort) {
+func (m *UDPReuseManager) SetExternalAddresses(local netip.AddrPort, addresses []netip.AddrPort) {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 	m.exts[local] = addresses
 }
 
-func (m *Manager) ExternalAddresses(locals ...netip.AddrPort) []netip.AddrPort {
+func (m *UDPReuseManager) ExternalAddresses(locals ...netip.AddrPort) []netip.AddrPort {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 	var addresses []netip.AddrPort
