@@ -8,7 +8,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -23,7 +22,6 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/p2p/transport/quicreuse"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -60,25 +58,17 @@ func main() {
 	}
 }
 
-func loadIdentity(path string) (crypto.PrivKey, error) {
+func loadIdentity(path string) ([]byte, error) {
 	data, err := os.ReadFile(path)
 	if err == nil {
 		s := strings.TrimSpace(string(data))
-		decoded, err := base64.StdEncoding.DecodeString(s)
-		if err != nil {
-			return nil, fmt.Errorf("decode identity key: %w", err)
-		}
-		return crypto.UnmarshalPrivateKey(decoded)
+		return base64.StdEncoding.DecodeString(s)
 	}
 	if !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 
-	priv, _, err := crypto.GenerateEd25519Key(rand.Reader)
-	if err != nil {
-		return nil, err
-	}
-	data, err = crypto.MarshalPrivateKey(priv)
+	data, err = dht.NewIdentity()
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +78,7 @@ func loadIdentity(path string) (crypto.PrivKey, error) {
 		return nil, err
 	}
 
-	return priv, nil
+	return data, nil
 }
 
 func run(ctx context.Context, cli CLI) error {
