@@ -475,7 +475,7 @@
     "This setting controls the free space required on the home (i.e., index database) disk.": "Ce réglage contrôle l'espace disque requis dans le disque qui abrite votre répertoire utilisateur (pour la base de données d'indexation).",
     "Time": "Heure",
     "Time the item was last modified": "Dernière modification de l'élément",
-    "To connect with the Syncthing device named \"{%devicename%}\", add a new remote device on your end with this ID:": "Pour connecter votre appareil avec celui nommé \"{{devicename}}\", ajoutez ce nouvel appareil distant portant cet identifiant de votre côté :",
+    "To connect with the Syncthing device named \"{%devicename%}\", add a new remote device on your end with this ID:": "Pour connecter votre appareil avec celui nommé \"{{devicename}}\", ajoutez (bouton \"Ajouter un appareil...\" dans votre page Syncthing) ce nouvel appareil distant portant l'identifiant ci-dessous :",
     "To permit a rule, have the checkbox checked. To deny a rule, leave it unchecked.": "Partagez l'attribut spécifié en cochant la case. Laissez décoché pour refuser (comportement par défaut dès la première règle pour les attributs non spécifiés).",
     "Today": "Aujourd'hui",
     "Trash Can": "Corbeille",
