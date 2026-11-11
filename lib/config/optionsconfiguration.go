@@ -231,7 +231,11 @@ func (opts OptionsConfiguration) P2PDiscoveryBootstrapPeers() []string {
 	var peers []string
 	for _, address := range opts.RawP2PDiscoveryBootstrapPeers {
 		if address == "default" {
-			peers = append(peers, DefaultP2PDiscoveryBootstrapPeers...)
+			if records, err := net.LookupTXT(DefaultDHTBootstrapRecord); err != nil {
+				l.Debugln("Unable to resolve default DHT servers via DNS:", err)
+			} else {
+				peers = append(peers, records...)
+			}
 		} else {
 			peers = append(peers, address)
 		}
