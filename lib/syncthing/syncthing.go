@@ -45,9 +45,6 @@ import (
 const (
 	bepProtocolName        = "bep/1.0"
 	tlsDefaultCommonName   = "syncthing"
-	maxSystemErrors        = 5
-	initialSystemLog       = 10
-	maxSystemLog           = 250
 	deviceCertLifetimeDays = 20 * 365
 )
 
@@ -275,7 +272,7 @@ func (a *App) startup() error {
 	addrLister := &lateAddressLister{}
 
 	connRegistry := registry.New()
-	discoveryManager := discover.NewManager(a.myID, a.cfg, a.cert, a.evLogger, addrLister, connRegistry)
+	discoveryManager := discover.NewManager(a.myID, a.cfg, a.cert, a.evLogger, addrLister, connRegistry, a.sdb)
 	connectionsService := connections.NewService(a.cfg, a.myID, m, tlsCfg, discoveryManager, bepProtocolName, tlsDefaultCommonName, a.evLogger, connRegistry, keyGen)
 
 	addrLister.AddressLister = connectionsService
@@ -294,7 +291,7 @@ func (a *App) startup() error {
 		}
 	})
 
-	usageReportingSvc := ur.New(a.cfg, m, connectionsService, a.opts.NoUpgrade)
+	usageReportingSvc := ur.New(a.cfg, m, connectionsService, discoveryManager, a.opts.NoUpgrade)
 	a.mainService.Add(usageReportingSvc)
 
 	// GUI

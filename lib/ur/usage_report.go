@@ -27,6 +27,7 @@ import (
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
+	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -46,7 +47,12 @@ type Model interface {
 	UsageReportingStats(report *contract.Report, version int, preview bool)
 }
 
+type Discovery interface {
+	P2PStats() discover.P2PStats
+}
+
 type Service struct {
+	discovery          Discovery
 	cfg                config.Wrapper
 	model              Model
 	connectionsService connections.Service
@@ -54,9 +60,10 @@ type Service struct {
 	forceRun           chan struct{}
 }
 
-func New(cfg config.Wrapper, m Model, connectionsService connections.Service, noUpgrade bool) *Service {
+func New(cfg config.Wrapper, m Model, connectionsService connections.Service, discovery Discovery, noUpgrade bool) *Service {
 	return &Service{
 		cfg:                cfg,
+		discovery:          discovery,
 		model:              m,
 		connectionsService: connectionsService,
 		noUpgrade:          noUpgrade,
@@ -186,6 +193,12 @@ func (s *Service) reportData(ctx context.Context, urVersion int, preview bool) (
 
 	report.Announce.GlobalEnabled = opts.GlobalAnnEnabled
 	report.Announce.LocalEnabled = opts.LocalAnnEnabled
+	report.Announce.PeerToPeerEnabled = opts.P2PDiscoveryEnabled
+	if opts.P2PDiscoveryEnabled && s.discovery != nil {
+		stats := s.discovery.P2PStats()
+		report.Announce.PeerToPeerMode = stats.Mode
+		report.Announce.PeerToPeerPeers = stats.Peers
+	}
 	for _, addr := range opts.RawGlobalAnnServers {
 		if addr == "default" || addr == "default-v4" || addr == "default-v6" {
 			report.Announce.DefaultServersDNS++

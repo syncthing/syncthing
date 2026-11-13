@@ -19,6 +19,8 @@ import (
 
 	"github.com/thejerf/suture/v4"
 
+	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/dht"
 	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
@@ -37,6 +39,12 @@ import (
 type Manager interface {
 	FinderService
 	ChildErrors() map[string]error
+	P2PStats() P2PStats
+}
+
+type P2PStats struct {
+	Mode  string
+	Peers int
 }
 
 type manager struct {
@@ -48,12 +56,13 @@ type manager struct {
 	evLogger      events.Logger
 	addressLister AddressLister
 	registry      *registry.Registry
+	kv            db.KV
 
-	finders map[string]cachedFinder
 	mut     sync.RWMutex
+	finders map[string]cachedFinder
 }
 
-func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate, evLogger events.Logger, lister AddressLister, registry *registry.Registry) Manager {
+func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate, evLogger events.Logger, lister AddressLister, registry *registry.Registry, kv db.KV) Manager {
 	m := &manager{
 		Supervisor:    suture.New("discover.Manager", svcutil.SpecWithDebugLogger()),
 		myID:          myID,
@@ -62,8 +71,8 @@ func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate
 		evLogger:      evLogger,
 		addressLister: lister,
 		registry:      registry,
-
-		finders: make(map[string]cachedFinder),
+		kv:            kv,
+		finders:       make(map[string]cachedFinder),
 	}
 	m.Add(svcutil.AsService(m.serve, m.String()))
 	return m
@@ -72,8 +81,8 @@ func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate
 func (m *manager) serve(ctx context.Context) error {
 	m.cfg.Subscribe(m)
 	m.CommitConfiguration(config.Configuration{}, m.cfg.RawCopy())
+	defer m.cfg.Unsubscribe(m)
 	<-ctx.Done()
-	m.cfg.Unsubscribe(m)
 	return nil
 }
 
@@ -174,8 +183,8 @@ func (*manager) Error() error {
 }
 
 func (m *manager) ChildErrors() map[string]error {
-	children := make(map[string]error, len(m.finders))
 	m.mut.RLock()
+	children := make(map[string]error, len(m.finders))
 	for _, f := range m.finders {
 		children[f.String()] = f.Error()
 	}
@@ -243,6 +252,10 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 		toIdentities[ipv6Identity(to.Options.LocalAnnMCAddr)] = struct{}{}
 	}
 
+	if to.Options.P2PDiscoveryEnabled {
+		toIdentities[p2pIdentity()] = struct{}{}
+	}
+
 	// Remove things that we're not expected to have.
 	for identity := range m.finders {
 		if _, ok := toIdentities[identity]; !ok {
@@ -295,5 +308,40 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 		}
 	}
 
+	if to.Options.P2PDiscoveryEnabled {
+		ident := p2pIdentity()
+		if _, ok := m.finders[ident]; !ok {
+			listenAddresses := p2pQUICListenAddresses(to.Options.ListenAddresses())
+			bootstrapPeers := to.Options.P2PDiscoveryBootstrapPeers()
+			dht, err := NewPeerToPeerDiscovery(m.cert, m.addressLister, m.evLogger, m.kv, dht.Options{
+				UDP:             m.registry.UDP,
+				ListenAddresses: listenAddresses,
+				BootstrapPeers:  bootstrapPeers,
+			})
+			if err != nil {
+				slog.Warn("Failed to initialize peer-to-peer discovery", slogutil.Error(err))
+			} else {
+				m.addLocked(ident, dht, 5*time.Minute, time.Minute)
+			}
+		}
+	}
+
 	return true
+}
+
+// P2PStats returns statistics about the currently running peer-to-peer
+// discovery.
+func (m *manager) P2PStats() P2PStats {
+	m.mut.RLock()
+	defer m.mut.RUnlock()
+
+	p2p, ok := m.finders[p2pIdentity()].Finder.(*PeerToPeerDiscovery)
+	if !ok {
+		return P2PStats{}
+	}
+
+	return P2PStats{
+		Mode:  p2p.Mode(),
+		Peers: p2p.Peers(),
+	}
 }

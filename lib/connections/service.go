@@ -22,6 +22,7 @@ import (
 	"maps"
 	"math"
 	"net"
+	"net/netip"
 	"net/url"
 	"slices"
 	"strings"
@@ -847,7 +848,7 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 
 	s.listenersMut.Lock()
 	seen := make(map[string]struct{})
-	for _, addr := range to.Options.ListenAddresses() {
+	for _, addr := range expandListenAddresses(to.Options.ListenAddresses()) {
 		if addr == "" {
 			// We can get an empty address if there is an empty listener
 			// element in the config, indicating no listeners should be
@@ -901,6 +902,32 @@ func (s *service) CommitConfiguration(from, to config.Configuration) bool {
 	s.listenersMut.Unlock()
 
 	return true
+}
+
+// expandListenAddresses gives wildcard QUIC listeners one independently
+// supervised listener per address family, as required by the shared UDP manager.
+func expandListenAddresses(addresses []string) []string {
+	var expanded []string
+	for _, addr := range addresses {
+		uri, err := url.Parse(addr)
+		if err != nil || uri.String() != addr || uri.Scheme != "quic" {
+			expanded = append(expanded, addr)
+			continue
+		}
+		ip := net.ParseIP(uri.Hostname())
+		if uri.Hostname() != "" && (ip == nil || !ip.IsUnspecified()) {
+			expanded = append(expanded, addr)
+			continue
+		}
+		uri = fixupPort(uri, config.DefaultQUICPort)
+		uri.Scheme = "quic4"
+		uri.Host = net.JoinHostPort("0.0.0.0", uri.Port())
+		expanded = append(expanded, uri.String())
+		uri.Scheme = "quic6"
+		uri.Host = net.JoinHostPort("::", uri.Port())
+		expanded = append(expanded, uri.String())
+	}
+	return expanded
 }
 
 func (s *service) checkAndSignalConnectLoopOnUpdatedDevices(from, to config.Configuration) {
@@ -960,6 +987,30 @@ func (s *service) ExternalAddresses() []string {
 	}
 	s.listenersMut.RUnlock()
 	return stringutil.UniqueTrimmedStrings(addrs)
+}
+
+// ExternalIPs returns public IPs observed by the QUIC listeners' STUN
+// services. (Or other listeners with an ExternalIPs() method, but currently
+// that's just QUIC/STUN.)
+func (s *service) ExternalIPs() []netip.Addr {
+	s.listenersMut.RLock()
+	defer s.listenersMut.RUnlock()
+	var ips []netip.Addr
+	for _, listener := range s.listeners {
+		if source, ok := listener.(interface{ ExternalIPs() []netip.Addr }); ok {
+			ips = append(ips, source.ExternalIPs()...)
+		}
+	}
+	slices.SortFunc(ips, netip.Addr.Compare)
+	return slices.Compact(ips)
+}
+
+func publicIP(ip netip.Addr) []netip.Addr {
+	ip = ip.Unmap()
+	if !ip.IsGlobalUnicast() || ip.IsPrivate() || ip.Zone() != "" {
+		return nil
+	}
+	return []netip.Addr{ip}
 }
 
 func (s *service) ListenerStatus() map[string]ListenerStatusEntry {

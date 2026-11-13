@@ -41,7 +41,7 @@
           <li ng-repeat="discovery in discoveryFailed">{{discovery}}</li>
         </ul>
       </div>
-      <div class="row">
+      <div class="row" ng-if="config.options.globalAnnounceEnabled">
         <div class="col-md-offset-2 col-md-8">
           <div class="panel panel-default">
             <div translate class="panel-body">

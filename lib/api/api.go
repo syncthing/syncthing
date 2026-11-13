@@ -1046,7 +1046,8 @@ func (s *service) getSystemStatus(w http.ResponseWriter, _ *http.Request) {
 	res["alloc"] = m.Alloc
 	res["sys"] = m.Sys - m.HeapReleased
 	res["tilde"] = tilde
-	if s.cfg.Options().LocalAnnEnabled || s.cfg.Options().GlobalAnnEnabled {
+	opts := s.cfg.Options()
+	if opts.LocalAnnEnabled || opts.GlobalAnnEnabled || opts.P2PDiscoveryEnabled {
 		res["discoveryEnabled"] = true
 		discoStatus := s.discoverer.ChildErrors()
 		res["discoveryStatus"] = discoveryStatusMap(discoStatus)

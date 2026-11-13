@@ -37,11 +37,21 @@ const (
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
-var (
-	// DefaultTCPPort defines default TCP port used if the URI does not specify one, for example tcp://0.0.0.0
+const (
+	// DefaultTCPPort defines default TCP port used if the URI does not
+	// specify one, for example tcp://0.0.0.0
 	DefaultTCPPort = 22000
-	// DefaultQUICPort defines default QUIC port used if the URI does not specify one, for example quic://0.0.0.0
+	// DefaultQUICPort defines default QUIC port used if the URI does not
+	// specify one, for example quic://0.0.0.0
 	DefaultQUICPort = 22000
+	// DefaultDHTBootstrapRecord is the DNS record we use to resolve the
+	// default set of DTH bootstrap nodes, via TXT records.
+	DefaultDHTBootstrapRecord = "dht.syncthing.net"
+	// DefaultTheme is the default and fallback theme for the web UI.
+	DefaultTheme = "default"
+)
+
+var (
 	// DefaultListenAddresses should be substituted when the configuration
 	// contains <listenAddress>default</listenAddress>. This is done by the
 	// "consumer" of the configuration as we don't want these saved to the
@@ -66,8 +76,6 @@ var (
 	// DefaultDiscoveryServers should be substituted when the configuration
 	// contains <globalAnnounceServer>default</globalAnnounceServer>.
 	DefaultDiscoveryServers = append(DefaultDiscoveryServersV4, DefaultDiscoveryServersV6...)
-	// DefaultTheme is the default and fallback theme for the web UI.
-	DefaultTheme = "default"
 	// Default stun servers should be substituted when the configuration
 	// contains <stunServer>default</stunServer>.
 	// The primary stun servers are provided by us and are resolved via an SRV record

@@ -16,8 +16,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/quic-go/quic-go"
-
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -52,37 +50,15 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 		return internalConn{}, err
 	}
 
-	// If we created the conn we need to close it at the end. If we got a
-	// Transport from the registry we have no conn to close.
-	var createdConn net.PacketConn
-	transport, _ := d.registry.Get(uri.Scheme, transportConnUnspecified).(*quic.Transport)
-	if transport == nil {
-		if packetConn, err := net.ListenPacket("udp", ":0"); err != nil {
-			return internalConn{}, err
-		} else {
-			createdConn = packetConn
-			transport = &quic.Transport{Conn: packetConn}
-		}
-	}
-
 	ctx, cancel := context.WithTimeout(ctx, quicOperationTimeout)
 	defer cancel()
-
-	session, err := transport.Dial(ctx, addr, d.tlsCfg, quicConfig)
+	session, err := d.registry.UDP.Dial(ctx, addr.AddrPort(), d.tlsCfg, quicConfig)
 	if err != nil {
-		if createdConn != nil {
-			_ = createdConn.Close()
-		}
 		return internalConn{}, fmt.Errorf("dial: %w", err)
 	}
-
 	stream, err := session.OpenStreamSync(ctx)
 	if err != nil {
-		// It's ok to close these, this does not close the underlying packetConn.
 		_ = session.CloseWithError(1, err.Error())
-		if createdConn != nil {
-			_ = createdConn.Close()
-		}
 		return internalConn{}, fmt.Errorf("open stream: %w", err)
 	}
 
@@ -92,7 +68,7 @@ func (d *quicDialer) Dial(ctx context.Context, _ protocol.DeviceID, uri *url.URL
 		priority = d.lanPriority
 	}
 
-	return newInternalConn(&quicTlsConn{session, stream, createdConn}, connTypeQUICClient, isLocal, priority), nil
+	return newInternalConn(&quicTlsConn{session, stream}, connTypeQUICClient, isLocal, priority), nil
 }
 
 type quicDialerFactory struct{}
