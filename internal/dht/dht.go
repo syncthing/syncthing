@@ -260,6 +260,10 @@ func (s *DHT) Mode() string {
 	return "client"
 }
 
+func (s *DHT) Peers() int {
+	return s.ipfs.RoutingTable().Size()
+}
+
 func (s *DHT) Close() error {
 	return errors.Join(s.ipfs.Close(), s.host.Close())
 }

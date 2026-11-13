@@ -39,7 +39,12 @@ import (
 type Manager interface {
 	FinderService
 	ChildErrors() map[string]error
-	DHTMode() string
+	P2PStats() P2PStats
+}
+
+type P2PStats struct {
+	Mode  string
+	Peers int
 }
 
 type manager struct {
@@ -324,14 +329,19 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 	return true
 }
 
-// DHTMode returns the active DHT mode, for usage reporting purposes.
-func (m *manager) DHTMode() string {
+// P2PStats returns statistics about the currently running peer-to-peer
+// discovery.
+func (m *manager) P2PStats() P2PStats {
 	m.mut.RLock()
 	defer m.mut.RUnlock()
 
 	p2p, ok := m.finders[p2pIdentity()].Finder.(*PeerToPeerDiscovery)
 	if !ok {
-		return ""
+		return P2PStats{}
 	}
-	return p2p.Mode()
+
+	return P2PStats{
+		Mode:  p2p.Mode(),
+		Peers: p2p.Peers(),
+	}
 }

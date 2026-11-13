@@ -46,7 +46,7 @@ func main() {
 	}
 	bootstrapPeers := cli.DHTBootstrap
 	if len(bootstrapPeers) == 0 {
-		bootstrapPeers = config.DefaultP2PDiscoveryBootstrapPeers
+		bootstrapPeers = config.New(protocol.LocalDeviceID).Options.P2PDiscoveryBootstrapPeers()
 	}
 	checkServers(id, cli.Timeout, bootstrapPeers, servers...)
 }

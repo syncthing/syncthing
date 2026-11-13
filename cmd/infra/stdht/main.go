@@ -30,6 +30,7 @@ import (
 	"github.com/syncthing/syncthing/internal/dht"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type CLI struct {
@@ -88,7 +89,7 @@ func run(ctx context.Context, cli CLI) error {
 		return err
 	}
 	if len(cli.Bootstrap) == 0 {
-		cli.Bootstrap = config.DefaultP2PDiscoveryBootstrapPeers
+		cli.Bootstrap = config.New(protocol.LocalDeviceID).Options.P2PDiscoveryBootstrapPeers()
 	}
 	store, err := sqlite.Open(cli.Database) //nolint:contextcheck // SQLite's Open API does not accept a context.
 	if err != nil {

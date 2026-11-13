@@ -91,11 +91,15 @@ func NewPeerToPeerDiscovery(cert tls.Certificate, addresses AddressLister, evLog
 }
 
 func (s *PeerToPeerDiscovery) String() string {
-	return fmt.Sprintf("Peer-to-peer discovery (%s mode)", s.Mode())
+	return fmt.Sprintf("Peer-to-peer discovery (%s mode, %d peers)", s.Mode(), s.Peers())
 }
 
 func (s *PeerToPeerDiscovery) Mode() string {
 	return s.dht.Mode()
+}
+
+func (s *PeerToPeerDiscovery) Peers() int {
+	return s.dht.Peers()
 }
 
 func (s *PeerToPeerDiscovery) Close() error {
