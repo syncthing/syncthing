@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"log/slog"
 	"net"
 	"net/netip"
 	"slices"
@@ -85,8 +86,13 @@ type Listener interface {
 
 func (m *UDPReuseManager) SetExternalAddresses(local netip.AddrPort, addresses []netip.AddrPort) {
 	m.mut.Lock()
-	defer m.mut.Unlock()
-	m.exts[local] = addresses
+	previous := m.exts[local]
+	changed := !slices.Equal(previous, addresses)
+	m.exts[local] = slices.Clone(addresses)
+	m.mut.Unlock()
+	if changed {
+		slog.Debug("Shared UDP external addresses changed", "local", local, "previous", previous, "current", addresses)
+	}
 }
 
 func (m *UDPReuseManager) ExternalAddresses(locals ...netip.AddrPort) []netip.AddrPort {

@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/netip"
 	"slices"
+	"sync"
 	"time"
 
 	ds "github.com/ipfs/go-datastore"
@@ -81,11 +82,16 @@ type Options struct {
 }
 
 type DHT struct {
-	host host.Host
-	ipfs *kad.IpfsDHT
+	host            host.Host
+	ipfs            *kad.IpfsDHT
+	stopDiagnostics func()
+	diagnosticsDone chan struct{}
+	closeOnce       sync.Once
+	closeErr        error
 }
 
 func NewSyncthingDHT(options Options) (*DHT, error) {
+	setupLibraryLogging()
 	if options.Server && len(options.ListenAddresses) == 0 {
 		return nil, errors.New("DHT server requires a QUIC listener")
 	}
@@ -241,7 +247,9 @@ func NewSyncthingDHT(options Options) (*DHT, error) {
 		return nil, err
 	}
 
-	return &DHT{h, d}, nil
+	s := &DHT{host: h, ipfs: d}
+	s.startDiagnostics(peers)
+	return s, nil
 }
 
 func (s *DHT) ID() string {
@@ -265,10 +273,17 @@ func (s *DHT) Peers() int {
 }
 
 func (s *DHT) Close() error {
-	return errors.Join(s.ipfs.Close(), s.host.Close())
+	s.closeOnce.Do(func() {
+		s.stopDiagnostics()
+		<-s.diagnosticsDone
+		s.closeErr = errors.Join(s.ipfs.Close(), s.host.Close())
+	})
+	return s.closeErr
 }
 
-func (s *DHT) Lookup(ctx context.Context, deviceID protocol.DeviceID) ([]string, error) {
+func (s *DHT) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addresses []string, err error) {
+	start := time.Now()
+	defer func() { observeOperation(ctx, "lookup", start, err) }()
 	key := dhtRecordKey(deviceID)
 	value, err := s.ipfs.GetValue(ctx, key)
 	if errors.Is(err, routing.ErrNotFound) {
@@ -289,7 +304,9 @@ func (s *DHT) Lookup(ctx context.Context, deviceID protocol.DeviceID) ([]string,
 	return r.Addresses, nil
 }
 
-func (s *DHT) Announce(ctx context.Context, deviceID protocol.DeviceID, addresses []string, certificate []byte, privateKey stdcrypto.Signer) error {
+func (s *DHT) Announce(ctx context.Context, deviceID protocol.DeviceID, addresses []string, certificate []byte, privateKey stdcrypto.Signer) (err error) {
+	start := time.Now()
+	defer func() { observeOperation(ctx, "announce", start, err) }()
 	if s.ipfs.RoutingTable().Size() == 0 {
 		return errors.New("no discovery peers")
 	}
