@@ -737,7 +737,7 @@ jobs:
 
       - uses: ruby/setup-ruby@eab2afb99481ca09a4e91171a8e0aee0e89bfedd # v1
         with:
-          ruby-version: '3.0'
+          ruby-version: '3.4'
 
       - name: Install fpm
         run: |
