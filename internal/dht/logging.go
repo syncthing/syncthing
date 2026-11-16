@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	logging "github.com/ipfs/go-log/v2"
+	"github.com/libp2p/go-libp2p/gologshim"
 	"github.com/syncthing/syncthing/internal/slogutil"
 	"go.uber.org/zap/zapcore"
 )
@@ -26,6 +27,7 @@ func setupLibraryLogging() {
 		// the normal Syncthing log stream and support bundles. The slog handler
 		// still controls whether debug records are emitted.
 		logging.SetPrimaryCore(libraryLogCore{})
+		gologshim.SetDefaultHandler(logging.SlogHandler())
 		for _, system := range []string{"dht", "dht/RtRefreshManager", "swarm2", "autonat"} {
 			_ = logging.SetLogLevel(system, "debug")
 		}

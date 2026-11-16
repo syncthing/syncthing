@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/libp2p/go-libp2p/gologshim"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -43,5 +44,21 @@ func TestLibraryLogCore(t *testing.T) {
 	}
 	if libraryLogLevel(zapcore.InfoLevel) != slog.LevelDebug {
 		t.Fatal("verbose library info should require debug logging")
+	}
+}
+
+// libp2p's native slog loggers need an explicit bridge in addition to the
+// older DHT dependency's Zap loggers.
+func TestLibraryLogShim(t *testing.T) {
+	var output bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&output, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	setupLibraryLogging()
+	gologshim.Logger("autonat").Debug("test dialback result", "peer", "test-peer", "err", errors.New("dial failed"))
+	for _, want := range []string{"test dialback result", "test-peer", "dial failed", "autonat"} {
+		if !strings.Contains(output.String(), want) {
+			t.Errorf("missing %q in %s", want, output.String())
+		}
 	}
 }
