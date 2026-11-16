@@ -27,6 +27,7 @@ func (s *DHT) startDiagnostics(bootstrap []peer.AddrInfo) {
 	sub, err := s.host.EventBus().Subscribe([]interface{}{
 		new(event.EvtPeerIdentificationCompleted), new(event.EvtPeerIdentificationFailed),
 		new(event.EvtLocalAddressesUpdated), new(event.EvtLocalReachabilityChanged),
+		new(event.EvtPeerProtocolsUpdated),
 	})
 	if err != nil {
 		slog.Warn("Failed to subscribe to DHT diagnostics", "error", err)
@@ -113,6 +114,8 @@ func (s *DHT) startDiagnostics(bootstrap []peer.AddrInfo) {
 				switch ev := ev.(type) {
 				case event.EvtPeerIdentificationCompleted:
 					slog.Debug("DHT peer identified", "peer", ev.Peer, "addresses", ev.ListenAddrs, "supportsDHT", slices.Contains(ev.Protocols, p2pProtocolID), "agent", ev.AgentVersion)
+				case event.EvtPeerProtocolsUpdated:
+					slog.Debug("DHT peer protocols changed", "peer", ev.Peer, "added", ev.Added, "removed", ev.Removed)
 				case event.EvtPeerIdentificationFailed:
 					slog.Debug("DHT peer identification failed", "peer", ev.Peer, "error", ev.Reason)
 				case event.EvtLocalAddressesUpdated:

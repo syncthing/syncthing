@@ -26,7 +26,7 @@ func setupLibraryLogging() {
 		// the normal Syncthing log stream and support bundles. The slog handler
 		// still controls whether debug records are emitted.
 		logging.SetPrimaryCore(libraryLogCore{})
-		for _, system := range []string{"dht", "dht/RtRefreshManager", "swarm2"} {
+		for _, system := range []string{"dht", "dht/RtRefreshManager", "swarm2", "autonat"} {
 			_ = logging.SetLogLevel(system, "debug")
 		}
 	})
