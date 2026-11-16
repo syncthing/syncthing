@@ -19,6 +19,7 @@ import (
 type cachedFinder struct {
 	Finder
 
+	local        bool
 	cacheTime    time.Duration
 	negCacheTime time.Duration
 	cache        *cache
