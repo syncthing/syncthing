@@ -22,23 +22,105 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// DHTContainer is the versioned, signed container stored in the DHT.
+// Its metadata can be validated without decrypting the envelope.
+type DHTContainer struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Version is currently always `1`
+	Version int32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	// Sequence strictly increases for each new announcement
+	Sequence int64 `protobuf:"varint,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
+	// Timestamp in Unix epoch seconds when the record ceases to be valid
+	ExpiresUnix int64 `protobuf:"varint,3,opt,name=expires_unix,json=expiresUnix,proto3" json:"expires_unix,omitempty"`
+	// Payload is a random 24-byte nonce followed by the XChaCha20-Poly1305
+	// encrypted DHTEnvelope, including its authentication tag.
+	Payload []byte `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`
+	// Signature uses the daily record key and covers the domain prefix followed
+	// by the deterministic protobuf encoding of this container without signature.
+	Signature     []byte `protobuf:"bytes,5,opt,name=signature,proto3" json:"signature,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DHTContainer) Reset() {
+	*x = DHTContainer{}
+	mi := &file_discoproto_dht_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DHTContainer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DHTContainer) ProtoMessage() {}
+
+func (x *DHTContainer) ProtoReflect() protoreflect.Message {
+	mi := &file_discoproto_dht_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DHTContainer.ProtoReflect.Descriptor instead.
+func (*DHTContainer) Descriptor() ([]byte, []int) {
+	return file_discoproto_dht_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *DHTContainer) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *DHTContainer) GetSequence() int64 {
+	if x != nil {
+		return x.Sequence
+	}
+	return 0
+}
+
+func (x *DHTContainer) GetExpiresUnix() int64 {
+	if x != nil {
+		return x.ExpiresUnix
+	}
+	return 0
+}
+
+func (x *DHTContainer) GetPayload() []byte {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+func (x *DHTContainer) GetSignature() []byte {
+	if x != nil {
+		return x.Signature
+	}
+	return nil
+}
+
 type DHTEnvelope struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Version is the format version of the DHT envelope. Currently, 1 is the
-	// only permitted value.
-	Version int32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
 	// Payload is the protobuf marshalled DHTPayload
-	Payload []byte `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
+	Payload []byte `protobuf:"bytes,1,opt,name=payload,proto3" json:"payload,omitempty"`
 	// Signature is the signature of the payload by the certificate inside the
 	// payload.
-	Signature     []byte `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
+	Signature     []byte `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DHTEnvelope) Reset() {
 	*x = DHTEnvelope{}
-	mi := &file_discoproto_dht_proto_msgTypes[0]
+	mi := &file_discoproto_dht_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -50,7 +132,7 @@ func (x *DHTEnvelope) String() string {
 func (*DHTEnvelope) ProtoMessage() {}
 
 func (x *DHTEnvelope) ProtoReflect() protoreflect.Message {
-	mi := &file_discoproto_dht_proto_msgTypes[0]
+	mi := &file_discoproto_dht_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -63,14 +145,7 @@ func (x *DHTEnvelope) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DHTEnvelope.ProtoReflect.Descriptor instead.
 func (*DHTEnvelope) Descriptor() ([]byte, []int) {
-	return file_discoproto_dht_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *DHTEnvelope) GetVersion() int32 {
-	if x != nil {
-		return x.Version
-	}
-	return 0
+	return file_discoproto_dht_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *DHTEnvelope) GetPayload() []byte {
@@ -111,7 +186,7 @@ type DHTPayload struct {
 
 func (x *DHTPayload) Reset() {
 	*x = DHTPayload{}
-	mi := &file_discoproto_dht_proto_msgTypes[1]
+	mi := &file_discoproto_dht_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -123,7 +198,7 @@ func (x *DHTPayload) String() string {
 func (*DHTPayload) ProtoMessage() {}
 
 func (x *DHTPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_discoproto_dht_proto_msgTypes[1]
+	mi := &file_discoproto_dht_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -136,7 +211,7 @@ func (x *DHTPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DHTPayload.ProtoReflect.Descriptor instead.
 func (*DHTPayload) Descriptor() ([]byte, []int) {
-	return file_discoproto_dht_proto_rawDescGZIP(), []int{1}
+	return file_discoproto_dht_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *DHTPayload) GetAddresses() []string {
@@ -172,11 +247,17 @@ var File_discoproto_dht_proto protoreflect.FileDescriptor
 const file_discoproto_dht_proto_rawDesc = "" +
 	"\n" +
 	"\x14discoproto/dht.proto\x12\n" +
-	"discoproto\x1a\x1bbuf/validate/validate.proto\"|\n" +
-	"\vDHTEnvelope\x12!\n" +
-	"\aversion\x18\x01 \x01(\x05B\a\xbaH\x04\x1a\x02\b\x01R\aversion\x12\"\n" +
-	"\apayload\x18\x02 \x01(\fB\b\xbaH\x05z\x03\x18\x80 R\apayload\x12&\n" +
-	"\tsignature\x18\x03 \x01(\fB\b\xbaH\x05z\x03\x18\x80\bR\tsignature\"\xb8\x01\n" +
+	"discoproto\x1a\x1bbuf/validate/validate.proto\"\xcf\x01\n" +
+	"\fDHTContainer\x12!\n" +
+	"\aversion\x18\x01 \x01(\x05B\a\xbaH\x04\x1a\x02\b\x01R\aversion\x12#\n" +
+	"\bsequence\x18\x02 \x01(\x03B\a\xbaH\x04\"\x02(\x00R\bsequence\x12*\n" +
+	"\fexpires_unix\x18\x03 \x01(\x03B\a\xbaH\x04\"\x02(\x00R\vexpiresUnix\x12$\n" +
+	"\apayload\x18\x04 \x01(\fB\n" +
+	"\xbaH\az\x05\x10(\x18\x800R\apayload\x12%\n" +
+	"\tsignature\x18\x05 \x01(\fB\a\xbaH\x04z\x02h@R\tsignature\"Y\n" +
+	"\vDHTEnvelope\x12\"\n" +
+	"\apayload\x18\x01 \x01(\fB\b\xbaH\x05z\x03\x18\x80 R\apayload\x12&\n" +
+	"\tsignature\x18\x02 \x01(\fB\b\xbaH\x05z\x03\x18\x80\bR\tsignature\"\xb8\x01\n" +
 	"\n" +
 	"DHTPayload\x12-\n" +
 	"\taddresses\x18\x01 \x03(\tB\x0f\xbaH\f\x92\x01\t\x10 \"\x05r\x03\x18\x80\x01R\taddresses\x12*\n" +
@@ -200,10 +281,11 @@ func file_discoproto_dht_proto_rawDescGZIP() []byte {
 	return file_discoproto_dht_proto_rawDescData
 }
 
-var file_discoproto_dht_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_discoproto_dht_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_discoproto_dht_proto_goTypes = []any{
-	(*DHTEnvelope)(nil), // 0: discoproto.DHTEnvelope
-	(*DHTPayload)(nil),  // 1: discoproto.DHTPayload
+	(*DHTContainer)(nil), // 0: discoproto.DHTContainer
+	(*DHTEnvelope)(nil),  // 1: discoproto.DHTEnvelope
+	(*DHTPayload)(nil),   // 2: discoproto.DHTPayload
 }
 var file_discoproto_dht_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -224,7 +306,7 @@ func file_discoproto_dht_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_discoproto_dht_proto_rawDesc), len(file_discoproto_dht_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

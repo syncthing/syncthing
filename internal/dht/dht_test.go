@@ -33,9 +33,10 @@ import (
 
 func TestDHTRecordNamespace(t *testing.T) {
 	id := protocol.NewDeviceID([]byte("test certificate"))
-	key := dhtRecordKey(id)
-	if want := "/device/" + id.String(); key != want {
-		t.Fatalf("record key: got %q, want %q", key, want)
+	var cache discoveryKeyCache
+	key := cache.get(id, time.Now()).record
+	if key == "/device/"+id.String() {
+		t.Fatal("record key reveals device ID")
 	}
 	validators := record.NamespacedValidator{dhtRecordNamespace: dhtRecordValidator{}}
 	if _, ok := validators.ValidatorByKey(key).(dhtRecordValidator); !ok {
@@ -213,7 +214,6 @@ func TestRegenerateDHTDiscoveryGolden(t *testing.T) {
 
 			// Save it
 			data, err := proto.Marshal(&discoproto.DHTEnvelope{
-				Version:   1,
 				Payload:   random[:],
 				Signature: signature,
 			})
@@ -226,5 +226,104 @@ func TestRegenerateDHTDiscoveryGolden(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+func TestEncryptedRecord(t *testing.T) {
+	cert, err := tlsutil.NewCertificateInMemory("encrypted-discovery-test", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	id := protocol.NewDeviceID(cert.Certificate[0])
+	now := time.Now()
+	var cache discoveryKeyCache
+	keys := cache.get(id, now)
+
+	payload := &discoproto.DHTPayload{
+		Certificate: cert.Certificate[0],
+		Addresses:   []string{"tcp://192.0.2.1:22000"},
+		Sequence:    now.UnixMilli(),
+		ExpiresUnix: now.Add(RecordLifetime).Unix(),
+	}
+
+	plain, err := encodeEnvelope(payload, cert.PrivateKey.(crypto.Signer))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	encrypted, err := encryptRecord(plain, payload.Sequence, payload.ExpiresUnix, keys)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := decryptRecord(id, encrypted, keys, now)
+	if err != nil || !proto.Equal(got, payload) {
+		t.Fatalf("roundtrip: %v, %v", got, err)
+	}
+
+	other, err := encryptRecord(plain, payload.Sequence, payload.ExpiresUnix, keys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.Equal(encrypted, other) {
+		t.Fatal("nonce reused")
+	}
+
+	for _, field := range []string{"version", "sequence", "expires", "nonce", "ciphertext", "signature"} {
+		t.Run(field, func(t *testing.T) {
+			var container discoproto.DHTContainer
+			if err := proto.Unmarshal(encrypted, &container); err != nil {
+				t.Fatal(err)
+			}
+			switch field {
+			case "version":
+				container.Version++
+			case "sequence":
+				container.Sequence++
+			case "expires":
+				container.ExpiresUnix++
+			case "nonce":
+				container.Payload[0] ^= 1
+			case "ciphertext":
+				container.Payload[24] ^= 1
+			case "signature":
+				container.Signature[0] ^= 1
+			}
+			bad, err := proto.Marshal(&container)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := decryptRecord(id, bad, keys, now); err == nil {
+				t.Fatal("accepted tampered container")
+			}
+		})
+	}
+
+	for _, bad := range [][]byte{nil, []byte("invalid"), encrypted[:len(encrypted)/2]} {
+		if _, err := decryptRecord(id, bad, keys, now); err == nil {
+			t.Fatal("accepted malformed container")
+		}
+	}
+
+	if _, err := decryptRecord(id, encrypted, cache.get(id, now.Add(24*time.Hour)), now); err == nil {
+		t.Fatal("accepted wrong daily key")
+	}
+
+	if _, err := decryptRecord(protocol.NewDeviceID([]byte("other")), encrypted, keys, now); err == nil {
+		t.Fatal("accepted wrong device ID")
+	}
+
+	if _, err := validateEncryptedRecord(keys.record, encrypted, now.Add(RecordLifetime+time.Second)); err == nil {
+		t.Fatal("accepted expired record")
+	}
+
+	newer, err := encryptRecord(plain, payload.Sequence+1, payload.ExpiresUnix, keys)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if idx, err := (dhtRecordValidator{}).Select(keys.record, [][]byte{encrypted, []byte("invalid"), newer}); err != nil || idx != 2 {
+		t.Fatalf("selection: %d, %v", idx, err)
 	}
 }

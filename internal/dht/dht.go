@@ -84,6 +84,7 @@ type Options struct {
 type DHT struct {
 	host host.Host
 	ipfs *kad.IpfsDHT
+	keys discoveryKeyCache
 }
 
 func NewSyncthingDHT(options Options) (*DHT, error) {
@@ -262,7 +263,7 @@ func NewSyncthingDHT(options Options) (*DHT, error) {
 		return nil, err
 	}
 
-	return &DHT{h, d}, nil
+	return &DHT{host: h, ipfs: d}, nil
 }
 
 func (s *DHT) ID() string {
@@ -289,25 +290,34 @@ func (s *DHT) Close() error {
 	return errors.Join(s.ipfs.Close(), s.host.Close())
 }
 
-func (s *DHT) Lookup(ctx context.Context, deviceID protocol.DeviceID) ([]string, error) {
-	key := dhtRecordKey(deviceID)
-	value, err := s.ipfs.GetValue(ctx, key)
-	if errors.Is(err, routing.ErrNotFound) {
-		slog.DebugContext(ctx, "No DHT result", "device", deviceID, "key", key)
-		return nil, ErrP2PNotFound
+func (s *DHT) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addresses []string, err error) {
+	now := time.Now()
+	var errs []error
+	for _, date := range discoveryDates(now) {
+		keys := s.keys.get(deviceID, date)
+		value, err := s.ipfs.GetValue(ctx, keys.record)
+		if errors.Is(err, routing.ErrNotFound) {
+			continue
+		}
+		if err != nil && !(errors.Is(err, context.DeadlineExceeded) && len(value) > 0) {
+			errs = append(errs, err)
+			if ctx.Err() != nil {
+				break
+			}
+			continue
+		}
+		r, err := decryptRecord(deviceID, value, keys, now)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		slog.DebugContext(ctx, "Got DHT result", "device", deviceID, "key", keys.record, "sequence", r.Sequence)
+		return r.Addresses, nil
 	}
-	if err != nil && !(errors.Is(err, context.DeadlineExceeded) && len(value) > 0) {
-		return nil, err
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
 	}
-
-	r, err := decodeEnvelope(key, value, time.Now())
-	if err != nil {
-		return nil, err
-	}
-
-	slog.DebugContext(ctx, "Got DHT result", "device", deviceID, "key", key, "sequence", r.Sequence, "expires", r.ExpiresUnix, "certlen", len(r.Certificate), "addrlen", len(r.Addresses))
-
-	return r.Addresses, nil
+	return nil, ErrP2PNotFound
 }
 
 func (s *DHT) Announce(ctx context.Context, deviceID protocol.DeviceID, addresses []string, certificate []byte, privateKey stdcrypto.Signer) error {
@@ -315,10 +325,12 @@ func (s *DHT) Announce(ctx context.Context, deviceID protocol.DeviceID, addresse
 		return errors.New("no discovery peers")
 	}
 
-	key := dhtRecordKey(deviceID)
+	now := time.Now()
+	keys := s.keys.get(deviceID, now)
+	key := keys.record
 	var prevSeq int64
 	if value, err := s.ipfs.GetValue(ctx, key); err == nil {
-		if old, err := decodeEnvelope(key, value, time.Now()); err == nil {
+		if old, err := decryptRecord(deviceID, value, keys, now); err == nil {
 			prevSeq = old.Sequence
 		}
 	}
@@ -331,6 +343,10 @@ func (s *DHT) Announce(ctx context.Context, deviceID protocol.DeviceID, addresse
 		ExpiresUnix: time.Now().Add(RecordLifetime).Unix(),
 	}
 	value, err := encodeEnvelope(r, privateKey)
+	if err != nil {
+		return err
+	}
+	value, err = encryptRecord(value, r.Sequence, r.ExpiresUnix, keys)
 	if err != nil {
 		return err
 	}

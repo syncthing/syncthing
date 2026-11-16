@@ -14,6 +14,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"strings"
@@ -22,6 +23,7 @@ import (
 	"buf.build/go/protovalidate"
 	"github.com/syncthing/syncthing/internal/gen/discoproto"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"golang.org/x/crypto/chacha20poly1305"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -32,8 +34,9 @@ const (
 	dhtSignatureDomain = "syncthing-dht-discovery-v1\x00"
 )
 
-func dhtRecordKey(id protocol.DeviceID) string {
-	return "/" + dhtRecordNamespace + "/" + id.String()
+// dhtRecordKey encodes the public half of the daily record signing key.
+func dhtRecordKey(public ed25519.PublicKey) string {
+	return "/" + dhtRecordNamespace + "/" + base64.RawURLEncoding.EncodeToString(public)
 }
 
 // encodeEnvelope returns a signed DHTEnvelope containing the payload
@@ -50,7 +53,6 @@ func encodeEnvelope(payload *discoproto.DHTPayload, key crypto.Signer) ([]byte, 
 		return nil, err
 	}
 	envelope := &discoproto.DHTEnvelope{
-		Version:   1,
 		Payload:   bs,
 		Signature: signature,
 	}
@@ -61,17 +63,7 @@ func encodeEnvelope(payload *discoproto.DHTPayload, key crypto.Signer) ([]byte, 
 }
 
 // decodeEnvelope returns the DHTPayload contained in the given signed envelope
-func decodeEnvelope(key string, value []byte, now time.Time) (*discoproto.DHTPayload, error) {
-	// The key should be a valid device ID
-	prefix := "/" + dhtRecordNamespace + "/"
-	if !strings.HasPrefix(key, prefix) {
-		return nil, errors.New("invalid discovery namespace")
-	}
-	id, err := protocol.DeviceIDFromString(strings.TrimPrefix(key, prefix))
-	if err != nil || key != dhtRecordKey(id) {
-		return nil, errors.New("invalid discovery key")
-	}
-
+func decodeEnvelope(id protocol.DeviceID, value []byte, now time.Time) (*discoproto.DHTPayload, error) {
 	// We can unmarshal the envelope
 	var envelope discoproto.DHTEnvelope
 	if err := proto.Unmarshal(value, &envelope); err != nil {
@@ -165,23 +157,128 @@ func dhtSignatureAlgorithm(public crypto.PublicKey) (x509.SignatureAlgorithm, er
 // them from the network
 type dhtRecordValidator struct{}
 
+// The daily signing public key is the DHT lookup key. Servers can authenticate
+// and order containers without learning the device ID or the plaintext.
+const encryptedRecordDomain = "syncthing-dht-encrypted-record-v1\x00"
+
+// containerMetadata is also used as AEAD additional data, binding encryption
+// to the container version, sequence and expiration.
+func containerMetadata(container *discoproto.DHTContainer) ([]byte, error) {
+	return proto.MarshalOptions{Deterministic: true}.Marshal(&discoproto.DHTContainer{
+		Version: container.Version, Sequence: container.Sequence, ExpiresUnix: container.ExpiresUnix,
+	})
+}
+
+func containerSigningBytes(container *discoproto.DHTContainer) ([]byte, error) {
+	unsigned := proto.Clone(container).(*discoproto.DHTContainer)
+	unsigned.Signature = nil
+	bs, err := (proto.MarshalOptions{Deterministic: true}).Marshal(unsigned)
+	if err != nil {
+		return nil, err
+	}
+	return append([]byte(encryptedRecordDomain), bs...), nil
+}
+
+func encryptRecord(value []byte, sequence, expires int64, keys discoveryKeys) ([]byte, error) {
+	aead, err := chacha20poly1305.NewX(keys.encryption[:])
+	if err != nil {
+		return nil, err
+	}
+	container := &discoproto.DHTContainer{Version: 1, Sequence: sequence, ExpiresUnix: expires}
+	additional, err := containerMetadata(container)
+	if err != nil {
+		return nil, err
+	}
+	nonce := make([]byte, aead.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, err
+	}
+	container.Payload = aead.Seal(nonce, nonce, value, additional)
+	signed, err := containerSigningBytes(container)
+	if err != nil {
+		return nil, err
+	}
+	container.Signature = ed25519.Sign(keys.signing, signed)
+	if err := protovalidate.Validate(container); err != nil {
+		return nil, err
+	}
+	return proto.Marshal(container)
+}
+
+func validateEncryptedRecord(key string, value []byte, now time.Time) (*discoproto.DHTContainer, error) {
+	prefix := "/" + dhtRecordNamespace + "/"
+	if !strings.HasPrefix(key, prefix) {
+		return nil, errors.New("invalid discovery namespace")
+	}
+	public, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(key, prefix))
+	if err != nil || len(public) != ed25519.PublicKeySize || key != dhtRecordKey(public) {
+		return nil, errors.New("invalid discovery key")
+	}
+	if len(value) > 8192 {
+		return nil, errors.New("invalid encrypted discovery record size")
+	}
+	var container discoproto.DHTContainer
+	if err := proto.Unmarshal(value, &container); err != nil {
+		return nil, err
+	}
+	if err := protovalidate.Validate(&container); err != nil {
+		return nil, err
+	}
+	signed, err := containerSigningBytes(&container)
+	if err != nil {
+		return nil, err
+	}
+	if !ed25519.Verify(public, signed, container.Signature) {
+		return nil, errors.New("invalid encrypted discovery signature")
+	}
+	expires := time.Unix(container.ExpiresUnix, 0)
+	if now.After(expires) || expires.After(now.Add(4*RecordLifetime)) {
+		return nil, errors.New("invalid encrypted discovery expiration")
+	}
+	return &container, nil
+}
+
+func decryptRecord(id protocol.DeviceID, value []byte, keys discoveryKeys, now time.Time) (*discoproto.DHTPayload, error) {
+	container, err := validateEncryptedRecord(keys.record, value, now)
+	if err != nil {
+		return nil, err
+	}
+	aead, err := chacha20poly1305.NewX(keys.encryption[:])
+	if err != nil {
+		return nil, err
+	}
+	additional, err := containerMetadata(container)
+	if err != nil {
+		return nil, err
+	}
+	plaintext, err := aead.Open(nil, container.Payload[:aead.NonceSize()], container.Payload[aead.NonceSize():], additional)
+	if err != nil {
+		return nil, err
+	}
+	payload, err := decodeEnvelope(id, plaintext, now)
+	if err != nil {
+		return nil, err
+	}
+	if payload.Sequence != container.Sequence || payload.ExpiresUnix != container.ExpiresUnix {
+		return nil, errors.New("discovery metadata mismatch")
+	}
+	return payload, nil
+}
+
 func (dhtRecordValidator) Validate(key string, value []byte) error {
-	_, err := decodeEnvelope(key, value, time.Now())
+	_, err := validateEncryptedRecord(key, value, time.Now())
 	return err
 }
 
-// Select returns the index of the best (newest) of the given set of records
+// Select returns the index of the newest valid encrypted record.
 func (dhtRecordValidator) Select(key string, values [][]byte) (int, error) {
 	idx := -1
-	var best *discoproto.DHTPayload
+	var best int64
 	now := time.Now()
 	for i, value := range values {
-		rec, err := decodeEnvelope(key, value, now)
-		if err != nil {
-			continue
-		}
-		if idx == -1 || rec.Sequence > best.Sequence {
-			idx, best = i, rec
+		container, err := validateEncryptedRecord(key, value, now)
+		if err == nil && (idx == -1 || container.Sequence > best) {
+			idx, best = i, container.Sequence
 		}
 	}
 	if idx == -1 {
