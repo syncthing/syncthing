@@ -28,6 +28,7 @@ import (
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/internal/dht"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -45,6 +46,8 @@ type CLI struct {
 }
 
 func main() {
+	slogutil.SetLevelOverrides(os.Getenv("STTRACE"))
+
 	var cli CLI
 	kong.Parse(&cli)
 	if cli.Version {
