@@ -158,21 +158,21 @@ func dhtSignatureAlgorithm(public crypto.PublicKey) (x509.SignatureAlgorithm, er
 type dhtRecordValidator struct{}
 
 // The daily signing public key is the DHT lookup key. Servers can authenticate
-// and order containers without learning the device ID or the plaintext.
+// and order wrappers without learning the device ID or the plaintext.
 const encryptedRecordDomain = "syncthing-dht-encrypted-record-v1\x00"
 
-// containerMetadata is also used as AEAD additional data, binding encryption
-// to the container version, sequence and expiration.
-func containerMetadata(container *discoproto.DHTWrapper) ([]byte, error) {
+// wrapperMetadata is also used as AEAD additional data, binding encryption
+// to the wrapper version, sequence and expiration.
+func wrapperMetadata(w *discoproto.DHTWrapper) ([]byte, error) {
 	return proto.MarshalOptions{Deterministic: true}.Marshal(&discoproto.DHTWrapper{
-		Version:     container.Version,
-		Sequence:    container.Sequence,
-		ExpiresUnix: container.ExpiresUnix,
+		Version:     w.Version,
+		Sequence:    w.Sequence,
+		ExpiresUnix: w.ExpiresUnix,
 	})
 }
 
-func containerSigningBytes(container *discoproto.DHTWrapper) ([]byte, error) {
-	unsigned := proto.Clone(container).(*discoproto.DHTWrapper)
+func wrapperSigningBytes(w *discoproto.DHTWrapper) ([]byte, error) {
+	unsigned := proto.Clone(w).(*discoproto.DHTWrapper)
 	unsigned.Signature = nil
 	bs, err := (proto.MarshalOptions{Deterministic: true}).Marshal(unsigned)
 	if err != nil {
@@ -190,12 +190,12 @@ func encryptRecord(payload *discoproto.DHTPayload, signer crypto.Signer, keys di
 	if err != nil {
 		return nil, err
 	}
-	container := &discoproto.DHTWrapper{
+	w := &discoproto.DHTWrapper{
 		Version:     1,
 		Sequence:    payload.Sequence,
 		ExpiresUnix: payload.ExpiresUnix,
 	}
-	additional, err := containerMetadata(container)
+	additional, err := wrapperMetadata(w)
 	if err != nil {
 		return nil, err
 	}
@@ -203,16 +203,16 @@ func encryptRecord(payload *discoproto.DHTPayload, signer crypto.Signer, keys di
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
-	container.Payload = aead.Seal(nonce, nonce, value, additional)
-	signed, err := containerSigningBytes(container)
+	w.Payload = aead.Seal(nonce, nonce, value, additional)
+	signed, err := wrapperSigningBytes(w)
 	if err != nil {
 		return nil, err
 	}
-	container.Signature = ed25519.Sign(keys.signing, signed)
-	if err := protovalidate.Validate(container); err != nil {
+	w.Signature = ed25519.Sign(keys.signing, signed)
+	if err := protovalidate.Validate(w); err != nil {
 		return nil, err
 	}
-	return proto.Marshal(container)
+	return proto.Marshal(w)
 }
 
 func validateEncryptedRecord(key string, value []byte, now time.Time) (*discoproto.DHTWrapper, error) {
@@ -227,29 +227,29 @@ func validateEncryptedRecord(key string, value []byte, now time.Time) (*discopro
 	if len(value) > 8192 {
 		return nil, errors.New("invalid encrypted discovery record size")
 	}
-	var container discoproto.DHTWrapper
-	if err := proto.Unmarshal(value, &container); err != nil {
+	var w discoproto.DHTWrapper
+	if err := proto.Unmarshal(value, &w); err != nil {
 		return nil, err
 	}
-	if err := protovalidate.Validate(&container); err != nil {
+	if err := protovalidate.Validate(&w); err != nil {
 		return nil, err
 	}
-	signed, err := containerSigningBytes(&container)
+	signed, err := wrapperSigningBytes(&w)
 	if err != nil {
 		return nil, err
 	}
-	if !ed25519.Verify(public, signed, container.Signature) {
+	if !ed25519.Verify(public, signed, w.Signature) {
 		return nil, errors.New("invalid encrypted discovery signature")
 	}
-	expires := time.Unix(container.ExpiresUnix, 0)
+	expires := time.Unix(w.ExpiresUnix, 0)
 	if now.After(expires) || expires.After(now.Add(4*RecordLifetime)) {
 		return nil, errors.New("invalid encrypted discovery expiration")
 	}
-	return &container, nil
+	return &w, nil
 }
 
 func decryptRecord(id protocol.DeviceID, value []byte, keys discoveryKeys, now time.Time) (*discoproto.DHTPayload, error) {
-	container, err := validateEncryptedRecord(keys.record, value, now)
+	w, err := validateEncryptedRecord(keys.record, value, now)
 	if err != nil {
 		return nil, err
 	}
@@ -257,11 +257,11 @@ func decryptRecord(id protocol.DeviceID, value []byte, keys discoveryKeys, now t
 	if err != nil {
 		return nil, err
 	}
-	additional, err := containerMetadata(container)
+	additional, err := wrapperMetadata(w)
 	if err != nil {
 		return nil, err
 	}
-	plaintext, err := aead.Open(nil, container.Payload[:aead.NonceSize()], container.Payload[aead.NonceSize():], additional)
+	plaintext, err := aead.Open(nil, w.Payload[:aead.NonceSize()], w.Payload[aead.NonceSize():], additional)
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +269,7 @@ func decryptRecord(id protocol.DeviceID, value []byte, keys discoveryKeys, now t
 	if err != nil {
 		return nil, err
 	}
-	if payload.Sequence != container.Sequence || payload.ExpiresUnix != container.ExpiresUnix {
+	if payload.Sequence != w.Sequence || payload.ExpiresUnix != w.ExpiresUnix {
 		return nil, errors.New("discovery metadata mismatch")
 	}
 	return payload, nil
@@ -286,9 +286,9 @@ func (dhtRecordValidator) Select(key string, values [][]byte) (int, error) {
 	var best int64
 	now := time.Now()
 	for i, value := range values {
-		container, err := validateEncryptedRecord(key, value, now)
-		if err == nil && (idx == -1 || container.Sequence > best) {
-			idx, best = i, container.Sequence
+		w, err := validateEncryptedRecord(key, value, now)
+		if err == nil && (idx == -1 || w.Sequence > best) {
+			idx, best = i, w.Sequence
 		}
 	}
 	if idx == -1 {

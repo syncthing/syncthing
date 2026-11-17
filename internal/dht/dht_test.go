@@ -335,7 +335,7 @@ func TestEncryptedRecord(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			additional, err := containerMetadata(&wrapper)
+			additional, err := wrapperMetadata(&wrapper)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -348,7 +348,7 @@ func TestEncryptedRecord(t *testing.T) {
 				t.Fatal(err)
 			}
 			wrapper.Payload = aead.Seal(nonce, nonce, plain, additional)
-			signed, err := containerSigningBytes(&wrapper)
+			signed, err := wrapperSigningBytes(&wrapper)
 			if err != nil {
 				t.Fatal(err)
 			}
