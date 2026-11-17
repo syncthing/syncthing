@@ -165,7 +165,9 @@ const encryptedRecordDomain = "syncthing-dht-encrypted-record-v1\x00"
 // to the container version, sequence and expiration.
 func containerMetadata(container *discoproto.DHTContainer) ([]byte, error) {
 	return proto.MarshalOptions{Deterministic: true}.Marshal(&discoproto.DHTContainer{
-		Version: container.Version, Sequence: container.Sequence, ExpiresUnix: container.ExpiresUnix,
+		Version:     container.Version,
+		Sequence:    container.Sequence,
+		ExpiresUnix: container.ExpiresUnix,
 	})
 }
 
@@ -184,7 +186,11 @@ func encryptRecord(value []byte, sequence, expires int64, keys discoveryKeys) ([
 	if err != nil {
 		return nil, err
 	}
-	container := &discoproto.DHTContainer{Version: 1, Sequence: sequence, ExpiresUnix: expires}
+	container := &discoproto.DHTContainer{
+		Version:     1,
+		Sequence:    sequence,
+		ExpiresUnix: expires,
+	}
 	additional, err := containerMetadata(container)
 	if err != nil {
 		return nil, err
