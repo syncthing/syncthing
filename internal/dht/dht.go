@@ -295,7 +295,7 @@ func (s *DHT) Close() error {
 func (s *DHT) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addresses []string, err error) {
 	now := time.Now()
 	var errs []error
-	for _, date := range discoveryDates(now) {
+	for _, date := range discoveryDates(deviceID, now) {
 		keys := s.keys.get(deviceID, date)
 		slog.Debug("Look up record", "device", deviceID, "date", date, "key", keys.record)
 

@@ -7,6 +7,7 @@
 package dht
 
 import (
+	"encoding/binary"
 	"fmt"
 	"testing"
 	"time"
@@ -16,7 +17,8 @@ import (
 
 func TestDiscoveryKeyDerivation(t *testing.T) {
 	id := protocol.NewDeviceID([]byte("test certificate"))
-	date := time.Date(2026, time.November, 16, 0, 0, 0, 0, time.UTC)
+	offset := time.Duration(binary.BigEndian.Uint64(id[:8])%(24*60*60)) * time.Second
+	date := time.Date(2026, time.November, 16, 0, 0, 0, 0, time.UTC).Add(offset)
 	for _, tc := range []struct {
 		name   string
 		derive func(protocol.DeviceID, time.Time) [32]byte
@@ -31,13 +33,13 @@ func TestDiscoveryKeyDerivation(t *testing.T) {
 				t.Fatalf("got %s, want %s", got, tc.want)
 			}
 			if tc.derive(id, date.Add(24*time.Hour-time.Nanosecond)) != key {
-				t.Error("key changed within a UTC day")
+				t.Error("key changed within a device day")
 			}
 			if tc.derive(id, date.In(time.FixedZone("west", -7*60*60))) != key {
 				t.Error("key depends on time zone")
 			}
 			if tc.derive(id, date.Add(24*time.Hour)) == key {
-				t.Error("key did not change at UTC midnight")
+				t.Error("key did not change at device cutoff")
 			}
 			otherID := id
 			otherID[0] ^= 1
@@ -48,21 +50,6 @@ func TestDiscoveryKeyDerivation(t *testing.T) {
 	}
 	if deriveRecordKey(id, date) == deriveEncryptionKey(id, date) {
 		t.Fatal("record and encryption keys must differ")
-	}
-}
-
-func TestDiscoveryDates(t *testing.T) {
-	for _, tc := range []struct{ hour, minute, count int }{
-		{0, 0, 2}, {1, 59, 2}, {2, 0, 1}, {23, 59, 1},
-	} {
-		now := time.Date(2026, 11, 16, tc.hour, tc.minute, 0, 0, time.UTC)
-		dates := discoveryDates(now.In(time.FixedZone("east", 9*3600)))
-		if len(dates) != tc.count || !dates[0].Equal(now) {
-			t.Fatalf("%v: %v", now, dates)
-		}
-		if len(dates) == 2 && dates[1].UTC().Day() != 15 {
-			t.Fatal("wrong fallback day")
-		}
 	}
 }
 

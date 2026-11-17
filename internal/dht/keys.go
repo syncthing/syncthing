@@ -9,6 +9,7 @@ package dht
 import (
 	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/binary"
 	"io"
 	"sync"
 	"time"
@@ -29,9 +30,7 @@ func deriveEncryptionKey(id protocol.DeviceID, date time.Time) [32]byte {
 }
 
 func deriveDiscoveryKey(id protocol.DeviceID, date time.Time, salt string) [32]byte {
-	// Device IDs have sufficient entropy for HKDF. Use a canonical UTC date
-	// so all peers derive the same keys, independent of their time zones.
-	kdf := hkdf.New(sha256.New, id[:], []byte(salt), []byte(date.UTC().Format(time.DateOnly)))
+	kdf := hkdf.New(sha256.New, id[:], []byte(salt), []byte(discoveryDay(id, date)))
 	var key [32]byte
 	if _, err := io.ReadFull(kdf, key[:]); err != nil {
 		panic("hkdf failure: " + err.Error())
@@ -65,7 +64,7 @@ func (c *discoveryKeyCache) get(id protocol.DeviceID, date time.Time) discoveryK
 		c.keys, _ = lru.New[discoveryKeyCacheKey, discoveryKeys](1024)
 	}
 
-	cacheKey := discoveryKeyCacheKey{id, date.UTC().Format(time.DateOnly)}
+	cacheKey := discoveryKeyCacheKey{id, discoveryDay(id, date)}
 	if keys, ok := c.keys.Get(cacheKey); ok {
 		return keys
 	}
@@ -82,12 +81,19 @@ func (c *discoveryKeyCache) get(id protocol.DeviceID, date time.Time) discoveryK
 	return keys
 }
 
-// discoveryDates return she dates for which we should attempt lookup;
-// todays date, and possibly yesterdays.
-func discoveryDates(now time.Time) []time.Time {
+// discoveryDay staggers daily rotation across devices. The first eight bytes
+// of the device ID select a cutoff in seconds after UTC midnight.
+func discoveryDay(id protocol.DeviceID, now time.Time) string {
+	offset := time.Duration(binary.BigEndian.Uint64(id[:8])%(24*60*60)) * time.Second
+	return now.UTC().Add(-offset).Format(time.DateOnly)
+}
+
+// discoveryDates returns timestamps for the current key period and, when a
+// record from the previous period could still be valid, the previous one.
+func discoveryDates(id protocol.DeviceID, now time.Time) []time.Time {
 	dates := []time.Time{now}
 	oldest := now.Add(-RecordLifetime)
-	if now.UTC().Format(time.DateOnly) != oldest.UTC().Format(time.DateOnly) {
+	if discoveryDay(id, now) != discoveryDay(id, oldest) {
 		dates = append(dates, oldest)
 	}
 	return dates
