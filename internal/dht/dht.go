@@ -69,15 +69,16 @@ func Lookup(ctx context.Context, deviceID protocol.DeviceID, options Options) ([
 }
 
 type Options struct {
-	UDP                *registry.UDPReuseManager
-	ListenAddresses    []netip.AddrPort
-	BootstrapPeers     []string
-	AdvertiseAddresses []string
-	Identity           []byte
-	Server             bool
-	ValueDatastore     ds.Batching
-	RoutingDatastore   ds.Batching
-	MaxConnections     int // Zero uses libp2p defaults.
+	UDP                     *registry.UDPReuseManager
+	ListenAddresses         []netip.AddrPort
+	BootstrapPeers          []string
+	AdvertiseAddresses      []string
+	Identity                []byte
+	Server                  bool
+	ValueDatastore          ds.Batching
+	RoutingDatastore        ds.Batching
+	MaxConnections          int // Zero uses libp2p defaults.
+	MaxConnectionsPerSubnet int // IPv4 /32 and IPv6 /56; IPv6 /48 allows eight times this. Zero uses libp2p defaults.
 }
 
 type DHT struct {
@@ -86,6 +87,9 @@ type DHT struct {
 }
 
 func NewSyncthingDHT(options Options) (*DHT, error) {
+	if options.MaxConnectionsPerSubnet < 0 || options.MaxConnectionsPerSubnet > int(^uint(0)>>1)/8 {
+		return nil, errors.New("invalid per-subnet connection limit")
+	}
 	if options.Server && len(options.ListenAddresses) == 0 {
 		return nil, errors.New("DHT server requires a QUIC listener")
 	}
@@ -177,30 +181,47 @@ func NewSyncthingDHT(options Options) (*DHT, error) {
 		if err != nil {
 			return nil, err
 		}
-
+		hostOptions = append(hostOptions, libp2p.ConnectionManager(connections))
+	}
+	if options.MaxConnections > 0 || options.MaxConnectionsPerSubnet > 0 {
 		defaults := rcmgr.DefaultLimits
 		libp2p.SetDefaultServiceLimits(&defaults)
-
-		limits := rcmgr.PartialLimitConfig{
-			System: rcmgr.ResourceLimits{
-				Conns:         rcmgr.LimitVal(limit),
-				ConnsInbound:  rcmgr.LimitVal(limit),
-				ConnsOutbound: rcmgr.LimitVal(limit),
-			},
-		}.Build(defaults.AutoScale())
-
-		resources, err = rcmgr.NewResourceManager(rcmgr.NewFixedLimiter(limits))
+		limits := defaults.AutoScale()
+		if limit := options.MaxConnections; limit > 0 {
+			limits = rcmgr.PartialLimitConfig{
+				System: rcmgr.ResourceLimits{
+					Conns:         rcmgr.LimitVal(limit),
+					ConnsInbound:  rcmgr.LimitVal(limit),
+					ConnsOutbound: rcmgr.LimitVal(limit),
+				},
+			}.Build(limits)
+		}
+		var resourceOptions []rcmgr.Option
+		if limit := options.MaxConnectionsPerSubnet; limit > 0 {
+			// Keep libp2p's prefix sizes and the wider IPv6 prefix's 8:1 ratio.
+			// This resource manager is also used for AutoNAT dial-back connections.
+			resourceOptions = append(resourceOptions, rcmgr.WithLimitPerSubnet(
+				[]rcmgr.ConnLimitPerSubnet{{PrefixLength: 32, ConnCount: limit}},
+				[]rcmgr.ConnLimitPerSubnet{{PrefixLength: 56, ConnCount: limit}, {PrefixLength: 48, ConnCount: 8 * limit}},
+			))
+		}
+		var err error
+		resources, err = rcmgr.NewResourceManager(rcmgr.NewFixedLimiter(limits), resourceOptions...)
 		if err != nil {
-			connections.Close()
+			if connections != nil {
+				connections.Close()
+			}
 			return nil, err
 		}
-		hostOptions = append(hostOptions, libp2p.ConnectionManager(connections), libp2p.ResourceManager(resources))
+		hostOptions = append(hostOptions, libp2p.ResourceManager(resources))
 	}
 
 	h, err := libp2p.New(hostOptions...)
 	if err != nil {
 		if connections != nil {
 			connections.Close()
+		}
+		if resources != nil {
 			resources.Close()
 		}
 		return nil, err

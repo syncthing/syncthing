@@ -28,23 +28,27 @@ import (
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
 	"github.com/syncthing/syncthing/internal/dht"
+	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type CLI struct {
-	Listen         []string `help:"QUIC listen multiaddresses" default:"/ip4/0.0.0.0/udp/22026/quic-v1,/ip6/::/udp/22026/quic-v1" env:"STDHT_LISTEN"`
-	Advertise      []string `help:"Advertised multiaddresses (default: detected listener addresses)" env:"STDHT_ADVERTISE"`
-	Bootstrap      []string `help:"Bootstrap multiaddresses including /p2p/peer-ID; empty uses Syncthing defaults" env:"STDHT_BOOTSTRAP"`
-	KeyFile        string   `help:"Base64-encoded libp2p private key file" default:"identity.key" env:"STDHT_KEY_FILE"`
-	Database       string   `help:"Database directory for DHT values and routing table" default:"/tmp/stdht-db" env:"STDHT_DATABASE"`
-	MetricsListen  string   `help:"HTTP metrics and health address; empty disables" default:"127.0.0.1:9010" env:"STDHT_METRICS_LISTEN"`
-	MaxConnections int      `help:"Maximum DHT connections" default:"16000" env:"STDHT_MAX_CONNECTIONS"`
-	Version        bool     `short:"v" help:"Print version and exit"`
+	Listen                  []string `help:"QUIC listen multiaddresses" default:"/ip4/0.0.0.0/udp/22026/quic-v1,/ip6/::/udp/22026/quic-v1" env:"STDHT_LISTEN"`
+	Advertise               []string `help:"Advertised multiaddresses (default: detected listener addresses)" env:"STDHT_ADVERTISE"`
+	Bootstrap               []string `help:"Bootstrap multiaddresses including /p2p/peer-ID; empty uses Syncthing defaults" env:"STDHT_BOOTSTRAP"`
+	KeyFile                 string   `help:"Base64-encoded libp2p private key file" default:"identity.key" env:"STDHT_KEY_FILE"`
+	Database                string   `help:"Database directory for DHT values and routing table" default:"/tmp/stdht-db" env:"STDHT_DATABASE"`
+	MetricsListen           string   `help:"HTTP metrics and health address; empty disables" default:"127.0.0.1:9010" env:"STDHT_METRICS_LISTEN"`
+	MaxConnections          int      `help:"Maximum DHT connections" default:"16000" env:"STDHT_MAX_CONNECTIONS"`
+	MaxConnectionsPerSubnet int      `help:"Maximum connections per IPv4 /32 and IPv6 /56; IPv6 /48 allows eight times this (zero uses libp2p defaults)" default:"0" env:"STDHT_MAX_CONNECTIONS_PER_SUBNET"`
+	Version                 bool     `short:"v" help:"Print version and exit"`
 }
 
 func main() {
+	slogutil.SetLevelOverrides(os.Getenv("STTRACE"))
+
 	var cli CLI
 	kong.Parse(&cli)
 	if cli.Version {
@@ -110,21 +114,22 @@ func run(ctx context.Context, cli CLI) error {
 		listen = append(listen, udpAddr.AddrPort())
 	}
 	dht, err := dht.NewSyncthingDHT(dht.Options{
-		Identity:           identity,
-		ListenAddresses:    listen,
-		AdvertiseAddresses: cli.Advertise,
-		BootstrapPeers:     cli.Bootstrap,
-		Server:             true,
-		MaxConnections:     cli.MaxConnections,
-		ValueDatastore:     dht.NewDatastore(db.NewTyped(store, "dht-values")),
-		RoutingDatastore:   dht.NewDatastore(db.NewTyped(store, "dht-routing")),
+		Identity:                identity,
+		ListenAddresses:         listen,
+		AdvertiseAddresses:      cli.Advertise,
+		BootstrapPeers:          cli.Bootstrap,
+		Server:                  true,
+		MaxConnections:          cli.MaxConnections,
+		MaxConnectionsPerSubnet: cli.MaxConnectionsPerSubnet,
+		ValueDatastore:          dht.NewDatastore(db.NewTyped(store, "dht-values")),
+		RoutingDatastore:        dht.NewDatastore(db.NewTyped(store, "dht-routing")),
 	})
 	if err != nil {
 		return err
 	}
 	defer dht.Close()
 
-	slog.InfoContext(ctx, "Discovery DHT server started", "peer", dht.ID())
+	slog.InfoContext(ctx, "Discovery DHT server started", "peer", dht.ID(), "maxConnections", cli.MaxConnections, "maxConnectionsPerSubnet", cli.MaxConnectionsPerSubnet)
 
 	var httpServer *http.Server
 	var httpErrors <-chan error
