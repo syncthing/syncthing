@@ -30,8 +30,9 @@ import (
 const (
 	RecordLifetime = 2 * time.Hour
 
-	dhtRecordNamespace = "device"
-	dhtSignatureDomain = "syncthing-dht-discovery-v1\x00"
+	dhtRecordNamespace    = "device"
+	dhtSignatureDomain    = "syncthing-dht-discovery-v1\x00"
+	encryptedRecordDomain = "syncthing-dht-encrypted-record-v1\x00"
 )
 
 // dhtRecordKey encodes the public half of the daily record signing key.
@@ -156,8 +157,6 @@ func dhtSignatureAlgorithm(public crypto.PublicKey) (x509.SignatureAlgorithm, er
 // dhtRecordValidator is used by libp2p to validate records when receiving
 // them from the network
 type dhtRecordValidator struct{}
-
-const encryptedRecordDomain = "syncthing-dht-encrypted-record-v1\x00"
 
 // wrapperMetadata is also used as AEAD additional data, binding encryption
 // to the wrapper version, sequence and expiration.

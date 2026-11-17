@@ -19,14 +19,19 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
+const (
+	discoveryKeySalt  = "syncthing-dht-record-key-v1"
+	encryptionKeySalt = "syncthing-dht-encryption-key-v1"
+)
+
 // deriveRecordKey derives the daily discovery lookup key for id.
 func deriveRecordKey(id protocol.DeviceID, date time.Time) [32]byte {
-	return deriveDiscoveryKey(id, date, "syncthing-dht-record-key-v1")
+	return deriveDiscoveryKey(id, date, discoveryKeySalt)
 }
 
 // deriveEncryptionKey derives the daily record encryption key for id.
 func deriveEncryptionKey(id protocol.DeviceID, date time.Time) [32]byte {
-	return deriveDiscoveryKey(id, date, "syncthing-dht-encryption-key-v1")
+	return deriveDiscoveryKey(id, date, encryptionKeySalt)
 }
 
 func deriveDiscoveryKey(id protocol.DeviceID, date time.Time, salt string) [32]byte {
@@ -84,7 +89,7 @@ func (c *discoveryKeyCache) get(id protocol.DeviceID, date time.Time) discoveryK
 // discoveryDay staggers daily rotation across devices. The first eight bytes
 // of the device ID select a cutoff in seconds after UTC midnight.
 func discoveryDay(id protocol.DeviceID, now time.Time) string {
-	offset := time.Duration(binary.BigEndian.Uint64(id[:8])%(24*60*60)) * time.Second
+	offset := time.Duration(binary.BigEndian.Uint64(id[:8])%86400) * time.Second
 	return now.UTC().Add(-offset).Format(time.DateOnly)
 }
 
