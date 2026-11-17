@@ -9,6 +9,7 @@ package dht
 import (
 	"context"
 	"crypto"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
@@ -28,6 +29,7 @@ import (
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
+	"golang.org/x/crypto/chacha20poly1305"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -247,12 +249,7 @@ func TestEncryptedRecord(t *testing.T) {
 		ExpiresUnix: now.Add(RecordLifetime).Unix(),
 	}
 
-	plain, err := encodeEnvelope(payload, cert.PrivateKey.(crypto.Signer))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	encrypted, err := encryptRecord(plain, payload.Sequence, payload.ExpiresUnix, keys)
+	encrypted, err := encryptRecord(payload, cert.PrivateKey.(crypto.Signer), keys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -262,7 +259,7 @@ func TestEncryptedRecord(t *testing.T) {
 		t.Fatalf("roundtrip: %v, %v", got, err)
 	}
 
-	other, err := encryptRecord(plain, payload.Sequence, payload.ExpiresUnix, keys)
+	other, err := encryptRecord(payload, cert.PrivateKey.(crypto.Signer), keys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -318,7 +315,61 @@ func TestEncryptedRecord(t *testing.T) {
 		t.Fatal("accepted expired record")
 	}
 
-	newer, err := encryptRecord(plain, payload.Sequence+1, payload.ExpiresUnix, keys)
+	// Re-encrypt and re-sign mismatched metadata so rejection exercises the
+	// inner/outer comparison, rather than signature or AEAD verification.
+	for _, field := range []string{"sequence", "expires_unix"} {
+		t.Run("mismatched_"+field, func(t *testing.T) {
+			var wrapper discoproto.DHTWrapper
+			if err := proto.Unmarshal(encrypted, &wrapper); err != nil {
+				t.Fatal(err)
+			}
+			if wrapper.Sequence != payload.Sequence || wrapper.ExpiresUnix != payload.ExpiresUnix {
+				t.Fatal("creation produced mismatched metadata")
+			}
+			if field == "sequence" {
+				wrapper.Sequence++
+			} else {
+				wrapper.ExpiresUnix++
+			}
+			plain, err := encodeEnvelope(payload, cert.PrivateKey.(crypto.Signer))
+			if err != nil {
+				t.Fatal(err)
+			}
+			additional, err := containerMetadata(&wrapper)
+			if err != nil {
+				t.Fatal(err)
+			}
+			aead, err := chacha20poly1305.NewX(keys.encryption[:])
+			if err != nil {
+				t.Fatal(err)
+			}
+			nonce := make([]byte, aead.NonceSize())
+			if _, err := rand.Read(nonce); err != nil {
+				t.Fatal(err)
+			}
+			wrapper.Payload = aead.Seal(nonce, nonce, plain, additional)
+			signed, err := containerSigningBytes(&wrapper)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wrapper.Signature = ed25519.Sign(keys.signing, signed)
+			bad, err := proto.Marshal(&wrapper)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := validateEncryptedRecord(keys.record, bad, now); err != nil {
+				t.Fatalf("wrapper must be valid: %v", err)
+			}
+			got, err := decryptRecord(id, bad, keys, now)
+			if err == nil || err.Error() != "discovery metadata mismatch" || got != nil {
+				t.Fatalf("expected metadata rejection, got %v, %v", got, err)
+			}
+		})
+	}
+
+	newerPayload := proto.Clone(payload).(*discoproto.DHTPayload)
+	newerPayload.Sequence++
+	newer, err := encryptRecord(newerPayload, cert.PrivateKey.(crypto.Signer), keys)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -30,9 +30,11 @@ type DHTWrapper struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Version is currently always `1`
 	Version int32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
-	// Sequence strictly increases for each new announcement
+	// Sequence strictly increases for each new announcement.
+	// Must match the sequence number in the DHTPayload.
 	Sequence int64 `protobuf:"varint,2,opt,name=sequence,proto3" json:"sequence,omitempty"`
-	// Timestamp in Unix epoch seconds when the record ceases to be valid
+	// Timestamp in Unix epoch seconds when the record ceases to be valid.
+	// Must match the expires field in the DHTPayload.
 	ExpiresUnix int64 `protobuf:"varint,3,opt,name=expires_unix,json=expiresUnix,proto3" json:"expires_unix,omitempty"`
 	// Payload is a random 24-byte nonce followed by the XChaCha20-Poly1305
 	// encrypted DHTEnvelope, including its authentication tag.

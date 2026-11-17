@@ -181,15 +181,19 @@ func containerSigningBytes(container *discoproto.DHTWrapper) ([]byte, error) {
 	return append([]byte(encryptedRecordDomain), bs...), nil
 }
 
-func encryptRecord(value []byte, sequence, expires int64, keys discoveryKeys) ([]byte, error) {
+func encryptRecord(payload *discoproto.DHTPayload, signer crypto.Signer, keys discoveryKeys) ([]byte, error) {
+	value, err := encodeEnvelope(payload, signer)
+	if err != nil {
+		return nil, err
+	}
 	aead, err := chacha20poly1305.NewX(keys.encryption[:])
 	if err != nil {
 		return nil, err
 	}
 	container := &discoproto.DHTWrapper{
 		Version:     1,
-		Sequence:    sequence,
-		ExpiresUnix: expires,
+		Sequence:    payload.Sequence,
+		ExpiresUnix: payload.ExpiresUnix,
 	}
 	additional, err := containerMetadata(container)
 	if err != nil {

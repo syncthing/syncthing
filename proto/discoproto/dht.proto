@@ -12,10 +12,12 @@ message DHTWrapper {
   // Version is currently always `1`
   int32 version = 1 [(buf.validate.field).int32.const = 1];
 
-  // Sequence strictly increases for each new announcement
+  // Sequence strictly increases for each new announcement.
+  // Must match the sequence number in the DHTPayload.
   int64 sequence = 2 [(buf.validate.field).int64.gte = 0];
 
-  // Timestamp in Unix epoch seconds when the record ceases to be valid
+  // Timestamp in Unix epoch seconds when the record ceases to be valid.
+  // Must match the expires field in the DHTPayload.
   int64 expires_unix = 3 [(buf.validate.field).int64.gte = 0];
 
   // Payload is a random 24-byte nonce followed by the XChaCha20-Poly1305
@@ -50,12 +52,9 @@ message DHTPayload {
   // which is the device ID.
   bytes certificate = 2 [(buf.validate.field).bytes.max_len = 2048];
 
-  // Sequence is a strictly increasing number for sequencing purposes; each
-  // announcement carries a higher sequence than the previous one, so the
-  // latest announcement is always the one with the highest sequence number.
+  // Sequence strictly increases for each new announcement.
   int64 sequence = 3 [(buf.validate.field).int64.gte = 0];
 
-  // Expires is the timestamp at which the announcement record seizes to be
-  // valid; typically two hours after it's minted. Unix epoch seconds.
+  // Timestamp in Unix epoch seconds when the record ceases to be valid.
   int64 expires_unix = 4 [(buf.validate.field).int64.gte = 0];
 }

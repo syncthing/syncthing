@@ -346,11 +346,7 @@ func (s *DHT) Announce(ctx context.Context, deviceID protocol.DeviceID, addresse
 		Sequence:    seq,
 		ExpiresUnix: time.Now().Add(RecordLifetime).Unix(),
 	}
-	value, err := encodeEnvelope(r, privateKey)
-	if err != nil {
-		return err
-	}
-	value, err = encryptRecord(value, r.Sequence, r.ExpiresUnix, keys)
+	value, err := encryptRecord(r, privateKey, keys)
 	if err != nil {
 		return err
 	}
