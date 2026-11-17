@@ -22,9 +22,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// DHTContainer is the versioned, signed container stored in the DHT.
-// Its metadata can be validated without decrypting the envelope.
-type DHTContainer struct {
+// DHTWrapper is the versioned, signed message wrapper stored in the DHT. It
+// is signed and encrypted by the wrapping key which is derived from the
+// device ID. Knowing the device ID gives you the ability to validate and
+// unwrap.
+type DHTWrapper struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Version is currently always `1`
 	Version int32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
@@ -42,20 +44,20 @@ type DHTContainer struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *DHTContainer) Reset() {
-	*x = DHTContainer{}
+func (x *DHTWrapper) Reset() {
+	*x = DHTWrapper{}
 	mi := &file_discoproto_dht_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *DHTContainer) String() string {
+func (x *DHTWrapper) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*DHTContainer) ProtoMessage() {}
+func (*DHTWrapper) ProtoMessage() {}
 
-func (x *DHTContainer) ProtoReflect() protoreflect.Message {
+func (x *DHTWrapper) ProtoReflect() protoreflect.Message {
 	mi := &file_discoproto_dht_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -67,46 +69,47 @@ func (x *DHTContainer) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use DHTContainer.ProtoReflect.Descriptor instead.
-func (*DHTContainer) Descriptor() ([]byte, []int) {
+// Deprecated: Use DHTWrapper.ProtoReflect.Descriptor instead.
+func (*DHTWrapper) Descriptor() ([]byte, []int) {
 	return file_discoproto_dht_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *DHTContainer) GetVersion() int32 {
+func (x *DHTWrapper) GetVersion() int32 {
 	if x != nil {
 		return x.Version
 	}
 	return 0
 }
 
-func (x *DHTContainer) GetSequence() int64 {
+func (x *DHTWrapper) GetSequence() int64 {
 	if x != nil {
 		return x.Sequence
 	}
 	return 0
 }
 
-func (x *DHTContainer) GetExpiresUnix() int64 {
+func (x *DHTWrapper) GetExpiresUnix() int64 {
 	if x != nil {
 		return x.ExpiresUnix
 	}
 	return 0
 }
 
-func (x *DHTContainer) GetPayload() []byte {
+func (x *DHTWrapper) GetPayload() []byte {
 	if x != nil {
 		return x.Payload
 	}
 	return nil
 }
 
-func (x *DHTContainer) GetSignature() []byte {
+func (x *DHTWrapper) GetSignature() []byte {
 	if x != nil {
 		return x.Signature
 	}
 	return nil
 }
 
+// DHTEnvelope is the discovery payload signed by the device ID certificate.
 type DHTEnvelope struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Payload is the protobuf marshalled DHTPayload
@@ -163,8 +166,6 @@ func (x *DHTEnvelope) GetSignature() []byte {
 }
 
 // DHTPayload is the discovery document registered in a DHT by each device.
-// It is carried inside a DHTEnvelope message, and the contents are
-// authenticated by a signature.
 type DHTPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Addresses is the list of listening addresses, on the usual
@@ -247,8 +248,9 @@ var File_discoproto_dht_proto protoreflect.FileDescriptor
 const file_discoproto_dht_proto_rawDesc = "" +
 	"\n" +
 	"\x14discoproto/dht.proto\x12\n" +
-	"discoproto\x1a\x1bbuf/validate/validate.proto\"\xcf\x01\n" +
-	"\fDHTContainer\x12!\n" +
+	"discoproto\x1a\x1bbuf/validate/validate.proto\"\xcd\x01\n" +
+	"\n" +
+	"DHTWrapper\x12!\n" +
 	"\aversion\x18\x01 \x01(\x05B\a\xbaH\x04\x1a\x02\b\x01R\aversion\x12#\n" +
 	"\bsequence\x18\x02 \x01(\x03B\a\xbaH\x04\"\x02(\x00R\bsequence\x12*\n" +
 	"\fexpires_unix\x18\x03 \x01(\x03B\a\xbaH\x04\"\x02(\x00R\vexpiresUnix\x12$\n" +
@@ -283,9 +285,9 @@ func file_discoproto_dht_proto_rawDescGZIP() []byte {
 
 var file_discoproto_dht_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_discoproto_dht_proto_goTypes = []any{
-	(*DHTContainer)(nil), // 0: discoproto.DHTContainer
-	(*DHTEnvelope)(nil),  // 1: discoproto.DHTEnvelope
-	(*DHTPayload)(nil),   // 2: discoproto.DHTPayload
+	(*DHTWrapper)(nil),  // 0: discoproto.DHTWrapper
+	(*DHTEnvelope)(nil), // 1: discoproto.DHTEnvelope
+	(*DHTPayload)(nil),  // 2: discoproto.DHTPayload
 }
 var file_discoproto_dht_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type

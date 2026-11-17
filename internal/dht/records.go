@@ -163,16 +163,16 @@ const encryptedRecordDomain = "syncthing-dht-encrypted-record-v1\x00"
 
 // containerMetadata is also used as AEAD additional data, binding encryption
 // to the container version, sequence and expiration.
-func containerMetadata(container *discoproto.DHTContainer) ([]byte, error) {
-	return proto.MarshalOptions{Deterministic: true}.Marshal(&discoproto.DHTContainer{
+func containerMetadata(container *discoproto.DHTWrapper) ([]byte, error) {
+	return proto.MarshalOptions{Deterministic: true}.Marshal(&discoproto.DHTWrapper{
 		Version:     container.Version,
 		Sequence:    container.Sequence,
 		ExpiresUnix: container.ExpiresUnix,
 	})
 }
 
-func containerSigningBytes(container *discoproto.DHTContainer) ([]byte, error) {
-	unsigned := proto.Clone(container).(*discoproto.DHTContainer)
+func containerSigningBytes(container *discoproto.DHTWrapper) ([]byte, error) {
+	unsigned := proto.Clone(container).(*discoproto.DHTWrapper)
 	unsigned.Signature = nil
 	bs, err := (proto.MarshalOptions{Deterministic: true}).Marshal(unsigned)
 	if err != nil {
@@ -186,7 +186,7 @@ func encryptRecord(value []byte, sequence, expires int64, keys discoveryKeys) ([
 	if err != nil {
 		return nil, err
 	}
-	container := &discoproto.DHTContainer{
+	container := &discoproto.DHTWrapper{
 		Version:     1,
 		Sequence:    sequence,
 		ExpiresUnix: expires,
@@ -211,7 +211,7 @@ func encryptRecord(value []byte, sequence, expires int64, keys discoveryKeys) ([
 	return proto.Marshal(container)
 }
 
-func validateEncryptedRecord(key string, value []byte, now time.Time) (*discoproto.DHTContainer, error) {
+func validateEncryptedRecord(key string, value []byte, now time.Time) (*discoproto.DHTWrapper, error) {
 	prefix := "/" + dhtRecordNamespace + "/"
 	if !strings.HasPrefix(key, prefix) {
 		return nil, errors.New("invalid discovery namespace")
@@ -223,7 +223,7 @@ func validateEncryptedRecord(key string, value []byte, now time.Time) (*discopro
 	if len(value) > 8192 {
 		return nil, errors.New("invalid encrypted discovery record size")
 	}
-	var container discoproto.DHTContainer
+	var container discoproto.DHTWrapper
 	if err := proto.Unmarshal(value, &container); err != nil {
 		return nil, err
 	}

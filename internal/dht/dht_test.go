@@ -272,7 +272,7 @@ func TestEncryptedRecord(t *testing.T) {
 
 	for _, field := range []string{"version", "sequence", "expires", "nonce", "ciphertext", "signature"} {
 		t.Run(field, func(t *testing.T) {
-			var container discoproto.DHTContainer
+			var container discoproto.DHTWrapper
 			if err := proto.Unmarshal(encrypted, &container); err != nil {
 				t.Fatal(err)
 			}

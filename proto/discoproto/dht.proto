@@ -4,9 +4,11 @@ package discoproto;
 
 import "buf/validate/validate.proto";
 
-// DHTContainer is the versioned, signed container stored in the DHT.
-// Its metadata can be validated without decrypting the envelope.
-message DHTContainer {
+// DHTWrapper is the versioned, signed message wrapper stored in the DHT. It
+// is signed and encrypted by the wrapping key which is derived from the
+// device ID. Knowing the device ID gives you the ability to validate and
+// unwrap.
+message DHTWrapper {
   // Version is currently always `1`
   int32 version = 1 [(buf.validate.field).int32.const = 1];
 
@@ -25,6 +27,7 @@ message DHTContainer {
   bytes signature = 5 [(buf.validate.field).bytes.len = 64];
 }
 
+// DHTEnvelope is the discovery payload signed by the device ID certificate.
 message DHTEnvelope {
   // Payload is the protobuf marshalled DHTPayload
   bytes payload = 1 [(buf.validate.field).bytes.max_len = 4096];
@@ -35,8 +38,6 @@ message DHTEnvelope {
 }
 
 // DHTPayload is the discovery document registered in a DHT by each device.
-// It is carried inside a DHTEnvelope message, and the contents are
-// authenticated by a signature.
 message DHTPayload {
   // Addresses is the list of listening addresses, on the usual
   // "tcp://192.0.2.42:22000" form, including QUIC, relays, etc.
