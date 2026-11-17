@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/netip"
 	"slices"
+	"sync"
 	"time"
 
 	ds "github.com/ipfs/go-datastore"
@@ -86,9 +87,15 @@ type DHT struct {
 	host host.Host
 	ipfs *kad.IpfsDHT
 	keys discoveryKeyCache
+
+	stopDiagnostics func()
+	diagnosticsDone chan struct{}
+	closeOnce       sync.Once
+	closeErr        error
 }
 
 func NewSyncthingDHT(options Options) (*DHT, error) {
+	setupLibraryLogging()
 	if options.MaxConnectionsPerSubnet < 0 || options.MaxConnectionsPerSubnet > int(^uint(0)>>1)/8 {
 		return nil, errors.New("invalid per-subnet connection limit")
 	}
@@ -265,7 +272,9 @@ func NewSyncthingDHT(options Options) (*DHT, error) {
 		return nil, err
 	}
 
-	return &DHT{host: h, ipfs: d}, nil
+	s := &DHT{host: h, ipfs: d}
+	s.startDiagnostics(peers)
+	return s, nil
 }
 
 func (s *DHT) ID() string {
