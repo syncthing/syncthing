@@ -297,6 +297,8 @@ func (s *DHT) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addresses
 	var errs []error
 	for _, date := range discoveryDates(now) {
 		keys := s.keys.get(deviceID, date)
+		slog.Debug("Look up record", "device", deviceID, "date", date, "key", keys.record)
+
 		value, err := s.ipfs.GetValue(ctx, keys.record)
 		if errors.Is(err, routing.ErrNotFound) {
 			continue
@@ -358,6 +360,8 @@ func (s *DHT) Announce(ctx context.Context, deviceID protocol.DeviceID, addresse
 	if err := s.ipfs.PutValue(ctx, key, value); err != nil {
 		return err
 	}
+
+	slog.Debug("Announced record", "key", key)
 
 	return nil
 }
