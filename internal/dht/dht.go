@@ -21,6 +21,7 @@ import (
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/libp2p/go-libp2p"
 	kad "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/libp2p/go-libp2p-kad-dht/amino"
 	record "github.com/libp2p/go-libp2p-record"
 	p2pcrypto "github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -240,6 +241,7 @@ func NewSyncthingDHT(options Options) (*DHT, error) {
 		kad.MaxRecordAge(RecordLifetime),
 		kad.Mode(mode),
 		kad.ProtocolPrefix(p2pProtocolPrefix),
+		kad.RoutingTablePeerDiversityFilter(kad.NewRTPeerDiversityFilter(h, amino.DefaultMaxPeersPerIPGroupPerCpl, amino.DefaultMaxPeersPerIPGroup)),
 		kad.RoutingTablePersistence(5 * time.Minute),
 		kad.Validator(record.NamespacedValidator{dhtRecordNamespace: dhtRecordValidator{}}),
 		kad.ValueGCInterval(time.Minute),
