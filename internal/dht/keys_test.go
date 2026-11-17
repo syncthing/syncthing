@@ -17,7 +17,7 @@ import (
 
 func TestDiscoveryKeyDerivation(t *testing.T) {
 	id := protocol.NewDeviceID([]byte("test certificate"))
-	offset := time.Duration(binary.BigEndian.Uint64(id[:8])%84600) * time.Second
+	offset := time.Duration(binary.BigEndian.Uint64(id[:8])%86400) * time.Second
 	date := time.Date(2026, time.November, 16, 0, 0, 0, 0, time.UTC).Add(offset)
 	for _, tc := range []struct {
 		name   string
