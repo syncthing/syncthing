@@ -157,8 +157,6 @@ func dhtSignatureAlgorithm(public crypto.PublicKey) (x509.SignatureAlgorithm, er
 // them from the network
 type dhtRecordValidator struct{}
 
-// The daily signing public key is the DHT lookup key. Servers can authenticate
-// and order wrappers without learning the device ID or the plaintext.
 const encryptedRecordDomain = "syncthing-dht-encrypted-record-v1\x00"
 
 // wrapperMetadata is also used as AEAD additional data, binding encryption
