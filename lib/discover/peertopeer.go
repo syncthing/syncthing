@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand/v2"
@@ -26,6 +27,11 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
+)
+
+const (
+	p2pIdentityKey      = "dht-identity"
+	p2pIdentityLifetime = 7 * 24 * time.Hour
 )
 
 type PeerToPeerDiscovery struct {
@@ -57,18 +63,11 @@ func NewPeerToPeerDiscovery(cert tls.Certificate, addresses AddressLister, evLog
 	}
 
 	if opts.Identity == nil {
-		miscDB := db.NewMiscDB(kv)
-		const key = "dht-identity"
-		if bs, ok, _ := miscDB.Bytes(key); ok {
-			opts.Identity = bs
-		} else {
-			bs, err := dht.NewIdentity()
-			if err != nil {
-				return nil, err
-			}
-			_ = miscDB.PutBytes(key, bs)
-			opts.Identity = bs
+		identity, err := loadDHTIdentity(db.NewMiscDB(kv), time.Now())
+		if err != nil {
+			return nil, fmt.Errorf("loading DHT identity: %w", err)
 		}
+		opts.Identity = identity
 	}
 
 	dht, err := dht.NewSyncthingDHT(opts)
@@ -88,6 +87,40 @@ func NewPeerToPeerDiscovery(cert tls.Certificate, addresses AddressLister, evLog
 
 	s.setError(errors.New("not announced"))
 	return s, nil
+}
+
+func loadDHTIdentity(miscDB *db.Typed, now time.Time) ([]byte, error) {
+	var identity struct {
+		Created time.Time
+		Key     []byte
+	}
+
+	data, ok, err := miscDB.Bytes(p2pIdentityKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if ok && json.Unmarshal(data, &identity) == nil &&
+		len(identity.Key) > 0 &&
+		!identity.Created.After(now) &&
+		now.Before(identity.Created.Add(p2pIdentityLifetime)) {
+		return identity.Key, nil
+	}
+
+	identity.Key, err = dht.NewIdentity()
+	if err != nil {
+		return nil, err
+	}
+	identity.Created = now.UTC()
+	data, err = json.Marshal(identity)
+	if err != nil {
+		return nil, err
+	}
+	if err := miscDB.PutBytes(p2pIdentityKey, data); err != nil {
+		return nil, err
+	}
+
+	return identity.Key, nil
 }
 
 func (s *PeerToPeerDiscovery) String() string {
