@@ -24,13 +24,15 @@ LABEL org.opencontainers.image.authors="The Syncthing Project" \
       org.opencontainers.image.licenses="MPL-2.0" \
       org.opencontainers.image.title="Syncthing Discovery DHT Server"
 
-EXPOSE 22026/tcp 22026/udp
+EXPOSE 22026/udp
 
 VOLUME ["/var/stdht"]
 
 COPY --from=builder /src/stdht-linux-$TARGETARCH /bin/stdht
 
 ENV HOME=/var/stdht
+ENV STDHT_DATABASE=/var/stdht/db
+ENV STDHT_KEY_FILE=/var/stdht/key
 
 USER 1000:1000
 WORKDIR /var/stdht
