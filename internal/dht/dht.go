@@ -86,7 +86,6 @@ type Options struct {
 type DHT struct {
 	host host.Host
 	ipfs *kad.IpfsDHT
-	keys discoveryKeyCache
 
 	stopDiagnostics func()
 	diagnosticsDone chan struct{}
@@ -304,11 +303,11 @@ func (s *DHT) Close() error {
 func (s *DHT) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addresses []string, err error) {
 	now := time.Now()
 	var errs []error
-	for _, date := range discoveryDates(deviceID, now) {
-		keys := s.keys.get(deviceID, date)
-		slog.Debug("Look up record", "device", deviceID, "date", date, "key", keys.record)
+	for _, timeValue := range discoveryTimeValues(deviceID, now) {
+		key := dhtRecordKey(deviceID, timeValue)
+		slog.Debug("Look up record", "device", deviceID, "key", key)
 
-		value, err := s.ipfs.GetValue(ctx, keys.record)
+		value, err := s.ipfs.GetValue(ctx, key)
 		if errors.Is(err, routing.ErrNotFound) {
 			continue
 		}
@@ -319,12 +318,12 @@ func (s *DHT) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addresses
 			}
 			continue
 		}
-		r, err := decryptRecord(deviceID, value, keys, now)
+		r, err := validateRecord(key, value, now)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
-		slog.DebugContext(ctx, "Got DHT result", "device", deviceID, "key", keys.record, "sequence", r.Sequence)
+		slog.DebugContext(ctx, "Got DHT result", "device", deviceID, "key", key, "expires", r.ExpiresUnix)
 		return r.Addresses, nil
 	}
 	if len(errs) > 0 {
@@ -339,29 +338,18 @@ func (s *DHT) Announce(ctx context.Context, deviceID protocol.DeviceID, addresse
 	}
 
 	now := time.Now()
-	keys := s.keys.get(deviceID, now)
-	key := keys.record
-	var prevSeq int64
-	if value, err := s.ipfs.GetValue(ctx, key); err == nil {
-		if old, err := decryptRecord(deviceID, value, keys, now); err == nil {
-			prevSeq = old.Sequence
-		}
-	}
-
-	seq := max(prevSeq+1, time.Now().UnixMilli())
+	timeValue := discoveryTimeValue(deviceID, now)
 	r := &discoproto.DHTPayload{
 		Certificate: certificate,
 		Addresses:   addresses,
-		Sequence:    seq,
-		ExpiresUnix: time.Now().Add(RecordLifetime).Unix(),
+		ExpiresUnix: uint64(now.Add(RecordLifetime).Unix()),
+		TimeValue:   timeValue,
 	}
-	value, err := encryptRecord(r, privateKey, keys)
+	value, err := encodeRecord(r, privateKey)
 	if err != nil {
 		return err
 	}
-	if err := (dhtRecordValidator{}).Validate(key, value); err != nil {
-		return err
-	}
+	key := dhtRecordKey(deviceID, timeValue)
 	if err := s.ipfs.PutValue(ctx, key, value); err != nil {
 		return err
 	}

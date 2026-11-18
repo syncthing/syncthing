@@ -9,12 +9,13 @@ package dht
 import (
 	"context"
 	"crypto"
-	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/pem"
+	"math"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -29,14 +30,47 @@ import (
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
-	"golang.org/x/crypto/chacha20poly1305"
 	"google.golang.org/protobuf/proto"
 )
 
+func TestDiscoveryKeyDerivation(t *testing.T) {
+	id := protocol.NewDeviceID([]byte("test certificate"))
+	const want = "/device/MdF2NZYnXR_5p58usA2yMMSdb-mKauM9unqhFMXEj-Y"
+	if got := dhtRecordKey(id, 42); got != want {
+		t.Fatalf("got %s, want %s", got, want)
+	}
+}
+
+func TestDiscoveryTimeValues(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0)
+	for _, tc := range []struct {
+		name     string
+		offset   uint64
+		previous uint64
+		current  uint64
+	}{
+		{"daily cutoff", 57_600, 20833, 20834},
+		{"uint64 wrap", math.MaxUint64 - 1_800_000_000 + 1, math.MaxUint64 / 86400, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var id protocol.DeviceID
+			binary.BigEndian.PutUint64(id[:8], tc.offset)
+			if got := discoveryTimeValue(id, now.Add(-time.Second)); got != tc.previous {
+				t.Errorf("before cutoff: got %d, want %d", got, tc.previous)
+			}
+			if got := discoveryTimeValues(id, now); !slices.Equal(got, []uint64{tc.current, tc.previous}) {
+				t.Errorf("at cutoff: got %v, want [%d %d]", got, tc.current, tc.previous)
+			}
+			if got := discoveryTimeValues(id, now.Add(RecordLifetime)); !slices.Equal(got, []uint64{tc.current}) {
+				t.Errorf("after previous record expires: got %v, want [%d]", got, tc.current)
+			}
+		})
+	}
+}
+
 func TestDHTRecordNamespace(t *testing.T) {
 	id := protocol.NewDeviceID([]byte("test certificate"))
-	var cache discoveryKeyCache
-	key := cache.get(id, time.Now()).record
+	key := dhtRecordKey(id, discoveryTimeValue(id, time.Now()))
 	if key == "/device/"+id.String() {
 		t.Fatal("record key reveals device ID")
 	}
@@ -47,12 +81,12 @@ func TestDHTRecordNamespace(t *testing.T) {
 }
 
 func TestDHTDiscoveryGolden(t *testing.T) {
-	// Load each envelope and the certificate, verify that the signature
+	// Load each record and the certificate, verify that the signature
 	// checks out.
 
 	for _, dir := range dhtCertificateDirs(t) {
 		t.Run(filepath.Base(dir), func(t *testing.T) {
-			// Load the discovery envelope
+			// Load the discovery record
 			data, err := os.ReadFile(filepath.Join(dir, "dht.pb64"))
 			if err != nil {
 				t.Fatal(err)
@@ -61,15 +95,15 @@ func TestDHTDiscoveryGolden(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			var envelope discoproto.DHTEnvelope
-			if err := proto.Unmarshal(data, &envelope); err != nil {
+			var record discoproto.DHTRecord
+			if err := proto.Unmarshal(data, &record); err != nil {
 				t.Fatal(err)
 			}
-			if err := protovalidate.Validate(&envelope); err != nil {
+			if err := protovalidate.Validate(&record); err != nil {
 				t.Fatal(err)
 			}
-			if len(envelope.Payload) != 24 {
-				t.Fatalf("payload length: got %d, want 24", len(envelope.Payload))
+			if len(record.Payload) != 24 {
+				t.Fatalf("payload length: got %d, want 24", len(record.Payload))
 			}
 
 			// Load the certificate
@@ -87,13 +121,13 @@ func TestDHTDiscoveryGolden(t *testing.T) {
 			}
 
 			// Check the signature, it should pass
-			if err := checkSignature(cert, &envelope); err != nil {
+			if err := checkSignature(cert, &record); err != nil {
 				t.Error(err)
 			}
 
 			// Modify the payload, signature should fail
-			envelope.Payload = append(envelope.Payload, 42)
-			if err := checkSignature(cert, &envelope); err == nil {
+			record.Payload = append(record.Payload, 42)
+			if err := checkSignature(cert, &record); err == nil {
 				t.Error("signature should fail")
 			}
 		})
@@ -189,10 +223,10 @@ func TestAnnounceLookup(t *testing.T) {
 }
 
 func TestRegenerateDHTDiscoveryGolden(t *testing.T) {
-	// (Re-)generates a signed envelope for each of the certificate kinds in
+	// (Re-)generates a signed record for each of the certificate kinds in
 	// testdata
 
-	t.Skip("remove this skip to regenerate the golden envelopes")
+	t.Skip("remove this skip to regenerate the golden records")
 
 	for _, dir := range dhtCertificateDirs(t) {
 		t.Run(filepath.Base(dir), func(t *testing.T) {
@@ -215,7 +249,7 @@ func TestRegenerateDHTDiscoveryGolden(t *testing.T) {
 			}
 
 			// Save it
-			data, err := proto.Marshal(&discoproto.DHTEnvelope{
+			data, err := proto.Marshal(&discoproto.DHTRecord{
 				Payload:   random[:],
 				Signature: signature,
 			})
@@ -231,150 +265,69 @@ func TestRegenerateDHTDiscoveryGolden(t *testing.T) {
 	}
 }
 
-func TestEncryptedRecord(t *testing.T) {
-	cert, err := tlsutil.NewCertificateInMemory("encrypted-discovery-test", 1)
+func TestSignedRecord(t *testing.T) {
+	cert, err := tlsutil.NewCertificateInMemory("discovery-test", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	id := protocol.NewDeviceID(cert.Certificate[0])
-	now := time.Now()
-	var cache discoveryKeyCache
-	keys := cache.get(id, now)
-
+	now := time.Now().Truncate(time.Second)
 	payload := &discoproto.DHTPayload{
 		Certificate: cert.Certificate[0],
 		Addresses:   []string{"tcp://192.0.2.1:22000"},
-		Sequence:    now.UnixMilli(),
-		ExpiresUnix: now.Add(RecordLifetime).Unix(),
+		ExpiresUnix: uint64(now.Add(RecordLifetime).Unix()),
+		TimeValue:   discoveryTimeValue(id, now),
 	}
-
-	encrypted, err := encryptRecord(payload, cert.PrivateKey.(crypto.Signer), keys)
+	key := dhtRecordKey(id, payload.TimeValue)
+	signer := cert.PrivateKey.(crypto.Signer)
+	value, err := encodeRecord(payload, signer)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	got, err := decryptRecord(id, encrypted, keys, now)
-	if err != nil || !proto.Equal(got, payload) {
-		t.Fatalf("roundtrip: %v, %v", got, err)
-	}
-
-	other, err := encryptRecord(payload, cert.PrivateKey.(crypto.Signer), keys)
-	if err != nil {
+	var record discoproto.DHTRecord
+	if err := proto.Unmarshal(value, &record); err != nil {
 		t.Fatal(err)
 	}
-	if slices.Equal(encrypted, other) {
-		t.Fatal("nonce reused")
+	var decoded discoproto.DHTPayload
+	if err := proto.Unmarshal(record.Payload, &decoded); err != nil || !proto.Equal(&decoded, payload) {
+		t.Fatalf("decoding plaintext payload: %v, %v", &decoded, err)
+	}
+	if got, err := validateRecord(key, value, now); err != nil || !proto.Equal(got, payload) {
+		t.Fatalf("validating record: %v, %v", got, err)
 	}
 
-	for _, field := range []string{"version", "sequence", "expires", "nonce", "ciphertext", "signature"} {
-		t.Run(field, func(t *testing.T) {
-			var container discoproto.DHTWrapper
-			if err := proto.Unmarshal(encrypted, &container); err != nil {
-				t.Fatal(err)
-			}
-			switch field {
-			case "version":
-				container.Version++
-			case "sequence":
-				container.Sequence++
-			case "expires":
-				container.ExpiresUnix++
-			case "nonce":
-				container.Payload[0] ^= 1
-			case "ciphertext":
-				container.Payload[24] ^= 1
-			case "signature":
-				container.Signature[0] ^= 1
-			}
-			bad, err := proto.Marshal(&container)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, err := decryptRecord(id, bad, keys, now); err == nil {
-				t.Fatal("accepted tampered container")
-			}
-		})
-	}
-
-	for _, bad := range [][]byte{nil, []byte("invalid"), encrypted[:len(encrypted)/2]} {
-		if _, err := decryptRecord(id, bad, keys, now); err == nil {
-			t.Fatal("accepted malformed container")
+	for _, wrongKey := range []string{
+		dhtRecordKey(id, payload.TimeValue+1),
+		dhtRecordKey(protocol.NewDeviceID([]byte("other")), payload.TimeValue),
+	} {
+		if _, err := validateRecord(wrongKey, value, now); err == nil {
+			t.Errorf("accepted record under incorrect key %q", wrongKey)
 		}
 	}
-
-	if _, err := decryptRecord(id, encrypted, cache.get(id, now.Add(24*time.Hour)), now); err == nil {
-		t.Fatal("accepted wrong daily key")
+	if _, err := validateRecord(key, value, now.Add(RecordLifetime+time.Second)); err == nil {
+		t.Error("accepted expired record")
 	}
 
-	if _, err := decryptRecord(protocol.NewDeviceID([]byte("other")), encrypted, keys, now); err == nil {
-		t.Fatal("accepted wrong device ID")
-	}
-
-	if _, err := validateEncryptedRecord(keys.record, encrypted, now.Add(RecordLifetime+time.Second)); err == nil {
-		t.Fatal("accepted expired record")
-	}
-
-	// Re-encrypt and re-sign mismatched metadata so rejection exercises the
-	// inner/outer comparison, rather than signature or AEAD verification.
-	for _, field := range []string{"sequence", "expires_unix"} {
-		t.Run("mismatched_"+field, func(t *testing.T) {
-			var wrapper discoproto.DHTWrapper
-			if err := proto.Unmarshal(encrypted, &wrapper); err != nil {
-				t.Fatal(err)
-			}
-			if wrapper.Sequence != payload.Sequence || wrapper.ExpiresUnix != payload.ExpiresUnix {
-				t.Fatal("creation produced mismatched metadata")
-			}
-			if field == "sequence" {
-				wrapper.Sequence++
-			} else {
-				wrapper.ExpiresUnix++
-			}
-			plain, err := encodeEnvelope(payload, cert.PrivateKey.(crypto.Signer))
-			if err != nil {
-				t.Fatal(err)
-			}
-			additional, err := wrapperMetadata(&wrapper)
-			if err != nil {
-				t.Fatal(err)
-			}
-			aead, err := chacha20poly1305.NewX(keys.encryption[:])
-			if err != nil {
-				t.Fatal(err)
-			}
-			nonce := make([]byte, aead.NonceSize())
-			if _, err := rand.Read(nonce); err != nil {
-				t.Fatal(err)
-			}
-			wrapper.Payload = aead.Seal(nonce, nonce, plain, additional)
-			signed, err := wrapperSigningBytes(&wrapper)
-			if err != nil {
-				t.Fatal(err)
-			}
-			wrapper.Signature = ed25519.Sign(keys.signing, signed)
-			bad, err := proto.Marshal(&wrapper)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, err := validateEncryptedRecord(keys.record, bad, now); err != nil {
-				t.Fatalf("wrapper must be valid: %v", err)
-			}
-			got, err := decryptRecord(id, bad, keys, now)
-			if err == nil || err.Error() != "discovery metadata mismatch" || got != nil {
-				t.Fatalf("expected metadata rejection, got %v, %v", got, err)
-			}
-		})
-	}
-
-	newerPayload := proto.Clone(payload).(*discoproto.DHTPayload)
-	newerPayload.Sequence++
-	newer, err := encryptRecord(newerPayload, cert.PrivateKey.(crypto.Signer), keys)
+	decoded.ExpiresUnix++
+	record.Payload, err = proto.Marshal(&decoded)
 	if err != nil {
 		t.Fatal(err)
 	}
+	tampered, err := proto.Marshal(&record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := validateRecord(key, tampered, now); err == nil {
+		t.Error("accepted tampered payload")
+	}
 
-	if idx, err := (dhtRecordValidator{}).Select(keys.record, [][]byte{encrypted, []byte("invalid"), newer}); err != nil || idx != 2 {
+	newer, err := encodeRecord(&decoded, signer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if idx, err := (dhtRecordValidator{}).Select(key, [][]byte{value, newer, tampered}); err != nil || idx != 1 {
 		t.Fatalf("selection: %d, %v", idx, err)
 	}
 }

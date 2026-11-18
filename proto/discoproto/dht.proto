@@ -4,33 +4,8 @@ package discoproto;
 
 import "buf/validate/validate.proto";
 
-// DHTWrapper is the versioned, signed message wrapper stored in the DHT. It
-// is signed and encrypted by the wrapping key which is derived from the
-// device ID. Knowing the device ID gives you the ability to validate and
-// unwrap.
-message DHTWrapper {
-  // Version is currently always `1`
-  int32 version = 1 [(buf.validate.field).int32.const = 1];
-
-  // Sequence strictly increases for each new announcement.
-  // Must match the sequence number in the DHTPayload.
-  int64 sequence = 2 [(buf.validate.field).int64.gte = 0];
-
-  // Timestamp in Unix epoch seconds when the record ceases to be valid.
-  // Must match the expires field in the DHTPayload.
-  int64 expires_unix = 3 [(buf.validate.field).int64.gte = 0];
-
-  // Payload is a random 24-byte nonce followed by the XChaCha20-Poly1305
-  // encrypted DHTEnvelope, including its authentication tag.
-  bytes payload = 4 [(buf.validate.field).bytes = {min_len: 40, max_len: 6144}];
-
-  // Signature uses the daily record key and covers the domain prefix followed
-  // by the deterministic protobuf encoding of this container without signature.
-  bytes signature = 5 [(buf.validate.field).bytes.len = 64];
-}
-
-// DHTEnvelope is the discovery payload signed by the device ID certificate.
-message DHTEnvelope {
+// DHTRecord is the discovery payload signed by the device ID certificate.
+message DHTRecord {
   // Payload is the protobuf marshalled DHTPayload
   bytes payload = 1 [(buf.validate.field).bytes.max_len = 4096];
 
@@ -41,20 +16,22 @@ message DHTEnvelope {
 
 // DHTPayload is the discovery document registered in a DHT by each device.
 message DHTPayload {
+  // Time value used for record ID calculation.
+  uint64 time_value = 1;
+
+  // Timestamp in Unix epoch seconds when the record ceases to be valid.
+  // Also, de facto sequencing for records -- a newly published record must
+  // have an expiry time later than the previous record.
+  uint64 expires_unix = 2;
+
   // Addresses is the list of listening addresses, on the usual
   // "tcp://192.0.2.42:22000" form, including QUIC, relays, etc.
-  repeated string addresses = 1 [
+  repeated string addresses = 3 [
     (buf.validate.field).repeated.max_items = 32,
     (buf.validate.field).repeated.items.string.max_len = 128
   ];
 
   // Certificate is the device TLS certificate in DER form; the SHA256 of
   // which is the device ID.
-  bytes certificate = 2 [(buf.validate.field).bytes.max_len = 2048];
-
-  // Sequence strictly increases for each new announcement.
-  int64 sequence = 3 [(buf.validate.field).int64.gte = 0];
-
-  // Timestamp in Unix epoch seconds when the record ceases to be valid.
-  int64 expires_unix = 4 [(buf.validate.field).int64.gte = 0];
+  bytes certificate = 4 [(buf.validate.field).bytes.max_len = 2048];
 }

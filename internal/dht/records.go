@@ -15,33 +15,55 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"fmt"
-	"strings"
+	"math"
 	"time"
 
 	"buf.build/go/protovalidate"
 	"github.com/syncthing/syncthing/internal/gen/discoproto"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"golang.org/x/crypto/chacha20poly1305"
 	"google.golang.org/protobuf/proto"
 )
 
 const (
 	RecordLifetime = 2 * time.Hour
 
-	dhtRecordNamespace    = "device"
-	dhtSignatureDomain    = "syncthing-dht-discovery-v1\x00"
-	encryptedRecordDomain = "syncthing-dht-encrypted-record-v1\x00"
+	dhtSignatureDomain = "syncthing-dht-discovery-v1\x00"
+	dhtRecordKeySeed   = "syncthing-dht-record-key-v1\x00"
+	dhtRecordNamespace = "device"
 )
 
-// dhtRecordKey encodes the public half of the daily record signing key.
-func dhtRecordKey(public ed25519.PublicKey) string {
-	return "/" + dhtRecordNamespace + "/" + base64.RawURLEncoding.EncodeToString(public)
+// discoveryTimeValue staggers daily rotation across devices. The addition
+// intentionally wraps at 2^64 before division.
+func discoveryTimeValue(id protocol.DeviceID, now time.Time) uint64 {
+	return (uint64(now.Unix()) + binary.BigEndian.Uint64(id[:8])) / 86400
 }
 
-// encodeEnvelope returns a signed DHTEnvelope containing the payload
-func encodeEnvelope(payload *discoproto.DHTPayload, key crypto.Signer) ([]byte, error) {
+// dhtRecordKey hashes the seed, raw device ID and big-endian time value.
+func dhtRecordKey(id protocol.DeviceID, timeValue uint64) string {
+	var input [len(dhtRecordKeySeed) + len(protocol.DeviceID{}) + 8]byte
+	offset := copy(input[:], dhtRecordKeySeed)
+	offset += copy(input[offset:], id[:])
+	binary.BigEndian.PutUint64(input[offset:], timeValue)
+	digest := sha256.Sum256(input[:])
+	return "/" + dhtRecordNamespace + "/" + base64.RawURLEncoding.EncodeToString(digest[:])
+}
+
+// discoveryTimeValues includes the previous period while an announcement
+// from that period can still be valid.
+func discoveryTimeValues(id protocol.DeviceID, now time.Time) []uint64 {
+	current := discoveryTimeValue(id, now)
+	oldest := discoveryTimeValue(id, now.Add(-RecordLifetime))
+	if oldest != current {
+		return []uint64{current, oldest}
+	}
+	return []uint64{current}
+}
+
+// encodeRecord returns a signed DHTRecord containing the payload
+func encodeRecord(payload *discoproto.DHTPayload, key crypto.Signer) ([]byte, error) {
 	if err := protovalidate.Validate(payload); err != nil {
 		return nil, err
 	}
@@ -53,34 +75,42 @@ func encodeEnvelope(payload *discoproto.DHTPayload, key crypto.Signer) ([]byte, 
 	if err != nil {
 		return nil, err
 	}
-	envelope := &discoproto.DHTEnvelope{
+	record := &discoproto.DHTRecord{
 		Payload:   bs,
 		Signature: signature,
 	}
-	if err := protovalidate.Validate(envelope); err != nil {
+	if err := protovalidate.Validate(record); err != nil {
 		return nil, err
 	}
-	return proto.Marshal(envelope)
+	return proto.Marshal(record)
 }
 
-// decodeEnvelope returns the DHTPayload contained in the given signed envelope
-func decodeEnvelope(id protocol.DeviceID, value []byte, now time.Time) (*discoproto.DHTPayload, error) {
-	// We can unmarshal the envelope
-	var envelope discoproto.DHTEnvelope
-	if err := proto.Unmarshal(value, &envelope); err != nil {
+// validateRecord verifies the signed record and binds it to its DHT key.
+func validateRecord(key string, value []byte, now time.Time) (*discoproto.DHTPayload, error) {
+	if len(value) > 8192 {
+		return nil, errors.New("invalid discovery record size")
+	}
+	// We can unmarshal the record
+	var record discoproto.DHTRecord
+	if err := proto.Unmarshal(value, &record); err != nil {
 		return nil, err
 	}
-	if err := protovalidate.Validate(&envelope); err != nil {
+	if err := protovalidate.Validate(&record); err != nil {
 		return nil, err
 	}
 
 	// We can unmarshal the message inside
 	var payload discoproto.DHTPayload
-	if err := proto.Unmarshal(envelope.Payload, &payload); err != nil {
+	if err := proto.Unmarshal(record.Payload, &payload); err != nil {
 		return nil, err
 	}
 	if err := protovalidate.Validate(&payload); err != nil {
 		return nil, err
+	}
+
+	id := protocol.NewDeviceID(payload.Certificate)
+	if key != dhtRecordKey(id, payload.TimeValue) {
+		return nil, errors.New("incorrect discovery record key")
 	}
 
 	// We can parse the certificate inside the message
@@ -88,35 +118,32 @@ func decodeEnvelope(id protocol.DeviceID, value []byte, now time.Time) (*discopr
 	if err != nil {
 		return nil, fmt.Errorf("bad certificate: %w", err)
 	}
-	// ... and verify that it signed the envelope
-	if err := checkSignature(cert, &envelope); err != nil {
+	// ... and verify that it signed the record
+	if err := checkSignature(cert, &record); err != nil {
 		return nil, fmt.Errorf("invalid discovery signature: %w", err)
 	}
 
 	// It should not have expired. We also check the expiry is not in the
 	// far future, while keeping some leeway for increasing the expiry time
 	// in the future.
-	expires := time.Unix(payload.ExpiresUnix, 0)
-	if now.After(expires) || expires.After(now.Add(4*RecordLifetime)) {
+	if payload.ExpiresUnix > math.MaxInt64 {
 		return nil, errors.New("invalid discovery expiration")
 	}
-
-	// The certificate device ID should match the key we asked for
-	calculatedID := protocol.NewDeviceID(payload.Certificate)
-	if id != calculatedID {
-		return nil, errors.New("incorrect device ID")
+	expires := time.Unix(int64(payload.ExpiresUnix), 0)
+	if now.After(expires) || expires.After(now.Add(4*RecordLifetime)) {
+		return nil, errors.New("invalid discovery expiration")
 	}
 
 	return &payload, nil
 }
 
-// checkSignature verifies that the payload in the envelope was signed by the certificate
-func checkSignature(cert *x509.Certificate, envelope *discoproto.DHTEnvelope) error {
+// checkSignature verifies that the payload in the record was signed by the certificate
+func checkSignature(cert *x509.Certificate, record *discoproto.DHTRecord) error {
 	algorithm, err := dhtSignatureAlgorithm(cert.PublicKey)
 	if err != nil {
 		return err
 	}
-	if err := cert.CheckSignature(algorithm, append([]byte(dhtSignatureDomain), envelope.Payload...), envelope.Signature); err != nil {
+	if err := cert.CheckSignature(algorithm, append([]byte(dhtSignatureDomain), record.Payload...), record.Signature); err != nil {
 		return fmt.Errorf("invalid discovery signature: %w", err)
 	}
 	return nil
@@ -158,134 +185,20 @@ func dhtSignatureAlgorithm(public crypto.PublicKey) (x509.SignatureAlgorithm, er
 // them from the network
 type dhtRecordValidator struct{}
 
-// wrapperMetadata is also used as AEAD additional data, binding encryption
-// to the wrapper version, sequence and expiration.
-func wrapperMetadata(w *discoproto.DHTWrapper) ([]byte, error) {
-	return proto.MarshalOptions{Deterministic: true}.Marshal(&discoproto.DHTWrapper{
-		Version:     w.Version,
-		Sequence:    w.Sequence,
-		ExpiresUnix: w.ExpiresUnix,
-	})
-}
-
-func wrapperSigningBytes(w *discoproto.DHTWrapper) ([]byte, error) {
-	unsigned := proto.Clone(w).(*discoproto.DHTWrapper)
-	unsigned.Signature = nil
-	bs, err := (proto.MarshalOptions{Deterministic: true}).Marshal(unsigned)
-	if err != nil {
-		return nil, err
-	}
-	return append([]byte(encryptedRecordDomain), bs...), nil
-}
-
-func encryptRecord(payload *discoproto.DHTPayload, signer crypto.Signer, keys discoveryKeys) ([]byte, error) {
-	value, err := encodeEnvelope(payload, signer)
-	if err != nil {
-		return nil, err
-	}
-	aead, err := chacha20poly1305.NewX(keys.encryption[:])
-	if err != nil {
-		return nil, err
-	}
-	w := &discoproto.DHTWrapper{
-		Version:     1,
-		Sequence:    payload.Sequence,
-		ExpiresUnix: payload.ExpiresUnix,
-	}
-	additional, err := wrapperMetadata(w)
-	if err != nil {
-		return nil, err
-	}
-	nonce := make([]byte, aead.NonceSize())
-	if _, err := rand.Read(nonce); err != nil {
-		return nil, err
-	}
-	w.Payload = aead.Seal(nonce, nonce, value, additional)
-	signed, err := wrapperSigningBytes(w)
-	if err != nil {
-		return nil, err
-	}
-	w.Signature = ed25519.Sign(keys.signing, signed)
-	if err := protovalidate.Validate(w); err != nil {
-		return nil, err
-	}
-	return proto.Marshal(w)
-}
-
-func validateEncryptedRecord(key string, value []byte, now time.Time) (*discoproto.DHTWrapper, error) {
-	prefix := "/" + dhtRecordNamespace + "/"
-	if !strings.HasPrefix(key, prefix) {
-		return nil, errors.New("invalid discovery namespace")
-	}
-	public, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(key, prefix))
-	if err != nil || len(public) != ed25519.PublicKeySize || key != dhtRecordKey(public) {
-		return nil, errors.New("invalid discovery key")
-	}
-	if len(value) > 8192 {
-		return nil, errors.New("invalid encrypted discovery record size")
-	}
-	var w discoproto.DHTWrapper
-	if err := proto.Unmarshal(value, &w); err != nil {
-		return nil, err
-	}
-	if err := protovalidate.Validate(&w); err != nil {
-		return nil, err
-	}
-	signed, err := wrapperSigningBytes(&w)
-	if err != nil {
-		return nil, err
-	}
-	if !ed25519.Verify(public, signed, w.Signature) {
-		return nil, errors.New("invalid encrypted discovery signature")
-	}
-	expires := time.Unix(w.ExpiresUnix, 0)
-	if now.After(expires) || expires.After(now.Add(4*RecordLifetime)) {
-		return nil, errors.New("invalid encrypted discovery expiration")
-	}
-	return &w, nil
-}
-
-func decryptRecord(id protocol.DeviceID, value []byte, keys discoveryKeys, now time.Time) (*discoproto.DHTPayload, error) {
-	w, err := validateEncryptedRecord(keys.record, value, now)
-	if err != nil {
-		return nil, err
-	}
-	aead, err := chacha20poly1305.NewX(keys.encryption[:])
-	if err != nil {
-		return nil, err
-	}
-	additional, err := wrapperMetadata(w)
-	if err != nil {
-		return nil, err
-	}
-	plaintext, err := aead.Open(nil, w.Payload[:aead.NonceSize()], w.Payload[aead.NonceSize():], additional)
-	if err != nil {
-		return nil, err
-	}
-	payload, err := decodeEnvelope(id, plaintext, now)
-	if err != nil {
-		return nil, err
-	}
-	if payload.Sequence != w.Sequence || payload.ExpiresUnix != w.ExpiresUnix {
-		return nil, errors.New("discovery metadata mismatch")
-	}
-	return payload, nil
-}
-
 func (dhtRecordValidator) Validate(key string, value []byte) error {
-	_, err := validateEncryptedRecord(key, value, time.Now())
+	_, err := validateRecord(key, value, time.Now())
 	return err
 }
 
-// Select returns the index of the newest valid encrypted record.
+// Select returns the index of the newest valid record.
 func (dhtRecordValidator) Select(key string, values [][]byte) (int, error) {
 	idx := -1
-	var best int64
+	var best uint64
 	now := time.Now()
 	for i, value := range values {
-		w, err := validateEncryptedRecord(key, value, now)
-		if err == nil && (idx == -1 || w.Sequence > best) {
-			idx, best = i, w.Sequence
+		payload, err := validateRecord(key, value, now)
+		if err == nil && (idx == -1 || payload.ExpiresUnix > best) {
+			idx, best = i, payload.ExpiresUnix
 		}
 	}
 	if idx == -1 {
