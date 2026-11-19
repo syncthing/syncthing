@@ -49,7 +49,7 @@ type P2PStats struct {
 
 const (
 	globalCacheTime    = 5 * time.Minute
-	globalNegCacheTime = time.Minute // usually overriden by the servers
+	globalNegCacheTime = time.Minute // usually overridden by the servers
 	p2pCacheTime       = 10 * time.Minute
 	p2pNegCacheTime    = 5 * time.Minute
 )

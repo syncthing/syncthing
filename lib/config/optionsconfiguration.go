@@ -7,11 +7,13 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"runtime"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -228,10 +230,13 @@ func (opts OptionsConfiguration) GlobalDiscoveryServers() []string {
 }
 
 func (opts OptionsConfiguration) P2PDiscoveryBootstrapPeers() []string {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	var peers []string
 	for _, address := range opts.RawP2PDiscoveryBootstrapPeers {
 		if address == "default" {
-			if records, err := net.LookupTXT(DefaultDHTBootstrapRecord); err != nil {
+			if records, err := net.DefaultResolver.LookupTXT(ctx, DefaultDHTBootstrapRecord); err != nil {
 				l.Debugln("Unable to resolve default DHT servers via DNS:", err)
 			} else {
 				peers = append(peers, records...)

@@ -35,10 +35,9 @@ const (
 	dhtRecordNamespace = "device"
 )
 
-// discoveryTimeValue staggers daily rotation across devices. The addition
-// intentionally wraps at 2^64 before division.
+// discoveryTimeValue staggers daily rotation across devices.
 func discoveryTimeValue(id protocol.DeviceID, now time.Time) uint64 {
-	return (uint64(now.Unix()) + binary.BigEndian.Uint64(id[:8])) / 86400
+	return (uint64(now.Unix()) + binary.BigEndian.Uint64(id[:8])) / 86400 //nolint:gosec // intentionally wraps
 }
 
 // dhtRecordKey hashes the seed, raw device ID and big-endian time value.

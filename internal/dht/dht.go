@@ -84,9 +84,9 @@ type Options struct {
 }
 
 type DHT struct {
-	host host.Host
-	ipfs *kad.IpfsDHT
-	dhtDiagnostics
+	host           host.Host
+	ipfs           *kad.IpfsDHT
+	dhtDiagnostics //nolint:embeddedstructfieldcheck
 }
 
 func NewSyncthingDHT(options Options) (*DHT, error) {
@@ -342,7 +342,7 @@ func (s *DHT) Announce(ctx context.Context, deviceID protocol.DeviceID, addresse
 	r := &discoproto.DHTPayload{
 		Certificate: certificate,
 		Addresses:   addresses,
-		ExpiresUnix: uint64(now.Add(RecordLifetime).Unix()),
+		ExpiresUnix: uint64(now.Add(RecordLifetime).Unix()), //nolint:gosec // does not wrap
 		TimeValue:   timeValue,
 	}
 	value, err := encodeRecord(r, privateKey)
