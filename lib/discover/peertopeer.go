@@ -4,8 +4,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//go:build !nolibp2p
-
 package discover
 
 import (
@@ -27,15 +25,13 @@ import (
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/dht"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 const (
-	p2pDiscoveryAvailable = true
-	p2pIdentityKey        = "dht-identity"
-	p2pIdentityLifetime   = 7 * 24 * time.Hour
+	p2pIdentityKey      = "dht-identity"
+	p2pIdentityLifetime = 7 * 24 * time.Hour
 )
 
 type PeerToPeerDiscovery struct {
@@ -52,25 +48,28 @@ type PeerToPeerDiscovery struct {
 
 var _ FinderService = (*PeerToPeerDiscovery)(nil)
 
-func NewPeerToPeerDiscovery(cert tls.Certificate, addresses AddressLister, evLogger events.Logger, kv db.KV, udp *registry.UDPReuseManager, cfg config.OptionsConfiguration) (Finder, error) {
+func NewPeerToPeerDiscovery(cert tls.Certificate, addresses AddressLister, evLogger events.Logger, kv db.KV, opts dht.Options) (*PeerToPeerDiscovery, error) {
 	privateKey, ok := cert.PrivateKey.(crypto.Signer)
 	if !ok {
 		return nil, errors.New("TLS private key must implement crypto.Signer")
 	}
 
-	identity, err := loadDHTIdentity(db.NewMiscDB(kv), time.Now())
-	if err != nil {
-		return nil, fmt.Errorf("loading DHT identity: %w", err)
+	if opts.ValueDatastore == nil {
+		opts.ValueDatastore = dht.NewDatastore(db.NewTyped(kv, "dht-values"))
 	}
 
-	opts := dht.Options{
-		UDP:              udp,
-		ListenAddresses:  p2pQUICListenAddresses(cfg.ListenAddresses()),
-		BootstrapPeers:   cfg.P2PDiscoveryBootstrapPeers(),
-		ValueDatastore:   dht.NewDatastore(db.NewTyped(kv, "dht-values")),
-		RoutingDatastore: dht.NewDatastore(db.NewTyped(kv, "dht-routing")),
-		Identity:         identity,
+	if opts.RoutingDatastore == nil {
+		opts.RoutingDatastore = dht.NewDatastore(db.NewTyped(kv, "dht-routing"))
 	}
+
+	if opts.Identity == nil {
+		identity, err := loadDHTIdentity(db.NewMiscDB(kv), time.Now())
+		if err != nil {
+			return nil, fmt.Errorf("loading DHT identity: %w", err)
+		}
+		opts.Identity = identity
+	}
+
 	dht, err := dht.NewSyncthingDHT(opts)
 	if err != nil {
 		return nil, err

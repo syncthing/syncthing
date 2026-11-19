@@ -20,6 +20,7 @@ import (
 	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/dht"
 	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
@@ -216,7 +217,7 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 		toIdentities[ipv6Identity(to.Options.LocalAnnMCAddr)] = struct{}{}
 	}
 
-	if p2pDiscoveryAvailable && to.Options.P2PDiscoveryEnabled {
+	if to.Options.P2PDiscoveryEnabled {
 		toIdentities[p2pIdentity()] = struct{}{}
 	}
 
@@ -268,10 +269,16 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 		}
 	}
 
-	if p2pDiscoveryAvailable && to.Options.P2PDiscoveryEnabled {
+	if to.Options.P2PDiscoveryEnabled {
 		ident := p2pIdentity()
 		if _, ok := m.finders[ident]; !ok {
-			dht, err := NewPeerToPeerDiscovery(m.cert, m.addressLister, m.evLogger, m.kv, m.registry.UDP, to.Options)
+			listenAddresses := p2pQUICListenAddresses(to.Options.ListenAddresses())
+			bootstrapPeers := to.Options.P2PDiscoveryBootstrapPeers()
+			dht, err := NewPeerToPeerDiscovery(m.cert, m.addressLister, m.evLogger, m.kv, dht.Options{
+				UDP:             m.registry.UDP,
+				ListenAddresses: listenAddresses,
+				BootstrapPeers:  bootstrapPeers,
+			})
 			if err != nil {
 				slog.Warn("Failed to initialize peer-to-peer discovery", slogutil.Error(err))
 			} else {
@@ -286,15 +293,10 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 // P2PStats returns statistics about the currently running peer-to-peer
 // discovery.
 func (m *manager) P2PStats() P2PStats {
-	type p2pImpl interface {
-		Mode() string
-		Peers() int
-	}
-
 	m.mut.RLock()
 	defer m.mut.RUnlock()
 
-	p2p, ok := m.finders[p2pIdentity()].Finder.(p2pImpl)
+	p2p, ok := m.finders[p2pIdentity()].Finder.(*PeerToPeerDiscovery)
 	if !ok {
 		return P2PStats{}
 	}
