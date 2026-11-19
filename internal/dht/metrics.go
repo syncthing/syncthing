@@ -7,11 +7,29 @@
 package dht
 
 import (
+	"context"
+
+	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
+	metricAnnouncementUpdatesTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "syncthing",
+		Subsystem: "dht",
+		Name:      "announcement_updates_total",
+		Help:      "Total number of incoming DHT PUT_VALUE requests",
+	})
+
+	metricAnnouncementQueriesTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: "syncthing",
+		Subsystem: "dht",
+		Name:      "announcement_queries_total",
+		Help:      "Total number of incoming DHT GET_VALUE requests",
+	})
+
 	metricDatastoreItems = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "syncthing",
 		Subsystem: "dht",
@@ -26,3 +44,12 @@ var (
 		Help:      "Total number of datastore operations",
 	}, []string{"datastore", "operation", "result"})
 )
+
+func countIncomingRecordRequest(_ context.Context, _ network.Stream, req *pb.Message) {
+	switch req.GetType() {
+	case pb.Message_PUT_VALUE:
+		metricAnnouncementUpdatesTotal.Inc()
+	case pb.Message_GET_VALUE:
+		metricAnnouncementQueriesTotal.Inc()
+	}
+}

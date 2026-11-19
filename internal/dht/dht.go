@@ -248,6 +248,7 @@ func NewSyncthingDHT(options Options) (*DHT, error) {
 		kad.DisableProviders(),
 		kad.MaxRecordAge(RecordLifetime),
 		kad.Mode(mode),
+		kad.OnRequestHook(countIncomingRecordRequest),
 		kad.ProtocolPrefix(p2pProtocolPrefix),
 		kad.RoutingTablePeerDiversityFilter(kad.NewRTPeerDiversityFilter(h, amino.DefaultMaxPeersPerIPGroupPerCpl, amino.DefaultMaxPeersPerIPGroup)),
 		kad.RoutingTablePersistence(5 * time.Minute),
