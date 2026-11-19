@@ -32,7 +32,7 @@ type cachedError interface {
 	CacheFor() time.Duration
 }
 
-func (f *cachedFinder) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addresses []string, err error) {
+func (f *cachedFinder) Lookup(ctx context.Context, deviceID protocol.DeviceID) ([]string, error) {
 	if cacheEntry, ok := f.cache.Get(deviceID); ok {
 		// We have a cache entry. Lets see what it says.
 
@@ -55,7 +55,6 @@ func (f *cachedFinder) Lookup(ctx context.Context, deviceID protocol.DeviceID) (
 	addrs, err := f.Finder.Lookup(ctx, deviceID)
 	if err == nil {
 		slog.DebugContext(ctx, "Got finder result", "device", deviceID, "finder", f, "address", addrs)
-		addresses = append(addresses, addrs...)
 		f.cache.Set(deviceID, CacheEntry{
 			Addresses: addrs,
 			when:      time.Now(),
