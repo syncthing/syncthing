@@ -234,6 +234,15 @@ func initTargets() {
 	for _, file := range listFiles("extra") {
 		syncthingPkg.installationFiles = append(syncthingPkg.installationFiles, archiveFile{src: file, dst: "deb/usr/share/doc/syncthing/" + filepath.Base(file), perm: 0o644})
 	}
+
+	if goos == "windows" {
+		syncthingPkg.archiveFiles = append(syncthingPkg.archiveFiles, archiveFile{
+			src:  "cmd/syncthing/etc/windows/install-syncthing-service.ps1",
+			dst:  "install-syncthing-service.ps1",
+			perm: 0o644,
+		})
+	}
+
 	targets["syncthing"] = syncthingPkg
 }
 
