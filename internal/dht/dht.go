@@ -32,6 +32,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/routing"
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
+	"github.com/libp2p/go-libp2p/p2p/net/swarm"
 	quic "github.com/libp2p/go-libp2p/p2p/transport/quic"
 	"github.com/libp2p/go-libp2p/p2p/transport/quicreuse"
 	ma "github.com/multiformats/go-multiaddr"
@@ -124,6 +125,7 @@ func NewSyncthingDHT(options Options) (*DHT, error) {
 		libp2p.EnableNATService(),
 		libp2p.Transport(quic.NewTransport),
 		libp2p.QUICReuse(options.UDP.QUICReuse),
+		libp2p.SwarmOpts(swarm.WithUDPBlackHoleSuccessCounter(nil)),
 	}
 
 	var listen []ma.Multiaddr
