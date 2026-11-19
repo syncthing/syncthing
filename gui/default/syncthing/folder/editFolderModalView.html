@@ -151,6 +151,17 @@
               <span translate ng-if="folderEditor.trashcanClean.$error.min && folderEditor.trashcanClean.$dirty">A negative number of days doesn't make sense.</span>
             </p>
           </div>
+          <div class="form-group" ng-if="currentFolder._guiVersioning.selector=='trashcan' || currentFolder._guiVersioning.selector=='simple'" ng-class="{'has-error': folderEditor.trashcanMaxSize.$invalid && folderEditor.trashcanMaxSize.$dirty}">
+            <label translate for="trashcanMaxSize">Maximum total size</label>
+            <div class="input-group">
+              <input name="trashcanMaxSize" id="trashcanMaxSize" class="form-control text-right" type="number" ng-model="currentFolder._guiVersioning.trashcanMaxSize" required="" aria-required="true" min="0" step="any" />
+              <div class="input-group-addon">MiB</div>
+            </div>
+            <p class="help-block">
+              <span translate ng-if="folderEditor.trashcanMaxSize.$valid || folderEditor.trashcanMaxSize.$pristine">Maximum total size of versioned files. Zero means unlimited. The oldest files are removed during cleanup to stay within this limit.</span>
+              <span translate ng-if="folderEditor.trashcanMaxSize.$invalid && folderEditor.trashcanMaxSize.$dirty">The maximum size must be a non-negative number and cannot be blank.</span>
+            </p>
+          </div>
           <div class="form-group" ng-if="currentFolder._guiVersioning.selector=='simple'" ng-class="{'has-error': folderEditor.simpleKeep.$invalid && folderEditor.simpleKeep.$dirty}">
             <label translate for="simpleKeep">Keep Versions</label>
             <input name="simpleKeep" id="simpleKeep" class="form-control" type="number" ng-model="currentFolder._guiVersioning.simpleKeep" required="" aria-required="true" min="1" />

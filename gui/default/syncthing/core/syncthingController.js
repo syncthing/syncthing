@@ -126,6 +126,7 @@ angular.module('syncthing.core')
         $scope.versioningDefaults = {
             selector: "none",
             trashcanClean: 0,
+            trashcanMaxSize: 0,
             cleanupIntervalS: 3600,
             simpleKeep: 5,
             staggeredMaxAge: 365,
@@ -2465,9 +2466,11 @@ angular.module('syncthing.core')
             // Apply parameters currently in use
             switch (currentVersioning.type) {
             case "trashcan":
+                $scope.currentFolder._guiVersioning.trashcanMaxSize = (+currentVersioning.params.maxSize || 0) / (1024 * 1024);
                 $scope.currentFolder._guiVersioning.trashcanClean = +currentVersioning.params.cleanoutDays;
                 break;
             case "simple":
+                $scope.currentFolder._guiVersioning.trashcanMaxSize = (+currentVersioning.params.maxSize || 0) / (1024 * 1024);
                 $scope.currentFolder._guiVersioning.simpleKeep = +currentVersioning.params.keep;
                 $scope.currentFolder._guiVersioning.trashcanClean = +currentVersioning.params.cleanoutDays;
                 break;
@@ -2650,9 +2653,11 @@ angular.module('syncthing.core')
             }
             switch (folderCfg._guiVersioning.selector) {
             case "trashcan":
+                folderCfg.versioning.params.maxSize = '' + Math.round(folderCfg._guiVersioning.trashcanMaxSize * 1024 * 1024);
                 folderCfg.versioning.params.cleanoutDays = '' + folderCfg._guiVersioning.trashcanClean;
                 break;
             case "simple":
+                folderCfg.versioning.params.maxSize = '' + Math.round(folderCfg._guiVersioning.trashcanMaxSize * 1024 * 1024);
                 folderCfg.versioning.params.keep = '' + folderCfg._guiVersioning.simpleKeep,
                 folderCfg.versioning.params.cleanoutDays = '' + folderCfg._guiVersioning.trashcanClean;
                 break;
