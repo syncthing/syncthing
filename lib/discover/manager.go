@@ -49,8 +49,9 @@ type manager struct {
 	addressLister AddressLister
 	registry      *registry.Registry
 
-	finders map[string]cachedFinder
 	mut     sync.RWMutex
+	finders map[string]cachedFinder
+	tokens  map[string]suture.ServiceToken
 }
 
 func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate, evLogger events.Logger, lister AddressLister, registry *registry.Registry) Manager {
@@ -62,8 +63,8 @@ func NewManager(myID protocol.DeviceID, cfg config.Wrapper, cert tls.Certificate
 		evLogger:      evLogger,
 		addressLister: lister,
 		registry:      registry,
-
-		finders: make(map[string]cachedFinder),
+		finders:       make(map[string]cachedFinder),
+		tokens:        make(map[string]suture.ServiceToken),
 	}
 	m.Add(svcutil.AsService(m.serve, m.String()))
 	return m
@@ -78,33 +79,27 @@ func (m *manager) serve(ctx context.Context) error {
 }
 
 func (m *manager) addLocked(identity string, finder Finder, cacheTime, negCacheTime time.Duration) {
-	entry := cachedFinder{
+	m.finders[identity] = cachedFinder{
 		Finder:       finder,
 		cacheTime:    cacheTime,
 		negCacheTime: negCacheTime,
 		cache:        newCache(),
-		token:        nil,
 	}
 	if service, ok := finder.(suture.Service); ok {
 		token := m.Supervisor.Add(service)
-		entry.token = &token
+		m.tokens[identity] = token
 	}
-	m.finders[identity] = entry
 	slog.Info("Using discovery mechanism", "identity", identity)
 }
 
 func (m *manager) removeLocked(identity string) {
-	entry, ok := m.finders[identity]
-	if !ok {
-		return
-	}
-	if entry.token != nil {
-		err := m.Supervisor.Remove(*entry.token)
-		if err != nil {
+	if token, ok := m.tokens[identity]; ok {
+		if err := m.Supervisor.Remove(token); err != nil {
 			slog.Warn("Failed to remove discovery mechanism", slog.String("identity", identity), slogutil.Error(err))
 		}
 	}
 	delete(m.finders, identity)
+	delete(m.tokens, identity)
 	slog.Info("Stopped using discovery mechanism", "identity", identity)
 }
 
@@ -113,46 +108,8 @@ func (m *manager) removeLocked(identity string) {
 func (m *manager) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addresses []string, err error) {
 	m.mut.RLock()
 	for _, finder := range m.finders {
-		if cacheEntry, ok := finder.cache.Get(deviceID); ok {
-			// We have a cache entry. Lets see what it says.
-
-			if cacheEntry.found && time.Since(cacheEntry.when) < finder.cacheTime {
-				// It's a positive, valid entry. Use it.
-				slog.DebugContext(ctx, "Found cached discovery entry", "device", deviceID, "finder", finder, "entry", cacheEntry)
-				addresses = append(addresses, cacheEntry.Addresses...)
-				continue
-			}
-
-			valid := time.Now().Before(cacheEntry.validUntil) || time.Since(cacheEntry.when) < finder.negCacheTime
-			if !cacheEntry.found && valid {
-				// It's a negative, valid entry. We should not make another
-				// attempt right now.
-				slog.DebugContext(ctx, "Negative cache entry", "device", deviceID, "finder", finder, "until1", cacheEntry.when.Add(finder.negCacheTime), "until2", cacheEntry.validUntil)
-				continue
-			}
-
-			// It's expired. Ignore and continue.
-		}
-
-		// Perform the actual lookup and cache the result.
 		if addrs, err := finder.Lookup(ctx, deviceID); err == nil {
-			slog.DebugContext(ctx, "Got finder result", "device", deviceID, "finder", finder, "address", addrs)
 			addresses = append(addresses, addrs...)
-			finder.cache.Set(deviceID, CacheEntry{
-				Addresses: addrs,
-				when:      time.Now(),
-				found:     len(addrs) > 0,
-			})
-		} else {
-			// Lookup returned error, add a negative cache entry.
-			entry := CacheEntry{
-				when:  time.Now(),
-				found: false,
-			}
-			if err, ok := err.(cachedError); ok {
-				entry.validUntil = time.Now().Add(err.CacheFor())
-			}
-			finder.cache.Set(deviceID, entry)
 		}
 	}
 	m.mut.RUnlock()

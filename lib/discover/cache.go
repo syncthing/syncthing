@@ -7,12 +7,13 @@
 package discover
 
 import (
+	"context"
+	"log/slog"
 	"maps"
 	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/thejerf/suture/v4"
 )
 
 // A cachedFinder is a Finder with associated cache timeouts.
@@ -22,7 +23,6 @@ type cachedFinder struct {
 	cacheTime    time.Duration
 	negCacheTime time.Duration
 	cache        *cache
-	token        *suture.ServiceToken
 }
 
 // An error may implement cachedError, in which case it will be interrogated
@@ -30,6 +30,50 @@ type cachedFinder struct {
 // negative cache time.
 type cachedError interface {
 	CacheFor() time.Duration
+}
+
+func (f *cachedFinder) Lookup(ctx context.Context, deviceID protocol.DeviceID) (addresses []string, err error) {
+	if cacheEntry, ok := f.cache.Get(deviceID); ok {
+		// We have a cache entry. Lets see what it says.
+
+		if cacheEntry.found && time.Since(cacheEntry.when) < f.cacheTime {
+			// It's a positive, valid entry. Use it.
+			slog.DebugContext(ctx, "Found cached discovery entry", "device", deviceID, "finder", f, "entry", cacheEntry)
+			return cacheEntry.Addresses, nil
+		}
+
+		valid := time.Now().Before(cacheEntry.validUntil) || time.Since(cacheEntry.when) < f.negCacheTime
+		if !cacheEntry.found && valid {
+			// It's a negative, valid entry. We should not make another
+			// attempt right now.
+			slog.DebugContext(ctx, "Negative cache entry", "device", deviceID, "finder", f, "until1", cacheEntry.when.Add(f.negCacheTime), "until2", cacheEntry.validUntil)
+			return nil, nil
+		}
+	}
+
+	// Perform the actual lookup and cache the result.
+	addrs, err := f.Finder.Lookup(ctx, deviceID)
+	if err == nil {
+		slog.DebugContext(ctx, "Got finder result", "device", deviceID, "finder", f, "address", addrs)
+		addresses = append(addresses, addrs...)
+		f.cache.Set(deviceID, CacheEntry{
+			Addresses: addrs,
+			when:      time.Now(),
+			found:     len(addrs) > 0,
+		})
+	} else {
+		// Lookup returned error, add a negative cache entry.
+		entry := CacheEntry{
+			when:  time.Now(),
+			found: false,
+		}
+		if err, ok := err.(cachedError); ok {
+			entry.validUntil = time.Now().Add(err.CacheFor())
+		}
+		f.cache.Set(deviceID, entry)
+	}
+
+	return addrs, err
 }
 
 // A cache can be embedded wherever useful
