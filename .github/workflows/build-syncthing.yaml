@@ -383,6 +383,7 @@ jobs:
             done
         env:
           CGO_ENABLED: "1"
+          TAGS: "nolibp2p sqlite_omit_load_extension sqlite_dbstat"
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
