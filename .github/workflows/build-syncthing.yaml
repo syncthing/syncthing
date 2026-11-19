@@ -278,7 +278,8 @@ jobs:
 
   package-linux:
     name: Package for Linux (${{ matrix.group }})
-    runs-on: ubuntu-latest
+    # Ubuntu 26.04 no longer ships the MIPS64 GCC cross-compilers.
+    runs-on: ${{ matrix.group == 'mips' && 'ubuntu-24.04' || 'ubuntu-latest' }}
     needs:
       - facts
     strategy:
@@ -330,7 +331,9 @@ jobs:
 
       - name: Install extra packages
         if: matrix.extra-packages != ''
-        run: sudo apt-get install -y ${{ matrix.extra-packages }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.extra-packages }}
 
       - name: Create packages
         run: |
@@ -735,7 +738,7 @@ jobs:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
-      - uses: ruby/setup-ruby@eab2afb99481ca09a4e91171a8e0aee0e89bfedd # v1
+      - uses: ruby/setup-ruby@f9c4492e86def3e644ab32a0ef185eda5b0c20d0 # v1.342.0
         with:
           ruby-version: '3.0'
 
