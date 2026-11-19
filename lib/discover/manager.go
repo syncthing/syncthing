@@ -46,6 +46,13 @@ type P2PStats struct {
 	Peers int
 }
 
+const (
+	globalCacheTime    = 5 * time.Minute
+	globalNegCacheTime = time.Minute // usually overriden by the servers
+	p2pCacheTime       = 10 * time.Minute
+	p2pNegCacheTime    = 5 * time.Minute
+)
+
 type manager struct {
 	*suture.Supervisor
 
@@ -275,11 +282,7 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 				slog.Warn("Failed to initialize global discovery", slogutil.Error(err))
 				continue
 			}
-
-			// Each global discovery server gets its results cached for five
-			// minutes, and is not asked again for a minute when it's returned
-			// unsuccessfully.
-			m.addLocked(identity, gd, 5*time.Minute, time.Minute)
+			m.addLocked(identity, gd, globalCacheTime, globalNegCacheTime)
 		}
 	}
 
@@ -314,7 +317,7 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 			if err != nil {
 				slog.Warn("Failed to initialize peer-to-peer discovery", slogutil.Error(err))
 			} else {
-				m.addLocked(ident, dht, 5*time.Minute, time.Minute)
+				m.addLocked(ident, dht, p2pCacheTime, p2pNegCacheTime)
 			}
 		}
 	}
