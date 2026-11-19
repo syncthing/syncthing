@@ -8,9 +8,8 @@
 
 package dht
 
-import (
-	"github.com/libp2p/go-libp2p/core/peer"
-)
+type dhtDiagnostics struct{}
 
-func setupLibraryLogging()                                {}
-func (s *DHT) startDiagnostics(bootstrap []peer.AddrInfo) {}
+func newDiagnostics(_ *DHT) dhtDiagnostics {
+	return dhtDiagnostics{}
+}
