@@ -268,6 +268,10 @@ func NewSyncthingDHT(options Options) (*DHT, error) {
 		return nil, err
 	}
 
+	if err := d.Bootstrap(context.Background()); err != nil {
+		return nil, err
+	}
+
 	s := &DHT{
 		host: h,
 		ipfs: d,
@@ -294,6 +298,15 @@ func (s *DHT) Mode() string {
 
 func (s *DHT) Peers() int {
 	return s.ipfs.RoutingTable().Size()
+}
+
+func (s *DHT) Addrs() []string {
+	addrs := s.ipfs.FilteredAddrs()
+	straddrs := make([]string, len(addrs))
+	for i, a := range addrs {
+		straddrs[i] = a.String()
+	}
+	return straddrs
 }
 
 func (s *DHT) Close() error {

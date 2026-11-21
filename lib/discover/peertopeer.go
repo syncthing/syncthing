@@ -34,6 +34,7 @@ import (
 const (
 	p2pIdentityKey      = "dht-identity"
 	p2pIdentityLifetime = 7 * 24 * time.Hour
+	p2pServeLoopTick    = time.Minute
 )
 
 var errNotRunning = errors.New("not running")
@@ -142,6 +143,9 @@ func (s *PeerToPeerDiscovery) Peers() int {
 }
 
 func (s *PeerToPeerDiscovery) Serve(ctx context.Context) error {
+	slog.Debug("Starting")
+	defer slog.Debug("Stopping")
+
 	rdht, err := dht.NewSyncthingDHT(s.options)
 	if err != nil {
 		return err
@@ -160,6 +164,7 @@ func (s *PeerToPeerDiscovery) Serve(ctx context.Context) error {
 	var next time.Time
 	var addressChangePending bool
 	connectRetryDelay := time.Second
+	connectFail := 0
 	for {
 		select {
 		case <-eventSub.C():
@@ -179,6 +184,10 @@ func (s *PeerToPeerDiscovery) Serve(ctx context.Context) error {
 				s.setError(errors.New("no discovery DHT peers"))
 				timer.Reset(connectRetryDelay)
 				connectRetryDelay = min(connectRetryDelay*2, announceErrorRetryInterval)
+				connectFail++
+				if connectFail > 10 {
+					return nil // restart
+				}
 
 			case time.Now().After(next), !slices.Equal(addresses, published):
 				err := s.Announce(ctx)
@@ -191,8 +200,9 @@ func (s *PeerToPeerDiscovery) Serve(ctx context.Context) error {
 					next = time.Now().Add(announceErrorRetryInterval)
 					slog.Debug("Failed to announce", "error", err, "next", next)
 				}
-				timer.Reset(time.Until(next))
+				timer.Reset(min(time.Until(next), p2pServeLoopTick))
 				connectRetryDelay = time.Second
+				connectFail = 0
 
 			default:
 				timer.Reset(time.Until(next))
