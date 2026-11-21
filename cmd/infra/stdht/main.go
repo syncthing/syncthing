@@ -129,7 +129,7 @@ func run(ctx context.Context, cli CLI) error {
 	}
 	defer dht.Close()
 
-	slog.InfoContext(ctx, "Discovery DHT server started", "peer", dht.ID(), "maxConnections", cli.MaxConnections, "maxConnectionsPerSubnet", cli.MaxConnectionsPerSubnet, "addrs", dht.Addrs())
+	slog.InfoContext(ctx, "Discovery DHT server started", "version", build.LongVersionFor("stdht"), "peer", dht.ID(), "maxConnections", cli.MaxConnections, "maxConnectionsPerSubnet", cli.MaxConnectionsPerSubnet, "addrs", dht.Addrs())
 
 	var httpServer *http.Server
 	var httpErrors <-chan error
