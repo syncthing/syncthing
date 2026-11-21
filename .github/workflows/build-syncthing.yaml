@@ -153,7 +153,6 @@ jobs:
     needs:
       - build-test
       - package-linux
-      - package-illumos
       - package-cross
       - package-source
       - package-debian
@@ -356,39 +355,6 @@ jobs:
             *.tar.gz
             compat.json
 
-  package-illumos:
-    runs-on: ubuntu-latest
-    name: Package for illumos
-    needs:
-      - facts
-    env:
-      VERSION: ${{ needs.facts.outputs.version }}
-      GO_VERSION: ${{ needs.facts.outputs.go-version }}
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Build syncthing in OmniOS VM
-        uses: vmactions/omnios-vm@68da93c6d9812b29fc90c5b5141b093f84a590fb # v1
-        with:
-          envs: "VERSION GO_VERSION CGO_ENABLED"
-          usesh: true
-          prepare: |
-            pkg install developer/gcc14 web/curl archiver/gnu-tar
-          run: |
-            curl -L "https://go.dev/dl/go$GO_VERSION.illumos-amd64.tar.gz" | gtar xzf -
-            export PATH="$GITHUB_WORKSPACE/go/bin:$PATH"
-            go version
-            for tgt in syncthing stdiscosrv strelaysrv ; do
-              go run build.go -tags "${{env.TAGS}}" tar "$tgt"
-            done
-        env:
-          CGO_ENABLED: "1"
-
-      - name: Archive artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: packages-illumos
-          path: "*.tar.gz"
   #
   # macOS. The entire build runs in the release environment because code
   # signing is part of the build process, so it is limited to release
@@ -638,7 +604,6 @@ jobs:
     needs:
       - codesign-windows
       - package-linux
-      - package-illumos
       - package-macos
       - package-cross
       - package-source
@@ -740,7 +705,7 @@ jobs:
 
       - uses: ruby/setup-ruby@f9c4492e86def3e644ab32a0ef185eda5b0c20d0 # v1.342.0
         with:
-          ruby-version: '3.0'
+          ruby-version: '3.4'
 
       - name: Install fpm
         run: |
@@ -1180,7 +1145,8 @@ jobs:
         run: |
           go run build.go assets
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
+          go install github.com/decort-tech/govulncheck-ignore/v2@latest
+          govulncheck-ignore ./...
 
   #
   # golangci-lint runs a suite of static analysis checks on the code

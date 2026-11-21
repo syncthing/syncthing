@@ -9,45 +9,46 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"errors"
-	"flag"
 	"fmt"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
+	"github.com/alecthomas/kong"
+	"github.com/syncthing/syncthing/internal/dht"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-var timeout = 5 * time.Second
+type CLI struct {
+	Server       string        `help:"Announce server (blank for default set)"`
+	DHTBootstrap []string      `help:"DHT bootstrap multiaddress (blank for default set)"`
+	Timeout      time.Duration `help:"Query timeout" default:"5s"`
+	DeviceID     string        `arg:"" help:"Device ID to look up"`
+}
 
 func main() {
-	var server string
+	var cli CLI
+	kong.Parse(&cli)
 
-	flag.StringVar(&server, "server", "", "Announce server (blank for default set)")
-	flag.DurationVar(&timeout, "timeout", timeout, "Query timeout")
-	flag.Usage = usage
-	flag.Parse()
-
-	if flag.NArg() != 1 {
-		flag.Usage()
-		os.Exit(64)
-	}
-
-	id, err := protocol.DeviceIDFromString(flag.Args()[0])
+	id, err := protocol.DeviceIDFromString(cli.DeviceID)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	if server != "" {
-		checkServers(id, server)
-	} else {
-		checkServers(id, config.DefaultDiscoveryServers...)
+	servers := config.DefaultDiscoveryServers
+	if cli.Server != "" {
+		servers = []string{cli.Server}
 	}
+	bootstrapPeers := cli.DHTBootstrap
+	if len(bootstrapPeers) == 0 {
+		bootstrapPeers = config.New(protocol.LocalDeviceID).Options.P2PDiscoveryBootstrapPeers()
+	}
+	checkServers(id, cli.Timeout, bootstrapPeers, servers...)
 }
 
 type checkResult struct {
@@ -56,22 +57,39 @@ type checkResult struct {
 	error
 }
 
-func checkServers(deviceID protocol.DeviceID, servers ...string) {
+func checkServers(deviceID protocol.DeviceID, timeout time.Duration, bootstrapPeers []string, servers ...string) {
 	t0 := time.Now()
 	resc := make(chan checkResult)
+	var wg sync.WaitGroup
+
 	for _, srv := range servers {
-		go func() {
-			res := checkServer(deviceID, srv)
+		wg.Go(func() {
+			res := checkServer(deviceID, srv, timeout)
 			res.server = srv
 			resc <- res
-		}()
+		})
 	}
 
-	for range servers {
-		res := <-resc
+	wg.Go(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		addresses, err := dht.Lookup(ctx, deviceID, dht.Options{
+			BootstrapPeers: bootstrapPeers,
+		})
+		resc <- checkResult{server: "DHT", addresses: addresses, error: err}
+	})
 
-		u, _ := url.Parse(res.server)
-		fmt.Printf("%s (%v):\n", u.Host, time.Since(t0))
+	go func() {
+		wg.Wait()
+		close(resc)
+	}()
+
+	for res := range resc {
+		name := res.server
+		if u, err := url.Parse(name); err == nil && u.Host != "" {
+			name = u.Host
+		}
+		fmt.Printf("%s (%v):\n", name, time.Since(t0))
 
 		if res.error != nil {
 			fmt.Println("  " + res.error.Error())
@@ -82,27 +100,14 @@ func checkServers(deviceID protocol.DeviceID, servers ...string) {
 	}
 }
 
-func checkServer(deviceID protocol.DeviceID, server string) checkResult {
+func checkServer(deviceID protocol.DeviceID, server string, timeout time.Duration) checkResult {
 	disco, err := discover.NewGlobal(server, tls.Certificate{}, nil, events.NoopLogger, nil)
 	if err != nil {
 		return checkResult{error: err}
 	}
 
-	res := make(chan checkResult, 1)
-
-	time.AfterFunc(timeout, func() {
-		res <- checkResult{error: errors.New("timeout")}
-	})
-
-	go func() {
-		addresses, err := disco.Lookup(context.Background(), deviceID)
-		res <- checkResult{addresses: addresses, error: err}
-	}()
-
-	return <-res
-}
-
-func usage() {
-	fmt.Printf("Usage:\n\t%s [options] <device ID>\n\nOptions:\n", os.Args[0])
-	flag.PrintDefaults()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	addresses, err := disco.Lookup(ctx, deviceID)
+	return checkResult{addresses: addresses, error: err}
 }

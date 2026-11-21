@@ -100,6 +100,8 @@ func (s *Service) Serve(ctx context.Context) error {
 		}
 
 		if s.cfg.Options().IsStunDisabled() {
+			s.setNATType(NATUnknown)
+			s.setExternalAddress(nil, "")
 			timer.Reset(time.Second)
 			continue
 		}
@@ -172,6 +174,9 @@ func (s *Service) runStunForServer(ctx context.Context, addr string) error {
 
 	s.setNATType(natType)
 	l.Debugf("%s detected NAT type: %s via %s", s, natType, addr)
+	// Even an unpunchable NAT reveals our public IP. Listeners can combine it
+	// with their local ports in case a manual port forwarding rule exists.
+	s.setExternalAddress(extAddr, addr)
 
 	// We can't punch through this one, so no point doing keepalives
 	// and such, just let the caller check the nat type and work it out themselves.
@@ -180,7 +185,6 @@ func (s *Service) runStunForServer(ctx context.Context, addr string) error {
 		return errNotPunchable
 	}
 
-	s.setExternalAddress(extAddr, addr)
 	return s.stunKeepAlive(ctx, addr, extAddr)
 }
 
@@ -269,7 +273,12 @@ func (s *Service) String() string {
 }
 
 func (s *Service) isCurrentNATTypePunchable() bool {
-	return s.natType == NATNone || s.natType == NATPortRestricted || s.natType == NATRestricted || s.natType == NATFull || s.natType == NATSymmetricUDPFirewall
+	return IsNATTypePunchable(s.natType)
+}
+
+// IsNATTypePunchable reports whether a STUN mapping can be used to punch through NAT.
+func IsNATTypePunchable(natType NATType) bool {
+	return natType == NATNone || natType == NATPortRestricted || natType == NATRestricted || natType == NATFull || natType == NATSymmetricUDPFirewall
 }
 
 func areDifferent(first, second *Host) bool {

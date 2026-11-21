@@ -17,12 +17,15 @@ import (
 )
 
 type Registry struct {
+	UDP *UDPReuseManager // endpoints shared between QUIC, STUN, and P2P discovery
+
 	mut       sync.Mutex
 	available map[string][]any
 }
 
 func New() *Registry {
 	return &Registry{
+		UDP:       NewUDPReuseManager(),
 		available: make(map[string][]any),
 	}
 }

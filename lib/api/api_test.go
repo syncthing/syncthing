@@ -1127,7 +1127,7 @@ func startHTTPWithShutdownTimeout(t *testing.T, cfg config.Wrapper, shutdownTime
 	mockedSummary.SummaryReturns(new(model.FolderSummary), nil)
 
 	// Instantiate the API service
-	urService := ur.New(cfg, m, connections, false)
+	urService := ur.New(cfg, m, connections, nil, false)
 	mdb, err := sqlite.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)

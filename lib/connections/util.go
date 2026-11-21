@@ -51,7 +51,7 @@ func getURLsForAllAdaptersIfUnspecified(network string, uri *url.URL) []*url.URL
 		return nil
 	}
 
-	hostPorts := getHostPortsForAllAdapters(port)
+	hostPorts := getHostPortsForAllAdapters(network, port)
 	addrs := make([]*url.URL, 0, len(hostPorts))
 	for _, hostPort := range hostPorts {
 		newUri := *uri
@@ -62,7 +62,7 @@ func getURLsForAllAdaptersIfUnspecified(network string, uri *url.URL) []*url.URL
 	return addrs
 }
 
-func getHostPortsForAllAdapters(port int) []string {
+func getHostPortsForAllAdapters(network string, port int) []string {
 	nets, err := osutil.GetInterfaceAddrs(true)
 	if err != nil {
 		// Ignore failure.
@@ -73,11 +73,14 @@ func getHostPortsForAllAdapters(port int) []string {
 
 	portStr := strconv.Itoa(port)
 
-	for _, network := range nets {
+	for _, iface := range nets {
+		if strings.HasSuffix(network, "4") && iface.IP.To4() == nil || strings.HasSuffix(network, "6") && iface.IP.To4() != nil {
+			continue
+		}
 		// Only accept IPv4 link-local unicast and the private ranges defined in RFC 1918 and RFC 4193
 		// IPv6 link-local addresses require an interface identifier to work correctly
-		if (network.IP.To4() != nil && network.IP.IsLinkLocalUnicast()) || network.IP.IsPrivate() {
-			hostPorts = append(hostPorts, net.JoinHostPort(network.IP.String(), portStr))
+		if (iface.IP.To4() != nil && iface.IP.IsLinkLocalUnicast()) || iface.IP.IsPrivate() {
+			hostPorts = append(hostPorts, net.JoinHostPort(iface.IP.String(), portStr))
 		}
 	}
 	return hostPorts
