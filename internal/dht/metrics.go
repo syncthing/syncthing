@@ -8,6 +8,7 @@ package dht
 
 import (
 	"context"
+	"log/slog"
 
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -46,6 +47,7 @@ var (
 )
 
 func countIncomingRecordRequest(_ context.Context, _ network.Stream, req *pb.Message) {
+	slog.Debug("Incoming request", "type", req.GetType())
 	switch req.GetType() {
 	case pb.Message_PUT_VALUE:
 		metricAnnouncementUpdatesTotal.Inc()

@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/rand/v2"
 	"net"
 	"net/netip"
@@ -20,6 +21,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
@@ -34,10 +36,12 @@ const (
 	p2pIdentityLifetime = 7 * 24 * time.Hour
 )
 
+var errNotRunning = errors.New("not running")
+
 type PeerToPeerDiscovery struct {
 	errorHolder
 
-	dht         *dht.DHT
+	dht         atomic.Pointer[dht.DHT]
 	options     dht.Options
 	certificate []byte
 	privateKey  crypto.Signer
@@ -70,13 +74,7 @@ func NewPeerToPeerDiscovery(cert tls.Certificate, addresses AddressLister, evLog
 		opts.Identity = identity
 	}
 
-	dht, err := dht.NewSyncthingDHT(opts)
-	if err != nil {
-		return nil, err
-	}
-
 	s := &PeerToPeerDiscovery{
-		dht:         dht,
 		options:     opts,
 		certificate: slices.Clone(cert.Certificate[0]),
 		privateKey:  privateKey,
@@ -128,19 +126,29 @@ func (s *PeerToPeerDiscovery) String() string {
 }
 
 func (s *PeerToPeerDiscovery) Mode() string {
-	return s.dht.Mode()
+	dht := s.dht.Load()
+	if dht == nil {
+		return "not started"
+	}
+	return dht.Mode()
 }
 
 func (s *PeerToPeerDiscovery) Peers() int {
-	return s.dht.Peers()
-}
-
-func (s *PeerToPeerDiscovery) Close() error {
-	return s.dht.Close()
+	dht := s.dht.Load()
+	if dht == nil {
+		return 0
+	}
+	return dht.Peers()
 }
 
 func (s *PeerToPeerDiscovery) Serve(ctx context.Context) error {
-	defer s.Close()
+	rdht, err := dht.NewSyncthingDHT(s.options)
+	if err != nil {
+		return err
+	}
+	defer rdht.Close()
+
+	s.dht.Store(rdht)
 
 	timer := time.NewTimer(0)
 	defer timer.Stop()
@@ -166,7 +174,8 @@ func (s *PeerToPeerDiscovery) Serve(ctx context.Context) error {
 			addresses := s.announcementAddresses()
 
 			switch {
-			case !s.dht.Connected():
+			case !rdht.Connected():
+				slog.Debug("Not connected")
 				s.setError(errors.New("no discovery DHT peers"))
 				timer.Reset(connectRetryDelay)
 				connectRetryDelay = min(connectRetryDelay*2, announceErrorRetryInterval)
@@ -180,6 +189,7 @@ func (s *PeerToPeerDiscovery) Serve(ctx context.Context) error {
 					next = time.Now().Add(dht.RecordLifetime/6 + rand.N(dht.RecordLifetime/8)) //nolint:gosec
 				} else {
 					next = time.Now().Add(announceErrorRetryInterval)
+					slog.Debug("Failed to announce", "error", err, "next", next)
 				}
 				timer.Reset(time.Until(next))
 				connectRetryDelay = time.Second
@@ -249,11 +259,19 @@ func isDirectScheme(scheme string) bool {
 }
 
 func (s *PeerToPeerDiscovery) Announce(ctx context.Context) error {
-	return s.dht.Announce(ctx, s.deviceID, s.announcementAddresses(), s.certificate, s.privateKey)
+	dht := s.dht.Load()
+	if dht == nil {
+		return errNotRunning
+	}
+	return dht.Announce(ctx, s.deviceID, s.announcementAddresses(), s.certificate, s.privateKey)
 }
 
 func (s *PeerToPeerDiscovery) Lookup(ctx context.Context, deviceID protocol.DeviceID) ([]string, error) {
-	return s.dht.Lookup(ctx, deviceID)
+	dht := s.dht.Load()
+	if dht == nil {
+		return nil, errNotRunning
+	}
+	return dht.Lookup(ctx, deviceID)
 }
 
 func (s *PeerToPeerDiscovery) Cache() map[protocol.DeviceID]CacheEntry {
