@@ -46,8 +46,8 @@ var (
 	}, []string{"datastore", "operation", "result"})
 )
 
-func countIncomingRecordRequest(_ context.Context, _ network.Stream, req *pb.Message) {
-	slog.Debug("Incoming request", "type", req.GetType())
+func countIncomingRecordRequest(_ context.Context, s network.Stream, req *pb.Message) {
+	slog.Debug("Incoming request", "type", req.GetType(), "peer", s.Conn().RemotePeer())
 	switch req.GetType() {
 	case pb.Message_PUT_VALUE:
 		metricAnnouncementUpdatesTotal.Inc()
