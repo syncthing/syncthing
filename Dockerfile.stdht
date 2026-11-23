@@ -26,7 +26,6 @@ LABEL org.opencontainers.image.authors="The Syncthing Project" \
 
 EXPOSE 22026/udp
 
-VOLUME ["/var/stdht"]
 
 COPY --from=builder /src/stdht-linux-$TARGETARCH /bin/stdht
 
@@ -35,5 +34,6 @@ ENV STDHT_DATABASE=/var/stdht/db
 ENV STDHT_KEY_FILE=/var/stdht/key
 
 USER 1000:1000
+VOLUME ["/var/stdht"]
 WORKDIR /var/stdht
 ENTRYPOINT ["/bin/stdht"]
