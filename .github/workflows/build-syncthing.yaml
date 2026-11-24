@@ -34,6 +34,9 @@ env:
   TAGS: "sqlite_omit_load_extension sqlite_dbstat"
   TAGS_LINUX: "sqlite_omit_load_extension sqlite_dbstat netgo osusergo"
 
+  # https://ziglang.org/download/
+  ZIG_VERSION: "0.17.1"
+
 # A note on actions and third party code... The actions under actions/ (like
 # `uses: actions/checkout`) are maintained by GitHub, and we need to trust
 # GitHub to maintain their code and infrastructure or we're in deep shit in
@@ -56,12 +59,12 @@ jobs:
       release-generation: ${{ steps.get-version.outputs.release-generation }}
       go-version: ${{ steps.get-go.outputs.go-version }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
@@ -93,7 +96,7 @@ jobs:
         id: get-go
         run: |
           go version
-          echo "go-version=$(go version | sed 's#^.*go##;s# .*##')" >> $GITHUB_OUTPUT
+          echo "go-version=$(go version | sed 's#^.*go##;s# .*##')" >> "$GITHUB_OUTPUT"
 
   #
   # Tests for all platforms. Runs a matrix build on Windows, Linux and Mac,
@@ -112,7 +115,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Set git to use LF
-        if: matrix.runner == 'windows-latest'
+        if: runner.os == 'Windows'
         # Without this, the Windows checkout will happen with CRLF line
         # endings, which is fine for the source code but messes up tests
         # that depend on data on disk being as expected. Ideally, those
@@ -121,9 +124,9 @@ jobs:
           git config --global core.autocrlf false
           git config --global core.eol lf
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go }}
           cache: true
@@ -162,7 +165,7 @@ jobs:
       - golangci
       - meta
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
   #
   # Windows
@@ -177,25 +180,28 @@ jobs:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
-      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: ${{ env.ZIG_VERSION }}
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-windows-${{ hashFiles('go.sum') }}
+          restore-keys: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-windows-
 
       - name: Install dependencies
         run: |
-          go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.4.0
+          go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@b66839b92ddd6c4098296d76c155715510a1563c # v1.7.0
 
       - name: Create packages
         run: |
@@ -203,14 +209,14 @@ jobs:
             go run build.go -tags "${{env.TAGS}}" -goos windows -goarch amd64 -cc "zig cc -target x86_64-windows" zip $tgt
             go run build.go -tags "${{env.TAGS}}" -goos windows -goarch 386 -cc "zig cc -target x86-windows" zip $tgt
             go run build.go -tags "${{env.TAGS}}" -goos windows -goarch arm64 -cc "zig cc -target aarch64-windows" zip $tgt
-            # go run build.go -tags "${{env.TAGS}}" -goos windows -goarch arm -cc "zig cc -target thumb-windows" zip $tgt # fails with linker errors
           done
         env:
           CGO_ENABLED: "1"
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
+          if-no-files-found: error
           name: unsigned-packages-windows
           path: "*.zip"
 
@@ -222,13 +228,16 @@ jobs:
 
   codesign-windows:
     name: Codesign for Windows
-    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
+    if: >-
+      github.repository_owner == 'syncthing' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: windows-latest
     needs:
       - package-windows
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: unsigned-packages-windows
           path: packages
@@ -241,14 +250,14 @@ jobs:
             7z x $file.Name
           }
 
-      - name: Sign files with Trusted Signing
-        uses: azure/trusted-signing-action@0d74250c661747df006298d0fb49944c10f16e03 # v0.5.1
+      - name: Sign files with Artifact Signing
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
         with:
           azure-tenant-id: ${{ secrets.AZURE_TRUSTED_SIGNING_TENANT_ID }}
           azure-client-id: ${{ secrets.AZURE_TRUSTED_SIGNING_CLIENT_ID }}
           azure-client-secret: ${{ secrets.AZURE_TRUSTED_SIGNING_CLIENT_SECRET }}
           endpoint: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
-          trusted-signing-account-name: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT }}
+          signing-account-name: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT }}
           certificate-profile-name: ${{ secrets.AZURE_TRUSTED_SIGNING_PROFILE }}
           files-folder: ${{ github.workspace }}\packages
           files-folder-filter: exe
@@ -267,8 +276,9 @@ jobs:
           }
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
+          if-no-files-found: error
           name: packages-windows
           path: "packages/*.zip"
 
@@ -313,21 +323,24 @@ jobs:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
-      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: ${{ env.ZIG_VERSION }}
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-linux-${{ matrix.group }}-${{ hashFiles('go.sum') }}
+          restore-keys: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-linux-${{ matrix.group }}-
 
       - name: Install extra packages
         if: matrix.extra-packages != ''
@@ -349,8 +362,9 @@ jobs:
           TARGETS: ${{ matrix.targets }}
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
+          if-no-files-found: error
           name: packages-linux-${{ matrix.group }}
           path: |
             *.tar.gz
@@ -365,10 +379,10 @@ jobs:
       VERSION: ${{ needs.facts.outputs.version }}
       GO_VERSION: ${{ needs.facts.outputs.go-version }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Build syncthing in OmniOS VM
-        uses: vmactions/omnios-vm@68da93c6d9812b29fc90c5b5141b093f84a590fb # v1
+        uses: vmactions/omnios-vm@aeee92416495d9685b2997d954f6b063ae5b832d # v1.3.8
         with:
           envs: "VERSION GO_VERSION CGO_ENABLED"
           usesh: true
@@ -385,8 +399,9 @@ jobs:
           CGO_ENABLED: "1"
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
+          if-no-files-found: error
           name: packages-illumos
           path: "*.tar.gz"
   #
@@ -397,7 +412,10 @@ jobs:
 
   package-macos:
     name: Package for macOS
-    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
+    if: >-
+      github.repository_owner == 'syncthing' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: macos-latest
     needs:
       - facts
@@ -406,19 +424,20 @@ jobs:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-${{ hashFiles('go.sum') }}
+          restore-keys: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-package-
 
       - name: Import signing certificate
         if: env.CODESIGN_IDENTITY != ''
@@ -487,33 +506,37 @@ jobs:
           zip -r "../$universal.zip" "$universal"
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
+          if-no-files-found: error
           name: packages-macos
           path: "*.zip"
 
   notarize-macos:
     name: Notarize for macOS
-    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
-    needs:
-      - package-macos
+    if: >-
+      github.repository_owner == 'syncthing' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: macos-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
-          name: packages-macos
+          name: packages-signed
 
       - name: Notarize binaries
         run: |
           APPSTORECONNECT_API_KEY_PATH="$RUNNER_TEMP/apikey.p8"
           echo "$APPSTORECONNECT_API_KEY" | base64 -d -o "$APPSTORECONNECT_API_KEY_PATH"
           for file in *-macos-*.zip ; do
-            xcrun notarytool submit \
+            result=$(xcrun notarytool submit --wait --output-format json \
               -k "$APPSTORECONNECT_API_KEY_PATH" \
               -d "$APPSTORECONNECT_API_KEY_ID" \
               -i "$APPSTORECONNECT_API_KEY_ISSUER" \
-              $file
+              "$file")
+            printf '%s\n' "$result"
+            jq -e '.status == "Accepted"' <<< "$result"
           done
         env:
           APPSTORECONNECT_API_KEY: ${{ secrets.APPSTORECONNECT_API_KEY }}
@@ -533,19 +556,20 @@ jobs:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-cross-${{ hashFiles('go.sum') }}
+          restore-keys: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-cross-
 
       - name: Create packages
         run: |
@@ -563,27 +587,33 @@ jobs:
             | grep -v /wasm \
           )
 
-          # Build for each platform with errors silenced, because we expect
-          # some oddball platforms to fail. This avoids a bunch of errors in
-          # the GitHub Actions output, instead summarizing each build
-          # failure as a warning.
+          # Require the amd64 FreeBSD, NetBSD, and OpenBSD packages.
+          failed=0
           for plat in $platforms; do
             goos="${plat%/*}"
             goarch="${plat#*/}"
             echo "::group ::$plat"
             for tgt in syncthing stdiscosrv strelaysrv ; do
               if ! go run build.go -goos "$goos" -goarch "$goarch" tar "$tgt" ; then
-                echo "::warning ::Failed to build $tgt for $plat"
+                case "$plat" in
+                  freebsd/amd64|netbsd/amd64|openbsd/amd64)
+                    echo "::error ::Failed to build $tgt for $plat"
+                    failed=1
+                    ;;
+                  *) echo "::warning ::Failed to build $tgt for $plat" ;;
+                esac
               fi
             done
             echo "::endgroup::"
           done
+          exit "$failed"
         env:
           CGO_ENABLED: "0"
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
+          if-no-files-found: error
           name: packages-other
           path: "*.tar.gz"
 
@@ -600,9 +630,9 @@ jobs:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
@@ -623,8 +653,9 @@ jobs:
           mv "syncthing-source-$VERSION.tar.gz" syncthing
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
+          if-no-files-found: error
           name: packages-source
           path: syncthing-source-*.tar.gz
 
@@ -634,7 +665,10 @@ jobs:
 
   sign-for-upgrade:
     name: Sign for upgrade
-    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
+    if: >-
+      github.repository_owner == 'syncthing' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
     needs:
       - codesign-windows
       - package-linux
@@ -648,21 +682,21 @@ jobs:
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           repository: syncthing/release-tools
           path: tools
 
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: packages-*
           path: packages
           merge-multiple: true
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
@@ -709,8 +743,9 @@ jobs:
           EZAPT_KEYRING_BASE64: ${{ secrets.APT_GPG_KEYRING_BASE64 }}
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
+          if-no-files-found: error
           name: packages-signed
           path: |
             packages/*.tar.gz
@@ -731,29 +766,32 @@ jobs:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
-      - uses: ruby/setup-ruby@f9c4492e86def3e644ab32a0ef185eda5b0c20d0 # v1.342.0
+      - uses: ruby/setup-ruby@be3c7df29b3349ec6bcfc6b4792f1cf9f5237d18 # v1.343.0
         with:
-          ruby-version: '3.0'
+          ruby-version: '3.4.13'
 
       - name: Install fpm
         run: |
           gem install fpm
 
-      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: ${{ env.ZIG_VERSION }}
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-debian-${{ hashFiles('go.sum') }}
+          restore-keys: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-debian-
 
       - name: Package for Debian (CGO)
         run: |
@@ -769,8 +807,9 @@ jobs:
           EXTRA_LDFLAGS: "-linkmode=external -extldflags=-static"
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
+          if-no-files-found: error
           name: debian-packages
           path: "*.deb"
 
@@ -780,24 +819,28 @@ jobs:
 
   publish-nightly:
     name: Publish nightly build
-    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/heads/release-nightly')
+    if: >-
+      github.repository_owner == 'syncthing' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      startsWith(github.ref, 'refs/heads/release-nightly')
     needs:
       - sign-for-upgrade
+      - notarize-macos
       - facts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           repository: syncthing/release-tools
           path: tools
 
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: packages-signed
           path: packages
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
@@ -828,14 +871,18 @@ jobs:
 
   publish-release-files:
     name: Publish release files
-    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/tags/v'))
+    if: >-
+      github.repository_owner == 'syncthing' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (github.ref == 'refs/heads/release' || startsWith(github.ref, 'refs/tags/v'))
     permissions:
       contents: write
       id-token: write
       attestations: write
-      artifact-metadata: write
+      # artifact-metadata: write
     needs:
       - sign-for-upgrade
+      - notarize-macos
       - package-debian
       - facts
     env:
@@ -843,25 +890,25 @@ jobs:
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - name: Download signed packages
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: packages-signed
           path: packages
 
       - name: Download debian packages
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: debian-packages
           path: packages
 
       - name: Create GitHub build provenance attestations
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest@v4
         with:
           subject-path: packages/*
 
@@ -938,7 +985,10 @@ jobs:
 
   publish-apt:
     name: Publish APT
-    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
+    if: >-
+      github.repository_owner == 'syncthing' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
     needs:
       - package-debian
       - facts
@@ -949,7 +999,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download packages
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: debian-packages
           path: packages
@@ -1028,21 +1078,24 @@ jobs:
             dockerfile: Dockerfile.stdiscosrv
             image: discosrv
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
-      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: ${{ env.ZIG_VERSION }}
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-docker-${{ matrix.pkg }}-${{ hashFiles('go.sum') }}
+          restore-keys: ${{ runner.os }}-go-${{ needs.facts.outputs.go-version }}-docker-${{ matrix.pkg }}-
 
       - name: Build binaries (CGO)
         run: |
@@ -1065,17 +1118,18 @@ jobs:
           EXTRA_LDFLAGS: "-linkmode=external -extldflags=-static"
 
       - name: Login to GHCR
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Set version tags
         run: |
@@ -1109,7 +1163,7 @@ jobs:
 
       - name: Build and push Docker image
         id: build
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: ctx
           file: ${{ matrix.dockerfile }}
@@ -1121,17 +1175,17 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Install Cosign
-        if: github.event_name == 'push'
-        uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
 
       - name: Sign image
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           IFS="," read -ra tags <<< $DOCKER_TAGS
           images=""
-          for tag in ${tags[@]}; do
+          for tag in "${tags[@]}"; do
             images+="${tag}@${DIGEST} "
           done
           cosign sign --yes --recursive ${images}
@@ -1143,7 +1197,10 @@ jobs:
 
   docker-hub:
     name: Sync images to Docker hub
-    if: github.repository_owner == 'syncthing' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release-nightly' || github.ref == 'refs/heads/infrastructure' || startsWith(github.ref, 'refs/tags/v'))
+    if: >-
+      github.repository_owner == 'syncthing' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (contains(fromJSON('["refs/heads/main", "refs/heads/release-nightly", "refs/heads/infrastructure"]'), github.ref) || startsWith(github.ref, 'refs/tags/v'))
     runs-on: ubuntu-latest
     needs:
       - docker-ghcr
@@ -1151,7 +1208,7 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Sync images
         uses: docker://docker.io/regclient/regsync:latest
         with:
@@ -1169,9 +1226,9 @@ jobs:
     needs:
       - facts
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
@@ -1189,19 +1246,22 @@ jobs:
   golangci:
     runs-on: ubuntu-latest
     name: Run golangci-lint
+    needs: facts
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
-          go-version: 'stable'
+          go-version: ${{ needs.facts.outputs.go-version }}
 
       - name: ensure asset generation
         run: go run build.go assets
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v8
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
+          # See https://github.com/golangci/golangci-lint/releases/latest
+          version: v2.15.0
           only-new-issues: true
 
   #
@@ -1211,11 +1271,12 @@ jobs:
   meta:
     name: Run meta checks
     runs-on: ubuntu-latest
+    needs: facts
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
-          go-version: 'stable'
+          go-version: ${{ needs.facts.outputs.go-version }}
 
       - run: |
           go run build.go assets
