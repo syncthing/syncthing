@@ -77,6 +77,7 @@ type Options struct {
 	AdvertiseAddresses      []string
 	Identity                []byte
 	Server                  bool
+	Client                  bool
 	ValueDatastore          ds.Batching
 	RoutingDatastore        ds.Batching
 	MaxConnections          int // Zero uses libp2p defaults.
@@ -234,6 +235,8 @@ func NewSyncthingDHT(options Options) (*DHT, error) {
 	mode := kad.ModeAuto
 	if options.Server {
 		mode = kad.ModeServer
+	} else if options.Client {
+		mode = kad.ModeClient
 	}
 
 	opts := []kad.Option{
