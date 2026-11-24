@@ -17,19 +17,12 @@ import (
 )
 
 var (
-	metricAnnouncementUpdatesTotal = promauto.NewCounter(prometheus.CounterOpts{
+	metricDHTRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "syncthing",
 		Subsystem: "dht",
-		Name:      "announcement_updates_total",
-		Help:      "Total number of incoming DHT PUT_VALUE requests",
-	})
-
-	metricAnnouncementQueriesTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Namespace: "syncthing",
-		Subsystem: "dht",
-		Name:      "announcement_queries_total",
-		Help:      "Total number of incoming DHT GET_VALUE requests",
-	})
+		Name:      "requests_total",
+		Help:      "Total number of incoming DHT requests",
+	}, []string{"type"})
 
 	metricDatastoreItems = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "syncthing",
@@ -47,12 +40,11 @@ var (
 )
 
 func countIncomingRecordRequest(_ context.Context, s network.Stream, req *pb.Message) {
+	metricDHTRequestsTotal.WithLabelValues(req.GetType().String()).Inc()
 	switch req.GetType() {
 	case pb.Message_PUT_VALUE:
-		metricAnnouncementUpdatesTotal.Inc()
-		slog.Debug("Incoming PUT_VALUE request", "key", string(req.Key), "peer", s.Conn().RemotePeer())
+		slog.Debug("Incoming PUT_VALUE request", "key", string(req.GetKey()), "peer", s.Conn().RemotePeer())
 	case pb.Message_GET_VALUE:
-		metricAnnouncementQueriesTotal.Inc()
-		slog.Debug("Incoming GET_VALUE request", "key", string(req.Key), "peer", s.Conn().RemotePeer())
+		slog.Debug("Incoming GET_VALUE request", "key", string(req.GetKey()), "peer", s.Conn().RemotePeer())
 	}
 }
