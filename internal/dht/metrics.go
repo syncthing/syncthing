@@ -42,9 +42,7 @@ var (
 func countIncomingRecordRequest(_ context.Context, s network.Stream, req *pb.Message) {
 	metricDHTRequestsTotal.WithLabelValues(req.GetType().String()).Inc()
 	switch req.GetType() {
-	case pb.Message_PUT_VALUE:
-		slog.Debug("Incoming PUT_VALUE request", "key", string(req.GetKey()), "peer", s.Conn().RemotePeer())
-	case pb.Message_GET_VALUE:
-		slog.Debug("Incoming GET_VALUE request", "key", string(req.GetKey()), "peer", s.Conn().RemotePeer())
+	case pb.Message_PUT_VALUE, pb.Message_GET_VALUE:
+		slog.Debug("Incoming DHT request", "type", req.GetType(), "key", string(req.GetKey()), "peer", s.Conn().RemotePeer())
 	}
 }
