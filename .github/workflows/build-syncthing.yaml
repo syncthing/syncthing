@@ -518,6 +518,8 @@ jobs:
       github.repository_owner == 'syncthing' &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
       (github.ref == 'refs/heads/release-nightly' || startsWith(github.ref, 'refs/tags/v'))
+    needs:
+      - sign-for-upgrade
     runs-on: macos-latest
     steps:
       - name: Download artifacts
