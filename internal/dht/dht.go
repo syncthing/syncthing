@@ -250,7 +250,7 @@ func NewSyncthingDHT(options Options) (*DHT, error) {
 		kad.RoutingTablePeerDiversityFilter(kad.NewRTPeerDiversityFilter(h, amino.DefaultMaxPeersPerIPGroupPerCpl, amino.DefaultMaxPeersPerIPGroup)),
 		kad.RoutingTablePersistence(5 * time.Minute),
 		kad.Validator(record.NamespacedValidator{dhtRecordNamespace: dhtRecordValidator{}}),
-		kad.ValueGCInterval(time.Minute),
+		kad.ValueGCInterval(RecordLifetime),
 	}
 
 	if options.ValueDatastore != nil {

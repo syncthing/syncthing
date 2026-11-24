@@ -69,6 +69,9 @@ func (s *datastore) Delete(ctx context.Context, key ds.Key) error {
 }
 
 func (s *datastore) Query(ctx context.Context, q query.Query) (query.Results, error) {
+	// This is (currently) only called for value GC, every two hours. We
+	// could optimise this to disable value GC and do it ourselves instead
+	// in a more efficient manner.
 	var entries []query.Entry
 	it, errFn := s.store.KeyValues()
 	for kv := range it {
