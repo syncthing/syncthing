@@ -47,11 +47,12 @@ var (
 )
 
 func countIncomingRecordRequest(_ context.Context, s network.Stream, req *pb.Message) {
-	slog.Debug("Incoming request", "type", req.GetType(), "peer", s.Conn().RemotePeer())
 	switch req.GetType() {
 	case pb.Message_PUT_VALUE:
 		metricAnnouncementUpdatesTotal.Inc()
+		slog.Debug("Incoming PUT_VALUE request", "key", string(req.Key), "peer", s.Conn().RemotePeer())
 	case pb.Message_GET_VALUE:
 		metricAnnouncementQueriesTotal.Inc()
+		slog.Debug("Incoming GET_VALUE request", "key", string(req.Key), "peer", s.Conn().RemotePeer())
 	}
 }
