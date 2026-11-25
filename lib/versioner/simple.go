@@ -24,6 +24,7 @@ func init() {
 type simple struct {
 	keep            int
 	cleanoutDays    int
+	maxSize         int64
 	folderFs        fs.Filesystem
 	versionsFs      fs.Filesystem
 	copyRangeMethod fs.CopyRangeMethod
@@ -38,7 +39,10 @@ func newSimple(cfg config.FolderConfiguration) Versioner {
 		keep = 5 // A reasonable default
 	}
 
+	maxSize, _ := strconv.ParseInt(cfg.Versioning.Params["maxSize"], 10, 64)
+
 	s := simple{
+		maxSize:         maxSize,
 		keep:            keep,
 		cleanoutDays:    cleanoutDays,
 		folderFs:        cfg.Filesystem(),
@@ -72,7 +76,13 @@ func (v simple) Restore(filepath string, versionTime time.Time) error {
 }
 
 func (v simple) Clean(ctx context.Context) error {
-	return clean(ctx, v.versionsFs, v.toRemove)
+	if err := clean(ctx, v.versionsFs, v.toRemove); err != nil {
+		return err
+	}
+	return cleanByAgeAndSize(ctx, v.versionsFs, 0, v.maxSize, func(path string, _ fs.FileInfo) (time.Time, bool) {
+		stamp, err := time.ParseInLocation(TimeFormat, extractTag(path), time.Local) //nolint:gosmopolitan
+		return stamp, err == nil
+	})
 }
 
 func (v simple) toRemove(versions []string, now time.Time) []string {
