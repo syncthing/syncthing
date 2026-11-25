@@ -16,8 +16,9 @@ import (
 // Typed is a simple key-value store using a specific namespace within a
 // lower level KV.
 type Typed struct {
-	db     KV
-	prefix string
+	db      KV
+	prefix  string
+	expires time.Time
 }
 
 func NewMiscDB(db KV) *Typed {
@@ -33,12 +34,18 @@ func NewTyped(db KV, prefix string) *Typed {
 	}
 }
 
+func (n *Typed) WithExpires(t time.Time) *Typed {
+	cp := *n
+	cp.expires = t
+	return &cp
+}
+
 // PutInt64 stores a new int64. Any existing value (even if of another type)
 // is overwritten.
 func (n *Typed) PutInt64(key string, val int64) error {
 	var valBs [8]byte
 	binary.BigEndian.PutUint64(valBs[:], uint64(val)) //nolint:gosec
-	return n.db.PutKV(n.prefixedKey(key), valBs[:])
+	return n.db.PutKVExpires(n.prefixedKey(key), valBs[:], n.expires)
 }
 
 // Int64 returns the stored value interpreted as an int64 and a boolean that
@@ -56,7 +63,7 @@ func (n *Typed) Int64(key string) (int64, bool, error) {
 // type) is overwritten.
 func (n *Typed) PutTime(key string, val time.Time) error {
 	valBs, _ := val.MarshalBinary() // never returns an error
-	return n.db.PutKV(n.prefixedKey(key), valBs)
+	return n.db.PutKVExpires(n.prefixedKey(key), valBs, n.expires)
 }
 
 // Time returns the stored value interpreted as a time.Time and a boolean
@@ -74,7 +81,7 @@ func (n *Typed) Time(key string) (time.Time, bool, error) {
 // PutString stores a new string. Any existing value (even if of another type)
 // is overwritten.
 func (n *Typed) PutString(key, val string) error {
-	return n.db.PutKV(n.prefixedKey(key), []byte(val))
+	return n.db.PutKVExpires(n.prefixedKey(key), []byte(val), n.expires)
 }
 
 // String returns the stored value interpreted as a string and a boolean that
@@ -90,7 +97,7 @@ func (n *Typed) String(key string) (string, bool, error) {
 // PutBytes stores a new byte slice. Any existing value (even if of another type)
 // is overwritten.
 func (n *Typed) PutBytes(key string, val []byte) error {
-	return n.db.PutKV(n.prefixedKey(key), val)
+	return n.db.PutKVExpires(n.prefixedKey(key), val, n.expires)
 }
 
 // Bytes returns the stored value as a raw byte slice and a boolean that
@@ -107,9 +114,9 @@ func (n *Typed) Bytes(key string) ([]byte, bool, error) {
 // is overwritten.
 func (n *Typed) PutBool(key string, val bool) error {
 	if val {
-		return n.db.PutKV(n.prefixedKey(key), []byte{0x0})
+		return n.db.PutKVExpires(n.prefixedKey(key), []byte{0x0}, n.expires)
 	}
-	return n.db.PutKV(n.prefixedKey(key), []byte{0x1})
+	return n.db.PutKVExpires(n.prefixedKey(key), []byte{0x1}, n.expires)
 }
 
 // Bool returns the stored value as a boolean and a boolean that

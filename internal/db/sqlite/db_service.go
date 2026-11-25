@@ -121,13 +121,25 @@ func (s *Service) periodic(ctx context.Context) error {
 	defer func() { slog.DebugContext(ctx, "Periodic done in", "t1", time.Since(t1), "t0t1", t1.Sub(t0)) }()
 
 	s.sdb.updateLock.Lock()
-	err := tidy(ctx, s.sdb.sql)
+	err := s.sdb.expireKVLocked()
+	if err == nil {
+		err = tidy(ctx, s.sdb.sql)
+	}
 	s.sdb.updateLock.Unlock()
 	if err != nil {
 		return err
 	}
 
 	return wrap(s.sdb.forEachFolder(func(fdb *folderDB) error {
+		// KV expiry is independent of file sequences, so we run it before
+		// the shortcutting.
+		fdb.updateLock.Lock()
+		err := fdb.expireKVLocked()
+		fdb.updateLock.Unlock()
+		if err != nil {
+			return wrap(err)
+		}
+
 		// Get the current device sequence, for comparison in the next step.
 		seq, err := fdb.GetDeviceSequence(protocol.LocalDeviceID)
 		if err != nil {

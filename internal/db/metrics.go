@@ -219,6 +219,11 @@ func (m metricsDB) PutKV(key string, val []byte) error {
 	return m.DB.PutKV(key, val)
 }
 
+func (m metricsDB) PutKVExpires(key string, val []byte, expires time.Time) error {
+	defer m.account("-", "PutKVExpires")()
+	return m.DB.PutKVExpires(key, val, expires)
+}
+
 func (m metricsDB) DeleteKV(key string) error {
 	defer m.account("-", "DeleteKV")()
 	return m.DB.DeleteKV(key)

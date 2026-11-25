@@ -113,6 +113,7 @@ type DB interface {
 type KV interface {
 	GetKV(key string) ([]byte, error)
 	PutKV(key string, val []byte) error
+	PutKVExpires(key string, val []byte, expires time.Time) error
 	DeleteKV(key string) error
 	PrefixKV(prefix string) (iter.Seq[KeyValue], func() error)
 }

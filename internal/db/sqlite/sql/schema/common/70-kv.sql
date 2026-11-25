@@ -8,6 +8,7 @@
 --  of data.
 CREATE TABLE IF NOT EXISTS kv (
     key TEXT NOT NULL PRIMARY KEY COLLATE BINARY,
-    value BLOB NOT NULL
+    value BLOB NOT NULL,
+    expires INTEGER -- Unix nanos
 ) STRICT, WITHOUT ROWID
 ;

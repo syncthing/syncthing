@@ -9,6 +9,7 @@ package sqlite
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/binary"
 	"errors"
 	"iter"
@@ -30,6 +31,38 @@ const (
 	folderID  = "test"
 	blockSize = 128 << 10
 )
+
+func TestKVExpiry(t *testing.T) {
+	t.Parallel()
+
+	sdb, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := sdb.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+
+	const key, value = "key", "value"
+	now := time.Now()
+	if err := sdb.PutKVExpires(key, []byte(value), now.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	got, err := sdb.GetKV(key)
+	if err != nil || string(got) != value {
+		t.Fatalf("GetKV before expiry = (%q, %v), want (%q, nil)", got, err, value)
+	}
+
+	if err := sdb.PutKVExpires(key, []byte(value), now.Add(-time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	got, err = sdb.GetKV(key)
+	if got != nil || !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("GetKV after expiry = (%q, %v), want (nil, sql.ErrNoRows)", got, err)
+	}
+}
 
 func TestBasics(t *testing.T) {
 	t.Parallel()
