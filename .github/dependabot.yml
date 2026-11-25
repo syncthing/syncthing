@@ -19,6 +19,9 @@ updates:
       interval: monthly
     allow:
       - dependency-type: direct
+    ignore:
+      - dependency-name: github.com/gobwas/glob # we skip updating to 1.0 for now
+        versions: ["1.x"]
     cooldown:
       default-days: 14
     groups:
