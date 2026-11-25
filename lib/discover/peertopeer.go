@@ -145,6 +145,8 @@ func (s *PeerToPeerDiscovery) Serve(ctx context.Context) error {
 	slog.Debug("Starting")
 	defer slog.Debug("Stopping")
 
+	defer s.setError(errors.New("not running"))
+
 	rdht, err := dht.NewSyncthingDHT(s.options)
 	if err != nil {
 		return err
