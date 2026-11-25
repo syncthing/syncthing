@@ -8,9 +8,11 @@ on:
 
 env:
   GO_VERSION: "~1.27.0"
-  # CGO_ENABLED: "0"
+  CGO_ENABLED: "1"
   BUILD_USER: docker
   BUILD_HOST: github.syncthing.net
+  TAGS: "sqlite_omit_load_extension sqlite_dbstat netgo osusergo"
+  EXTRA_LDFLAGS: "-linkmode=external -extldflags=-static"
 
 permissions:
   contents: read
@@ -57,7 +59,7 @@ jobs:
       - name: Build binaries
         run: |
           for arch in arm64 amd64; do
-            go run build.go -goos linux -goarch "$arch" build ${{ matrix.pkg }}
+            go run build.go -goos linux -goarch "$arch" -tags "$TAGS" build ${{ matrix.pkg }}
             mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-"$arch"
           done
 
