@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package discoproto;
+
+import "buf/validate/validate.proto";
+
+// DHTRecord is the discovery payload signed by the device ID certificate.
+message DHTRecord {
+  // Payload is the protobuf marshalled DHTPayload
+  bytes payload = 1 [(buf.validate.field).bytes.max_len = 4096];
+
+  // Signature is the signature of the payload by the certificate inside the
+  // payload.
+  bytes signature = 2 [(buf.validate.field).bytes.max_len = 1024];
+}
+
+// DHTPayload is the discovery document registered in a DHT by each device.
+message DHTPayload {
+  // Time value used for record ID calculation.
+  uint64 time_value = 1;
+
+  // Timestamp in Unix epoch seconds when the record ceases to be valid.
+  // Also, de facto sequencing for records -- a newly published record must
+  // have an expiry time later than the previous record.
+  uint64 expires_unix = 2;
+
+  // Addresses is the list of listening addresses, on the usual
+  // "tcp://192.0.2.42:22000" form, including QUIC, relays, etc.
+  repeated string addresses = 3 [
+    (buf.validate.field).repeated.max_items = 32,
+    (buf.validate.field).repeated.items.string.max_len = 128
+  ];
+
+  // Certificate is the device TLS certificate in DER form; the SHA256 of
+  // which is the device ID.
+  bytes certificate = 4 [(buf.validate.field).bytes.max_len = 2048];
+}

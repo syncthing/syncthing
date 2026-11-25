@@ -7,12 +7,64 @@
 package db_test
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/db/sqlite"
+	"github.com/syncthing/syncthing/internal/itererr"
 )
+
+func TestNamespacedKeyValues(t *testing.T) {
+	t.Parallel()
+
+	ldb, err := sqlite.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		ldb.Close()
+	})
+
+	n := db.NewTyped(ldb, "foo")
+	if kvs, err := itererr.Collect(n.KeyValues()); err != nil {
+		t.Fatal(err)
+	} else if len(kvs) != 0 {
+		t.Fatalf("Expected empty namespace, got %v", kvs)
+	}
+
+	want := map[string]string{
+		"first":      "one",
+		"nested/key": "two",
+		"/leading":   "three",
+	}
+	for key, val := range want {
+		if err := n.PutString(key, val); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, namespace := range []string{"bar", "foobar"} {
+		if err := db.NewTyped(ldb, namespace).PutString("other", "excluded"); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got := make(map[string]string)
+	it, errFn := n.KeyValues()
+	for kv := range it {
+		if _, ok := got[kv.Key]; ok {
+			t.Errorf("Duplicate key %q", kv.Key)
+		}
+		got[kv.Key] = string(kv.Value)
+	}
+	if err := errFn(); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("KeyValues() = %v, want %v", got, want)
+	}
+}
 
 func TestNamespacedInt(t *testing.T) {
 	t.Parallel()

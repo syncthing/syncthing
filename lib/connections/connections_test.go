@@ -16,6 +16,7 @@ import (
 	"math/rand"
 	"net"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -30,6 +31,32 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 )
+
+func TestExpandListenAddresses(t *testing.T) {
+	cases := []struct {
+		address string
+		want    []string
+	}{
+		{"quic://:22000", []string{"quic4://0.0.0.0:22000", "quic6://[::]:22000"}},
+		{"quic://0.0.0.0", []string{"quic4://0.0.0.0:22000", "quic6://[::]:22000"}},
+		{"quic://[::]:0", []string{"quic4://0.0.0.0:0", "quic6://[::]:0"}},
+		{"quic://127.0.0.1:22000", []string{"quic://127.0.0.1:22000"}},
+		{"quic://[::1]:22000", []string{"quic://[::1]:22000"}},
+		{"quic://localhost:22000", []string{"quic://localhost:22000"}},
+		{"quic4://:22000", []string{"quic4://:22000"}},
+		{"quic6://:22000", []string{"quic6://:22000"}},
+		{"tcp://:22000", []string{"tcp://:22000"}},
+		{"%", []string{"%"}},
+		{"", []string{""}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.address, func(t *testing.T) {
+			if got := expandListenAddresses([]string{tc.address}); !slices.Equal(got, tc.want) {
+				t.Fatalf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
 
 func TestFixupPort(t *testing.T) {
 	cases := [][2]string{

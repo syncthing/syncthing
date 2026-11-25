@@ -8,6 +8,7 @@ package discover
 
 import (
 	"context"
+	"net/netip"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -40,6 +41,7 @@ type FinderService interface {
 // The AddressLister answers questions about what addresses we are listening
 // on.
 type AddressLister interface {
+	ExternalIPs() []netip.Addr
 	ExternalAddresses() []string
 	AllAddresses() []string
 }

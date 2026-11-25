@@ -8,9 +8,11 @@ on:
 
 env:
   GO_VERSION: "~1.27.0"
-  CGO_ENABLED: "0"
+  CGO_ENABLED: "1"
   BUILD_USER: docker
   BUILD_HOST: github.syncthing.net
+  TAGS: "sqlite_omit_load_extension sqlite_dbstat netgo osusergo"
+  EXTRA_LDFLAGS: "-linkmode=external -extldflags=-static"
 
 permissions:
   contents: read
@@ -27,6 +29,7 @@ jobs:
       matrix:
         pkg:
           - stcrashreceiver
+          - stdht
           - strelaypoolsrv
           - stupgrades
           - ursrv
@@ -39,6 +42,8 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
+
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
 
       - name: Login to Docker Hub
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
@@ -55,10 +60,10 @@ jobs:
 
       - name: Build binaries
         run: |
-          for arch in arm64 amd64; do
-            go run build.go -goos linux -goarch "$arch" build ${{ matrix.pkg }}
-            mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-"$arch"
-          done
+          go run build.go -tags "$TAGS" -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" build ${{ matrix.pkg }}
+          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-amd64
+          go run build.go -tags "$TAGS" -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" build ${{ matrix.pkg }}
+          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm64
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
@@ -68,7 +73,7 @@ jobs:
 
       - name: Set Docker tags (all branches)
         run: |
-          tags=docker.io/syncthing/${{ matrix.pkg }}:${{ github.sha }},ghcr.io/syncthing/infra/${{ matrix.pkg }}:${{ github.sha }}
+          tags=ghcr.io/syncthing/infra/${{ matrix.pkg }}:${{ github.ref_name }}
           echo "TAGS=$tags" >> $GITHUB_ENV
 
       - name: Set Docker tags (latest)

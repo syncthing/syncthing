@@ -1,0 +1,329 @@
+// Copyright (C) 2026 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
+
+package discover
+
+import (
+	"context"
+	"crypto"
+	"crypto/tls"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log/slog"
+	"math/rand/v2"
+	"net"
+	"net/netip"
+	"net/url"
+	"slices"
+	"strconv"
+	"strings"
+	"sync/atomic"
+	"time"
+
+	"github.com/syncthing/syncthing/internal/db"
+	"github.com/syncthing/syncthing/internal/dht"
+	"github.com/syncthing/syncthing/lib/build"
+	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections/registry"
+	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/protocol"
+)
+
+const (
+	p2pIdentityKey      = "dht-identity"
+	p2pIdentityLifetime = 7 * 24 * time.Hour
+	p2pServeLoopTick    = time.Minute
+)
+
+var errNotRunning = errors.New("not running")
+
+type PeerToPeerDiscovery struct {
+	errorHolder
+
+	dht         atomic.Pointer[dht.DHT]
+	options     dht.Options
+	certificate []byte
+	privateKey  crypto.Signer
+	deviceID    protocol.DeviceID
+	addresses   AddressLister
+	evLogger    events.Logger
+}
+
+var _ FinderService = (*PeerToPeerDiscovery)(nil)
+
+func NewPeerToPeerDiscovery(cert tls.Certificate, addresses AddressLister, evLogger events.Logger, kv db.KV, udp *registry.UDPReuseManager, listen []netip.AddrPort, bootstrap []string) (*PeerToPeerDiscovery, error) {
+	privateKey, ok := cert.PrivateKey.(crypto.Signer)
+	if !ok {
+		return nil, errors.New("TLS private key must implement crypto.Signer")
+	}
+
+	identity, err := loadDHTIdentity(db.NewMiscDB(kv), time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("loading DHT identity: %w", err)
+	}
+
+	s := &PeerToPeerDiscovery{
+		options: dht.Options{
+			UDP:              udp,
+			ListenAddresses:  listen,
+			BootstrapPeers:   bootstrap,
+			Identity:         identity,
+			Client:           build.IsAndroid || build.IsIOS,
+			ValueDatastore:   dht.NewDatastore(db.NewTyped(kv, "dht-values")),
+			RoutingDatastore: dht.NewDatastore(db.NewTyped(kv, "dht-routing")),
+		},
+		certificate: slices.Clone(cert.Certificate[0]),
+		privateKey:  privateKey,
+		deviceID:    protocol.NewDeviceID(cert.Certificate[0]),
+		addresses:   addresses,
+		evLogger:    evLogger,
+	}
+
+	s.setError(errors.New("not announced"))
+	return s, nil
+}
+
+func loadDHTIdentity(miscDB *db.Typed, now time.Time) ([]byte, error) {
+	var identity struct {
+		Created time.Time
+		Key     []byte
+	}
+
+	data, ok, err := miscDB.Bytes(p2pIdentityKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if ok && json.Unmarshal(data, &identity) == nil &&
+		len(identity.Key) > 0 &&
+		!identity.Created.After(now) &&
+		now.Before(identity.Created.Add(p2pIdentityLifetime)) {
+		return identity.Key, nil
+	}
+
+	identity.Key, err = dht.NewIdentity()
+	if err != nil {
+		return nil, err
+	}
+	identity.Created = now.UTC()
+	data, err = json.Marshal(identity)
+	if err != nil {
+		return nil, err
+	}
+	if err := miscDB.PutBytes(p2pIdentityKey, data); err != nil {
+		return nil, err
+	}
+
+	return identity.Key, nil
+}
+
+func (s *PeerToPeerDiscovery) String() string {
+	return fmt.Sprintf("Peer-to-peer discovery (%s mode, %d peers)", s.Mode(), s.Peers())
+}
+
+func (s *PeerToPeerDiscovery) Mode() string {
+	dht := s.dht.Load()
+	if dht == nil {
+		return "not started"
+	}
+	return dht.Mode()
+}
+
+func (s *PeerToPeerDiscovery) Peers() int {
+	dht := s.dht.Load()
+	if dht == nil {
+		return 0
+	}
+	return dht.Peers()
+}
+
+func (s *PeerToPeerDiscovery) Serve(ctx context.Context) error {
+	slog.Debug("Starting")
+	defer slog.Debug("Stopping")
+
+	defer s.setError(errors.New("not running"))
+
+	rdht, err := dht.NewSyncthingDHT(s.options)
+	if err != nil {
+		return err
+	}
+	defer rdht.Close()
+
+	s.dht.Store(rdht)
+
+	timer := time.NewTimer(0)
+	defer timer.Stop()
+
+	eventSub := s.evLogger.Subscribe(events.ListenAddressesChanged)
+	defer eventSub.Unsubscribe()
+
+	var published []string
+	var next time.Time
+	var addressChangePending bool
+	connectRetryDelay := time.Second
+	connectFail := 0
+	for {
+		select {
+		case <-eventSub.C():
+			if !addressChangePending {
+				// Coalesce listener updates without indefinitely postponing publication.
+				timer.Reset(2 * time.Second)
+				addressChangePending = true
+			}
+
+		case <-timer.C:
+			addressChangePending = false
+			addresses := s.announcementAddresses()
+
+			switch {
+			case !rdht.Connected():
+				slog.Debug("Not connected")
+				s.setError(errors.New("no discovery DHT peers"))
+				timer.Reset(connectRetryDelay)
+				connectRetryDelay = min(connectRetryDelay*2, announceErrorRetryInterval)
+				connectFail++
+				if connectFail > 10 {
+					return nil // restart
+				}
+
+			case time.Now().After(next), !slices.Equal(addresses, published):
+				err := s.Announce(ctx)
+				s.setError(err)
+				if err == nil {
+					published = addresses
+					// 20 - 35 minutes
+					next = time.Now().Add(dht.RecordLifetime/6 + rand.N(dht.RecordLifetime/8)) //nolint:gosec
+				} else {
+					next = time.Now().Add(announceErrorRetryInterval)
+					slog.Debug("Failed to announce", "error", err, "next", next)
+				}
+				timer.Reset(min(time.Until(next), p2pServeLoopTick))
+				connectRetryDelay = time.Second
+				connectFail = 0
+
+			default:
+				timer.Reset(time.Until(next))
+			}
+
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func announceableAddress(address string) bool {
+	u, err := url.Parse(address)
+	if err != nil || u.Hostname() == "" {
+		return false
+	}
+	ip, err := netip.ParseAddr(u.Hostname())
+	return err != nil || !ip.IsUnspecified()
+}
+
+func (s *PeerToPeerDiscovery) announcementAddresses() []string {
+	addresses := sanitizeRelayAddresses(slices.Clone(s.addresses.ExternalAddresses()))
+	addresses = resolveDHTAddresses(addresses, s.addresses.ExternalIPs())
+	addresses = slices.DeleteFunc(addresses, func(address string) bool {
+		return !announceableAddress(address)
+	})
+	slices.Sort(addresses)
+	return slices.Compact(addresses)
+}
+
+// Resolve wildcard listeners using public IPs obtained directly from STUN.
+func resolveDHTAddresses(addresses []string, publicIPs []netip.Addr) []string {
+	for _, address := range slices.Clone(addresses) {
+		// We want direct-connection addresses with a defined port
+		u, err := url.Parse(address)
+		if err != nil || !isDirectScheme(u.Scheme) || u.Port() == "" || u.Port() == "0" {
+			continue
+		}
+		// ... where the host part is the unspecified address
+		ip, err := netip.ParseAddr(u.Hostname())
+		if u.Hostname() != "" && (err != nil || !ip.IsUnspecified()) {
+			continue
+		}
+		// Replace them with addresses using our public IPs but the same port and scheme.
+		for _, publicIP := range publicIPs {
+			if strings.HasSuffix(u.Scheme, "4") && !publicIP.Is4() || strings.HasSuffix(u.Scheme, "6") && publicIP.Is4() {
+				continue
+			}
+			resolved := *u
+			resolved.Host = net.JoinHostPort(publicIP.String(), u.Port())
+			addresses = append(addresses, resolved.String())
+		}
+	}
+	return addresses
+}
+
+func isDirectScheme(scheme string) bool {
+	switch scheme {
+	case "tcp", "tcp4", "tcp6", "quic", "quic4", "quic6":
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *PeerToPeerDiscovery) Announce(ctx context.Context) error {
+	dht := s.dht.Load()
+	if dht == nil {
+		return errNotRunning
+	}
+	return dht.Announce(ctx, s.deviceID, s.announcementAddresses(), s.certificate, s.privateKey)
+}
+
+func (s *PeerToPeerDiscovery) Lookup(ctx context.Context, deviceID protocol.DeviceID) ([]string, error) {
+	dht := s.dht.Load()
+	if dht == nil {
+		return nil, errNotRunning
+	}
+	return dht.Lookup(ctx, deviceID)
+}
+
+func (s *PeerToPeerDiscovery) Cache() map[protocol.DeviceID]CacheEntry {
+	// no internal caching
+	return nil
+}
+
+func p2pQUICListenAddresses(addresses []string) []netip.AddrPort {
+	var result []netip.AddrPort
+	for _, address := range addresses {
+		u, err := url.Parse(address)
+		if err != nil || (u.Scheme != "quic" && u.Scheme != "quic4" && u.Scheme != "quic6") {
+			continue
+		}
+		port := u.Port()
+		if port == "" {
+			port = strconv.Itoa(config.DefaultQUICPort)
+		}
+		network := "udp"
+		if u.Scheme == "quic4" {
+			network = "udp4"
+		}
+		if u.Scheme == "quic6" {
+			network = "udp6"
+		}
+		addr, err := net.ResolveUDPAddr(network, net.JoinHostPort(u.Hostname(), port))
+		if err != nil || addr.Port == 0 {
+			continue
+		}
+		if addr.IP == nil {
+			addr.IP = net.IPv4zero
+			if network == "udp6" {
+				addr.IP = net.IPv6zero
+			}
+		}
+		if network == "udp" && addr.IP.IsUnspecified() {
+			result = append(result, netip.AddrPortFrom(netip.IPv6Unspecified(), addr.AddrPort().Port()))
+			addr.IP = net.IPv4zero
+		}
+		local := addr.AddrPort()
+		result = append(result, netip.AddrPortFrom(local.Addr().Unmap(), local.Port()))
+	}
+	return result
+}

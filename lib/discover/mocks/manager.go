@@ -54,6 +54,16 @@ type Manager struct {
 		result1 []string
 		result2 error
 	}
+	P2PStatsStub        func() discover.P2PStats
+	p2PStatsMutex       sync.RWMutex
+	p2PStatsArgsForCall []struct {
+	}
+	p2PStatsReturns struct {
+		result1 discover.P2PStats
+	}
+	p2PStatsReturnsOnCall map[int]struct {
+		result1 discover.P2PStats
+	}
 	ServeStub        func(context.Context) error
 	serveMutex       sync.RWMutex
 	serveArgsForCall []struct {
@@ -301,6 +311,59 @@ func (fake *Manager) LookupReturnsOnCall(i int, result1 []string, result2 error)
 		result1 []string
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *Manager) P2PStats() discover.P2PStats {
+	fake.p2PStatsMutex.Lock()
+	ret, specificReturn := fake.p2PStatsReturnsOnCall[len(fake.p2PStatsArgsForCall)]
+	fake.p2PStatsArgsForCall = append(fake.p2PStatsArgsForCall, struct {
+	}{})
+	stub := fake.P2PStatsStub
+	fakeReturns := fake.p2PStatsReturns
+	fake.recordInvocation("P2PStats", []interface{}{})
+	fake.p2PStatsMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *Manager) P2PStatsCallCount() int {
+	fake.p2PStatsMutex.RLock()
+	defer fake.p2PStatsMutex.RUnlock()
+	return len(fake.p2PStatsArgsForCall)
+}
+
+func (fake *Manager) P2PStatsCalls(stub func() discover.P2PStats) {
+	fake.p2PStatsMutex.Lock()
+	defer fake.p2PStatsMutex.Unlock()
+	fake.P2PStatsStub = stub
+}
+
+func (fake *Manager) P2PStatsReturns(result1 discover.P2PStats) {
+	fake.p2PStatsMutex.Lock()
+	defer fake.p2PStatsMutex.Unlock()
+	fake.P2PStatsStub = nil
+	fake.p2PStatsReturns = struct {
+		result1 discover.P2PStats
+	}{result1}
+}
+
+func (fake *Manager) P2PStatsReturnsOnCall(i int, result1 discover.P2PStats) {
+	fake.p2PStatsMutex.Lock()
+	defer fake.p2PStatsMutex.Unlock()
+	fake.P2PStatsStub = nil
+	if fake.p2PStatsReturnsOnCall == nil {
+		fake.p2PStatsReturnsOnCall = make(map[int]struct {
+			result1 discover.P2PStats
+		})
+	}
+	fake.p2PStatsReturnsOnCall[i] = struct {
+		result1 discover.P2PStats
+	}{result1}
 }
 
 func (fake *Manager) Serve(arg1 context.Context) error {

@@ -9,16 +9,11 @@
 package connections
 
 import (
-	"context"
 	"crypto/tls"
-	"net"
 	"net/url"
-	"sync/atomic"
 	"time"
 
 	"github.com/quic-go/quic-go"
-
-	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 var quicConfig = &quic.Config{
@@ -40,18 +35,12 @@ func quicNetwork(uri *url.URL) string {
 type quicTlsConn struct {
 	*quic.Conn
 	*quic.Stream
-
-	// If we created this connection, we should be the ones closing it.
-	createdConn net.PacketConn
 }
 
 func (q *quicTlsConn) Close() error {
 	sterr := q.Stream.Close()
 	seerr := q.Conn.CloseWithError(0, "closing")
 	var pcerr error
-	if q.createdConn != nil {
-		pcerr = q.createdConn.Close()
-	}
 	if sterr != nil {
 		return sterr
 	}
@@ -63,55 +52,4 @@ func (q *quicTlsConn) Close() error {
 
 func (q *quicTlsConn) ConnectionState() tls.ConnectionState {
 	return q.Conn.ConnectionState().TLS
-}
-
-func transportConnUnspecified(conn any) bool {
-	tran, ok := conn.(*quic.Transport)
-	if !ok {
-		return false
-	}
-	addr := tran.Conn.LocalAddr()
-	ip, err := osutil.IPFromAddr(addr)
-	return err == nil && ip.IsUnspecified()
-}
-
-// A transportPacketConn is a net.PacketConn that uses a quic.Transport.
-type transportPacketConn struct {
-	tran         *quic.Transport
-	readDeadline atomic.Value // time.Time
-}
-
-func (t *transportPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
-	ctx := context.Background()
-	if deadline, ok := t.readDeadline.Load().(time.Time); ok && !deadline.IsZero() {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithDeadline(ctx, deadline)
-		defer cancel()
-	}
-	return t.tran.ReadNonQUICPacket(ctx, p)
-}
-
-func (t *transportPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
-	return t.tran.WriteTo(p, addr)
-}
-
-func (*transportPacketConn) Close() error {
-	return errUnsupported
-}
-
-func (t *transportPacketConn) LocalAddr() net.Addr {
-	return t.tran.Conn.LocalAddr()
-}
-
-func (t *transportPacketConn) SetDeadline(deadline time.Time) error {
-	return t.SetReadDeadline(deadline)
-}
-
-func (t *transportPacketConn) SetReadDeadline(deadline time.Time) error {
-	t.readDeadline.Store(deadline)
-	return nil
-}
-
-func (*transportPacketConn) SetWriteDeadline(_ time.Time) error {
-	return nil // yolo
 }

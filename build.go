@@ -196,6 +196,12 @@ var targets = map[string]target{
 		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/infra/stupgrades"},
 		binaryName:  "stupgrades",
 	},
+	"stdht": {
+		name:        "stdht",
+		description: "Syncthing Discovery DHT Server",
+		buildPkgs:   []string{"github.com/syncthing/syncthing/cmd/infra/stdht"},
+		binaryName:  "stdht",
+	},
 	"stcrashreceiver": {
 		name:        "stcrashreceiver",
 		description: "Syncthing Crash Server",

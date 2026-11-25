@@ -10,7 +10,11 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"errors"
+	"iter"
+	"strings"
 	"time"
+
+	"github.com/syncthing/syncthing/internal/itererr"
 )
 
 // Typed is a simple key-value store using a specific namespace within a
@@ -22,6 +26,10 @@ type Typed struct {
 
 func NewMiscDB(db KV) *Typed {
 	return NewTyped(db, "misc")
+}
+
+func (n *Typed) Prefix() string {
+	return n.prefix
 }
 
 // NewTyped returns a new typed key-value store that lives in the namespace
@@ -126,6 +134,17 @@ func (n *Typed) Bool(key string) (bool, bool, error) {
 // key.
 func (n *Typed) Delete(key string) error {
 	return n.db.DeleteKV(n.prefixedKey(key))
+}
+
+// KeyValues iterates all keys and values (in byte slice form) in the
+// namespace
+func (n *Typed) KeyValues() (iter.Seq[KeyValue], func() error) {
+	prefix := n.prefixedKey("")
+	it, err := n.db.PrefixKV(prefix)
+	return itererr.Map(it, err, func(kv KeyValue) (KeyValue, error) {
+		kv.Key = strings.TrimPrefix(kv.Key, prefix)
+		return kv, nil
+	})
 }
 
 func (n *Typed) prefixedKey(key string) string {

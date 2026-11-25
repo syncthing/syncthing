@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 	"testing"
 	"time"
@@ -240,6 +241,8 @@ func (s *fakeDiscoveryServer) handler(w http.ResponseWriter, r *http.Request) {
 }
 
 type fakeAddressLister struct{}
+
+func (*fakeAddressLister) ExternalIPs() []netip.Addr { return nil }
 
 func (*fakeAddressLister) ExternalAddresses() []string {
 	return []string{"tcp://0.0.0.0:22000"}

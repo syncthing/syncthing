@@ -14,12 +14,11 @@ import (
 	"errors"
 	"log/slog"
 	"net"
+	"net/netip"
 	"net/url"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/quic-go/quic-go"
 
 	"github.com/syncthing/syncthing/internal/slogutil"
 	"github.com/syncthing/syncthing/lib/config"
@@ -94,60 +93,65 @@ func (t *quicListener) serve(ctx context.Context) error {
 		return err
 	}
 
-	udpConn, err := net.ListenUDP(network, udpAddr)
+	listener, err := t.registry.UDP.Listen(udpAddr.AddrPort(), t.tlsCfg)
 	if err != nil {
-		slog.WarnContext(ctx, "Failed to listen (QUIC)", slogutil.Error(err))
-		return err
-	}
-	defer udpConn.Close()
-
-	quicTransport := &quic.Transport{Conn: udpConn}
-	defer quicTransport.Close()
-
-	svc := stun.New(t.cfg, t, &transportPacketConn{tran: quicTransport})
-	stunCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	go svc.Serve(stunCtx)
-
-	t.registry.Register(t.uri.Scheme, quicTransport)
-	defer t.registry.Unregister(t.uri.Scheme, quicTransport)
-
-	listener, err := quicTransport.Listen(t.tlsCfg, quicConfig)
-	if err != nil {
-		slog.WarnContext(ctx, "Failed to listen (QUIC)", slogutil.Error(err))
 		return err
 	}
 	defer listener.Close()
 
+	boundAddr := listener.Addr().(*net.UDPAddr) //nolint:forcetypeassert // QUIC listeners always use UDP addresses.
+
+	// STUN is only used for IPv4 NAT traversal.
+	if boundAddr.IP.To4() != nil {
+		packetConn, err := t.registry.UDP.PacketConn(boundAddr.AddrPort())
+		if err != nil {
+			return err
+		}
+		svc := stun.New(t.cfg, t, packetConn)
+		stunCtx, cancel := context.WithCancel(ctx)
+		stunDone := make(chan struct{})
+		go func() {
+			defer close(stunDone)
+			_ = svc.Serve(stunCtx)
+		}()
+		defer func() { cancel(); packetConn.Close(); <-stunDone }()
+	}
+
 	t.notifyAddressesChanged(t)
 	defer t.clearAddresses(t)
 
-	slog.InfoContext(ctx, "QUIC listener starting", slogutil.Address(udpConn.LocalAddr()))
-	defer slog.InfoContext(ctx, "QUIC listener shutting down", slogutil.Address(udpConn.LocalAddr()))
+	slog.InfoContext(ctx, "QUIC listener starting", slogutil.Address(boundAddr))
+	defer slog.InfoContext(ctx, "QUIC listener shutting down", slogutil.Address(boundAddr))
 
-	var ipVersion nat.IPVersion
-	switch t.uri.Scheme {
-	case "quic4":
+	ipVersion := nat.IPVersion(nat.IPv6Only)
+	if boundAddr.IP.To4() != nil {
 		ipVersion = nat.IPv4Only
-	case "quic6":
-		ipVersion = nat.IPv6Only
-	default:
-		ipVersion = nat.IPvAny
 	}
-	mapping := t.natService.NewMapping(nat.UDP, ipVersion, udpAddr.IP, udpAddr.Port)
-	mapping.OnChanged(func() {
+	mapping := t.natService.NewMapping(nat.UDP, ipVersion, boundAddr.IP, boundAddr.Port)
+	updateMapping := func() {
+		var external []netip.AddrPort
+		for _, address := range mapping.ExternalAddresses() {
+			if len(address.IP) == 0 || address.IP.IsUnspecified() || address.Port == 0 {
+				continue
+			}
+			external = append(external, (&net.UDPAddr{IP: address.IP, Port: address.Port}).AddrPort())
+		}
+		t.registry.UDP.SetExternalAddresses(boundAddr.AddrPort(), external)
 		t.notifyAddressesChanged(t)
-	})
+	}
+	mapping.OnChanged(updateMapping)
 	// Should be called after t.mapping is nil'ed out.
 	defer t.natService.RemoveMapping(mapping)
 
 	t.mut.Lock()
 	t.mapping = mapping
-	t.laddr = udpConn.LocalAddr()
+	t.laddr = boundAddr
 	t.mut.Unlock()
+	updateMapping()
 	defer func() {
 		t.mut.Lock()
 		t.laddr = nil
+		t.mapping = nil
 		t.mut.Unlock()
 	}()
 
@@ -198,7 +202,13 @@ func (t *quicListener) serve(ctx context.Context) error {
 		if isLocal {
 			priority = t.cfg.Options().ConnectionPriorityQUICLAN
 		}
-		t.conns <- newInternalConn(&quicTlsConn{session, stream, nil}, connTypeQUICServer, isLocal, priority)
+		conn := newInternalConn(&quicTlsConn{session, stream}, connTypeQUICServer, isLocal, priority)
+		select {
+		case t.conns <- conn:
+		case <-ctx.Done():
+			conn.Close()
+			return ctx.Err()
+		}
 	}
 }
 
@@ -209,7 +219,7 @@ func (t *quicListener) URI() *url.URL {
 func (t *quicListener) WANAddresses() []*url.URL {
 	t.mut.Lock()
 	uris := []*url.URL{maybeReplacePort(t.uri, t.laddr)}
-	if t.address != nil {
+	if t.address != nil && stun.IsNATTypePunchable(stun.NATType(t.nat.Load())) { //nolint:gosec // Only NATType enum values are stored.
 		uris = append(uris, t.address)
 	}
 
@@ -217,6 +227,17 @@ func (t *quicListener) WANAddresses() []*url.URL {
 
 	t.mut.Unlock()
 	return uris
+}
+
+// ExternalIPs exposes the STUN observation separately from QUIC's port mapping.
+func (t *quicListener) ExternalIPs() []netip.Addr {
+	t.mut.Lock()
+	defer t.mut.Unlock()
+	if t.address == nil {
+		return nil
+	}
+	ip, _ := netip.ParseAddr(t.address.Hostname())
+	return publicIP(ip)
 }
 
 func (t *quicListener) LANAddresses() []*url.URL {

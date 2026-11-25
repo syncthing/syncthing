@@ -507,6 +507,10 @@ func ipv6Identity(addr string) string {
 	return "IPv6 local multicast discovery on address " + addr
 }
 
+func p2pIdentity() string {
+	return "Peer-to-peer discovery"
+}
+
 func http2EnabledTransport(t *http.Transport) *http.Transport {
 	_ = http2.ConfigureTransport(t)
 	return t
