@@ -80,8 +80,8 @@ type Options struct {
 	Client                  bool
 	ValueDatastore          ds.Batching
 	RoutingDatastore        ds.Batching
-	MaxConnections          int // Zero uses libp2p defaults.
-	MaxConnectionsPerSubnet int // IPv4 /32 and IPv6 /56; IPv6 /48 allows eight times this. Zero uses libp2p defaults.
+	MaxConnections          int
+	MaxConnectionsPerSubnet int
 }
 
 type DHT struct {
