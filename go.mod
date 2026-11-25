@@ -6,7 +6,7 @@ require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260825204119-511051f7f437.2
 	buf.build/go/protovalidate v1.4.0
 	github.com/AudriusButkevicius/recli v0.0.7
-	github.com/alecthomas/kong v1.16.1
+	github.com/alecthomas/kong v1.17.0
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/calmh/incontainer v1.0.0
 	github.com/calmh/xdr v1.2.0
@@ -16,7 +16,7 @@ require (
 	github.com/getsentry/raven-go v0.2.0
 	github.com/go-ldap/ldap/v3 v3.4.15
 	github.com/gobwas/glob v0.2.3
-	github.com/gofrs/flock v0.13.1
+	github.com/gofrs/flock v0.13.2
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/jackpal/gateway v1.2.0
 	github.com/jackpal/go-nat-pmp v1.1.0
@@ -24,17 +24,17 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/maruel/panicparse/v2 v2.5.0
-	github.com/mattn/go-sqlite3 v1.14.52
+	github.com/mattn/go-sqlite3 v1.14.53
 	github.com/maxmind/geoipupdate/v6 v6.1.0
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/pierrec/lz4/v4 v4.1.33
 	github.com/prometheus/client_golang v1.25.0
 	github.com/puzpuzpuz/xsync/v3 v3.5.1
-	github.com/quic-go/quic-go v0.63.0
-	github.com/rabbitmq/amqp091-go v1.15.0
+	github.com/quic-go/quic-go v0.65.0
+	github.com/rabbitmq/amqp091-go v1.16.0
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9
-	github.com/shirou/gopsutil/v4 v4.26.9
+	github.com/shirou/gopsutil/v4 v4.26.10
 	github.com/syncthing/notify v0.0.0-20250528144937-c7027d4f7465
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d
 	github.com/thejerf/suture/v4 v4.0.6
@@ -42,14 +42,14 @@ require (
 	github.com/vitrun/qart v0.0.0-20160531060029-bf64b92db6b0
 	github.com/willabides/kongplete v0.4.0
 	github.com/wlynxg/anet v0.0.5
-	golang.org/x/crypto v0.57.0
+	golang.org/x/crypto v0.59.0
 	golang.org/x/exp v0.0.0-20261007192929-f45ad48fbe92
-	golang.org/x/net v0.60.0
-	golang.org/x/sys v0.48.0
-	golang.org/x/text v0.42.0
+	golang.org/x/net v0.62.0
+	golang.org/x/sys v0.50.0
+	golang.org/x/text v0.44.0
 	golang.org/x/time v0.16.0
 	google.golang.org/protobuf v1.36.12
-	modernc.org/sqlite v1.60.1
+	modernc.org/sqlite v1.62.0
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -63,8 +63,8 @@ require (
 	github.com/certifi/gocertifi v0.0.0-20210507211836-431795d63e8d // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/ebitengine/purego v0.11.1 // indirect
+	github.com/dustin/go-humanize v1.1.0 // indirect
+	github.com/ebitengine/purego v0.11.2 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.8 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -77,7 +77,7 @@ require (
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.12.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/ncruces/go-strftime v1.0.0 // indirect
+	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/nxadm/tail v1.4.11 // indirect
 	github.com/oschwald/maxminddb-golang v1.13.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -94,13 +94,13 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/mod v0.41.0 // indirect
-	golang.org/x/sync v0.23.0 // indirect
-	golang.org/x/telemetry v0.0.0-20260924152758-ed294f943157 // indirect
-	golang.org/x/tools v0.51.0 // indirect
+	golang.org/x/mod v0.42.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
+	golang.org/x/telemetry v0.0.0-20261009151841-97e8ea77aa2a // indirect
+	golang.org/x/tools v0.52.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260819154853-08b0e4226688 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260819154853-08b0e4226688 // indirect
-	modernc.org/libc v1.77.1 // indirect
+	modernc.org/libc v1.80.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
