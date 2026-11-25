@@ -60,9 +60,9 @@ jobs:
 
       - name: Build binaries
         run: |
-          go run build.go -no-upgrade -installsuffix=no-upgrade -tags "$TAGS" -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" build ${{ matrix.pkg }}
+          go run build.go -tags "$TAGS" -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" build ${{ matrix.pkg }}
           mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-amd64
-          go run build.go -no-upgrade -installsuffix=no-upgrade -tags "$TAGS" -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" build ${{ matrix.pkg }}
+          go run build.go -tags "$TAGS" -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" build ${{ matrix.pkg }}
           mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm64
 
       - name: Set up QEMU
