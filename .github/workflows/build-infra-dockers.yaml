@@ -43,6 +43,8 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           check-latest: true
 
+      - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
+
       - name: Login to Docker Hub
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
@@ -58,10 +60,10 @@ jobs:
 
       - name: Build binaries
         run: |
-          for arch in arm64 amd64; do
-            go run build.go -goos linux -goarch "$arch" -tags "$TAGS" build ${{ matrix.pkg }}
-            mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-"$arch"
-          done
+          go run build.go -no-upgrade -installsuffix=no-upgrade -tags "$TAGS" -goos linux -goarch amd64 -cc "zig cc -target x86_64-linux-musl" build ${{ matrix.pkg }}
+          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-amd64
+          go run build.go -no-upgrade -installsuffix=no-upgrade -tags "$TAGS" -goos linux -goarch arm64 -cc "zig cc -target aarch64-linux-musl" build ${{ matrix.pkg }}
+          mv ${{ matrix.pkg }} ${{ matrix.pkg }}-linux-arm64
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
