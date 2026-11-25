@@ -239,17 +239,22 @@ func NewSyncthingDHT(options Options) (*DHT, error) {
 	}
 
 	opts := []kad.Option{
-		kad.BootstrapOrder(kad.PersistedFirst),
 		kad.BootstrapPeers(peers...),
-		kad.DisableProviders(),
-		kad.MaxRecordAge(RecordLifetime),
-		kad.Mode(mode),
-		kad.OnRequestHook(countIncomingRecordRequest),
-		kad.ProtocolPrefix(p2pProtocolPrefix),
-		kad.RoutingTablePeerDiversityFilter(kad.NewRTPeerDiversityFilter(h, amino.DefaultMaxPeersPerIPGroupPerCpl, amino.DefaultMaxPeersPerIPGroup)),
-		kad.RoutingTablePersistence(5 * time.Minute),
+		kad.BootstrapOrder(kad.PersistedFirst),       // try known non-bootstrap peers first when starting up
+		kad.DisableProviders(),                       // we do not use IPFS provider records
+		kad.MaxRecordAge(RecordLifetime),             // max time we keep a discovery record
+		kad.ValueGCInterval(RecordLifetime),          // how often to run GC
+		kad.Mode(mode),                               // client/server/auto
+		kad.ProtocolPrefix(p2pProtocolPrefix),        // "/syncthing/kad/1.0.0"
+		kad.RoutingTablePersistence(5 * time.Minute), // how often to store peers to db
+
+		// validate discovery records
 		kad.Validator(record.NamespacedValidator{dhtRecordNamespace: dhtRecordValidator{}}),
-		kad.ValueGCInterval(RecordLifetime),
+
+		// diversity filter helps prevent some attacks
+		kad.RoutingTablePeerDiversityFilter(kad.NewRTPeerDiversityFilter(h, amino.DefaultMaxPeersPerIPGroupPerCpl, amino.DefaultMaxPeersPerIPGroup)),
+
+		kad.OnRequestHook(countIncomingRecordRequest), // logging
 	}
 
 	if options.ValueDatastore != nil {
