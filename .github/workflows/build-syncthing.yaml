@@ -56,12 +56,12 @@ jobs:
       release-generation: ${{ steps.get-version.outputs.release-generation }}
       go-version: ${{ steps.get-go.outputs.go-version }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
           ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
@@ -121,9 +121,9 @@ jobs:
           git config --global core.autocrlf false
           git config --global core.eol lf
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: ${{ matrix.go }}
           cache: true
@@ -162,7 +162,7 @@ jobs:
       - golangci
       - meta
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
   #
   # Windows
@@ -177,16 +177,16 @@ jobs:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.cache/go-build
@@ -209,7 +209,7 @@ jobs:
           CGO_ENABLED: "1"
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: unsigned-packages-windows
           path: "*.zip"
@@ -228,7 +228,7 @@ jobs:
       - package-windows
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: unsigned-packages-windows
           path: packages
@@ -267,7 +267,7 @@ jobs:
           }
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: packages-windows
           path: "packages/*.zip"
@@ -313,16 +313,16 @@ jobs:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.cache/go-build
@@ -349,7 +349,7 @@ jobs:
           TARGETS: ${{ matrix.targets }}
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: packages-linux-${{ matrix.group }}
           path: |
@@ -365,7 +365,7 @@ jobs:
       VERSION: ${{ needs.facts.outputs.version }}
       GO_VERSION: ${{ needs.facts.outputs.go-version }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Build syncthing in OmniOS VM
         uses: vmactions/omnios-vm@68da93c6d9812b29fc90c5b5141b093f84a590fb # v1
@@ -385,7 +385,7 @@ jobs:
           CGO_ENABLED: "1"
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: packages-illumos
           path: "*.tar.gz"
@@ -406,14 +406,14 @@ jobs:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.cache/go-build
@@ -487,7 +487,7 @@ jobs:
           zip -r "../$universal.zip" "$universal"
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: packages-macos
           path: "*.zip"
@@ -500,7 +500,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: packages-macos
 
@@ -533,14 +533,14 @@ jobs:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.cache/go-build
@@ -582,7 +582,7 @@ jobs:
           CGO_ENABLED: "0"
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: packages-other
           path: "*.tar.gz"
@@ -600,9 +600,9 @@ jobs:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
@@ -623,7 +623,7 @@ jobs:
           mv "syncthing-source-$VERSION.tar.gz" syncthing
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: packages-source
           path: syncthing-source-*.tar.gz
@@ -648,21 +648,21 @@ jobs:
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           repository: syncthing/release-tools
           path: tools
 
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           pattern: packages-*
           path: packages
           merge-multiple: true
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
@@ -709,7 +709,7 @@ jobs:
           EZAPT_KEYRING_BASE64: ${{ secrets.APT_GPG_KEYRING_BASE64 }}
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: packages-signed
           path: |
@@ -731,9 +731,9 @@ jobs:
       VERSION: ${{ needs.facts.outputs.version }}
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
@@ -748,7 +748,7 @@ jobs:
 
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.cache/go-build
@@ -769,7 +769,7 @@ jobs:
           EXTRA_LDFLAGS: "-linkmode=external -extldflags=-static"
 
       - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: debian-packages
           path: "*.deb"
@@ -786,18 +786,18 @@ jobs:
       - facts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           repository: syncthing/release-tools
           path: tools
 
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: packages-signed
           path: packages
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
@@ -843,25 +843,25 @@ jobs:
       RELEASE_KIND: ${{ needs.facts.outputs.release-kind }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
           ref: ${{ github.ref }} # https://github.com/actions/checkout/issues/882
 
       - name: Download signed packages
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: packages-signed
           path: packages
 
       - name: Download debian packages
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: debian-packages
           path: packages
 
       - name: Create GitHub build provenance attestations
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
         with:
           subject-path: packages/*
 
@@ -949,7 +949,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download packages
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: debian-packages
           path: packages
@@ -1028,16 +1028,16 @@ jobs:
             dockerfile: Dockerfile.stdiscosrv
             image: discosrv
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
 
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.cache/go-build
@@ -1151,7 +1151,7 @@ jobs:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Sync images
         uses: docker://docker.io/regclient/regsync:latest
         with:
@@ -1169,9 +1169,9 @@ jobs:
     needs:
       - facts
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: ${{ needs.facts.outputs.go-version }}
           cache: false
@@ -1191,8 +1191,8 @@ jobs:
     name: Run golangci-lint
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: 'stable'
 
@@ -1212,8 +1212,8 @@ jobs:
     name: Run meta checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: 'stable'
 

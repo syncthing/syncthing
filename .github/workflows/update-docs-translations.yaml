@@ -13,11 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     name: Update translations and documentation
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
           token: ${{ secrets.ACTIONS_GITHUB_TOKEN }}
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: stable
       - run: |
