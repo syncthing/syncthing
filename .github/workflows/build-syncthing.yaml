@@ -243,13 +243,13 @@ jobs:
           }
 
       - name: Sign files with Trusted Signing
-        uses: azure/trusted-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
         with:
           azure-tenant-id: ${{ secrets.AZURE_TRUSTED_SIGNING_TENANT_ID }}
           azure-client-id: ${{ secrets.AZURE_TRUSTED_SIGNING_CLIENT_ID }}
           azure-client-secret: ${{ secrets.AZURE_TRUSTED_SIGNING_CLIENT_SECRET }}
           endpoint: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
-          trusted-signing-account-name: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT }}
+          signing-account-name: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT }}
           certificate-profile-name: ${{ secrets.AZURE_TRUSTED_SIGNING_PROFILE }}
           files-folder: ${{ github.workspace }}\packages
           files-folder-filter: exe
