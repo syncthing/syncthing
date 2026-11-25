@@ -11,7 +11,7 @@ jobs:
     if: github.repository_owner == 'syncthing'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: yesolutions/mirror-action@662fce0eced8996f64d7fa264d76cddd84827f33 # master
