@@ -1,6 +1,10 @@
 name: Mirrors
 
-on: [push, delete]
+on:
+  push:
+    branches-ignore:
+      dependabot/*
+  delete:
 
 permissions:
   contents: read
