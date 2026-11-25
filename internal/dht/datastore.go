@@ -8,6 +8,7 @@ package dht
 
 import (
 	"context"
+	"iter"
 
 	ds "github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-datastore/query"
@@ -69,31 +70,50 @@ func (s *datastore) Delete(ctx context.Context, key ds.Key) error {
 }
 
 func (s *datastore) Query(ctx context.Context, q query.Query) (query.Results, error) {
-	// This is (currently) only called for value GC, every two hours. We
-	// could optimise this to disable value GC and do it ourselves instead
-	// in a more efficient manner.
-	var entries []query.Entry
-	it, errFn := s.store.KeyValues()
-	for kv := range it {
-		if err := ctx.Err(); err != nil {
-			metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "query", "error").Inc()
-			return nil, err
-		}
-		e := query.Entry{Key: kv.Key, Size: len(kv.Value)}
-		if !q.KeysOnly {
-			e.Value = kv.Value
-		}
-		entries = append(entries, e)
-	}
-	if err := errFn(); err != nil {
-		metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "query", "error").Inc()
+	prefix := s.store.Prefix()
+	if err := ctx.Err(); err != nil {
+		metricDatastoreOperationsTotal.WithLabelValues(prefix, "query", "error").Inc()
 		return nil, err
 	}
 
-	metricDatastoreOperationsTotal.WithLabelValues(s.store.Prefix(), "query", "success").Inc()
-	metricDatastoreItems.WithLabelValues(s.store.Prefix()).Set(float64(len(entries)))
+	next, stop := iter.Pull(func(yield func(query.Result) bool) {
+		count := 0
+		it, scanErr := s.store.KeyValues()
+		for kv := range it {
+			if ctx.Err() != nil {
+				break
+			}
+			entry := query.Entry{Key: kv.Key, Size: len(kv.Value)}
+			if !q.KeysOnly {
+				entry.Value = kv.Value
+			}
+			count++
+			if !yield(query.Result{Entry: entry}) {
+				return
+			}
+		}
+		err := ctx.Err()
+		if err == nil {
+			err = scanErr()
+		}
+		if err != nil {
+			metricDatastoreOperationsTotal.WithLabelValues(prefix, "query", "error").Inc()
+			yield(query.Result{Error: err})
+			return
+		}
+		metricDatastoreOperationsTotal.WithLabelValues(prefix, "query", "success").Inc()
+		metricDatastoreItems.WithLabelValues(prefix).Set(float64(count))
+	})
 
-	return query.NaiveQueryApply(q, query.ResultsWithEntries(q, entries)), nil
+	results := query.ResultsFromIterator(q, query.Iterator{
+		Next: next,
+		Close: func() error {
+			stop()
+			return nil
+		},
+	})
+
+	return query.NaiveQueryApply(q, results), nil
 }
 
 func (s *datastore) Sync(ctx context.Context, prefix ds.Key) error {
