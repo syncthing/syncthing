@@ -8,7 +8,7 @@ on:
 
 env:
   GO_VERSION: "~1.27.0"
-  CGO_ENABLED: "0"
+  # CGO_ENABLED: "0"
   BUILD_USER: docker
   BUILD_HOST: github.syncthing.net
 
