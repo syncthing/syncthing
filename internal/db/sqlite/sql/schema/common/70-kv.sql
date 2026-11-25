@@ -12,3 +12,6 @@ CREATE TABLE IF NOT EXISTS kv (
     expires INTEGER -- Unix nanos
 ) STRICT, WITHOUT ROWID
 ;
+-- syncthing:ignore-failure
+CREATE INDEX IF NOT EXISTS kv_expires ON kv (expires)
+;
