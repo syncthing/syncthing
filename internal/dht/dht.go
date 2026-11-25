@@ -85,9 +85,8 @@ type Options struct {
 }
 
 type DHT struct {
-	host           host.Host
-	ipfs           *kad.IpfsDHT
-	dhtDiagnostics //nolint:embeddedstructfieldcheck
+	host host.Host
+	ipfs *kad.IpfsDHT
 }
 
 func NewSyncthingDHT(options Options) (*DHT, error) {
@@ -275,12 +274,10 @@ func NewSyncthingDHT(options Options) (*DHT, error) {
 		return nil, err
 	}
 
-	s := &DHT{
+	return &DHT{
 		host: h,
 		ipfs: d,
-	}
-	s.dhtDiagnostics = newDiagnostics(s)
-	return s, nil
+	}, nil
 }
 
 func (s *DHT) ID() string {
