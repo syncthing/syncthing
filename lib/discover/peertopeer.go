@@ -26,7 +26,9 @@ import (
 
 	"github.com/syncthing/syncthing/internal/db"
 	"github.com/syncthing/syncthing/internal/dht"
+	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -53,30 +55,27 @@ type PeerToPeerDiscovery struct {
 
 var _ FinderService = (*PeerToPeerDiscovery)(nil)
 
-func NewPeerToPeerDiscovery(cert tls.Certificate, addresses AddressLister, evLogger events.Logger, kv db.KV, opts dht.Options) (*PeerToPeerDiscovery, error) {
+func NewPeerToPeerDiscovery(cert tls.Certificate, addresses AddressLister, evLogger events.Logger, kv db.KV, udp *registry.UDPReuseManager, listen []netip.AddrPort, bootstrap []string) (*PeerToPeerDiscovery, error) {
 	privateKey, ok := cert.PrivateKey.(crypto.Signer)
 	if !ok {
 		return nil, errors.New("TLS private key must implement crypto.Signer")
 	}
 
-	if opts.ValueDatastore == nil {
-		opts.ValueDatastore = dht.NewDatastore(db.NewTyped(kv, "dht-values"))
-	}
-
-	if opts.RoutingDatastore == nil {
-		opts.RoutingDatastore = dht.NewDatastore(db.NewTyped(kv, "dht-routing"))
-	}
-
-	if opts.Identity == nil {
-		identity, err := loadDHTIdentity(db.NewMiscDB(kv), time.Now())
-		if err != nil {
-			return nil, fmt.Errorf("loading DHT identity: %w", err)
-		}
-		opts.Identity = identity
+	identity, err := loadDHTIdentity(db.NewMiscDB(kv), time.Now())
+	if err != nil {
+		return nil, fmt.Errorf("loading DHT identity: %w", err)
 	}
 
 	s := &PeerToPeerDiscovery{
-		options:     opts,
+		options: dht.Options{
+			UDP:              udp,
+			ListenAddresses:  listen,
+			BootstrapPeers:   bootstrap,
+			Identity:         identity,
+			Client:           build.IsAndroid || build.IsIOS,
+			ValueDatastore:   dht.NewDatastore(db.NewTyped(kv, "dht-values")),
+			RoutingDatastore: dht.NewDatastore(db.NewTyped(kv, "dht-routing")),
+		},
 		certificate: slices.Clone(cert.Certificate[0]),
 		privateKey:  privateKey,
 		deviceID:    protocol.NewDeviceID(cert.Certificate[0]),

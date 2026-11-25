@@ -20,9 +20,7 @@ import (
 	"github.com/thejerf/suture/v4"
 
 	"github.com/syncthing/syncthing/internal/db"
-	"github.com/syncthing/syncthing/internal/dht"
 	"github.com/syncthing/syncthing/internal/slogutil"
-	"github.com/syncthing/syncthing/lib/build"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections/registry"
 	"github.com/syncthing/syncthing/lib/events"
@@ -276,12 +274,7 @@ func (m *manager) CommitConfiguration(_, to config.Configuration) (handled bool)
 		if _, ok := m.finders[ident]; !ok {
 			listenAddresses := p2pQUICListenAddresses(to.Options.ListenAddresses())
 			bootstrapPeers := to.Options.P2PDiscoveryBootstrapPeers()
-			dht, err := NewPeerToPeerDiscovery(m.cert, m.addressLister, m.evLogger, m.kv, dht.Options{
-				UDP:             m.registry.UDP,
-				ListenAddresses: listenAddresses,
-				BootstrapPeers:  bootstrapPeers,
-				Client:          build.IsAndroid || build.IsIOS,
-			})
+			dht, err := NewPeerToPeerDiscovery(m.cert, m.addressLister, m.evLogger, m.kv, m.registry.UDP, listenAddresses, bootstrapPeers)
 			if err != nil {
 				slog.Warn("Failed to initialize peer-to-peer discovery", slogutil.Error(err))
 			} else {
